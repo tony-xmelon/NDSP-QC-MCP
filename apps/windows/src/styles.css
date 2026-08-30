@@ -500,7 +500,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-ring {
   visibility: visible;
   position: relative;
-  width: clamp(54px, 5.7vw, 76px);
+  width: 29.5%;
   border: 0;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
@@ -511,7 +511,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-ring::before {
   content: "";
   position: absolute;
-  inset: 8%;
+  inset: 10%;
   border-radius: 50%;
   background: linear-gradient(145deg, #898b8e 0%, #66686c 45%, #414348 100%);
   box-shadow: inset 1px 1px 2px #ffffff55, inset -2px -2px 3px #20212599, 0 0 0 1px #b7b8b9;
@@ -520,7 +520,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 58%;
+  width: 75%;
   border-radius: 50%;
   border: 1px solid #111215;
   background: linear-gradient(145deg, #5f6064 0%, #444549 48%, #2f3034 100%);
@@ -532,28 +532,36 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-led {
   position: relative;
   z-index: 1;
-  width: clamp(24px, 2.25vw, 30px);
-  border: 2px solid #aaabae;
+  width: 9.3%;
+  border: 1px solid #aaabae;
   background: #626367;
   box-shadow: none;
 }
 .skin-official-svg .switch-led::before {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  background: #626367;
+  display: none;
 }
 .skin-official-svg .screen-nav-control .switch-led {
-  top: clamp(3px, .45vw, 6px);
+  width: clamp(11px, 1.22vw, 14px);
+  top: clamp(8px, .96vw, 11px);
+}
+.skin-official-svg .screen-nav-control .switch-ring {
+  width: clamp(30px, 3.85vw, 42px);
+}
+.skin-official-svg .footswitch-row:first-child .switch-ring {
+  top: 8px;
+}
+.skin-official-svg .footswitch-row:first-child .switch-led {
+  top: 5px;
+}
+.skin-official-svg .footswitch-row:nth-child(3) .switch-ring {
+  top: 4px;
+}
+.skin-official-svg .footswitch-row:nth-child(3) .switch-led {
+  top: 2px;
 }
 .skin-official-svg .hardware-switch.is-active .switch-led {
   visibility: visible;
   border-color: #aaabae;
-  background: #626367;
-  box-shadow: none;
-}
-.skin-official-svg .hardware-switch.is-active .switch-led::before {
   background: var(--switch-accent);
   box-shadow: 0 0 7px var(--switch-accent);
 }
