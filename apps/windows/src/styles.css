@@ -449,18 +449,19 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 }
 .skin-official-svg .power-button {
   width: clamp(22px, 2.2vw, 30px);
+  padding: 0;
   border: 1px solid #26272a;
   border-radius: 5px;
   background: linear-gradient(145deg, #5b5c60, #35363a 68%);
   box-shadow: inset 1px 1px #ffffff4a, inset -1px -1px #1118, 0 2px 3px #17181a8a;
 }
-.skin-official-svg .power-icon { width: 55%; height: 55%; fill: none; stroke: #f1f1f1; stroke-width: 1.8; stroke-linecap: round; }
+.skin-official-svg .power-icon { width: 100%; height: 100%; fill: none; stroke: #f1f1f1; stroke-width: 1.65; stroke-linecap: round; }
 .skin-official-svg .volume-knob {
   border: 1px solid #202125;
-  background: repeating-conic-gradient(from -3deg, #18191c 0 2.2deg, #3b3c40 2.2deg 3.6deg, #232428 3.6deg 5.8deg);
-  box-shadow: inset 0 0 0 2px #191a1d, inset 4px 4px 8px #ffffff12, 5px 7px 9px #1617198c;
+  background: radial-gradient(circle at 36% 28%, #515256 0%, #3a3b3f 54%, #232428 100%);
+  box-shadow: inset 2px 2px 4px #ffffff18, inset -3px -3px 6px #11121699, 5px 7px 9px #1617198c;
 }
-.skin-official-svg .volume-knob::before { display: block; left: 10%; top: 10%; width: 80%; background: radial-gradient(circle at 36% 27%, #515256, #393a3e 58%, #242529 100%); box-shadow: inset 1px 1px 1px #ffffff2b, inset -2px -2px 3px #15161999, 0 0 0 1px #18191c; }
+.skin-official-svg .volume-knob::before { display: block; inset: 1px; width: auto; background: linear-gradient(145deg, #5b5c60, #333438 60%, #222327); box-shadow: inset 1px 1px 2px #ffffff24, inset -2px -2px 3px #15161999; }
 .skin-official-svg .volume-knob span { display: block; top: 13%; height: 22%; width: 2px; background: #dedede; box-shadow: 1px 0 #161719; }
 .skin-official-svg .screen-nav-control,
 .skin-official-svg .footswitch-deck,
@@ -490,15 +491,15 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 51%;
-  border: 1px solid #111215;
-  background: repeating-conic-gradient(from -4deg, #111215 0 3deg, #4f5053 3deg 5deg, #1b1c1f 5deg 8deg);
-  box-shadow: 0 0 0 2px #141518, inset 1px 1px 2px #ffffff35, 1px 3px 3px #111a;
+  width: 72%;
+  border: 1px solid #4c4e51;
+  background: linear-gradient(145deg, #d1d2d2 0%, #85878a 34%, #4b4d50 68%, #a5a7a8 100%);
+  box-shadow: 0 0 0 1px #1b1c1f, inset 1px 1px 2px #ffffff8c, inset -2px -2px 2px #25262988, 1px 3px 3px #111a;
 }
 .skin-official-svg .switch-cap::before {
-  inset: 8%;
-  background: conic-gradient(from 35deg, #515256, #2d2e32 28%, #68696c 48%, #343539 72%, #55565a);
-  box-shadow: inset 1px 1px 1px #ffffff4d, inset -1px -1px 2px #0c0d0e;
+  inset: 3%;
+  background: radial-gradient(circle at 34% 27%, #e2e2e1 0%, #a0a1a2 34%, #65676a 72%, #4a4c4f 100%);
+  box-shadow: inset 1px 1px 1px #ffffff9c, inset -1px -1px 2px #292a2d;
 }
 .skin-official-svg .switch-led {
   border: 0;
@@ -537,6 +538,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .coros-vector-screen { position: relative; display: block; container-type: normal; background: #020202; }
 .coros-vector-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .coros-vector-canvas svg { overflow: visible; }
+.coros-vector-canvas .neural-reference-glyph { overflow: hidden; filter: grayscale(1) brightness(4); }
 .coros-vector-actions { position: absolute; inset: 0; pointer-events: none; }
 .vector-action-hit,
 .coros-vector-block-hit {
