@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DiagnosticsReport, type GridBlock, type ModelEntry, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
+import { optimisticallyPressFootswitch, QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
 import { diagnosticsFiles, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createSpeechRecognition, speechRecognitionAvailable, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
@@ -208,6 +208,7 @@ export function App() {
     if (commandPending) return;
     setCommandPending(true);
     setNotice(`Pressing Footswitch ${label} in ${snapshot.mode} mode…`);
+    setSnapshot((current) => optimisticallyPressFootswitch(current, index));
     try {
       const result = await tauriTransport.pressFootswitch(index, snapshot.mode, snapshot.presetName);
       if (result.snapshot) {
@@ -218,6 +219,11 @@ export function App() {
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
+      try {
+        setSnapshot(await tauriTransport.currentSnapshot());
+      } catch {
+        // Keep the original command error visible; the next live poll reconciles state.
+      }
     } finally {
       setCommandPending(false);
     }

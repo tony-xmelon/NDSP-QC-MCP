@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PresetSnapshot } from "../packages/typescript/qc-client/src/index.ts";
-import { footswitchLeds } from "../packages/typescript/qc-ui/src/footswitch-leds.ts";
+import { footswitchLeds, optimisticallyPressFootswitch } from "../packages/typescript/qc-ui/src/footswitch-leds.ts";
 
 const snapshot = (overrides: Partial<PresetSnapshot>): PresetSnapshot => ({
   deviceName: "Quad Cortex", presetName: "Test", presetLocation: "6B", presetPosition: 41,
@@ -16,7 +16,7 @@ test("STOMP LEDs follow assignments and bypass state", () => {
     { id: "gate", name: "Adaptive Gate", kind: "utility", category: "Utility", row: 0, column: 0, footswitch: 0, bypassed: false },
     { id: "delay", name: "Analog Delay", kind: "delay", category: "Delay", row: 3, column: 6, footswitch: 7, bypassed: true }
   ] }));
-  assert.deepEqual(leds[0], { active: true, assigned: true, color: "#ffd236" });
+  assert.deepEqual(leds[0], { active: true, assigned: true, color: "#f4f4f4" });
   assert.deepEqual(leds[7], { active: false, assigned: true, color: "#6954ff" });
   assert.deepEqual(leds[1], { active: false, assigned: false, color: "#626367" });
 });
@@ -26,7 +26,24 @@ test("multi-block STOMP LEDs follow the first assigned block for inverted groups
     { id: "pitch", name: "Transpose", kind: "mod", category: "Pitch", row: 0, column: 4, footswitch: 4, footswitchOrder: 0, bypassed: true },
     { id: "drive", name: "Rodent Drive", kind: "utility", category: "Guitar Overdrive", row: 2, column: 2, footswitch: 4, footswitchOrder: 1, bypassed: false }
   ] }));
-  assert.deepEqual(leds[4], { active: false, assigned: true, color: "#3500f1" });
+  assert.deepEqual(leds[4], { active: false, assigned: true, color: "#f4f4f4" });
+});
+
+test("single Pitch assignments use the yellow physical lamp", () => {
+  const leds = footswitchLeds(snapshot({ blocks: [
+    { id: "pitch", name: "Poly Octaver", kind: "mod", category: "Pitch", row: 2, column: 5, footswitch: 5, bypassed: false }
+  ] }));
+  assert.deepEqual(leds[5], { active: true, assigned: true, color: "#ffd236" });
+});
+
+test("STOMP presses update the lamp and assigned blocks optimistically", () => {
+  const before = snapshot({
+    footswitchStates: [{ index: 0, active: false, assigned: true, color: "#f4f4f4" }],
+    blocks: [{ id: "gate", name: "Adaptive Gate", kind: "utility", category: "Utility", row: 0, column: 0, footswitch: 0, bypassed: true }]
+  });
+  const after = optimisticallyPressFootswitch(before, 0);
+  assert.equal(after.footswitchStates?.[0].active, true);
+  assert.equal(after.blocks[0].bypassed, false);
 });
 
 test("device-reported STOMP LED state is authoritative", () => {

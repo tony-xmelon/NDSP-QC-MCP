@@ -93,7 +93,7 @@ def _block_kind(category: str) -> str:
 
 
 def _block_color(category: str, name: str) -> str:
-    """Return the fixed CorOS device-family color used by blocks and STOMP LEDs."""
+    """Return the CorOS category color used by the Grid block artwork."""
     value = category.casefold()
     model = name.casefold()
     if "gate" in model or "wah" in value or "filter" in value:
@@ -111,6 +111,36 @@ def _block_color(category: str, name: str) -> str:
     if "delay" in value or "reverb" in value:
         return "#6954ff"
     return "#959595"
+
+
+def _stomp_color(targets: list[dict[str, Any]]) -> str:
+    """Return the physical STOMP lamp color (not the Grid block color)."""
+    if len(targets) > 1:
+        return "#f4f4f4"
+    if not targets:
+        return "#626367"
+    target = targets[0]
+    category = str(target.get("category", target.get("kind", ""))).casefold()
+    name = str(target.get("name", "")).casefold()
+    if "utility" in category or "gate" in name:
+        return "#f4f4f4"
+    if "pitch" in category:
+        return "#ffd236"
+    if "equalizer" in category:
+        return "#0a74e0"
+    if "modulation" in category:
+        return "#3500f1"
+    if "overdrive" in category or "capture" in category:
+        return "#ff7000"
+    if "amplifier" in category:
+        return "#ff2727"
+    if "fx loop" in category:
+        return "#00ffdd"
+    if "delay" in category or "reverb" in category:
+        return "#6954ff"
+    if "wah" in category or "filter" in category:
+        return "#ffd236"
+    return "#f4f4f4"
 
 
 def _effective_parameter_value(state: Any, scene: int) -> Any:
@@ -1199,7 +1229,7 @@ class PyQuadCortexDevice:
                 "index": index,
                 "active": bool(leader is not None and not leader["bypassed"]),
                 "assigned": bool(targets),
-                "color": leader["color"] if leader else "#626367",
+                "color": _stomp_color(targets),
                 "momentary": bool(momentary.get(index, False)),
                 "label": single_stomp_labels.get(index) or stomp_labels.get(index) or "",
             })

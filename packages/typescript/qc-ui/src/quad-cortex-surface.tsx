@@ -23,7 +23,7 @@ const officialBlockTiles: Record<string, [number, number]> = {
   utility: [0, 0], equalizer: [80, 0], modulation: [160, 0], splitter: [240, 0],
   amp: [320, 0], drive: [400, 0], cab: [480, 0], gate: [0, 82],
   compressor: [80, 82], delay: [160, 82], loop: [240, 82], level: [320, 82],
-  wah: [400, 82], reverb: [480, 82]
+  wah: [400, 82], pitch: [480, 82], reverb: [560, 82]
 };
 
 function deviceBlockTile(block: GridBlock): [number, number] {
@@ -33,7 +33,8 @@ function deviceBlockTile(block: GridBlock): [number, number] {
   if (name.includes("gate")) return officialBlockTiles.gate;
   if (category.includes("equalizer")) return officialBlockTiles.equalizer;
   if (category.includes("compressor")) return officialBlockTiles.compressor;
-  if (category.includes("pitch") || category.includes("modulation")) return officialBlockTiles.modulation;
+  if (category.includes("pitch")) return officialBlockTiles.pitch;
+  if (category.includes("modulation")) return officialBlockTiles.modulation;
   if (category.includes("overdrive") || category.includes("capture")) return officialBlockTiles.drive;
   if (category.includes("amplifier")) return officialBlockTiles.amp;
   if (category.includes("cab") || category.includes("impulse")) return officialBlockTiles.cab;
@@ -59,7 +60,6 @@ function HardwareSwitch({ role, label, active, assigned = false, accent, compact
   const hideValueTimer = useRef<number | undefined>(undefined);
   const [encoderValue, setEncoderValue] = useState(50);
   const [showValue, setShowValue] = useState(false);
-  const [pressed, setPressed] = useState(false);
   const rotate = (delta: number) => {
     setEncoderValue((current) => Math.max(0, Math.min(100, current + delta)));
     setShowValue(true);
@@ -70,7 +70,6 @@ function HardwareSwitch({ role, label, active, assigned = false, accent, compact
   const release = (event: PointerEvent<HTMLButtonElement>, cancelled = false) => {
     const gesture = drag.current;
     drag.current = null;
-    setPressed(false);
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (!cancelled && gesture && !gesture.rotated) {
       onAction({ kind: "switch", role, phase: "press" });
@@ -92,11 +91,11 @@ function HardwareSwitch({ role, label, active, assigned = false, accent, compact
     rotate(event.deltaY < 0 ? 1 : -1);
   };
   return <button
-    className={`hardware-switch${active || pressed ? " is-active" : ""}${assigned ? " is-assigned" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
+    className={`hardware-switch${active ? " is-active" : ""}${assigned ? " is-assigned" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)", "--tempo-period": pulseBpm ? `${60 / pulseBpm}s` : undefined } as CSSProperties}
     aria-label={`${label} encoder footswitch`} aria-pressed={active} aria-valuetext={`${encoderValue} percent`}
     title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
-    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); setPressed(true); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
+    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
     onPointerMove={(event) => {
       const gesture = drag.current;
       if (!gesture || gesture.pointerId !== event.pointerId) return;
@@ -175,8 +174,8 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
   };
   const railLabel = (label: string | undefined, x: number, y: number) => {
     const lines = routeLines(label);
-    const firstY = y - (lines.length - 1) * 8;
-    return <text x={x} y={firstY} fill="#dedede" fontSize={label === "+" ? 25 : 11}>{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 16 : 0}>{line}</tspan>)}</text>;
+    const firstY = y - (lines.length - 1) * 10;
+    return <text x={x} y={firstY} fill="#ededed" fontWeight="700" fontSize={label === "+" ? 29 : 15}>{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 20 : 0}>{line}</tspan>)}</text>;
   };
   const splitPath = (row: number) => {
     const route = routes[row];
@@ -184,10 +183,13 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
     const splitX = columns[Math.max(0, Math.min(7, route.splitColumn))];
     const rejoins = route.mixColumn !== undefined && route.mixColumn >= 0;
     const mixX = rejoins ? columns[Math.max(0, Math.min(7, route.mixColumn!))] : 748;
-    return <g key={`split-${row}`} fill="none" stroke="#c9c9ca" strokeWidth="2">
-      <path d={`M${splitX} ${rowY[row]}V${rowY[row + 1]}H${mixX}`} />
-      <circle cx={splitX} cy={rowY[row]} r="5" fill="#050506" stroke="#efefef" />
-      {rejoins && <circle cx={mixX} cy={rowY[row]} r="5" fill="#050506" stroke="#efefef" />}
+    const lowerStart = Math.max(52, splitX - 46);
+    const lowerEnd = rejoins ? Math.max(lowerStart + 24, mixX - 46) : mixX;
+    return <g key={`split-${row}`} fill="none" stroke="#e5e5e5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d={`M${splitX} ${rowY[row]} C${splitX} ${rowY[row] + 31},${lowerStart} ${rowY[row + 1] - 31},${lowerStart} ${rowY[row + 1]} H${lowerEnd}${rejoins ? ` C${mixX - 14} ${rowY[row + 1]},${mixX} ${rowY[row] + 31},${mixX} ${rowY[row]}` : ""}`} />
+      <circle cx={splitX} cy={rowY[row]} r="7" fill="#050506" stroke="#efefef" />
+      <text x={splitX} y={rowY[row] + 3.5} textAnchor="middle" fill="#efefef" stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="9">S</text>
+      {rejoins && <><circle cx={mixX} cy={rowY[row]} r="7" fill="#050506" stroke="#efefef" /><text x={mixX} y={rowY[row] + 3.5} textAnchor="middle" fill="#efefef" stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="9">M</text></>}
     </g>;
   };
   const renderBlock = (block: GridBlock) => {
@@ -204,11 +206,12 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <defs><filter id="blockGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
       <rect width="800" height="480" fill="#020202" />
-      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y="75" fill="#f4f4f4">{snapshot.presetName}</text></g>
-      <g fill="none" stroke="#f0f0f0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M635 16a13 13 0 1 1-13 2M622 18v-9m0 9 8-5" /><path d="M709 11h20l6 6v24h-26zM714 11v10h14V11m-10 14h10m-5 2 7 7-7 7" /></g>
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y="75" fill="#f4f4f4" fontStyle="italic">{snapshot.presetName}{snapshot.dirty ? "*" : ""}</text></g>
+      <g fill="none" stroke="#f0f0f0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M633 13a14 14 0 1 0 4 13M633 13h-10m10 0-5 8" /><path d="M709 11h20l6 6v24h-26zM714 11v11h15V11M715 29h13" /></g>
+      {!snapshot.dirty && <path d="m718 34 4 4 9-10" fill="none" stroke="#3ee77b" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />}
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
-      <g stroke="#f0f0f0" strokeWidth="3" strokeLinecap="round"><path d="M653 57h28M653 66h28M653 75h28" /><circle fill="#f0f0f0" cx="661" cy="57" r="3.5" /><circle fill="#f0f0f0" cx="674" cy="66" r="3.5" /><circle fill="#f0f0f0" cx="663" cy="75" r="3.5" /></g><text x="691" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="24">{snapshot.mode}</text>
+      <g transform="translate(652 55) scale(.9) translate(-525 -78)"><path d="M535.723 79.2008C532.977 81.2508 530.778 82.8924 529.127 84.1255L528.27 84.7656C527.385 85.4269 526.705 85.9358 526.228 86.2924C525.319 86.9726 524.915 87.9041 525.015 89.087L542.055 84.521C541.833 83.0083 542.929 81.2361 545.255 79.1766C544.988 78.8037 544.691 78.4115 544.363 78C542.639 80.0488 540.862 81.2219 539.031 81.5192C537.2 81.8165 536.097 81.0437 535.723 79.2008ZM543.102 84.2407L547.01 83.1933C547.096 82.4398 546.701 81.3799 545.825 80.0139C543.899 81.7499 543.016 83.1667 543.102 84.2407ZM547.559 85.3468L525.619 91.2257C525.399 90.7294 525.237 90.2624 525.135 89.8246L525.201 90.0724L547.243 84.1663L547.559 85.3468ZM529.966 92.3084L533.966 91.2257V94.675L536.966 94.675V98.675H526.966V94.675L529.966 94.675V92.3084Z" fill="#f0f0f0" /></g><text x="681" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="24">{snapshot.mode}</text>
       <g fill="#171719" fontFamily="Arial, Helvetica, sans-serif" fontWeight="600" textAnchor="middle">
         <rect x="8" y="108" width="44" height="86" rx="9" /><rect x="8" y="203" width="44" height="79" rx="9" /><rect x="8" y="297" width="44" height="82" rx="9" /><rect x="8" y="390" width="44" height="79" rx="9" /><rect x="748" y="108" width="44" height="86" rx="9" /><rect x="748" y="203" width="44" height="79" rx="9" /><rect x="748" y="297" width="44" height="82" rx="9" /><rect x="748" y="390" width="44" height="79" rx="9" />
         <path d="M18 115h24" stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />

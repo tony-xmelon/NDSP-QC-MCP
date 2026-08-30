@@ -8,13 +8,17 @@ export interface FootswitchLed {
 
 const QC_SCENE_COLORS = ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"];
 
-function blockLedColor(block: GridBlock): string {
-  if (block.color) return block.color;
+function stompLedColor(blocks: GridBlock[]): string {
+  // CorOS uses white for grouped assignments; its stomp-lamp palette is
+  // intentionally distinct from the category color painted around a block.
+  if (blocks.length > 1) return "#f4f4f4";
+  const block = blocks[0];
   const category = (block.category ?? block.kind).toLowerCase();
   const name = block.name.toLowerCase();
-  if (name.includes("gate")) return "#ffd236";
+  if (category.includes("utility") || name.includes("gate")) return "#f4f4f4";
+  if (category.includes("pitch")) return "#ffd236";
   if (category.includes("equalizer")) return "#0a74e0";
-  if (category.includes("pitch") || category.includes("modulation") || block.kind === "mod") return "#3500f1";
+  if (category.includes("modulation") || block.kind === "mod") return "#3500f1";
   if (category.includes("overdrive") || category.includes("drive") || category.includes("capture") || block.kind === "capture") return "#ff7000";
   if (category.includes("amplifier") || block.kind === "amp") return "#ff2727";
   if (category.includes("cab") || category.includes("delay") || category.includes("reverb") || ["cab", "delay", "reverb"].includes(block.kind)) return "#6954ff";
@@ -34,7 +38,7 @@ function stompLed(snapshot: PresetSnapshot, index: number): FootswitchLed {
   return {
     active: !leader.bypassed,
     assigned: true,
-    color: blockLedColor(leader)
+    color: stompLedColor(assigned)
   };
 }
 
@@ -63,4 +67,17 @@ export function footswitchLeds(snapshot: PresetSnapshot): FootswitchLed[] {
     if (mode === "PRESET") return presetLed(snapshot, index);
     return sceneLed(snapshot, index);
   });
+}
+
+export function optimisticallyPressFootswitch(snapshot: PresetSnapshot, index: number): PresetSnapshot {
+  const fallbackMode = snapshot.mode === "HYBRID" ? "SCENE" : snapshot.mode;
+  const rowModes = snapshot.footswitchModes ?? [fallbackMode, fallbackMode];
+  if (rowModes[index < 4 ? 0 : 1] !== "STOMP") return snapshot;
+  const assignedIds = new Set(snapshot.blocks.filter((block) => block.footswitch === index).map((block) => block.id));
+  if (!assignedIds.size) return snapshot;
+  return {
+    ...snapshot,
+    blocks: snapshot.blocks.map((block) => assignedIds.has(block.id) ? { ...block, bypassed: !block.bypassed } : block),
+    footswitchStates: snapshot.footswitchStates?.map((state) => state.index === index ? { ...state, active: !state.active } : state)
+  };
 }
