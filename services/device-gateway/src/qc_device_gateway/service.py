@@ -85,6 +85,15 @@ class GatewayService:
                     params.get("expectedOutputId"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.setChainSplit":
+                result = self.device.set_chain_split(
+                    params.get("row"),
+                    params.get("splitColumn"),
+                    params.get("mixColumn"),
+                    params.get("expectedSplitColumn"),
+                    params.get("expectedMixColumn"),
+                    params.get("expectedPresetName", ""),
+                )
             elif method == "device.listPresets":
                 result = self.device.list_presets(params.get("refresh", False))
             elif method == "device.navigateBank":

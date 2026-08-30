@@ -667,6 +667,67 @@ class PyQuadCortexDevice:
     ) -> dict[str, Any]:
         return self._set_chain_route(row, output_id, expected_output_id, expected_preset_name, "output")
 
+    def set_chain_split(
+        self,
+        row: int,
+        split_column: int | None,
+        mix_column: int | None,
+        expected_split_column: int | None,
+        expected_mix_column: int | None,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        if isinstance(row, bool) or row not in (0, 2):
+            raise ValueError("Parallel routing is available only on rows 1 and 3.")
+
+        def validate_pair(split: int | None, mix: int | None, label: str) -> None:
+            if split is None:
+                if mix is not None:
+                    raise ValueError(f"{label} mix column must be null when the split is disabled.")
+                return
+            if isinstance(split, bool) or not isinstance(split, int) or not 0 <= split < 8:
+                raise ValueError(f"{label} split column must be null or an integer from 0 through 7.")
+            if isinstance(mix, bool) or not isinstance(mix, int) or mix not in range(-1, 8):
+                raise ValueError(f"{label} mix column must be -1 or an integer from 0 through 7.")
+            if mix != -1 and mix <= split:
+                raise ValueError(f"{label} rejoin column must follow the split column.")
+
+        validate_pair(split_column, mix_column, "Requested")
+        validate_pair(expected_split_column, expected_mix_column, "Expected")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+
+        def read_split(current_preset: Any) -> tuple[int | None, int | None]:
+            split = next((item for item in pyquadcortex.splits(current_preset) if item.row == row), None)
+            return (None, None) if split is None else (int(split.split_column), int(split.mix_column))
+
+        expected = (expected_split_column, expected_mix_column)
+        desired = (split_column, mix_column)
+        if read_split(preset) != expected:
+            raise RuntimeError("The parallel route changed on the Quad Cortex. Refresh and retry.")
+        if desired == expected:
+            return {"detail": f"Row {row + 1} parallel route was already current", "snapshot": self.snapshot()}
+
+        if split_column is None:
+            qc.clear_split(row)
+        else:
+            qc.set_split(row, split_column, mix_column)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            if read_split(qc.read_current_preset()) == desired:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Parallel-route readback matched, but the device did not mark the preset dirty.")
+                detail = (
+                    f"Row {row + 1} returned to a serial path and verified"
+                    if split_column is None
+                    else f"Row {row + 1} branch and rejoin routing updated and verified"
+                )
+                return {"detail": detail, "snapshot": self.snapshot()}
+        raise RuntimeError("The parallel-routing command was sent, but readback did not confirm it.")
+
     def block_details(
         self, row: int, column: int, expected_preset_name: str = ""
     ) -> dict[str, Any]:

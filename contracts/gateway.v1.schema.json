@@ -23,6 +23,7 @@
             "device.setBlockFootswitch",
             "device.setChainInput",
             "device.setChainOutput",
+            "device.setChainSplit",
             "device.listPresets",
             "device.navigateBank",
             "device.recallPreset",

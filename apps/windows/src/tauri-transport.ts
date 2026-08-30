@@ -65,6 +65,9 @@ export const tauriTransport: GatewayTransport = {
   setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("set_chain_output", { row, outputId, expectedOutputId, expectedPresetName });
   },
+  setChainSplit(row: number, splitColumn: number | null, mixColumn: number | null, expectedSplitColumn: number | null, expectedMixColumn: number | null, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("set_chain_split", { row, splitColumn, mixColumn, expectedSplitColumn, expectedMixColumn, expectedPresetName });
+  },
   listPresets(refresh = false): Promise<PresetList> {
     return callTauri<PresetList>("list_presets", { refresh });
   },

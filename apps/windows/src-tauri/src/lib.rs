@@ -483,6 +483,30 @@ fn set_chain_output(
 }
 
 #[tauri::command]
+fn set_chain_split(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    split_column: Option<i8>,
+    mix_column: Option<i8>,
+    expected_split_column: Option<i8>,
+    expected_mix_column: Option<i8>,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setChainSplit",
+        json!({
+            "row": row,
+            "splitColumn": split_column,
+            "mixColumn": mix_column,
+            "expectedSplitColumn": expected_split_column,
+            "expectedMixColumn": expected_mix_column,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
 fn list_presets(state: State<'_, Mutex<Gateway>>, refresh: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.listPresets", json!({ "refresh": refresh }))
 }
@@ -1011,6 +1035,7 @@ pub fn run() {
             set_block_footswitch,
             set_chain_input,
             set_chain_output,
+            set_chain_split,
             list_presets,
             navigate_bank,
             recall_preset,

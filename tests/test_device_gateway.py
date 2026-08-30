@@ -35,6 +35,8 @@ class FakeDevice:
         return {"detail": f"input {row}:{input_id}:{expected_input_id}", "snapshot": self.snapshot()}
     def set_chain_output(self, row, output_id, expected_output_id, expected_preset_name=""):
         return {"detail": f"output {row}:{output_id}:{expected_output_id}", "snapshot": self.snapshot()}
+    def set_chain_split(self, row, split_column, mix_column, expected_split_column, expected_mix_column, expected_preset_name=""):
+        return {"detail": f"split {row}:{split_column}:{mix_column}:{expected_split_column}:{expected_mix_column}", "snapshot": self.snapshot()}
     def list_presets(self, refresh=False):
         return {"setlistKey": "fake", "setlistName": "Fake", "currentPosition": 9, "presets": []}
     def navigate_bank(self, direction, expected_preset_name, expected_position):
@@ -118,6 +120,11 @@ class ServiceTests(unittest.TestCase):
         output_route = self.request("device.setChainOutput", {
             "row": 0, "outputId": 19, "expectedOutputId": 4, "expectedPresetName": "Test"
         })
+        split_route = self.request("device.setChainSplit", {
+            "row": 0, "splitColumn": 2, "mixColumn": 6,
+            "expectedSplitColumn": None, "expectedMixColumn": None,
+            "expectedPresetName": "Test"
+        })
         tuner = self.request("device.showTuner", {"shown": True})
         gig = self.request("device.showGigView", {"shown": True})
         presets = self.request("device.listPresets")
@@ -157,6 +164,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(assigned["result"]["detail"], "assign 2:6:4:None:123")
         self.assertEqual(input_route["result"]["detail"], "input 0:3:1")
         self.assertEqual(output_route["result"]["detail"], "output 0:19:4")
+        self.assertEqual(split_route["result"]["detail"], "split 0:2:6:None:None")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
         self.assertEqual(gig["result"]["detail"], "gig True")
         self.assertEqual(presets["result"]["setlistName"], "Fake")
