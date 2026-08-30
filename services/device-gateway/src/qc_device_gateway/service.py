@@ -50,6 +50,26 @@ class GatewayService:
                     params.get("expectedScene"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.listPresets":
+                result = self.device.list_presets(params.get("refresh", False))
+            elif method == "device.navigateBank":
+                result = self.device.navigate_bank(
+                    params.get("direction"),
+                    params.get("expectedPresetName", ""),
+                    params.get("expectedPosition"),
+                )
+            elif method == "device.recallPreset":
+                result = self.device.recall_preset(
+                    params.get("setlistKey"),
+                    params.get("position"),
+                    params.get("expectedPresetName", ""),
+                    params.get("expectedPosition"),
+                )
+            elif method == "device.reloadPreset":
+                result = self.device.reload_preset(
+                    params.get("expectedPresetName", ""),
+                    params.get("expectedPosition"),
+                )
             elif method == "device.showTuner":
                 result = self.device.show_tuner(params.get("shown", True))
             elif method == "device.showGigView":

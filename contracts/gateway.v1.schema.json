@@ -18,6 +18,10 @@
             "device.snapshot",
             "device.selectScene",
             "device.toggleBypass",
+            "device.listPresets",
+            "device.navigateBank",
+            "device.recallPreset",
+            "device.reloadPreset",
             "device.showTuner",
             "device.showGigView"
           ]

@@ -1,4 +1,4 @@
-import type { ConnectionState, DeviceActionResult, GatewayTransport, RuntimeStatus } from "@ndsp-qc/client";
+import type { ConnectionState, DeviceActionResult, GatewayTransport, PresetList, RuntimeStatus } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -39,6 +39,18 @@ export const tauriTransport: GatewayTransport = {
   },
   toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedPresetName });
+  },
+  listPresets(refresh = false): Promise<PresetList> {
+    return callTauri<PresetList>("list_presets", { refresh });
+  },
+  navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("navigate_bank", { direction, expectedPresetName, expectedPosition });
+  },
+  recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("recall_preset", { setlistKey, position, expectedPresetName, expectedPosition });
+  },
+  reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("reload_preset", { expectedPresetName, expectedPosition });
   },
   showTuner(shown = true): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("show_tuner", { shown });

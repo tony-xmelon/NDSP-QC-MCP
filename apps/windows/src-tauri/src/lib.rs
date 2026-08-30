@@ -217,6 +217,65 @@ fn toggle_bypass(
 }
 
 #[tauri::command]
+fn list_presets(state: State<'_, Mutex<Gateway>>, refresh: bool) -> Result<Value, String> {
+    with_gateway_params(state, "device.listPresets", json!({ "refresh": refresh }))
+}
+
+#[tauri::command]
+fn navigate_bank(
+    state: State<'_, Mutex<Gateway>>,
+    direction: i8,
+    expected_preset_name: String,
+    expected_position: u16,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.navigateBank",
+        json!({
+            "direction": direction,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position
+        }),
+    )
+}
+
+#[tauri::command]
+fn recall_preset(
+    state: State<'_, Mutex<Gateway>>,
+    setlist_key: String,
+    position: u16,
+    expected_preset_name: String,
+    expected_position: u16,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.recallPreset",
+        json!({
+            "setlistKey": setlist_key,
+            "position": position,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position
+        }),
+    )
+}
+
+#[tauri::command]
+fn reload_preset(
+    state: State<'_, Mutex<Gateway>>,
+    expected_preset_name: String,
+    expected_position: u16,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.reloadPreset",
+        json!({
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position
+        }),
+    )
+}
+
+#[tauri::command]
 fn show_tuner(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.showTuner", json!({ "shown": shown }))
 }
@@ -237,6 +296,10 @@ pub fn run() {
             current_snapshot,
             select_scene,
             toggle_bypass,
+            list_presets,
+            navigate_bank,
+            recall_preset,
+            reload_preset,
             show_tuner,
             show_gig_view
         ])

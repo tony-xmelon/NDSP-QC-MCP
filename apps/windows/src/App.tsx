@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { demoSnapshot, type ConnectionState, type PresetSnapshot, type RuntimeStatus } from "@ndsp-qc/client";
+import { demoSnapshot, type ConnectionState, type PresetEntry, type PresetList, type PresetSnapshot, type RuntimeStatus } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { tauriTransport } from "./tauri-transport";
 
-type DialogName = "settings" | "about" | "connection" | null;
+type DialogName = "settings" | "about" | "connection" | "presets" | null;
 
 const initialConnection: ConnectionState = {
   phase: "disconnected",
@@ -16,7 +16,7 @@ const menus = [
   { name: "File", items: ["Open Workspace…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
   { name: "Edit", items: ["Undo Last App Change", "Redo", "Copy Block Settings", "Paste Block Settings", "Keyboard Shortcuts…"] },
   { name: "View", items: ["Fit Hardware to Window", "Actual Size", "Full Screen", "Show/Hide Chat", "Connection Log"] },
-  { name: "Device", items: ["Connect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Open Tuner", "Open Gig View"] },
+  { name: "Device", items: ["Connect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View"] },
   { name: "Help", items: ["User Guide", "Send Feedback…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
 ];
 
@@ -59,6 +59,8 @@ export function App() {
   const [messages, setMessages] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const [commandPending, setCommandPending] = useState(false);
+  const [presetList, setPresetList] = useState<PresetList>();
+  const [presetListLoading, setPresetListLoading] = useState(false);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const mediaStream = useRef<MediaStream | undefined>(undefined);
   const autoConnectStarted = useRef(false);
@@ -73,7 +75,6 @@ export function App() {
   const actionFailed = useCallback((error: unknown) => {
     const detail = error instanceof Error ? error.message : String(error);
     setNotice(detail);
-    setConnection((current) => ({ ...current, phase: "needs-attention", detail }));
   }, []);
 
   const chooseScene = useCallback(async (index: number) => {
@@ -133,6 +134,27 @@ export function App() {
     }
   }, [actionFailed, commandPending, connection.demo]);
 
+  const navigateBank = useCallback(async (direction: -1 | 1) => {
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? "Connect the Quad Cortex before navigating presets." : "A device command is already in progress.");
+      return;
+    }
+    setCommandPending(true);
+    setNotice(`${direction > 0 ? "Bank Up" : "Bank Down"}: recalling the matching preset slot…`);
+    try {
+      const result = await tauriTransport.navigateBank(direction, snapshot.presetName, snapshot.presetPosition);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  }, [actionFailed, commandPending, connection.demo, snapshot.presetName, snapshot.presetPosition]);
+
   const handleHardwareAction = useCallback((action: HardwareAction) => {
     if (action.kind === "select-block") {
       setSelectedBlockId(action.blockId);
@@ -151,9 +173,17 @@ export function App() {
       void chooseScene(action.role.charCodeAt(action.role.length - 1) - 65);
       return;
     }
+    if (action.phase === "release" && action.role === "bank:up") {
+      void navigateBank(1);
+      return;
+    }
+    if (action.phase === "release" && action.role === "bank:down") {
+      void navigateBank(-1);
+      return;
+    }
     if (action.phase === "release" && action.role === "tempo") setNotice(connection.demo ? "Demo: Tap tempo registered." : "Tap tempo control is not enabled yet; use the QC tempo screen.");
     else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
-  }, [chooseScene, connection.demo, snapshot.blocks]);
+  }, [chooseScene, connection.demo, navigateBank, snapshot.blocks]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -167,14 +197,14 @@ export function App() {
       }
       if (textEntry) return;
       if (/^[1-8]$/.test(event.key)) void chooseScene(Number(event.key) - 1);
-      if (event.key === "[") setNotice("Bank Down will be enabled with preset-browser synchronization.");
-      if (event.key === "]") setNotice("Bank Up will be enabled with preset-browser synchronization.");
+      if (event.key === "[") void navigateBank(-1);
+      if (event.key === "]") void navigateBank(1);
       if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : setNotice("Tap tempo control is not enabled yet; use the QC tempo screen.");
       if (event.key.toLowerCase() === "b" && selectedBlockId) void toggleSelectedBypass();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chooseScene, selectedBlockId, showDeviceView, toggleSelectedBypass]);
+  }, [chooseScene, navigateBank, selectedBlockId, showDeviceView, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
     setConnection({ phase: "discovering", detail: "Looking for device gateway…", demo: true });
@@ -218,13 +248,70 @@ export function App() {
     }
   };
 
+  const openPresetBrowser = async (refresh = false) => {
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? "Connect the Quad Cortex before opening its preset browser." : "A device command is already in progress.");
+      return;
+    }
+    setDialog("presets");
+    setPresetListLoading(true);
+    try {
+      const list = await tauriTransport.listPresets(refresh);
+      setPresetList(list);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setPresetListLoading(false);
+    }
+  };
+
+  const recallPreset = async (entry: PresetEntry) => {
+    if (!presetList || commandPending || entry.position === snapshot.presetPosition) return;
+    setCommandPending(true);
+    setNotice(`Recalling ${entry.location} · ${entry.name}…`);
+    try {
+      const result = await tauriTransport.recallPreset(presetList.setlistKey, entry.position, snapshot.presetName, snapshot.presetPosition);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      setNotice(result.detail);
+      setDialog(null);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const reloadPreset = async () => {
+    if (connection.demo || commandPending) return;
+    if (!window.confirm(`Discard all unsaved changes to ${snapshot.presetLocation} · ${snapshot.presetName} and reload it from the Quad Cortex?`)) return;
+    setCommandPending(true);
+    setNotice("Reloading the stored preset…");
+    try {
+      const result = await tauriTransport.reloadPreset(snapshot.presetName, snapshot.presetPosition);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
   const menuSelect = (item: string) => {
     if (item === "Settings…") setDialog("settings");
+    else if (item === "Open Device Preset…") void openPresetBrowser();
     else if (item === "About") setDialog("about");
     else if (item === "Show/Hide Chat") setChatOpen((open) => !open);
     else if (item === "Connect" || item === "Reconnect") void connect();
     else if (item === "Reset Communication Session") void connect("reset");
     else if (item === "Refresh Complete State") void refreshSnapshot();
+    else if (item === "Discard Unsaved Changes…") void reloadPreset();
     else if (item === "Open Tuner") void showDeviceView("tuner");
     else if (item === "Open Gig View") void showDeviceView("gig");
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
@@ -297,6 +384,7 @@ export function App() {
         <button className="dialog-close" aria-label="Close" onClick={() => setDialog(null)}>×</button>
         {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, block bypass, tuner, and Gig View enabled with validation</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Global push-to-talk<small>Disabled until explicitly configured</small></span><input type="checkbox" disabled /></label></>}
+        {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
         {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>
     </div>}

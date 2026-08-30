@@ -30,6 +30,10 @@ class PyQuadCortexDevice:
     def __init__(self) -> None:
         self._qc: Any | None = None
         self._connected_at: str | None = None
+        self._preset_cache: dict[str, list[dict[str, Any]]] = {}
+        self._setlist_key: str | None = None
+        self._preset_position: int | None = None
+        self._setlist_is_factory = False
 
     @property
     def connected(self) -> bool:
@@ -38,6 +42,10 @@ class PyQuadCortexDevice:
     def close(self) -> None:
         qc, self._qc = self._qc, None
         self._connected_at = None
+        self._preset_cache.clear()
+        self._setlist_key = None
+        self._preset_position = None
+        self._setlist_is_factory = False
         if qc is not None:
             qc.close()
 
@@ -47,6 +55,7 @@ class PyQuadCortexDevice:
 
         self._qc = pyquadcortex.connect()
         self._connected_at = _utc_now()
+        self._remember_position(self._read_position_state())
         return self.connection_state("Quad Cortex handshake complete")
 
     def reset_session(self) -> dict[str, Any]:
@@ -76,6 +85,134 @@ class PyQuadCortexDevice:
                 f"but {preset.name or 'an unnamed preset'!r} is active. Refresh and retry."
             )
         return preset
+
+    def _read_position_state(self, timeout: float = 10.0) -> Any:
+        from pyquadcortex.proto import ProductionAutomation_pb2 as pa
+
+        return self._require_session()._read_state(
+            pa.SetlistPositionMessage,
+            lambda message: message.HasField("position") and bool(message.folder_key),
+            timeout,
+        )
+
+    def _remember_position(self, state: Any) -> None:
+        self._setlist_key = state.folder_key
+        self._preset_position = int(state.position)
+        self._setlist_is_factory = bool(state.is_factory)
+
+    def _current_position(self) -> tuple[str, int, bool]:
+        if self._setlist_key is None or self._preset_position is None:
+            self._remember_position(self._read_position_state())
+        return self._setlist_key, self._preset_position, self._setlist_is_factory
+
+    def list_presets(self, refresh: bool = False) -> dict[str, Any]:
+        import pyquadcortex
+
+        qc = self._require_session()
+        setlist_key, current_position, _ = self._current_position()
+        if refresh or setlist_key not in self._preset_cache:
+            entries = qc.list_presets(setlist_key, timeout=25.0)
+            self._preset_cache[setlist_key] = [
+                {
+                    "position": int(entry.index),
+                    "location": pyquadcortex.position_to_slot(entry.index),
+                    "name": entry.name,
+                    "instrument": int(entry.instrument) if entry.HasField("instrument") else 0,
+                }
+                for entry in entries
+            ]
+        return {
+            "setlistKey": setlist_key,
+            "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
+            "currentPosition": current_position,
+            "presets": self._preset_cache[setlist_key],
+        }
+
+    def _recall_position(
+        self,
+        setlist_key: str,
+        position: int,
+        expected_preset_name: str,
+        expected_position: int | None = None,
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
+            raise ValueError("Preset position must be an integer from 0 through 255.")
+        qc = self._require_session()
+        current_key, current_position, _ = self._current_position()
+        self._assert_expected_preset(expected_preset_name)
+        if expected_position is not None and current_position != expected_position:
+            raise RuntimeError("The active preset slot changed on the Quad Cortex. Refresh and retry.")
+        if current_key != setlist_key:
+            raise RuntimeError("The active setlist changed on the Quad Cortex. Refresh and retry.")
+        if qc.preset_dirty():
+            raise RuntimeError("The current preset has unsaved changes. Save or revert them before recalling another preset.")
+
+        listing = self.list_presets()["presets"]
+        target = next((entry for entry in listing if entry["position"] == position), None)
+        if target is None:
+            raise RuntimeError(f"Preset slot {pyquadcortex.position_to_slot(position)} is empty.")
+        recalled = qc.read_preset(setlist_key, position, timeout=15.0)
+        if recalled.name != target["name"]:
+            raise RuntimeError("Preset recall response did not match the target preset name.")
+        self._setlist_key = setlist_key
+        self._preset_position = position
+        snapshot = self.snapshot()
+        if snapshot["presetName"] != target["name"]:
+            raise RuntimeError("Preset recall landed, but live preset readback did not match.")
+        return {
+            "detail": f"Recalled {target['location']} · {target['name']} and verified",
+            "snapshot": snapshot,
+        }
+
+    def navigate_bank(
+        self,
+        direction: int,
+        expected_preset_name: str,
+        expected_position: int,
+    ) -> dict[str, Any]:
+        if isinstance(direction, bool) or direction not in (-1, 1):
+            raise ValueError("Bank direction must be -1 or 1.")
+        setlist_key, current_position, _ = self._current_position()
+        target = current_position + direction * 8
+        if not 0 <= target < 256:
+            raise RuntimeError("Already at the first or last preset bank.")
+        return self._recall_position(
+            setlist_key, target, expected_preset_name, expected_position
+        )
+
+    def recall_preset(
+        self,
+        setlist_key: str,
+        position: int,
+        expected_preset_name: str,
+        expected_position: int,
+    ) -> dict[str, Any]:
+        if not isinstance(setlist_key, str) or not setlist_key:
+            raise ValueError("Setlist key is required.")
+        return self._recall_position(
+            setlist_key, position, expected_preset_name, expected_position
+        )
+
+    def reload_preset(
+        self, expected_preset_name: str, expected_position: int
+    ) -> dict[str, Any]:
+        qc = self._require_session()
+        setlist_key, current_position, _ = self._current_position()
+        self._assert_expected_preset(expected_preset_name)
+        if current_position != expected_position:
+            raise RuntimeError("The active preset slot changed on the Quad Cortex. Refresh and retry.")
+        recalled = qc.read_preset(setlist_key, current_position, timeout=15.0)
+        if recalled.name != expected_preset_name:
+            raise RuntimeError("Reload response did not match the expected preset.")
+        deadline = time.monotonic() + 3.0
+        while qc.preset_dirty() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        snapshot = self.snapshot()
+        if snapshot["dirty"]:
+            raise RuntimeError("The preset reloaded, but the device still reports unsaved changes.")
+        return {"detail": "Unsaved device changes discarded and preset reloaded", "snapshot": snapshot}
 
     def select_scene(self, scene: int, expected_preset_name: str = "") -> dict[str, Any]:
         if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < 8:
@@ -152,7 +289,7 @@ class PyQuadCortexDevice:
 
         qc = self._require_session()
         preset = qc.read_current_preset()
-        version = qc.version()
+        setlist_key, preset_position, _ = self._current_position()
         active_scene = int(qc.active_scene())
         mode_state = qc.mode()
         try:
@@ -183,11 +320,13 @@ class PyQuadCortexDevice:
 
         labels = list(preset.scene_labels)
         scenes = [(labels[index] if index < len(labels) and labels[index] else f"Scene {chr(65 + index)}") for index in range(8)]
-        device_type = getattr(version, "device_type", "Quad Cortex")
         return {
-            "deviceName": str(device_type) if device_type else "Quad Cortex",
+            "deviceName": "Quad Cortex",
             "presetName": preset.name or "Current preset",
-            "presetLocation": "LIVE",
+            "presetLocation": pyquadcortex.position_to_slot(preset_position),
+            "presetPosition": preset_position,
+            "setlistKey": setlist_key,
+            "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
             "mode": mode,
             "activeScene": active_scene,
             "scenes": scenes,

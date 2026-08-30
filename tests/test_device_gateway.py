@@ -26,6 +26,14 @@ class FakeDevice:
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
     def toggle_bypass(self, row, column, expected_scene, expected_preset_name=""):
         return {"detail": f"bypass {row}:{column}:{expected_scene}", "snapshot": self.snapshot()}
+    def list_presets(self, refresh=False):
+        return {"setlistKey": "fake", "setlistName": "Fake", "currentPosition": 9, "presets": []}
+    def navigate_bank(self, direction, expected_preset_name, expected_position):
+        return {"detail": f"bank {direction}:{expected_position}", "snapshot": self.snapshot()}
+    def recall_preset(self, setlist_key, position, expected_preset_name, expected_position):
+        return {"detail": f"recall {setlist_key}:{position}", "snapshot": self.snapshot()}
+    def reload_preset(self, expected_preset_name, expected_position):
+        return {"detail": f"reload {expected_position}", "snapshot": self.snapshot()}
     def show_tuner(self, shown=True): return {"detail": f"tuner {shown}"}
     def show_gig_view(self, shown=True): return {"detail": f"gig {shown}"}
 
@@ -73,10 +81,25 @@ class ServiceTests(unittest.TestCase):
         })
         tuner = self.request("device.showTuner", {"shown": True})
         gig = self.request("device.showGigView", {"shown": True})
+        presets = self.request("device.listPresets")
+        bank = self.request("device.navigateBank", {
+            "direction": 1, "expectedPresetName": "Test", "expectedPosition": 9
+        })
+        recall = self.request("device.recallPreset", {
+            "setlistKey": "fake", "position": 17,
+            "expectedPresetName": "Test", "expectedPosition": 9
+        })
+        reload = self.request("device.reloadPreset", {
+            "expectedPresetName": "Test", "expectedPosition": 9
+        })
         self.assertEqual(scene["result"]["detail"], "scene 3")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
         self.assertEqual(gig["result"]["detail"], "gig True")
+        self.assertEqual(presets["result"]["setlistName"], "Fake")
+        self.assertEqual(bank["result"]["detail"], "bank 1:9")
+        self.assertEqual(recall["result"]["detail"], "recall fake:17")
+        self.assertEqual(reload["result"]["detail"], "reload 9")
 
 
 class ProcessTests(unittest.TestCase):

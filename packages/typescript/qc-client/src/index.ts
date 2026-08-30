@@ -33,6 +33,9 @@ export interface PresetSnapshot {
   deviceName: string;
   presetName: string;
   presetLocation: string;
+  presetPosition: number;
+  setlistKey: string;
+  setlistName: string;
   mode: "PRESET" | "SCENE" | "STOMP" | "HYBRID";
   activeScene: number;
   scenes: string[];
@@ -45,6 +48,9 @@ export const demoSnapshot: PresetSnapshot = {
   deviceName: "Quad Cortex",
   presetName: "Brit 2203",
   presetLocation: "1A",
+  presetPosition: 0,
+  setlistKey: "demo",
+  setlistName: "Demo Presets",
   mode: "PRESET",
   activeScene: 0,
   scenes: ["Clean", "Edge", "Crunch", "Lead", "Ambient", "Octave", "Solo +", "Mute"],
@@ -83,6 +89,20 @@ export interface DeviceActionResult {
   snapshot?: PresetSnapshot;
 }
 
+export interface PresetEntry {
+  position: number;
+  location: string;
+  name: string;
+  instrument: number;
+}
+
+export interface PresetList {
+  setlistKey: string;
+  setlistName: string;
+  currentPosition: number;
+  presets: PresetEntry[];
+}
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
@@ -90,6 +110,10 @@ export interface GatewayTransport {
   currentSnapshot(): Promise<PresetSnapshot>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  listPresets(refresh?: boolean): Promise<PresetList>;
+  navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
+  recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
+  reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   showTuner(shown?: boolean): Promise<DeviceActionResult>;
   showGigView(shown?: boolean): Promise<DeviceActionResult>;
 }
