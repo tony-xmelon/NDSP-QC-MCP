@@ -4,15 +4,16 @@ import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc
 import { footswitchLeds } from "./footswitch-leds";
 import { officialBlockVisual } from "./block-visuals";
 import { REFERENCE_BLOCK_ICONS } from "./reference-block-icons";
+import { GRID_CONTEXT_MENU, openSplitPath, type CorOsContextAction } from "./coros-ui";
 import "./live-surface.css";
+
+export type { CorOsContextAction } from "./coros-ui";
 
 export type HardwareAction =
   | { kind: "switch"; role: string; phase: "press" | "release" }
   | { kind: "rotate"; role: string; delta: number }
   | { kind: "select-scene"; scene: number }
   | { kind: "select-block"; blockId: string };
-
-export type CorOsContextAction = "edit-details" | "preset-midi-out" | "favorite" | "delete-preset" | "new-capture" | "tempo" | "cpu-monitor" | "settings";
 
 export interface PresetDirectoryState {
   open: boolean;
@@ -172,6 +173,18 @@ function ModeGlyph({ mode }: { mode: PresetSnapshot["mode"] }) {
   return <g transform="translate(-525 -78)"><path d="M535.723 79.2008C532.977 81.2508 530.778 82.8924 529.127 84.1255L528.27 84.7656C527.385 85.4269 526.705 85.9358 526.228 86.2924C525.319 86.9726 524.915 87.9041 525.015 89.087L542.055 84.521C541.833 83.0083 542.929 81.2361 545.255 79.1766C544.988 78.8037 544.691 78.4115 544.363 78C542.639 80.0488 540.862 81.2219 539.031 81.5192C537.2 81.8165 536.097 81.0437 535.723 79.2008ZM543.102 84.2407L547.01 83.1933C547.096 82.4398 546.701 81.3799 545.825 80.0139C543.899 81.7499 543.016 83.1667 543.102 84.2407ZM547.559 85.3468L525.619 91.2257C525.399 90.7294 525.237 90.2624 525.135 89.8246L525.201 90.0724L547.243 84.1663L547.559 85.3468ZM529.966 92.3084L533.966 91.2257V94.675L536.966 94.675V98.675H526.966V94.675L529.966 94.675V92.3084Z" fill="#f0f0f0" /></g>;
 }
 
+function DirectoryIcon({ kind }: { kind: "grid" | "download" | "cloud" | "folder" | "new-folder" | "sort" | "arrange" | "search" | "done" }) {
+  if (kind === "grid") return <svg viewBox="0 0 24 24" aria-hidden="true">{[3, 10, 17].flatMap((x) => [3, 10, 17].map((y) => <rect key={`${x}-${y}`} x={x} y={y} width="5" height="5" rx=".6" />))}</svg>;
+  if (kind === "download") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4" /></svg>;
+  if (kind === "cloud") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19h11a4 4 0 0 0 .7-7.94A6.5 6.5 0 0 0 5.7 9.4 4.8 4.8 0 0 0 6.5 19Z" /></svg>;
+  if (kind === "folder") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3Z" /><rect x="9" y="11" width="6" height="6" rx="1" className="folder-number" /></svg>;
+  if (kind === "new-folder") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v11H3ZM7 2v8M3 6h8" /></svg>;
+  if (kind === "sort") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8m-8 6h6m-6 6h10M16 5l2 2 3-4m-5 10 2 2 3-4m-5 8 2 2 3-4" /></svg>;
+  if (kind === "arrange") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M4 12h7M4 18h11M18 4v16m-3-3 3 3 3-3" /></svg>;
+  if (kind === "search") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" /><path d="m15 15 6 6" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 6" /></svg>;
+}
+
 function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; directory: PresetDirectoryState }) {
   const currentBank = Math.floor(snapshot.presetPosition / 8) + 1;
   const [selectedBank, setSelectedBank] = useState(currentBank);
@@ -183,34 +196,41 @@ function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; dir
 
   return <section className="coros-directory" aria-label="Preset Directory">
     <header className="coros-directory-header">
-      <button className="directory-category" aria-label="Preset categories"><span className="directory-grid-icon">⠿</span><strong>PRESETS</strong><span>⌄</span></button>
-      <div className="directory-tools" aria-label="Directory tools"><button aria-label="Search presets">⌕</button><button aria-label="Sort presets">⇅</button><button aria-label="Select multiple presets">☷</button><button className="directory-close" aria-label="Return to Grid" onClick={directory.onClose}>×</button></div>
+      <button className="directory-category" aria-label="Preset categories"><span className="directory-grid-icon"><DirectoryIcon kind="grid" /></span><strong>Presets</strong><span className="directory-chevron">▼</span></button>
+      <div className="directory-tools" aria-label="Directory tools">
+        <button aria-label="Sort presets"><DirectoryIcon kind="sort" /></button>
+        <button aria-label="Arrange presets"><DirectoryIcon kind="arrange" /></button>
+        <button aria-label="Search presets"><DirectoryIcon kind="search" /></button>
+        <span className="directory-tool-divider" />
+        <button className="directory-close" aria-label="Return to Grid" onClick={directory.onClose}><DirectoryIcon kind="done" /></button>
+      </div>
     </header>
     <div className="coros-directory-body">
       <nav className="directory-folders" aria-label="Preset folders">
-        <button><span>★</span>FAVORITES</button>
-        <button><span>◷</span>RECENT</button>
-        <div className="directory-section-label">PRESETS</div>
-        <button><span>↓</span>DOWNLOADS</button>
-        <button><span>☁</span>CLOUD PRESETS</button>
-        <button><span>▦</span>FACTORY PRESETS</button>
-        <button className="is-active"><span>▦</span>{directory.list?.setlistName ?? snapshot.setlistName}</button>
+        <button><span><DirectoryIcon kind="download" /></span>Downloads</button>
+        <button><span><DirectoryIcon kind="cloud" /></span>Cloud Presets</button>
+        <button><span><DirectoryIcon kind="folder" /></span>Factory Presets</button>
+        <button className="is-active"><span><DirectoryIcon kind="folder" /></span>{directory.list?.setlistName ?? snapshot.setlistName}<b>⋮</b></button>
+        <button className="directory-new-setlist" disabled><span><DirectoryIcon kind="new-folder" /></span>New Setlist</button>
       </nav>
       <nav className="directory-banks" aria-label="Preset banks">
-        {banks.length ? banks.map((bank) => <button key={bank} className={bank === selectedBank ? "is-active" : ""} onClick={() => setSelectedBank(bank)}><span>BANK</span>{bank}</button>) : <span className="directory-loading">{directory.loading ? "READING…" : "NO BANKS"}</span>}
+        {banks.length ? banks.map((bank) => <button key={bank} className={bank === selectedBank ? "is-active" : ""} onClick={() => setSelectedBank(bank)}>{bank}</button>) : <span className="directory-loading">{directory.loading ? "READING…" : "NO BANKS"}</span>}
       </nav>
       <div className="directory-presets" role="listbox" aria-label={`Bank ${selectedBank} presets`}>
-        <div className="directory-list-heading"><span>BANK {selectedBank}</span><span>{presets.length}/8</span></div>
-        {directory.loading && !directory.list ? <div className="directory-loading">READING PRESETS FROM QUAD CORTEX…</div> : presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={directory.disabled} onClick={() => directory.onRecall(entry)}><strong>{entry.location}</strong><span>{entry.name}</span><span className="preset-row-more">•••</span></button>)}
+        {directory.loading && !directory.list ? <div className="directory-loading">READING PRESETS FROM QUAD CORTEX…</div> : presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={directory.disabled} onClick={() => directory.onRecall(entry)}><strong>{entry.location}</strong><span>{entry.name}</span><span className="preset-row-more">⋮</span></button>)}
       </div>
     </div>
-    <footer className="coros-directory-footer"><span>{directory.list ? `${directory.list.presets.length} PRESETS` : "DEVICE DIRECTORY"}</span><button onClick={directory.onRefresh} disabled={directory.loading || directory.disabled}>↻ REFRESH</button></footer>
   </section>;
 }
 
 function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, canUndo, undoLabel, onSave, onOpenRouting, onRefresh, presetDirectory, onContextAction }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction" | "onOpenPreset" | "onUndo" | "canUndo" | "undoLabel" | "onSave" | "onOpenRouting" | "onRefresh" | "presetDirectory" | "onContextAction">) {
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false);
   const [screenMenuOpen, setScreenMenuOpen] = useState(false);
+  const runGridMenuAction = (action: (typeof GRID_CONTEXT_MENU)[number]["action"]) => {
+    setScreenMenuOpen(false);
+    if (action === "save-as") onSave();
+    else onContextAction?.(action);
+  };
   const columns = [98, 184, 273, 361, 448, 528, 616, 703];
   const routeColumns = [75, 141, 228.5, 317, 404.5, 488, 572, 659.5];
   const rowY = [151, 243, 338, 430];
@@ -252,6 +272,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     if (!parentRoute) return <path key={`row-${row}`} d={`M52 ${rowY[row]}H748`} />;
     const startX = routeColumns[Math.max(0, Math.min(7, parentRoute.splitColumn!))];
     const rejoins = parentRoute.mixColumn !== undefined && parentRoute.mixColumn >= 0;
+    if (!rejoins) return <path key={`row-${row}`} d={`M52 ${rowY[row]}H748`} />;
     const endX = rejoins ? routeColumns[Math.max(0, Math.min(7, parentRoute.mixColumn!))] : 748;
     return <path key={`row-${row}`} d={`M${startX} ${rowY[row]}H${endX}`} />;
   };
@@ -271,7 +292,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const mixX = rejoins ? routeColumns[Math.max(0, Math.min(7, route.mixColumn!))] : 748;
     const middleY = (rowY[row] + rowY[row + 1]) / 2;
     return <g key={`split-${row}`} fill="none" stroke="#8f9092" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d={`M${splitX} ${rowY[row]} C${splitX} ${middleY - 13},${splitX} ${middleY + 13},${splitX} ${rowY[row + 1]}`} />
+      <path d={rejoins ? `M${splitX} ${rowY[row]} C${splitX} ${middleY - 13},${splitX} ${middleY + 13},${splitX} ${rowY[row + 1]}` : openSplitPath(splitX, rowY[row], rowY[row + 1])} />
       {rejoins && <path d={`M${mixX} ${rowY[row + 1]} C${mixX} ${middleY + 13},${mixX} ${middleY - 13},${mixX} ${rowY[row]}`} />}
       {routeToken("S", splitX, rowY[row])}
       {rejoins && routeToken("M", mixX, rowY[row])}
@@ -326,16 +347,9 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     {screenBlocks.map((block) => <button key={block.id} className="coros-vector-block-hit" style={{ left: `${columns[block.column] / 8}%`, top: `${rowY[block.row] / 4.8}%` }} title={`Row ${block.row + 1}, ${block.name}`} aria-label={`Row ${block.row + 1}, ${block.name}`} aria-pressed={selectedBlockId === block.id} onClick={() => onAction({ kind: "select-block", blockId: block.id })} />)}
     {sceneMenuOpen && <div className="scene-dropdown vector-scene-dropdown" role="menu" aria-label="Scenes">{snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => { setSceneMenuOpen(false); onAction({ kind: "select-scene", scene: index }); }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}</div>}
     {screenMenuOpen && <div className="coros-screen-menu" role="menu" aria-label="Grid contextual menu">
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onSave(); }}><span className="context-menu-icon">⇥</span>Save as…</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("edit-details"); }}><span className="context-menu-icon">✎</span>Edit details</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("preset-midi-out"); }}><span className="context-menu-icon">M</span>Preset MIDI Out</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("favorite"); }}><span className="context-menu-icon">☆</span>Add to favorites</button>
-      <button role="menuitem" className="context-danger" onClick={() => { setScreenMenuOpen(false); onContextAction?.("delete-preset"); }}><span className="context-menu-icon">⌫</span>Delete preset</button>
+      {GRID_CONTEXT_MENU.slice(0, 6).map((item) => <button key={item.label} role="menuitem" className={"danger" in item && item.danger ? "context-danger" : ""} onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon">{item.icon}</span>{item.label}</button>)}
       <div className="context-menu-section">QUAD CORTEX</div>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("new-capture"); }}><span className="context-menu-icon">◇</span>New Neural Capture</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("tempo"); }}><span className="context-menu-icon">♩</span>Tempo</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("cpu-monitor"); }}><span className="context-menu-icon">▥</span>CPU monitor</button>
-      <button role="menuitem" onClick={() => { setScreenMenuOpen(false); onContextAction?.("settings"); }}><span className="context-menu-icon">⚙</span>Settings</button>
+      {GRID_CONTEXT_MENU.slice(6).map((item) => <button key={item.label} role="menuitem" onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon">{item.icon}</span>{item.label}</button>)}
     </div>}
     {presetDirectory?.open && <CorOsDirectory snapshot={snapshot} directory={presetDirectory} />}
   </div>;

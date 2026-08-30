@@ -665,47 +665,52 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .vector-action-hit:hover, .vector-route-hit:hover { box-shadow: inset 0 0 0 1px #ffffff70; }
 .coros-vector-block-hit:hover { box-shadow: inset 0 0 0 1px #ffffff80; }
 .vector-scene-dropdown { right: 4%; top: 10%; }
-.coros-screen-menu { position: absolute; z-index: 21; right: 1.5%; top: 9%; width: 35%; max-height: 89%; overflow-y: auto; padding: .8% 0; border-radius: 4px; background: #f0f0ee; box-shadow: 0 12px 32px #000d; }
-.coros-screen-menu button { display: flex; width: 100%; align-items: center; gap: 7%; padding: 3.2% 7%; border: 0; background: transparent; color: #171717; font: 600 clamp(7px, .72vw, 12px) Arial, sans-serif; text-align: left; cursor: pointer; }
-.coros-screen-menu button:hover, .coros-screen-menu button:focus-visible { outline: 0; background: #f3cf32; }
-.coros-screen-menu .context-menu-icon { display: grid; flex: 0 0 13%; place-items: center; color: #151515; font-size: 1.2em; font-weight: 800; }
+.coros-screen-menu { position: absolute; z-index: 21; right: 1.5%; top: 9%; width: 35%; max-height: 89%; overflow-y: auto; padding: .8% 0; border: 1px solid #4a4a4a; border-radius: 4px; background: #292a2a; box-shadow: 0 12px 32px #000d; }
+.coros-screen-menu button { display: flex; width: 100%; align-items: center; gap: 7%; padding: 3.2% 7%; border: 0; background: transparent; color: #f1f1f1; font: 600 clamp(7px, .72vw, 12px) Arial, sans-serif; text-align: left; cursor: pointer; }
+.coros-screen-menu button:hover, .coros-screen-menu button:focus-visible { outline: 0; background: #3a3b3b; color: #fff; }
+.coros-screen-menu .context-menu-icon { display: grid; flex: 0 0 13%; place-items: center; color: #f1f1f1; font-size: 1.2em; font-weight: 800; }
 .coros-screen-menu .context-danger .context-menu-icon { color: #d4423c; }
-.context-menu-section { margin: 2% 0 1%; padding: 3% 7%; border-top: 1px solid #c5c5c2; border-bottom: 1px solid #d1d1ce; background: #dfdfdc; color: #727272; font: 800 clamp(6px, .58vw, 9px) Arial, sans-serif; letter-spacing: .08em; }
+.context-menu-section { margin: 2% 0 1%; padding: 3% 7%; border-top: 1px solid #4b4c4c; border-bottom: 1px solid #4b4c4c; background: #232424; color: #989a9a; font: 800 clamp(6px, .58vw, 9px) Arial, sans-serif; letter-spacing: .08em; }
 
-.coros-directory { position: absolute; z-index: 30; inset: 0; display: grid; grid-template-rows: 14% minmax(0, 1fr) 10%; overflow: hidden; background: #101112; color: #ededed; font-family: Arial, Helvetica, sans-serif; }
+.coros-directory { position: absolute; z-index: 30; inset: 0; display: grid; grid-template-rows: 12.5% minmax(0, 1fr); overflow: hidden; background: #0d0f0e; color: #ededed; font-family: Arial, Helvetica, sans-serif; }
 .coros-directory button { border: 0; color: inherit; font: inherit; cursor: pointer; }
-.coros-directory-header { display: flex; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #303234; background: #18191b; }
-.directory-category { min-width: 31%; display: flex; align-items: center; gap: 8%; padding: 0 2.2%; background: #202123; font-size: clamp(8px, .82vw, 13px); letter-spacing: .04em; }
-.directory-category:hover { background: #292b2d; }
-.directory-grid-icon { color: #3de66e; font-size: 1.6em; line-height: 1; }
-.directory-category > span:last-child { margin-left: auto; color: #8e9295; font-size: 1.4em; }
-.directory-tools { display: flex; align-items: stretch; }
-.directory-tools button { min-width: 52px; padding: 0 16px; border-left: 1px solid #303234; background: transparent; color: #d7d9db; font-size: clamp(13px, 1.45vw, 23px); }
-.directory-tools button:hover { background: #292b2d; color: #43ed73; }
-.directory-tools .directory-close { font-size: clamp(17px, 1.75vw, 28px); }
-.coros-directory-body { min-height: 0; display: grid; grid-template-columns: 31% 14% minmax(0, 1fr); }
-.directory-folders, .directory-banks { min-height: 0; overflow-y: auto; border-right: 1px solid #333538; background: #17181a; }
-.directory-folders { padding: 2% 0; }
-.directory-folders button { width: 100%; display: flex; align-items: center; gap: 7%; padding: 4% 8%; overflow: hidden; background: transparent; color: #bfc2c4; font-size: clamp(7px, .72vw, 11px); font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-.directory-folders button span { width: 11%; color: #85898c; text-align: center; }
-.directory-folders button:hover { background: #242628; }
-.directory-folders button.is-active { background: #294d34; color: #fff; }
-.directory-folders button.is-active span { color: #48f278; }
-.directory-section-label { margin-top: 3%; padding: 4% 8% 2%; color: #65696d; font-size: clamp(6px, .58vw, 9px); font-weight: 800; letter-spacing: .1em; }
-.directory-banks { padding: 3% 0; background: #121315; }
-.directory-banks button { width: 100%; display: grid; gap: 2px; padding: 10% 5%; background: transparent; color: #9da1a4; font-size: clamp(12px, 1.25vw, 20px); font-weight: 800; text-align: center; }
-.directory-banks button span { color: #616569; font-size: .47em; letter-spacing: .08em; }
-.directory-banks button:hover { background: #222426; }
-.directory-banks button.is-active { border-left: 3px solid #43ee73; background: #273c2d; color: #fff; }
-.directory-banks button.is-active span { color: #55d978; }
-.directory-presets { min-height: 0; overflow-y: auto; background: #0d0e0f; }
-.directory-list-heading { display: flex; justify-content: space-between; padding: 3% 4%; border-bottom: 1px solid #282a2c; color: #6f7377; font-size: clamp(6px, .6vw, 9px); font-weight: 800; letter-spacing: .08em; }
-.directory-presets > button { width: 100%; display: grid; grid-template-columns: 13% minmax(0, 1fr) 10%; align-items: center; padding: 2.5% 4%; border-bottom: 1px solid #252729; background: #151617; color: #e1e3e4; text-align: left; }
-.directory-presets > button:hover { background: #252728; }
-.directory-presets > button.is-current { background: #24452e; box-shadow: inset 4px 0 #45f475; }
-.directory-presets > button strong { color: #49e976; font: 800 clamp(8px, .78vw, 12px) "DM Mono", monospace; }
-.directory-presets > button > span:nth-child(2) { overflow: hidden; font-size: clamp(8px, .8vw, 13px); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.preset-row-more { color: #74787b; font-size: .8em; text-align: right; letter-spacing: .08em; }
+.coros-directory-header { display: flex; align-items: stretch; justify-content: space-between; gap: 1%; padding: 1%; background: #0d0f0e; }
+.directory-category { width: 32%; display: flex; align-items: center; gap: 5%; padding: 0 2%; border-radius: 7px; background: #282d29; color: #f1f1f1; font-size: clamp(9px, .95vw, 15px); }
+.directory-category:hover { background: #303631; }
+.directory-grid-icon { width: 11%; color: #f1f1f1; line-height: 1; }
+.directory-grid-icon svg { display: block; width: 100%; fill: currentColor; }
+.directory-chevron { margin-left: auto; color: #f1f1f1; font-size: .8em; }
+.directory-tools { width: 42%; display: flex; align-items: stretch; justify-content: flex-end; gap: 2.2%; }
+.directory-tools button { flex: 0 0 19%; display: grid; place-items: center; padding: 0; border-radius: 7px; background: #1d221e; color: #f1f1f1; }
+.directory-tools button:hover { background: #2c322d; color: #43ed73; }
+.directory-tools svg { width: 38%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.directory-tool-divider { width: 1px; margin: 8% 0; background: #434844; }
+.directory-tools .directory-close { flex-basis: 28%; background: #282d29; }
+.coros-directory-body { min-height: 0; display: grid; grid-template-columns: 32% 15% minmax(0, 1fr); gap: 1%; padding: 0 1% 1%; }
+.directory-folders, .directory-banks { min-height: 0; overflow-y: auto; border: 0; }
+.directory-folders { padding: 1% 0; border-radius: 7px; background: #282d29; }
+.directory-folders button { width: 100%; height: 15%; display: flex; align-items: center; gap: 5%; padding: 0 6%; overflow: hidden; background: transparent; color: #eceeed; font-size: clamp(8px, .82vw, 13px); font-weight: 500; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.directory-folders button span { width: 12%; color: #f1f2f1; }
+.directory-folders button svg { display: block; width: 100%; fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.directory-folders button svg .folder-number { fill: #282d29; stroke: none; }
+.directory-folders button b { margin-left: auto; color: #707570; font-size: 1.3em; }
+.directory-folders button:hover { background: #303531; }
+.directory-folders button.is-active { background: #202521; color: #43ef72; }
+.directory-folders button.is-active span { color: #f1f1f1; }
+.directory-folders .directory-new-setlist { color: #7e837f; }
+.directory-folders .directory-new-setlist:disabled { cursor: default; opacity: .8; }
+.directory-banks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 13%; align-content: start; gap: 1.8% 6%; overflow-y: auto; background: transparent; }
+.directory-banks button { display: grid; place-items: center; padding: 0; border-radius: 7px; background: #252a26; color: #eceeed; font-size: clamp(9px, .92vw, 15px); font-weight: 500; }
+.directory-banks button:hover { background: #303631; }
+.directory-banks button.is-active { background: #131714; color: #43ef72; }
+.directory-presets { min-height: 0; overflow-y: auto; border-radius: 7px; background: #282d29; }
+.directory-presets > button { width: 100%; min-height: 12.5%; display: grid; grid-template-columns: 13% minmax(0, 1fr) 8%; align-items: center; padding: 0 4%; border-bottom: 1px solid #303531; background: #282d29; color: #f0f1f0; text-align: left; }
+.directory-presets > button:hover { background: #303631; }
+.directory-presets > button.is-current { background: #252a26; box-shadow: none; }
+.directory-presets > button strong { color: #f0f1f0; font: 500 clamp(8px, .82vw, 13px) Arial, sans-serif; }
+.directory-presets > button.is-current strong { color: #43ef72; }
+.directory-presets > button > span:nth-child(2) { overflow: hidden; font-size: clamp(8px, .82vw, 13px); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.preset-row-more { color: #6f746f; font-size: 1.1em; text-align: right; }
 .directory-loading { display: block; padding: 12%; color: #6e7276; font-size: clamp(6px, .6vw, 9px); font-weight: 800; text-align: center; letter-spacing: .08em; }
 .coros-directory-footer { display: flex; align-items: center; justify-content: space-between; padding: 0 2.5%; border-top: 1px solid #303234; background: #191a1c; color: #73777a; font-size: clamp(6px, .58vw, 9px); font-weight: 800; letter-spacing: .08em; }
 .coros-directory-footer button { height: 64%; padding: 0 2.5%; border-radius: 3px; background: #2c2e30; color: #d7d9db; font-size: inherit; font-weight: 800; }

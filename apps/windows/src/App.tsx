@@ -1138,6 +1138,7 @@ export function App() {
     else if (action === "settings") setDialog("settings");
     else {
       const labels: Record<Exclude<CorOsContextAction, "edit-details" | "settings">, string> = {
+        "create-new": "Create New",
         "preset-midi-out": "Preset MIDI Out",
         favorite: "Add to favorites",
         "delete-preset": "Delete preset",
