@@ -50,7 +50,7 @@ export function App() {
   const [runtime, setRuntime] = useState<RuntimeStatus>();
   const [snapshot, setSnapshot] = useState<PresetSnapshot>(demoSnapshot);
   const [selectedBlockId, setSelectedBlockId] = useState("amp");
-  const [skinId, setSkinId] = useState("obsidian");
+  const [skinId, setSkinId] = useState("official-svg");
   const [formFactorId, setFormFactorId] = useState("quad-cortex-large");
   const [notice, setNotice] = useState("Demo state loaded. Connect the device gateway to enable hardware commands.");
   const [dialog, setDialog] = useState<DialogName>(null);
@@ -184,7 +184,7 @@ export function App() {
     </header>
 
     <main className="workspace">
-      <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skinClassName={skin.className} onAction={handleHardwareAction} />
+      <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
     </main>
 
     <div className="status-strip" role="status"><span className="status-symbol">i</span>{notice}<span className="shortcut-hint">1–8 scenes · B bypass · [ ] bank · T tempo · Ctrl+L chat</span></div>

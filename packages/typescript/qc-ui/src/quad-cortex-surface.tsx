@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
-import type { FormFactorManifest, HardwareControl } from "@ndsp-qc/form-factors";
+import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
 
 export type HardwareAction =
   | { kind: "switch"; role: string; phase: "press" | "release" }
@@ -11,7 +11,7 @@ interface QuadCortexSurfaceProps {
   formFactor: FormFactorManifest;
   snapshot: PresetSnapshot;
   selectedBlockId?: string;
-  skinClassName: string;
+  skin: SkinManifest;
   onAction: (action: HardwareAction) => void;
 }
 
@@ -135,13 +135,19 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
 
 function controlByRole(controls: HardwareControl[], role: string) { return controls.find((control) => control.role === role); }
 
-export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinClassName, onAction }: QuadCortexSurfaceProps) {
+export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin, onAction }: QuadCortexSurfaceProps) {
   const scenes = formFactor.controls.filter((control) => control.group === "scene");
   const bankUp = controlByRole(formFactor.controls, "bank:up")!;
   const bankDown = controlByRole(formFactor.controls, "bank:down")!;
   const tempo = controlByRole(formFactor.controls, "tempo")!;
   const accents = ["#c7adff", "#4bd89a", "#f6da58", "#70d7ff", "#c7adff", "#4bd89a", "#f6da58", "#70d7ff"];
-  return <section className={`qc-chassis ${skinClassName}`} aria-label={formFactor.displayName}>
+  const svgCropStyle = skin.svgAsset ? {
+    width: `${skin.svgAsset.sourceWidth / skin.svgAsset.crop.width * 100}%`,
+    left: `${-skin.svgAsset.crop.x / skin.svgAsset.crop.width * 100}%`,
+    top: `${-skin.svgAsset.crop.y / skin.svgAsset.crop.height * 100}%`
+  } as CSSProperties : undefined;
+  return <section className={`qc-chassis ${skin.className}`} aria-label={formFactor.displayName}>
+    {skin.svgAsset && <div className="official-svg-viewport" aria-hidden="true"><img className="official-svg-source" src={skin.svgAsset.url} alt="" style={svgCropStyle} /></div>}
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume onAction={onAction} />
     <div className="device-plate"><svg className="pulse-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 3.5 8H7l-1 7 6.5-8H9z" /></svg><span>QUADCORTEX</span><small>CONTROL SURFACE</small></div>
