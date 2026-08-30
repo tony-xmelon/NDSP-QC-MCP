@@ -405,13 +405,15 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg::after {
   display: block;
   z-index: 2;
-  left: .75%;
-  right: .75%;
-  top: 59.75%;
-  height: 5.2%;
+  /* Match the 17.003-unit bend between y=451.853 and y=468.856 in
+     the cropped official SVG, stopping at its continuous inner side rails. */
+  left: .46%;
+  right: .46%;
+  top: 60.89%;
+  height: 2.365%;
   border: 0;
-  background: radial-gradient(ellipse 95% 145% at 50% -40%,
-    #4f5054 0%, #4b4c50 45%, #45464a 74%, #494a4e 100%);
+  background: radial-gradient(ellipse 98% 155% at 50% -55%,
+    #4b4c50 0%, #4e4f53 34%, #48494d 67%, #424347 100%);
   box-shadow: none;
   -webkit-mask-image: none;
   mask-image: none;
