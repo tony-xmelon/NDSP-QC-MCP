@@ -70,6 +70,22 @@ class GatewayService:
                     params.get("expectedPresetName", ""),
                     params.get("expectedPosition"),
                 )
+            elif method == "device.blockDetails":
+                result = self.device.block_details(
+                    params.get("row"),
+                    params.get("column"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.setParameter":
+                result = self.device.set_parameter(
+                    params.get("row"),
+                    params.get("column"),
+                    params.get("parameterIndex"),
+                    params.get("value"),
+                    params.get("expectedValue"),
+                    params.get("expectedScene"),
+                    params.get("expectedPresetName", ""),
+                )
             elif method == "device.showTuner":
                 result = self.device.show_tuner(params.get("shown", True))
             elif method == "device.showGigView":

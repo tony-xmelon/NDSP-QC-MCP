@@ -560,6 +560,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .context-line { max-width: 960px; margin: 0 auto 6px; display: flex; align-items: center; gap: 10px; color: #7f8690; font: 9px "DM Mono", monospace; }
 .context-line strong { color: #bdc2ca; font-weight: 500; }
 .context-pill { padding: 2px 5px; border: 1px solid #635c36; border-radius: 3px; color: #e0c568; }
+.dirty-state { color: #ff9b78; }
 .composer { max-width: 960px; min-height: 52px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; padding: 8px; border: 1px solid #383d46; border-radius: 15px; background: #20242a; box-shadow: 0 10px 30px #0007; }
 .composer textarea { flex: 1; min-height: 34px; max-height: 100px; resize: none; padding: 8px 2px; border: 0; outline: 0; color: #e8eaed; background: transparent; font-size: 12px; }
 .composer textarea::placeholder { color: #737983; }
@@ -598,6 +599,16 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .preset-browser > button.is-current { background: #234254; color: #8ddcff; }
 .preset-browser > button strong { color: #69c7eb; font: 10px "DM Mono", monospace; }
 .preset-browser > button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.parameter-editor { display: grid; gap: 8px; max-height: min(58vh, 520px); overflow-y: auto; padding-right: 5px; }
+.parameter-row { display: grid; gap: 8px; padding: 11px 12px; border: 1px solid #353a43; border-radius: 8px; background: #14171b; }
+.parameter-heading, .parameter-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.parameter-heading strong { color: #dce0e6; font-size: 11px; }
+.parameter-heading span { color: #75d0f2; font: 10px "DM Mono", monospace; }
+.parameter-row input[type="range"] { width: 100%; accent-color: #5bc9ef; }
+.parameter-row select { width: 100%; padding: 7px; border: 1px solid #3c424b; border-radius: 5px; background: #20242a; color: #e1e4e8; }
+.parameter-actions small { color: #717984; font: 8px "DM Mono", monospace; }
+.parameter-actions button { padding: 5px 10px; border: 1px solid #4e9ab6; border-radius: 5px; background: #24576a; color: #dff6ff; font-size: 9px; }
+.parameter-actions button:disabled { opacity: .35; }
 
 @keyframes pulse { 50% { box-shadow: 0 0 20px #ff695b99; } }
 

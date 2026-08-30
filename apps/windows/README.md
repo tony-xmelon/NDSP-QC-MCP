@@ -7,7 +7,7 @@ Allowed dependencies: TypeScript client/UI/form-factor packages and platform ada
 ## Current slice
 
 - scalable large-QC chassis, screen grid, A–H encoders/footswitches, bank and tempo controls;
-- live scene selection, guarded block bypass, preset/setlist browsing, bank navigation, and keyboard shortcuts;
+- live scene selection, guarded block bypass and parameter editing, preset/setlist browsing, bank navigation, and keyboard shortcuts;
 - File/Edit/View/Device/Help menus and Settings/About/connection dialogs;
 - connection state and safe reconnect/reset failure behavior;
 - docked chat composer and microphone permission/capture lifecycle;
@@ -15,7 +15,7 @@ Allowed dependencies: TypeScript client/UI/form-factor packages and platform ada
 - deterministic demo state for browser-only UI development and automatic live hydration in Tauri.
 
 The Tauri app launches `services/device-gateway`, which owns the QC session.
-Persistent saves, parameter editing, and global settings remain locked. Chat
+Persistent saves and global settings remain locked. Chat
 messages remain local until an assistant transport is configured.
 
 Hardware proportions and CorOS screen conventions are documented in [`docs/VISUAL_REFERENCES.md`](../../docs/VISUAL_REFERENCES.md).

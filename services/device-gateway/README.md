@@ -12,5 +12,7 @@ the repository virtual environment (or from `QC_GATEWAY_EXECUTABLE` when set),
 keeps one persistent session, and exposes snapshot, scene, block-bypass, preset
 directory/recall, bank navigation, tuner, and Gig View methods. State-changing
 commands check the expected preset/scene/slot and use correlated replies or
-readback. Dirty presets block recall until the user explicitly reloads the stored
-slot. Persistent hardware writes remain deliberately unavailable.
+readback. Numeric and option block parameters are catalog-driven and require
+expected-value plus dirty-state verification. Dirty presets block recall until
+the user explicitly reloads the stored slot. Persistent hardware writes remain
+deliberately unavailable.

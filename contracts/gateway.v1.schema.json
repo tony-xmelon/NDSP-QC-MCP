@@ -22,6 +22,8 @@
             "device.navigateBank",
             "device.recallPreset",
             "device.reloadPreset",
+            "device.blockDetails",
+            "device.setParameter",
             "device.showTuner",
             "device.showGigView"
           ]

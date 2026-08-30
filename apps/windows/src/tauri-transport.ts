@@ -1,4 +1,4 @@
-import type { ConnectionState, DeviceActionResult, GatewayTransport, PresetList, RuntimeStatus } from "@ndsp-qc/client";
+import type { BlockDetails, ConnectionState, DeviceActionResult, GatewayTransport, ParameterActionResult, PresetList, RuntimeStatus } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -51,6 +51,12 @@ export const tauriTransport: GatewayTransport = {
   },
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("reload_preset", { expectedPresetName, expectedPosition });
+  },
+  blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails> {
+    return callTauri<BlockDetails>("block_details", { row, column, expectedPresetName });
+  },
+  setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult> {
+    return callTauri<ParameterActionResult>("set_parameter", { row, column, parameterIndex, value, expectedValue, expectedScene, expectedPresetName });
   },
   showTuner(shown = true): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("show_tuner", { shown });

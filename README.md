@@ -52,9 +52,10 @@ menus, chat composer, and microphone capture lifecycle. Its persistent Python
 device gateway owns the QC HID session and hydrates the UI from a live preset
 snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
 Gig View controls are enabled, along with live setlist browsing, guarded preset
-recall, bank navigation, and explicit dirty-state recovery. State-changing
-commands use expected-state guards and readback. Persistent preset and
-global-setting writes remain locked.
+recall, bank navigation, metadata-driven block parameter editing, and explicit
+dirty-state recovery. State-changing commands use expected-state guards,
+value readback, and dirty-state verification. Persistent preset and global-setting
+writes remain locked.
 
 The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 

@@ -26,6 +26,21 @@ def _block_kind(category: str) -> str:
     return "utility"
 
 
+def _effective_parameter_value(state: Any, scene: int) -> Any:
+    if not state.values:
+        return None
+    return state.values[scene] if state.scene_mode and scene < len(state.values) else state.values[0]
+
+
+def _wait_for_dirty(qc: Any, expected: bool, timeout: float = 3.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if bool(qc.preset_dirty()) is expected:
+            return True
+        time.sleep(0.2)
+    return bool(qc.preset_dirty()) is expected
+
+
 class PyQuadCortexDevice:
     def __init__(self) -> None:
         self._qc: Any | None = None
@@ -266,11 +281,146 @@ class PyQuadCortexDevice:
             state = pyquadcortex.bypass_state(current, row, column)
             actual = state.scenes[expected_scene] if state.scene_mode else state.scenes[0]
             if actual == desired:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Bypass readback matched, but the device did not mark the preset dirty.")
                 return {
                     "detail": f"Block {'bypassed' if desired else 'enabled'} and verified",
                     "snapshot": self.snapshot(),
                 }
         raise RuntimeError("The bypass command was sent, but readback did not confirm the requested state.")
+
+    def block_details(
+        self, row: int, column: int, expected_preset_name: str = ""
+    ) -> dict[str, Any]:
+        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        scene = int(qc.active_scene())
+        block = next(
+            (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
+            None,
+        )
+        if block is None:
+            raise RuntimeError(f"There is no block at row {row + 1}, column {column + 1}.")
+        model = qc.catalog.get(block.model_id)
+        if model is None:
+            raise RuntimeError(f"Model metadata is unavailable for block {block.model_id}.")
+
+        parameters = []
+        for spec in model.parameters:
+            try:
+                state = pyquadcortex.param_state(preset, row, column, spec.index)
+                value = _effective_parameter_value(state, scene)
+            except (IndexError, AttributeError):
+                continue
+            options = pyquadcortex.param_options(preset, row, column, spec.index)
+            writable = isinstance(value, (int, float)) and not isinstance(value, bool)
+            display_value: str
+            if options and writable:
+                try:
+                    display_value = str(pyquadcortex.option_at(options, float(value)))
+                except (ValueError, IndexError):
+                    display_value = f"{float(value):.3f}"
+            elif writable:
+                try:
+                    display_value = f"{spec.to_real(float(value)):.3f}".rstrip("0").rstrip(".")
+                except ValueError:
+                    display_value = f"{float(value):.3f}".rstrip("0").rstrip(".")
+            else:
+                display_value = str(value or "")
+            parameters.append(
+                {
+                    "index": spec.index,
+                    "name": spec.name or f"Parameter {spec.index}",
+                    "normalizedValue": float(value) if writable else None,
+                    "displayValue": display_value,
+                    "units": spec.units,
+                    "type": spec.type,
+                    "minimum": spec.minimum,
+                    "maximum": spec.maximum,
+                    "steps": spec.steps,
+                    "sceneMode": bool(state.scene_mode),
+                    "options": list(options),
+                    "writable": writable,
+                }
+            )
+        return {
+            "row": row,
+            "column": column,
+            "modelId": block.model_id,
+            "name": model.name,
+            "category": model.category,
+            "scene": scene,
+            "parameters": parameters,
+        }
+
+    def set_parameter(
+        self,
+        row: int,
+        column: int,
+        parameter_index: int,
+        value: float,
+        expected_value: float,
+        expected_scene: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.0 <= value <= 1.0:
+            raise ValueError("Parameter value must be a normalized number from 0 through 1.")
+        if isinstance(expected_value, bool) or not isinstance(expected_value, (int, float)):
+            raise ValueError("Expected parameter value must be numeric.")
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("Parameter index must be a non-negative integer.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        actual_scene = int(qc.active_scene())
+        if actual_scene != expected_scene:
+            raise RuntimeError(
+                f"Scene changed on the Quad Cortex: expected {chr(65 + expected_scene)}, "
+                f"but {chr(65 + actual_scene)} is active. Refresh and retry."
+            )
+        block = next(
+            (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
+            None,
+        )
+        if block is None:
+            raise RuntimeError(f"There is no block at row {row + 1}, column {column + 1}.")
+        model = qc.catalog.get(block.model_id)
+        if model is None or not any(spec.index == parameter_index for spec in model.parameters):
+            raise RuntimeError("The selected block no longer exposes that parameter.")
+        state = pyquadcortex.param_state(preset, row, column, parameter_index)
+        current = _effective_parameter_value(state, actual_scene)
+        if not isinstance(current, (int, float)) or isinstance(current, bool):
+            raise RuntimeError("This parameter is not numeric and cannot be changed by this editor.")
+        options = pyquadcortex.param_options(preset, row, column, parameter_index)
+        if not pyquadcortex.params_equal(float(current), float(expected_value), len(options) or None):
+            raise RuntimeError("The parameter changed on the Quad Cortex. Refresh the block and retry.")
+
+        qc.set_param(row, column, param_index=parameter_index, value=float(value))
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current_preset = qc.read_current_preset()
+            current_state = pyquadcortex.param_state(current_preset, row, column, parameter_index)
+            actual = _effective_parameter_value(current_state, actual_scene)
+            if isinstance(actual, (int, float)) and pyquadcortex.params_equal(
+                float(actual), float(value), len(options) or None
+            ):
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Parameter readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": "Parameter change applied and verified",
+                    "block": self.block_details(row, column, expected_preset_name),
+                    "snapshot": self.snapshot(),
+                }
+        raise RuntimeError("The parameter command was sent, but readback did not confirm the requested value.")
 
     def show_tuner(self, shown: bool = True) -> dict[str, Any]:
         if not isinstance(shown, bool):

@@ -34,6 +34,10 @@ class FakeDevice:
         return {"detail": f"recall {setlist_key}:{position}", "snapshot": self.snapshot()}
     def reload_preset(self, expected_preset_name, expected_position):
         return {"detail": f"reload {expected_position}", "snapshot": self.snapshot()}
+    def block_details(self, row, column, expected_preset_name=""):
+        return {"row": row, "column": column, "name": "Fake block", "parameters": []}
+    def set_parameter(self, row, column, parameter_index, value, expected_value, expected_scene, expected_preset_name):
+        return {"detail": f"parameter {parameter_index}:{value}", "block": self.block_details(row, column), "snapshot": self.snapshot()}
     def show_tuner(self, shown=True): return {"detail": f"tuner {shown}"}
     def show_gig_view(self, shown=True): return {"detail": f"gig {shown}"}
 
@@ -92,6 +96,14 @@ class ServiceTests(unittest.TestCase):
         reload = self.request("device.reloadPreset", {
             "expectedPresetName": "Test", "expectedPosition": 9
         })
+        details = self.request("device.blockDetails", {
+            "row": 0, "column": 1, "expectedPresetName": "Test"
+        })
+        parameter = self.request("device.setParameter", {
+            "row": 0, "column": 1, "parameterIndex": 2,
+            "value": 0.75, "expectedValue": 0.5, "expectedScene": 0,
+            "expectedPresetName": "Test"
+        })
         self.assertEqual(scene["result"]["detail"], "scene 3")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
@@ -100,6 +112,8 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(bank["result"]["detail"], "bank 1:9")
         self.assertEqual(recall["result"]["detail"], "recall fake:17")
         self.assertEqual(reload["result"]["detail"], "reload 9")
+        self.assertEqual(details["result"]["name"], "Fake block")
+        self.assertEqual(parameter["result"]["detail"], "parameter 2:0.75")
 
 
 class ProcessTests(unittest.TestCase):

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { demoSnapshot, type ConnectionState, type PresetEntry, type PresetList, type PresetSnapshot, type RuntimeStatus } from "@ndsp-qc/client";
+import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot, type RuntimeStatus } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { tauriTransport } from "./tauri-transport";
 
-type DialogName = "settings" | "about" | "connection" | "presets" | null;
+type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | null;
 
 const initialConnection: ConnectionState = {
   phase: "disconnected",
@@ -61,6 +61,9 @@ export function App() {
   const [commandPending, setCommandPending] = useState(false);
   const [presetList, setPresetList] = useState<PresetList>();
   const [presetListLoading, setPresetListLoading] = useState(false);
+  const [blockDetails, setBlockDetails] = useState<BlockDetails>();
+  const [parameterDrafts, setParameterDrafts] = useState<Record<number, number>>({});
+  const [blockDetailsLoading, setBlockDetailsLoading] = useState(false);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const mediaStream = useRef<MediaStream | undefined>(undefined);
   const autoConnectStarted = useRef(false);
@@ -155,11 +158,59 @@ export function App() {
     }
   }, [actionFailed, commandPending, connection.demo, snapshot.presetName, snapshot.presetPosition]);
 
+  const openBlockEditor = useCallback(async (block: GridBlock) => {
+    setSelectedBlockId(block.id);
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? `${block.name} selected in demo mode.` : "A device command is already in progress.");
+      return;
+    }
+    setDialog("parameters");
+    setBlockDetails(undefined);
+    setBlockDetailsLoading(true);
+    setNotice(`Reading ${block.name} parameters…`);
+    try {
+      const details = await tauriTransport.blockDetails(block.row, block.column, snapshot.presetName);
+      setBlockDetails(details);
+      setParameterDrafts(Object.fromEntries(details.parameters.filter((parameter) => parameter.normalizedValue !== null).map((parameter) => [parameter.index, parameter.normalizedValue as number])));
+      setNotice(`${details.name} parameters synchronized.`);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setBlockDetailsLoading(false);
+    }
+  }, [actionFailed, commandPending, connection.demo, snapshot.presetName]);
+
+  const applyParameter = async (parameter: BlockParameter) => {
+    if (!blockDetails || parameter.normalizedValue === null || commandPending) return;
+    const value = parameterDrafts[parameter.index] ?? parameter.normalizedValue;
+    if (Math.abs(value - parameter.normalizedValue) < 0.000001) return;
+    setCommandPending(true);
+    setNotice(`Applying ${parameter.name}…`);
+    try {
+      const result = await tauriTransport.setParameter(
+        blockDetails.row,
+        blockDetails.column,
+        parameter.index,
+        value,
+        parameter.normalizedValue,
+        snapshot.activeScene,
+        snapshot.presetName
+      );
+      setBlockDetails(result.block);
+      setParameterDrafts(Object.fromEntries(result.block.parameters.filter((candidate) => candidate.normalizedValue !== null).map((candidate) => [candidate.index, candidate.normalizedValue as number])));
+      if (result.snapshot) setSnapshot(result.snapshot);
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
   const handleHardwareAction = useCallback((action: HardwareAction) => {
     if (action.kind === "select-block") {
-      setSelectedBlockId(action.blockId);
       const block = snapshot.blocks.find((candidate) => candidate.id === action.blockId);
-      setNotice(`${block?.name ?? "Block"} selected. Parameter editing will be enabled by the gateway slice.`);
+      if (block) void openBlockEditor(block);
       return;
     }
     if (action.kind === "rotate") {
@@ -183,7 +234,7 @@ export function App() {
     }
     if (action.phase === "release" && action.role === "tempo") setNotice(connection.demo ? "Demo: Tap tempo registered." : "Tap tempo control is not enabled yet; use the QC tempo screen.");
     else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
-  }, [chooseScene, connection.demo, navigateBank, snapshot.blocks]);
+  }, [chooseScene, connection.demo, navigateBank, openBlockEditor, snapshot.blocks]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -367,7 +418,7 @@ export function App() {
 
     {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
       {messages.length > 0 && <div className="conversation-preview">{messages.slice(-2).map((item, index) => <div className="user-message" key={`${item}-${index}`}>{item}</div>)}</div>}
-      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span><span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
+      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED DEVICE CHANGES</span>}<span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
       <div className="composer">
         <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
@@ -385,6 +436,13 @@ export function App() {
         {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, block bypass, tuner, and Gig View enabled with validation</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Global push-to-talk<small>Disabled until explicitly configured</small></span><input type="checkbox" disabled /></label></>}
         {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
+        {dialog === "parameters" && <><div className="dialog-kicker">BLOCK PARAMETERS · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
+          const draft = parameterDrafts[parameter.index] ?? parameter.normalizedValue ?? 0;
+          const changed = parameter.normalizedValue !== null && Math.abs(draft - parameter.normalizedValue) >= 0.000001;
+          const optionIndex = parameter.options.length > 1 ? Math.round(draft * (parameter.options.length - 1)) : 0;
+          const numericDisplay = parameter.minimum === 0 && parameter.maximum === 1 ? draft : parameter.minimum + draft * (parameter.maximum - parameter.minimum);
+          return <div className="parameter-row" key={parameter.index}><div className="parameter-heading"><strong>{parameter.name}</strong><span>{parameter.options.length ? parameter.options[optionIndex] : `${numericDisplay.toFixed(2).replace(/\.00$/, "")} ${parameter.units}`}</span></div>{parameter.options.length > 1 ? <select value={optionIndex} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) / (parameter.options.length - 1) }))}>{parameter.options.map((option, index) => <option value={index} key={`${option}-${index}`}>{option}</option>)}</select> : <input type="range" min="0" max="1" step={parameter.steps && parameter.steps > 1 ? 1 / (parameter.steps - 1) : .001} value={draft} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) }))} />}<div className="parameter-actions"><small>{parameter.sceneMode ? "Scene value" : "Global within preset"}</small><button disabled={!changed || !parameter.writable || commandPending} onClick={() => void applyParameter(parameter)}>Apply</button></div></div>;
+        })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
         {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>
     </div>}

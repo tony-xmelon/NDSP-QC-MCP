@@ -276,6 +276,50 @@ fn reload_preset(
 }
 
 #[tauri::command]
+fn block_details(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    column: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.blockDetails",
+        json!({
+            "row": row,
+            "column": column,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn set_parameter(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    column: u8,
+    parameter_index: u16,
+    value: f64,
+    expected_value: f64,
+    expected_scene: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setParameter",
+        json!({
+            "row": row,
+            "column": column,
+            "parameterIndex": parameter_index,
+            "value": value,
+            "expectedValue": expected_value,
+            "expectedScene": expected_scene,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
 fn show_tuner(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.showTuner", json!({ "shown": shown }))
 }
@@ -300,6 +344,8 @@ pub fn run() {
             navigate_bank,
             recall_preset,
             reload_preset,
+            block_details,
+            set_parameter,
             show_tuner,
             show_gig_view
         ])

@@ -103,6 +103,35 @@ export interface PresetList {
   presets: PresetEntry[];
 }
 
+export interface BlockParameter {
+  index: number;
+  name: string;
+  normalizedValue: number | null;
+  displayValue: string;
+  units: string;
+  type: string;
+  minimum: number;
+  maximum: number;
+  steps: number | null;
+  sceneMode: boolean;
+  options: string[];
+  writable: boolean;
+}
+
+export interface BlockDetails {
+  row: number;
+  column: number;
+  modelId: number;
+  name: string;
+  category: string;
+  scene: number;
+  parameters: BlockParameter[];
+}
+
+export interface ParameterActionResult extends DeviceActionResult {
+  block: BlockDetails;
+}
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
@@ -114,6 +143,8 @@ export interface GatewayTransport {
   navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
+  blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
+  setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
   showTuner(shown?: boolean): Promise<DeviceActionResult>;
   showGigView(shown?: boolean): Promise<DeviceActionResult>;
 }
