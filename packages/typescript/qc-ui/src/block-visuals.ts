@@ -9,7 +9,7 @@ export interface OfficialBlockVisual {
   key: OfficialBlockVisualKey;
   tile: [number, number];
   color: string;
-  glyph?: "delay" | "compressor";
+  referenceAsset?: "delay" | "compressor";
 }
 
 // Coordinates are matched by glyph against Neural DSP's current QC Block
@@ -21,9 +21,9 @@ export const OFFICIAL_BLOCK_VISUALS: Record<OfficialBlockVisualKey, OfficialBloc
   capture: { key: "capture", tile: [640, 0], color: "#959595" },
   cab: { key: "cab", tile: [80, 82], color: "#6954ff" },
   overdrive: { key: "overdrive", tile: [400, 0], color: "#ffd236" },
-  delay: { key: "delay", tile: [160, 0], color: "#00ffdd", glyph: "delay" },
+  delay: { key: "delay", tile: [160, 0], color: "#00ffdd", referenceAsset: "delay" },
   reverb: { key: "reverb", tile: [240, 82], color: "#00ffdd" },
-  compressor: { key: "compressor", tile: [400, 82], color: "#45f862", glyph: "compressor" },
+  compressor: { key: "compressor", tile: [400, 82], color: "#45f862", referenceAsset: "compressor" },
   pitch: { key: "pitch", tile: [0, 82], color: "#ffd236" },
   modulation: { key: "modulation", tile: [160, 0], color: "#3500f1" },
   morph: { key: "morph", tile: [640, 82], color: "#959595" },
@@ -35,7 +35,7 @@ export const OFFICIAL_BLOCK_VISUALS: Record<OfficialBlockVisualKey, OfficialBloc
   "fx-loop": { key: "fx-loop", tile: [0, 0], color: "#959595" },
   looper: { key: "looper", tile: [320, 0], color: "#ff2727" },
   utility: { key: "utility", tile: [400, 82], color: "#959595" },
-  gate: { key: "gate", tile: [400, 82], color: "#959595" }
+  gate: { key: "gate", tile: [400, 82], color: "#f4f4f4" }
 };
 
 export function officialBlockVisual(block: GridBlock): OfficialBlockVisual {

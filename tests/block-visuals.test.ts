@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import type { GridBlock } from "../packages/typescript/qc-client/src/index.ts";
 import { officialBlockVisual, type OfficialBlockVisualKey } from "../packages/typescript/qc-ui/src/block-visuals.ts";
+import { REFERENCE_BLOCK_ICONS } from "../packages/typescript/qc-ui/src/reference-block-icons.ts";
 
 const block = (name: string, category: string, kind = "utility"): GridBlock => ({ id: name, name, category, kind, row: 0, column: 0 });
+
+test("embedded reference icons remain byte-identical to the verified Neural DSP crops", () => {
+  const expected = {
+    delay: "dee665d53bfd3f7ed33c5f0185424390d5b9639087881c5dd8624c7018c5283e",
+    compressor: "ca7d1c3842f5cc3784e34c23c4567c788fa597ad9db6bd05647cf54d3dec2faa"
+  } as const;
+  for (const [name, source] of Object.entries(REFERENCE_BLOCK_ICONS)) {
+    assert.match(source, /^data:image\/webp;base64,/);
+    const bytes = Buffer.from(source.slice(source.indexOf(",") + 1), "base64");
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expected[name as keyof typeof expected]);
+  }
+});
 
 test("official category mapping covers every Quad Cortex virtual-device family", () => {
   const cases: Array<[string, string, OfficialBlockVisualKey]> = [
@@ -24,7 +38,7 @@ test("Adaptive Gate uses the white Utility visual reported on the device", () =>
   const visual = officialBlockVisual(block("Adaptive Gate", "Utility"));
   assert.equal(visual.key, "gate");
   assert.deepEqual(visual.tile, [400, 82]);
-  assert.equal(visual.color, "#959595");
+  assert.equal(visual.color, "#f4f4f4");
 });
 
 test("every family resolves to its named official glyph and device color", () => {
@@ -53,6 +67,6 @@ test("every family resolves to its named official glyph and device color", () =>
     const visual = officialBlockVisual(block(name, category));
     assert.deepEqual(visual.tile, tile, `${name} tile`);
     assert.equal(visual.color, color, `${name} color`);
-    assert.equal(visual.glyph, glyph, `${name} glyph`);
+    assert.equal(visual.referenceAsset, glyph, `${name} reference asset`);
   }
 });
