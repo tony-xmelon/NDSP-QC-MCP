@@ -143,6 +143,106 @@ class PyQuadCortexDevice:
             "presets": self._preset_cache[setlist_key],
         }
 
+    def list_preset_slots(self) -> dict[str, Any]:
+        import pyquadcortex
+
+        qc = self._require_session()
+        setlist_key, current_position, is_factory = self._current_position()
+        if is_factory:
+            raise RuntimeError("Factory Library is read-only. Recall a user setlist before saving.")
+        entries = qc.list_presets(setlist_key, timeout=25.0, include_empty=True)
+        by_position = {
+            int(entry.index): entry
+            for entry in entries
+            if entry.HasField("index")
+        }
+        slots = []
+        for position in range(256):
+            entry = by_position.get(position)
+            name = entry.name if entry is not None and entry.HasField("name") else ""
+            slots.append(
+                {
+                    "position": position,
+                    "location": pyquadcortex.position_to_slot(position),
+                    "name": name,
+                    "occupied": bool(name),
+                    "instrument": int(entry.instrument) if entry is not None and entry.HasField("instrument") else 0,
+                }
+            )
+        return {
+            "setlistKey": setlist_key,
+            "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
+            "currentPosition": current_position,
+            "slots": slots,
+        }
+
+    def save_preset_as(
+        self,
+        setlist_key: str,
+        position: int,
+        name: str,
+        expected_preset_name: str,
+        expected_position: int,
+        confirm_overwrite: bool,
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Preset name is required.")
+        name = name.strip()
+        if len(name) > 80:
+            raise ValueError("Preset name must be 80 characters or fewer.")
+        if not isinstance(confirm_overwrite, bool):
+            raise ValueError("Overwrite confirmation must be true or false.")
+        qc = self._require_session()
+        current_key, current_position, is_factory = self._current_position()
+        self._assert_expected_preset(expected_preset_name)
+        if current_key != setlist_key or current_position != expected_position:
+            raise RuntimeError("The active preset or setlist changed. Refresh and retry.")
+        if is_factory:
+            raise RuntimeError("Factory Library is read-only. Recall a user setlist before saving.")
+        if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
+            raise ValueError("Preset position must be an integer from 0 through 255.")
+
+        slots = self.list_preset_slots()["slots"]
+        destination = slots[position]
+        if destination["occupied"] and not confirm_overwrite:
+            raise RuntimeError(
+                f"Slot {destination['location']} contains {destination['name']!r}; explicit overwrite confirmation is required."
+            )
+        current_entry = next(
+            (entry for entry in self.list_presets()["presets"] if entry["position"] == current_position),
+            None,
+        )
+        instrument = current_entry["instrument"] if current_entry else 0
+        active_scene = int(qc.active_scene())
+        stored_name = qc.save_current_preset(
+            setlist_key,
+            position,
+            name,
+            instrument=instrument,
+            default_scene=active_scene,
+            confirm=True,
+            confirm_timeout=25.0,
+        )
+        if not stored_name:
+            raise RuntimeError("The device did not confirm the saved preset name.")
+        recalled = qc.read_preset(setlist_key, position, timeout=15.0)
+        if recalled.name != stored_name:
+            raise RuntimeError("The saved slot did not read back with the confirmed name.")
+        self._setlist_key = setlist_key
+        self._preset_position = position
+        self._preset_cache.pop(setlist_key, None)
+        _wait_for_dirty(qc, False, timeout=3.0)
+        snapshot = self.snapshot()
+        if snapshot["presetName"] != stored_name or snapshot["dirty"]:
+            raise RuntimeError("The preset saved, but final live-state verification failed.")
+        return {
+            "detail": f"Saved and verified {pyquadcortex.position_to_slot(position)} · {stored_name}",
+            "savedName": stored_name,
+            "snapshot": snapshot,
+        }
+
     def _recall_position(
         self,
         setlist_key: str,

@@ -132,6 +132,48 @@ export interface ParameterActionResult extends DeviceActionResult {
   block: BlockDetails;
 }
 
+export interface WorkspaceDocument {
+  version: 1;
+  savedAt: string;
+  source: {
+    deviceName: string;
+    setlistKey: string;
+    setlistName: string;
+    presetPosition: number;
+    presetLocation: string;
+    presetName: string;
+  };
+  snapshot: PresetSnapshot;
+  selectedBlock?: BlockDetails;
+  ui: {
+    selectedBlockId: string;
+    formFactorId: string;
+    skinId: string;
+  };
+}
+
+export interface WorkspaceFileResult {
+  cancelled: boolean;
+  path?: string;
+  name?: string;
+  document?: WorkspaceDocument;
+}
+
+export interface PresetSlot extends PresetEntry {
+  occupied: boolean;
+}
+
+export interface PresetSlotList {
+  setlistKey: string;
+  setlistName: string;
+  currentPosition: number;
+  slots: PresetSlot[];
+}
+
+export interface SavePresetResult extends DeviceActionResult {
+  savedName: string;
+}
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
@@ -145,6 +187,8 @@ export interface GatewayTransport {
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
+  listPresetSlots(): Promise<PresetSlotList>;
+  savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult>;
   showTuner(shown?: boolean): Promise<DeviceActionResult>;
   showGigView(shown?: boolean): Promise<DeviceActionResult>;
 }

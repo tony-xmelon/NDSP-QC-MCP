@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
+use std::fs;
 use std::io::{BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
 use tauri::State;
@@ -320,6 +321,35 @@ fn set_parameter(
 }
 
 #[tauri::command]
+fn list_preset_slots(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
+    with_gateway(state, "device.listPresetSlots")
+}
+
+#[tauri::command]
+fn save_preset_as(
+    state: State<'_, Mutex<Gateway>>,
+    setlist_key: String,
+    position: u16,
+    name: String,
+    expected_preset_name: String,
+    expected_position: u16,
+    confirm_overwrite: bool,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.savePresetAs",
+        json!({
+            "setlistKey": setlist_key,
+            "position": position,
+            "name": name,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position,
+            "confirmOverwrite": confirm_overwrite
+        }),
+    )
+}
+
+#[tauri::command]
 fn show_tuner(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.showTuner", json!({ "shown": shown }))
 }
@@ -327,6 +357,149 @@ fn show_tuner(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, St
 #[tauri::command]
 fn show_gig_view(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.showGigView", json!({ "shown": shown }))
+}
+
+const MAX_WORKSPACE_BYTES: usize = 16 * 1024 * 1024;
+
+fn validate_workspace(document: &Value) -> Result<(), String> {
+    if !document.is_object() || document.get("version").and_then(Value::as_u64) != Some(1) {
+        return Err("Unsupported or invalid QC workspace document".into());
+    }
+    if !document.get("snapshot").is_some_and(Value::is_object) {
+        return Err("Workspace document has no normalized snapshot".into());
+    }
+    Ok(())
+}
+
+fn validate_workspace_path(path: &Path) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("Workspace path must be absolute".into());
+    }
+    if path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        != Some("qcw".into())
+    {
+        return Err("Workspace files must use the .qcw extension".into());
+    }
+    Ok(())
+}
+
+fn write_workspace(path: &Path, document: &Value) -> Result<Value, String> {
+    validate_workspace(document)?;
+    validate_workspace_path(path)?;
+    let bytes = serde_json::to_vec_pretty(document).map_err(|error| error.to_string())?;
+    if bytes.len() > MAX_WORKSPACE_BYTES {
+        return Err("Workspace exceeds the 16 MiB size limit".into());
+    }
+    fs::write(path, bytes).map_err(|error| format!("Could not save workspace: {error}"))?;
+    Ok(json!({
+        "cancelled": false,
+        "path": path.to_string_lossy(),
+        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("workspace.qcw")
+    }))
+}
+
+fn safe_workspace_name(value: &str) -> String {
+    let filtered: String = value
+        .chars()
+        .map(|character| {
+            if r#"<>:"/\|?*"#.contains(character) {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect();
+    let trimmed = filtered.trim().trim_end_matches('.');
+    if trimmed.is_empty() {
+        "QC Workspace".into()
+    } else {
+        trimmed.chars().take(80).collect()
+    }
+}
+
+#[tauri::command]
+fn save_workspace_as(document: Value, suggested_name: String) -> Result<Value, String> {
+    validate_workspace(&document)?;
+    let file_name = format!("{}.qcw", safe_workspace_name(&suggested_name));
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("QC Workspace", &["qcw"])
+        .set_file_name(file_name)
+        .save_file()
+    else {
+        return Ok(json!({ "cancelled": true }));
+    };
+    write_workspace(&path, &document)
+}
+
+#[tauri::command]
+fn save_workspace(path: String, document: Value) -> Result<Value, String> {
+    write_workspace(Path::new(&path), &document)
+}
+
+#[tauri::command]
+fn open_workspace() -> Result<Value, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("QC Workspace", &["qcw"])
+        .pick_file()
+    else {
+        return Ok(json!({ "cancelled": true }));
+    };
+    validate_workspace_path(&path)?;
+    let metadata =
+        fs::metadata(&path).map_err(|error| format!("Could not inspect workspace: {error}"))?;
+    if metadata.len() as usize > MAX_WORKSPACE_BYTES {
+        return Err("Workspace exceeds the 16 MiB size limit".into());
+    }
+    let bytes = fs::read(&path).map_err(|error| format!("Could not open workspace: {error}"))?;
+    let document: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("Invalid workspace JSON: {error}"))?;
+    validate_workspace(&document)?;
+    Ok(json!({
+        "cancelled": false,
+        "path": path.to_string_lossy(),
+        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("workspace.qcw"),
+        "document": document
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn workspace_validation_requires_version_and_snapshot() {
+        assert!(validate_workspace(&json!({ "version": 1, "snapshot": {} })).is_ok());
+        assert!(validate_workspace(&json!({ "version": 2, "snapshot": {} })).is_err());
+        assert!(validate_workspace(&json!({ "version": 1 })).is_err());
+    }
+
+    #[test]
+    fn workspace_file_name_removes_windows_path_characters() {
+        assert_eq!(safe_workspace_name("6B ICFTF: #22?"), "6B ICFTF_ #22_");
+        assert_eq!(safe_workspace_name("..."), "QC Workspace");
+    }
+
+    #[test]
+    fn workspace_round_trips_on_disk() {
+        let path = std::env::temp_dir().join(format!(
+            "qc-workspace-test-{}-{}.qcw",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        let document = json!({ "version": 1, "snapshot": { "presetName": "Test" } });
+        let result = write_workspace(&path, &document).expect("workspace write");
+        assert_eq!(result["cancelled"], false);
+        let loaded: Value = serde_json::from_slice(&fs::read(&path).expect("workspace read"))
+            .expect("workspace JSON");
+        assert_eq!(loaded, document);
+        fs::remove_file(&path).expect("workspace cleanup");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -346,8 +519,13 @@ pub fn run() {
             reload_preset,
             block_details,
             set_parameter,
+            list_preset_slots,
+            save_preset_as,
             show_tuner,
-            show_gig_view
+            show_gig_view,
+            save_workspace_as,
+            save_workspace,
+            open_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running QC Voice Control");

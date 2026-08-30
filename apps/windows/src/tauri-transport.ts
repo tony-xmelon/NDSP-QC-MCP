@@ -1,4 +1,4 @@
-import type { BlockDetails, ConnectionState, DeviceActionResult, GatewayTransport, ParameterActionResult, PresetList, RuntimeStatus } from "@ndsp-qc/client";
+import type { BlockDetails, ConnectionState, DeviceActionResult, GatewayTransport, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -58,10 +58,28 @@ export const tauriTransport: GatewayTransport = {
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult> {
     return callTauri<ParameterActionResult>("set_parameter", { row, column, parameterIndex, value, expectedValue, expectedScene, expectedPresetName });
   },
+  listPresetSlots(): Promise<PresetSlotList> {
+    return callTauri<PresetSlotList>("list_preset_slots");
+  },
+  savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult> {
+    return callTauri<SavePresetResult>("save_preset_as", { setlistKey, position, name, expectedPresetName, expectedPosition, confirmOverwrite });
+  },
   showTuner(shown = true): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("show_tuner", { shown });
   },
   showGigView(shown = true): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("show_gig_view", { shown });
+  }
+};
+
+export const workspaceFiles = {
+  saveAs(document: WorkspaceDocument, suggestedName: string): Promise<WorkspaceFileResult> {
+    return callTauri<WorkspaceFileResult>("save_workspace_as", { document, suggestedName });
+  },
+  save(path: string, document: WorkspaceDocument): Promise<WorkspaceFileResult> {
+    return callTauri<WorkspaceFileResult>("save_workspace", { path, document });
+  },
+  open(): Promise<WorkspaceFileResult> {
+    return callTauri<WorkspaceFileResult>("open_workspace");
   }
 };

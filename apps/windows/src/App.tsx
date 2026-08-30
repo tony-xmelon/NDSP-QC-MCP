@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot, type RuntimeStatus } from "@ndsp-qc/client";
+import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type GridBlock, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
-import { tauriTransport } from "./tauri-transport";
+import { tauriTransport, workspaceFiles } from "./tauri-transport";
 
-type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | null;
+type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | "workspace" | "save-device" | null;
 
 const initialConnection: ConnectionState = {
   phase: "disconnected",
@@ -64,6 +64,13 @@ export function App() {
   const [blockDetails, setBlockDetails] = useState<BlockDetails>();
   const [parameterDrafts, setParameterDrafts] = useState<Record<number, number>>({});
   const [blockDetailsLoading, setBlockDetailsLoading] = useState(false);
+  const [workspacePath, setWorkspacePath] = useState<string>();
+  const [workspaceName, setWorkspaceName] = useState<string>();
+  const [loadedWorkspace, setLoadedWorkspace] = useState<WorkspaceDocument>();
+  const [presetSlots, setPresetSlots] = useState<PresetSlotList>();
+  const [savePresetName, setSavePresetName] = useState("");
+  const [savePresetPosition, setSavePresetPosition] = useState<number>();
+  const [presetSlotsLoading, setPresetSlotsLoading] = useState(false);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const mediaStream = useRef<MediaStream | undefined>(undefined);
   const autoConnectStarted = useRef(false);
@@ -354,8 +361,126 @@ export function App() {
     }
   };
 
+  const createWorkspaceDocument = (): WorkspaceDocument => ({
+    version: 1,
+    savedAt: new Date().toISOString(),
+    source: {
+      deviceName: snapshot.deviceName,
+      setlistKey: snapshot.setlistKey,
+      setlistName: snapshot.setlistName,
+      presetPosition: snapshot.presetPosition,
+      presetLocation: snapshot.presetLocation,
+      presetName: snapshot.presetName
+    },
+    snapshot,
+    selectedBlock: blockDetails,
+    ui: { selectedBlockId, formFactorId, skinId }
+  });
+
+  const saveWorkspace = async (saveAs = false) => {
+    if (commandPending) return;
+    setCommandPending(true);
+    try {
+      const document = createWorkspaceDocument();
+      const result = !saveAs && workspacePath
+        ? await workspaceFiles.save(workspacePath, document)
+        : await workspaceFiles.saveAs(document, `${snapshot.presetLocation} ${snapshot.presetName}`);
+      if (!result.cancelled && result.path) {
+        setWorkspacePath(result.path);
+        setWorkspaceName(result.name);
+        setLoadedWorkspace(document);
+        setNotice(`Workspace saved: ${result.name}`);
+      }
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const openWorkspace = async () => {
+    if (commandPending) return;
+    setCommandPending(true);
+    try {
+      const result = await workspaceFiles.open();
+      if (!result.cancelled && result.document && result.path) {
+        setWorkspacePath(result.path);
+        setWorkspaceName(result.name);
+        setLoadedWorkspace(result.document);
+        setDialog("workspace");
+        setNotice(`Workspace opened: ${result.name}`);
+      }
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const exitApp = async () => {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close();
+  };
+
+  const openDeviceSave = async () => {
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? "Connect the Quad Cortex before saving a preset." : "A device command is already in progress.");
+      return;
+    }
+    setDialog("save-device");
+    setPresetSlotsLoading(true);
+    setSavePresetName(`${snapshot.presetName} Copy`);
+    try {
+      const slots = await tauriTransport.listPresetSlots();
+      setPresetSlots(slots);
+      const empty = slots.slots.find((slot) => !slot.occupied && slot.position !== snapshot.presetPosition);
+      setSavePresetPosition(empty?.position ?? snapshot.presetPosition);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setPresetSlotsLoading(false);
+    }
+  };
+
+  const savePresetToDevice = async () => {
+    if (!presetSlots || savePresetPosition === undefined || commandPending) return;
+    const destination = presetSlots.slots[savePresetPosition];
+    if (!destination || !savePresetName.trim()) return;
+    const message = destination.occupied
+      ? `Overwrite ${destination.location} · ${destination.name} with the current live Grid as “${savePresetName.trim()}”? This cannot be undone by the app.`
+      : `Save the current live Grid to ${destination.location} as “${savePresetName.trim()}”?`;
+    if (!window.confirm(message)) return;
+    setCommandPending(true);
+    setNotice(`Saving preset to ${destination.location}…`);
+    try {
+      const result = await tauriTransport.savePresetAs(
+        presetSlots.setlistKey,
+        destination.position,
+        savePresetName.trim(),
+        snapshot.presetName,
+        snapshot.presetPosition,
+        destination.occupied
+      );
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      setPresetList(undefined);
+      setNotice(result.detail);
+      setDialog(null);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
   const menuSelect = (item: string) => {
     if (item === "Settings…") setDialog("settings");
+    else if (item === "Open Workspace…") void openWorkspace();
+    else if (item === "Save Workspace") void saveWorkspace();
+    else if (item === "Save Workspace As…") void saveWorkspace(true);
+    else if (item === "Save Preset to Quad Cortex…") void openDeviceSave();
     else if (item === "Open Device Preset…") void openPresetBrowser();
     else if (item === "About") setDialog("about");
     else if (item === "Show/Hide Chat") setChatOpen((open) => !open);
@@ -366,6 +491,7 @@ export function App() {
     else if (item === "Open Tuner") void showDeviceView("tuner");
     else if (item === "Open Gig View") void showDeviceView("gig");
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
+    else if (item === "Exit") void exitApp();
     else setNotice(`${item} is present in the shell and will be wired in its delivery phase.`);
   };
 
@@ -418,7 +544,7 @@ export function App() {
 
     {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
       {messages.length > 0 && <div className="conversation-preview">{messages.slice(-2).map((item, index) => <div className="user-message" key={`${item}-${index}`}>{item}</div>)}</div>}
-      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED DEVICE CHANGES</span>}<span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
+      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED DEVICE CHANGES</span>}{workspaceName && <span>Workspace: {workspaceName}</span>}<span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
       <div className="composer">
         <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
@@ -443,6 +569,8 @@ export function App() {
           const numericDisplay = parameter.minimum === 0 && parameter.maximum === 1 ? draft : parameter.minimum + draft * (parameter.maximum - parameter.minimum);
           return <div className="parameter-row" key={parameter.index}><div className="parameter-heading"><strong>{parameter.name}</strong><span>{parameter.options.length ? parameter.options[optionIndex] : `${numericDisplay.toFixed(2).replace(/\.00$/, "")} ${parameter.units}`}</span></div>{parameter.options.length > 1 ? <select value={optionIndex} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) / (parameter.options.length - 1) }))}>{parameter.options.map((option, index) => <option value={index} key={`${option}-${index}`}>{option}</option>)}</select> : <input type="range" min="0" max="1" step={parameter.steps && parameter.steps > 1 ? 1 / (parameter.steps - 1) : .001} value={draft} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) }))} />}<div className="parameter-actions"><small>{parameter.sceneMode ? "Scene value" : "Global within preset"}</small><button disabled={!changed || !parameter.writable || commandPending} onClick={() => void applyParameter(parameter)}>Apply</button></div></div>;
         })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
+        {dialog === "workspace" && loadedWorkspace && <><div className="dialog-kicker">LOCAL WORKSPACE</div><h2 id="dialog-title">{workspaceName ?? "QC Workspace"}</h2><dl><dt>Saved</dt><dd>{new Date(loadedWorkspace.savedAt).toLocaleString()}</dd><dt>Source</dt><dd>{loadedWorkspace.source.setlistName} · {loadedWorkspace.source.presetLocation}</dd><dt>Preset</dt><dd>{loadedWorkspace.source.presetName}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + loadedWorkspace.snapshot.activeScene)}</dd><dt>Blocks</dt><dd>{loadedWorkspace.snapshot.blocks.length}</dd><dt>Device state</dt><dd>{loadedWorkspace.snapshot.dirty ? "Captured with unsaved changes" : "Clean at capture"}</dd></dl><p>The workspace is a local reference snapshot. Opening it never writes to the connected Quad Cortex.</p><div className="dialog-actions"><button onClick={() => setDialog(null)}>Keep Live Device</button><button className="primary" onClick={() => void saveWorkspace(true)}>Save Copy As…</button></div></>}
+        {dialog === "save-device" && <><div className="dialog-kicker">PERSISTENT DEVICE SAVE</div><h2 id="dialog-title">Save Preset As…</h2>{presetSlotsLoading ? <p>Reading all destination slots from the Quad Cortex…</p> : presetSlots && <div className="device-save-form"><label><span>Setlist</span><strong>{presetSlots.setlistName}</strong></label><label><span>Preset name</span><input value={savePresetName} maxLength={80} onChange={(event) => setSavePresetName(event.target.value)} /></label><label><span>Destination</span><select value={savePresetPosition ?? ""} onChange={(event) => setSavePresetPosition(Number(event.target.value))}>{presetSlots.slots.map((slot) => <option key={slot.position} value={slot.position}>{slot.location} — {slot.occupied ? slot.name : "Empty"}</option>)}</select></label>{savePresetPosition !== undefined && presetSlots.slots[savePresetPosition]?.occupied && <p className="overwrite-warning">This destination is occupied. Saving will permanently overwrite “{presetSlots.slots[savePresetPosition].name}”.</p>}<div className="dialog-actions"><button onClick={() => setDialog(null)}>Cancel</button><button className="primary" disabled={!savePresetName.trim() || commandPending} onClick={() => void savePresetToDevice()}>Review & Save</button></div></div>}<p>Device save is separate from local workspace save and always requires final confirmation.</p></>}
         {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>
     </div>}

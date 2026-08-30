@@ -24,6 +24,8 @@
             "device.reloadPreset",
             "device.blockDetails",
             "device.setParameter",
+            "device.listPresetSlots",
+            "device.savePresetAs",
             "device.showTuner",
             "device.showGigView"
           ]

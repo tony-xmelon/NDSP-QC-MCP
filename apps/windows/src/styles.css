@@ -609,6 +609,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .parameter-actions small { color: #717984; font: 8px "DM Mono", monospace; }
 .parameter-actions button { padding: 5px 10px; border: 1px solid #4e9ab6; border-radius: 5px; background: #24576a; color: #dff6ff; font-size: 9px; }
 .parameter-actions button:disabled { opacity: .35; }
+.device-save-form { display: grid; gap: 12px; }
+.device-save-form label { display: grid; gap: 5px; color: #7f8791; font: 9px "DM Mono", monospace; }
+.device-save-form input, .device-save-form select { width: 100%; padding: 9px; border: 1px solid #3d434c; border-radius: 6px; background: #171a1f; color: #e1e5ea; font-size: 11px; }
+.device-save-form strong { color: #dbe0e6; font-size: 11px; }
+.overwrite-warning { padding: 9px 11px; border-left: 2px solid #ff765f; background: #351d19; color: #ffb09f !important; }
 
 @keyframes pulse { 50% { box-shadow: 0 0 20px #ff695b99; } }
 

@@ -14,5 +14,7 @@ directory/recall, bank navigation, tuner, and Gig View methods. State-changing
 commands check the expected preset/scene/slot and use correlated replies or
 readback. Numeric and option block parameters are catalog-driven and require
 expected-value plus dirty-state verification. Dirty presets block recall until
-the user explicitly reloads the stored slot. Persistent hardware writes remain
-deliberately unavailable.
+the user explicitly reloads the stored slot. The gateway also lists all user
+setlist slots and exposes Save As with active-preset guards, an explicit occupied-slot
+overwrite flag, device confirmation, slot readback, and final clean-state verification.
+Factory-library and global-setting writes remain unavailable.

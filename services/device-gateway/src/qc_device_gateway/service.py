@@ -86,6 +86,17 @@ class GatewayService:
                     params.get("expectedScene"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.listPresetSlots":
+                result = self.device.list_preset_slots()
+            elif method == "device.savePresetAs":
+                result = self.device.save_preset_as(
+                    params.get("setlistKey"),
+                    params.get("position"),
+                    params.get("name"),
+                    params.get("expectedPresetName", ""),
+                    params.get("expectedPosition"),
+                    params.get("confirmOverwrite", False),
+                )
             elif method == "device.showTuner":
                 result = self.device.show_tuner(params.get("shown", True))
             elif method == "device.showGigView":

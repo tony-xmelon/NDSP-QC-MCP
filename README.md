@@ -54,8 +54,10 @@ snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
 Gig View controls are enabled, along with live setlist browsing, guarded preset
 recall, bank navigation, metadata-driven block parameter editing, and explicit
 dirty-state recovery. State-changing commands use expected-state guards,
-value readback, and dirty-state verification. Persistent preset and global-setting
-writes remain locked.
+value readback, and dirty-state verification. Local `.qcw` workspace snapshots
+can be saved and reopened without touching the hardware. Persistent device
+Save As is available only through a separate destination review and final
+confirmation; global-setting writes remain locked.
 
 The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 

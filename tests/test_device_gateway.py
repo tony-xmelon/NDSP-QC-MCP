@@ -38,6 +38,10 @@ class FakeDevice:
         return {"row": row, "column": column, "name": "Fake block", "parameters": []}
     def set_parameter(self, row, column, parameter_index, value, expected_value, expected_scene, expected_preset_name):
         return {"detail": f"parameter {parameter_index}:{value}", "block": self.block_details(row, column), "snapshot": self.snapshot()}
+    def list_preset_slots(self):
+        return {"setlistKey": "fake", "setlistName": "Fake", "currentPosition": 9, "slots": []}
+    def save_preset_as(self, setlist_key, position, name, expected_preset_name, expected_position, confirm_overwrite):
+        return {"detail": f"save {position}:{name}:{confirm_overwrite}", "savedName": name, "snapshot": self.snapshot()}
     def show_tuner(self, shown=True): return {"detail": f"tuner {shown}"}
     def show_gig_view(self, shown=True): return {"detail": f"gig {shown}"}
 
@@ -104,6 +108,12 @@ class ServiceTests(unittest.TestCase):
             "value": 0.75, "expectedValue": 0.5, "expectedScene": 0,
             "expectedPresetName": "Test"
         })
+        slots = self.request("device.listPresetSlots")
+        saved = self.request("device.savePresetAs", {
+            "setlistKey": "fake", "position": 17, "name": "Copy",
+            "expectedPresetName": "Test", "expectedPosition": 9,
+            "confirmOverwrite": True
+        })
         self.assertEqual(scene["result"]["detail"], "scene 3")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
@@ -114,6 +124,8 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(reload["result"]["detail"], "reload 9")
         self.assertEqual(details["result"]["name"], "Fake block")
         self.assertEqual(parameter["result"]["detail"], "parameter 2:0.75")
+        self.assertEqual(slots["result"]["setlistName"], "Fake")
+        self.assertEqual(saved["result"]["detail"], "save 17:Copy:True")
 
 
 class ProcessTests(unittest.TestCase):
