@@ -3,8 +3,8 @@ import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionSt
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
-import { diagnosticsFiles, tauriTransport, workspaceFiles } from "./tauri-transport";
-import { createSpeechRecognition, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
+import { diagnosticsFiles, reportVoiceCapability, tauriTransport, workspaceFiles } from "./tauri-transport";
+import { createSpeechRecognition, speechRecognitionAvailable, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
 type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
@@ -110,6 +110,7 @@ export function App() {
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
 
   useEffect(() => {
+    void reportVoiceCapability(speechRecognitionAvailable());
     void tauriTransport.runtimeStatus().then((status) => {
       setRuntime(status);
       setConnectionEvents((current) => [...current, { at: new Date().toISOString(), event: "runtime-ready" }]);

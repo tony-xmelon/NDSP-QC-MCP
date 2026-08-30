@@ -40,6 +40,10 @@ export function createSpeechRecognition(): SpeechRecognitionLike | undefined {
   return Constructor ? new Constructor() : undefined;
 }
 
+export function speechRecognitionAvailable(): boolean {
+  return Boolean(window.SpeechRecognition ?? window.webkitSpeechRecognition);
+}
+
 export function speechRecognitionErrorMessage(error: string): string {
   const messages: Record<string, string> = {
     "audio-capture": "No working microphone was available.",

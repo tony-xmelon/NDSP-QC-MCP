@@ -164,6 +164,7 @@ fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
 struct Gateway {
     process: Option<GatewayProcess>,
     connected: bool,
+    voice_recognition_available: Option<bool>,
 }
 
 impl Gateway {
@@ -228,6 +229,7 @@ fn runtime_health_document(gateway: &Gateway, method: &str, status: &str) -> Val
         "connected": gateway.connected,
         "lastMethod": method,
         "lastStatus": status,
+        "voiceRecognitionAvailable": gateway.voice_recognition_available,
         "lastRequestAtUnix": std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -247,6 +249,19 @@ fn write_runtime_health(gateway: &Gateway, method: &str, status: &str) {
     {
         let _ = fs::write(path, bytes);
     }
+}
+
+#[tauri::command]
+fn report_voice_capability(
+    state: State<'_, Mutex<Gateway>>,
+    available: bool,
+) -> Result<(), String> {
+    let mut gateway = state
+        .lock()
+        .map_err(|_| "Gateway session lock was poisoned".to_string())?;
+    gateway.voice_recognition_available = Some(available);
+    write_runtime_health(&gateway, "voice.capability", "ok");
+    Ok(())
 }
 
 fn with_gateway(state: State<'_, Mutex<Gateway>>, method: &str) -> Result<Value, String> {
@@ -794,6 +809,7 @@ mod tests {
         let gateway = Gateway {
             process: None,
             connected: true,
+            voice_recognition_available: Some(true),
         };
         let health = runtime_health_document(&gateway, "device.snapshot", "ok");
         let keys = health
@@ -812,6 +828,7 @@ mod tests {
                 "lastRequestAtUnix",
                 "lastStatus",
                 "version",
+                "voiceRecognitionAvailable",
             ]
             .into_iter()
             .map(str::to_string)
@@ -820,6 +837,7 @@ mod tests {
         assert_eq!(health["connected"], true);
         assert_eq!(health["lastMethod"], "device.snapshot");
         assert_eq!(health["lastStatus"], "ok");
+        assert_eq!(health["voiceRecognitionAvailable"], true);
     }
 }
 
@@ -850,7 +868,8 @@ pub fn run() {
             save_workspace_as,
             save_workspace,
             open_workspace,
-            export_diagnostics
+            export_diagnostics,
+            report_voice_capability
         ])
         .run(tauri::generate_context!())
         .expect("error while running QC Voice Control");
