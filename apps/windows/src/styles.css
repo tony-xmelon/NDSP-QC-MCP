@@ -395,6 +395,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
    supplies the live display, state lights, and accessible interaction targets. */
 .official-svg-viewport { display: none; }
 .skin-official-svg {
+  --qc-switch-led-size: clamp(11px, 1.23vw, 14px);
   aspect-ratio: 1096.94 / 719.079;
   border: 0;
   border-radius: 3.49% / 5.26%;
@@ -559,7 +560,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-led {
   position: relative;
   z-index: 1;
-  width: 9.3%;
+  width: var(--qc-switch-led-size);
   border: 1px solid #aaabae;
   background: #626367;
   box-shadow: none;
@@ -573,7 +574,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   display: none;
 }
 .skin-official-svg .screen-nav-control .switch-led {
-  width: clamp(13px, 1.45vw, 16px);
+  width: var(--qc-switch-led-size);
   top: clamp(8px, .96vw, 11px);
 }
 .skin-official-svg .screen-nav-control .switch-ring {
