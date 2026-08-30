@@ -306,9 +306,14 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
       <rect width="800" height="480" fill="#020202" />
       <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y={presetTitleBaseline} fill="#f4f4f4" fontSize={presetTitleFontSize} fontStyle={snapshot.dirty ? "italic" : "normal"} textLength={squeezePresetTitle ? 520 : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</text></g>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M620 26A13 13 0 1 0 633 13" /><path d="M640 9l-7 4 7 4" />
-        <path d="M709 10h18l6 6v23h-24zM714 10v10h12V10M715 28h12v11H715z" />
+        <path d="M633 13A13 13 0 1 1 620 26" />
+        <path d="M626 15L634 9V20Z" fill="#f0f0f0" stroke="none" />
       </g>
+      <g fill={snapshot.dirty ? "#f0f0f0" : "#525252"}>
+        <path d="M726 23H715V17H721V20H723V17H726V23Z" />
+        <path d="M733 17.9863V23.7568C732.398 23.2743 731.726 22.8769 731 22.583V18.8047L727.252 15H714.001C713.448 15 713 15.4477 713 16V32C713 32.5523 713.448 33 714.001 33H720.584C720.878 33.7258 721.274 34.3984 721.757 35H714.002C712.344 34.9999 711 33.6568 711 32V16C711 14.3432 712.344 13.0001 714.002 13H728.09L733 17.9863Z" />
+      </g>
+      {!snapshot.dirty && <path d="M722 30C722 33.3137 724.686 36 728 36C731.314 36 734 33.3137 734 30C734 26.6863 731.314 24 728 24C724.686 24 722 26.6863 722 30ZM732.113 27.5324L730.681 26.314L726.712 30.6742L724.792 29.155L723.564 30.6016L726.91 33.2496L732.113 27.5324Z" fill="#45f862" />}
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
       <g transform="translate(652 55)"><ModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
