@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "services" / "device-gateway" / "src"))
 
 from qc_device_gateway.framing import FramingError, read_frame, write_frame
 from qc_device_gateway.service import GatewayService
+from qc_device_gateway.device import _block_color, _stomp_color
 
 
 class FakeDevice:
@@ -66,6 +67,16 @@ class FakeDevice:
         return {"detail": f"save {position}:{name}:{confirm_overwrite}", "savedName": name, "snapshot": self.snapshot()}
     def show_tuner(self, shown=True): return {"detail": f"tuner {shown}"}
     def show_gig_view(self, shown=True): return {"detail": f"gig {shown}"}
+
+
+class DeviceVisualTests(unittest.TestCase):
+    def test_device_category_colors_match_grid_and_stomp_palette(self):
+        self.assertEqual(_block_color("Utility", "Adaptive Gate"), "#959595")
+        self.assertEqual(_block_color("Delay", "Analog Delay"), "#00ffdd")
+        self.assertEqual(_block_color("Guitar Overdrive", "Rodent Drive"), "#ffd236")
+        self.assertEqual(_stomp_color([{"category": "Utility", "name": "Adaptive Gate"}]), "#f4f4f4")
+        self.assertEqual(_stomp_color([{"category": "Delay", "name": "Analog Delay"}]), "#00ffdd")
+        self.assertEqual(_stomp_color([{"category": "Guitar Overdrive", "name": "Rodent Drive"}]), "#ffd236")
 
 
 class FramingTests(unittest.TestCase):

@@ -9,31 +9,33 @@ export interface OfficialBlockVisual {
   key: OfficialBlockVisualKey;
   tile: [number, number];
   color: string;
+  glyph?: "delay" | "compressor";
 }
 
-// Coordinates are taken from Neural DSP's current official QC Block Samples
-// sheet. The sheet is a collection of examples, not a category-ordered atlas.
+// Coordinates are matched by glyph against Neural DSP's current QC Block
+// Samples sheet. The sheet is not category ordered; never infer coordinates
+// from the category-list order.
 export const OFFICIAL_BLOCK_VISUALS: Record<OfficialBlockVisualKey, OfficialBlockVisual> = {
-  plugin: { key: "plugin", tile: [0, 0], color: "#959595" },
+  plugin: { key: "plugin", tile: [560, 0], color: "#ff7000" },
   amp: { key: "amp", tile: [480, 0], color: "#ff2727" },
-  capture: { key: "capture", tile: [560, 0], color: "#ff7000" },
+  capture: { key: "capture", tile: [640, 0], color: "#959595" },
   cab: { key: "cab", tile: [80, 82], color: "#6954ff" },
-  overdrive: { key: "overdrive", tile: [400, 0], color: "#ff7000" },
-  delay: { key: "delay", tile: [160, 82], color: "#00ffdd" },
+  overdrive: { key: "overdrive", tile: [400, 0], color: "#ffd236" },
+  delay: { key: "delay", tile: [160, 0], color: "#00ffdd", glyph: "delay" },
   reverb: { key: "reverb", tile: [240, 82], color: "#00ffdd" },
-  compressor: { key: "compressor", tile: [640, 82], color: "#45f862" },
-  pitch: { key: "pitch", tile: [480, 82], color: "#e44a5d" },
+  compressor: { key: "compressor", tile: [400, 82], color: "#45f862", glyph: "compressor" },
+  pitch: { key: "pitch", tile: [0, 82], color: "#ffd236" },
   modulation: { key: "modulation", tile: [160, 0], color: "#3500f1" },
-  morph: { key: "morph", tile: [560, 82], color: "#87daff" },
-  synth: { key: "synth", tile: [640, 0], color: "#959595" },
-  filter: { key: "filter", tile: [0, 82], color: "#ffd236" },
+  morph: { key: "morph", tile: [640, 82], color: "#959595" },
+  synth: { key: "synth", tile: [480, 82], color: "#e44a5d" },
+  filter: { key: "filter", tile: [240, 0], color: "#87daff" },
   equalizer: { key: "equalizer", tile: [80, 0], color: "#0a74e0" },
-  "ir-loader": { key: "ir-loader", tile: [240, 0], color: "#87daff" },
-  wah: { key: "wah", tile: [400, 82], color: "#959595" },
-  "fx-loop": { key: "fx-loop", tile: [0, 0], color: "#00ffdd" },
+  "ir-loader": { key: "ir-loader", tile: [160, 82], color: "#6954ff" },
+  wah: { key: "wah", tile: [320, 82], color: "#959595" },
+  "fx-loop": { key: "fx-loop", tile: [0, 0], color: "#959595" },
   looper: { key: "looper", tile: [320, 0], color: "#ff2727" },
-  utility: { key: "utility", tile: [0, 0], color: "#959595" },
-  gate: { key: "gate", tile: [0, 82], color: "#ffd236" }
+  utility: { key: "utility", tile: [400, 82], color: "#959595" },
+  gate: { key: "gate", tile: [400, 82], color: "#959595" }
 };
 
 export function officialBlockVisual(block: GridBlock): OfficialBlockVisual {

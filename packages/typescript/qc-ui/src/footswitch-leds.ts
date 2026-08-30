@@ -19,7 +19,8 @@ function stompLedColor(blocks: GridBlock[]): string {
   if (category.includes("pitch")) return "#ffd236";
   if (category.includes("equalizer")) return "#0a74e0";
   if (category.includes("modulation") || block.kind === "mod") return "#3500f1";
-  if (category.includes("overdrive") || category.includes("drive") || category.includes("capture") || block.kind === "capture") return "#ff7000";
+  if (category.includes("overdrive") || category.includes("drive")) return "#ffd236";
+  if (category.includes("capture") || block.kind === "capture") return "#ff7000";
   if (category.includes("amplifier") || block.kind === "amp") return "#ff2727";
   if (category.includes("delay") || category.includes("reverb") || ["delay", "reverb"].includes(block.kind)) return "#00ffdd";
   if (category.includes("cab") || block.kind === "cab") return "#6954ff";

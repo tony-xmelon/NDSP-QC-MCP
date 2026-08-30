@@ -20,16 +20,39 @@ test("official category mapping covers every Quad Cortex virtual-device family",
   for (const [name, category, expected] of cases) assert.equal(officialBlockVisual(block(name, category)).key, expected, `${name} should use ${expected}`);
 });
 
-test("gate models use the official gate visual rather than generic Utility or Pitch", () => {
+test("Adaptive Gate uses the white Utility visual reported on the device", () => {
   const visual = officialBlockVisual(block("Adaptive Gate", "Utility"));
   assert.equal(visual.key, "gate");
-  assert.deepEqual(visual.tile, [0, 82]);
-  assert.equal(visual.color, "#ffd236");
+  assert.deepEqual(visual.tile, [400, 82]);
+  assert.equal(visual.color, "#959595");
 });
 
-test("live ICFTF models resolve to their distinct official symbols", () => {
-  assert.deepEqual(officialBlockVisual(block("Analog Delay", "Delay")).tile, [160, 82]);
-  assert.deepEqual(officialBlockVisual(block("Mind Hall", "Reverb")).tile, [240, 82]);
-  assert.deepEqual(officialBlockVisual(block("US DLX 65 Reissue", "Amplifier")).tile, [480, 0]);
-  assert.deepEqual(officialBlockVisual(block("112 US DLX Black C12K 00s (ST)", "Cab")).tile, [80, 82]);
+test("every family resolves to its named official glyph and device color", () => {
+  const cases: Array<[string, string, [number, number], string, string | undefined]> = [
+    ["Plugin Device", "Plugins", [560, 0], "#ff7000", undefined],
+    ["US DLX 65 Reissue", "Amplifier", [480, 0], "#ff2727", undefined],
+    ["Capture", "Neural Capture", [640, 0], "#959595", undefined],
+    ["112 US DLX Black C12K 00s (ST)", "Cab", [80, 82], "#6954ff", undefined],
+    ["Rodent Drive", "Guitar Overdrive", [400, 0], "#ffd236", undefined],
+    ["Analog Delay", "Delay", [160, 0], "#00ffdd", "delay"],
+    ["Mind Hall", "Reverb", [240, 82], "#00ffdd", undefined],
+    ["Jewel", "Compressor", [400, 82], "#45f862", "compressor"],
+    ["Poly Octaver", "Pitch", [0, 82], "#ffd236", undefined],
+    ["Phaser", "Modulation", [160, 0], "#3500f1", undefined],
+    ["Freeze", "Morph", [640, 82], "#959595", undefined],
+    ["Synth", "Synth", [480, 82], "#e44a5d", undefined],
+    ["Envelope", "Filter", [240, 0], "#87daff", undefined],
+    ["Parametric-8", "Equalizer", [80, 0], "#0a74e0", undefined],
+    ["IR", "IR Loader", [160, 82], "#6954ff", undefined],
+    ["Crying Wah", "Wah", [320, 82], "#959595", undefined],
+    ["FX Loop 2", "FX Loop", [0, 0], "#959595", undefined],
+    ["Looper X", "Looper", [320, 0], "#ff2727", undefined],
+    ["Gain", "Utility", [400, 82], "#959595", undefined]
+  ];
+  for (const [name, category, tile, color, glyph] of cases) {
+    const visual = officialBlockVisual(block(name, category));
+    assert.deepEqual(visual.tile, tile, `${name} tile`);
+    assert.equal(visual.color, color, `${name} color`);
+    assert.equal(visual.glyph, glyph, `${name} glyph`);
+  }
 });

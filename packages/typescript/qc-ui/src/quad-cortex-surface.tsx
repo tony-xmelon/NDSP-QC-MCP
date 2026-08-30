@@ -44,8 +44,24 @@ const officialBlockSprite = "/qc-block-samples.svg";
 function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
   const visual = officialBlockVisual(block);
   const [tileX, tileY] = visual.tile;
+  if (visual.glyph === "delay") return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox="0 0 70 70" aria-hidden="true">
+    <rect width="70" height="70" rx="17" fill="#000" />
+    <rect x="4" y="4" width="62" height="62" rx="13" fill="none" stroke={visual.color} strokeWidth="2.6" />
+    <g fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M18 46c4 0 4-22 8-22s4 22 8 22" />
+      <path d="M29 46c4 0 4-22 8-22s4 22 8 22" />
+      <path d="M40 46c4 0 4-22 8-22s4 22 8 22" />
+    </g>
+  </svg>;
+  if (visual.glyph === "compressor") return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox="0 0 70 70" aria-hidden="true">
+    <rect width="70" height="70" rx="17" fill="#000" />
+    <rect x="4" y="4" width="62" height="62" rx="13" fill="none" stroke={visual.color} strokeWidth="2.6" />
+    <path d="M16 39c5-19 9-19 14 0s9 19 14 0 7-13 10-5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+    <path d="M25 18v8m-3-3 3 3 3-3M45 52v-8m-3 3 3-3 3 3" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>;
   return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
     <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
+    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke="#000" strokeWidth="5" />
     <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={visual.color} strokeWidth="2.4" />
   </svg>;
 }

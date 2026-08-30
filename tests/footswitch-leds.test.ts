@@ -36,6 +36,13 @@ test("single Pitch assignments use the yellow physical lamp", () => {
   assert.deepEqual(leds[5], { active: true, assigned: true, color: "#ffd236" });
 });
 
+test("single Drive assignments use the yellow physical lamp", () => {
+  const leds = footswitchLeds(snapshot({ blocks: [
+    { id: "drive", name: "Rodent Drive", kind: "utility", category: "Guitar Overdrive", row: 0, column: 2, footswitch: 2, bypassed: false }
+  ] }));
+  assert.deepEqual(leds[2], { active: true, assigned: true, color: "#ffd236" });
+});
+
 test("STOMP presses update the lamp and assigned blocks optimistically", () => {
   const before = snapshot({
     footswitchStates: [{ index: 0, active: false, assigned: true, color: "#f4f4f4" }],

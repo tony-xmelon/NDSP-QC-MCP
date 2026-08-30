@@ -96,24 +96,30 @@ def _block_color(category: str, name: str) -> str:
     """Return the CorOS category color used by the Grid block artwork."""
     value = category.casefold()
     model = name.casefold()
-    if "gate" in model or "wah" in value or "filter" in value:
+    if "gate" in model or "utility" in value or "wah" in value or "morph" in value:
+        return "#959595"
+    if "pitch" in value or "overdrive" in value or "drive" in value:
         return "#ffd236"
+    if "filter" in value:
+        return "#87daff"
     if "equalizer" in value:
         return "#0a74e0"
-    if "pitch" in value:
-        return "#e44a5d"
     if "modulation" in value:
         return "#3500f1"
     if "compressor" in value:
         return "#45f862"
-    if "overdrive" in value or "capture" in value:
+    if "plugin" in value:
         return "#ff7000"
-    if "amplifier" in value:
+    if "amplifier" in value or "looper" in value:
         return "#ff2727"
+    if "capture" in value:
+        return "#959595"
+    if "synth" in value:
+        return "#e44a5d"
     if "cab" in value or "impulse" in value:
         return "#6954ff"
     if "fx loop" in value:
-        return "#00ffdd"
+        return "#959595"
     if "delay" in value or "reverb" in value:
         return "#00ffdd"
     return "#959595"
@@ -136,7 +142,9 @@ def _stomp_color(targets: list[dict[str, Any]]) -> str:
         return "#0a74e0"
     if "modulation" in category:
         return "#3500f1"
-    if "overdrive" in category or "capture" in category:
+    if "overdrive" in category or "drive" in category:
+        return "#ffd236"
+    if "capture" in category:
         return "#ff7000"
     if "amplifier" in category:
         return "#ff2727"
