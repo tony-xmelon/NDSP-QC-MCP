@@ -6,7 +6,7 @@ import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./as
 import { diagnosticsFiles, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createSpeechRecognition, speechRecognitionAvailable, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
-type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "workspace" | "save-device" | null;
+type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "routing" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
 type ConnectionEvent = { at: string; event: "app-start" | "runtime-ready" | "connect-attempt" | "connected" | "connect-failed" | "disconnected" | "reset-attempt" | "diagnostics-exported" };
 type MenuItem = string | { label: string; disabledReason: string };
@@ -21,6 +21,8 @@ const initialConnection: ConnectionState = {
 };
 
 const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
+const inputRoutes = [[0, "Internal"], [1, "In 1"], [2, "In 2"], [3, "In 1/2"], [4, "Return 1"], [5, "Return 2"], [6, "Return 1/2"], [7, "Prev. Row"], [8, "USB 5"], [9, "USB 6"], [10, "USB 7"], [11, "USB 8"], [12, "USB 5/6"], [13, "USB 7/8"], [14, "Sidechain"]] as const;
+const outputRoutes = [[0, "Internal"], [1, "Out 1/2"], [2, "Out 3/4"], [3, "Send 1/2"], [4, "Out 1"], [5, "Out 2"], [6, "Out 3"], [7, "Out 4"], [8, "Send 1"], [9, "Send 2"], [10, "USB 5"], [11, "USB 6"], [12, "USB 7"], [13, "USB 8"], [14, "USB 5/6"], [15, "USB 7/8"], [16, "Row 3"], [17, "Row 4"], [18, "Rows 3/4"], [19, "Multi Out"], [20, "USB 3"], [21, "USB 4"], [22, "USB 3/4"]] as const;
 
 const menus: Array<{ name: string; items: MenuItem[] }> = [
   { name: "File", items: ["Open Workspace…", "Open Device Preset…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
@@ -32,7 +34,7 @@ const menus: Array<{ name: string; items: MenuItem[] }> = [
     "Keyboard Shortcuts…"
   ] },
   { name: "View", items: ["Fit Hardware to Window", "Actual Size", "Full Screen", "Show/Hide Chat", "Connection Log"] },
-  { name: "Device", items: ["Connect", "Disconnect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Current Device Information", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View", "Export Diagnostics…"] },
+  { name: "Device", items: ["Connect", "Disconnect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Current Device Information", "Edit Signal Routing…", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View", "Export Diagnostics…"] },
   { name: "Help", items: ["User Guide", "Keyboard and Mouse Reference", "Report a Problem…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
 ];
 
@@ -83,6 +85,9 @@ export function App() {
   const [presetListLoading, setPresetListLoading] = useState(false);
   const [blockDetails, setBlockDetails] = useState<BlockDetails>();
   const [parameterDrafts, setParameterDrafts] = useState<Record<number, number>>({});
+  const [moveDestination, setMoveDestination] = useState<number>();
+  const [footswitchDraft, setFootswitchDraft] = useState<number | null>(null);
+  const [routeDrafts, setRouteDrafts] = useState<Record<number, { inputId: number; outputId: number }>>({});
   const [blockDetailsLoading, setBlockDetailsLoading] = useState(false);
   const [workspacePath, setWorkspacePath] = useState<string>();
   const [workspaceName, setWorkspaceName] = useState<string>();
@@ -209,6 +214,47 @@ export function App() {
     }
   }, [actionFailed, commandPending, connection.demo]);
 
+  const openRoutingEditor = () => {
+    if (connection.demo) {
+      setNotice("Connect the Quad Cortex before editing signal routing.");
+      return;
+    }
+    const liveRoutes = snapshot.routes.filter((route) => route.inputId !== undefined && route.outputId !== undefined);
+    if (!liveRoutes.length) {
+      setNotice("Refresh the complete device state before editing routing.");
+      return;
+    }
+    setRouteDrafts(Object.fromEntries(liveRoutes.map((route) => [route.row, { inputId: route.inputId as number, outputId: route.outputId as number }])));
+    setDialog("routing");
+  };
+
+  const applyRoute = async (row: number, kind: "input" | "output") => {
+    const route = snapshot.routes.find((candidate) => candidate.row === row);
+    const draft = routeDrafts[row];
+    const expected = kind === "input" ? route?.inputId : route?.outputId;
+    const desired = kind === "input" ? draft?.inputId : draft?.outputId;
+    if (expected === undefined || desired === undefined || expected === desired || commandPending) return;
+    const options = kind === "input" ? inputRoutes : outputRoutes;
+    const label = options.find(([id]) => id === desired)?.[1] ?? String(desired);
+    if (!window.confirm(`Set row ${row + 1} ${kind} to ${label}? Audio may be interrupted. This is temporary until the preset is saved.`)) return;
+    setCommandPending(true);
+    setNotice(`Updating row ${row + 1} ${kind}…`);
+    try {
+      const result = kind === "input"
+        ? await tauriTransport.setChainInput(row, desired, expected, snapshot.presetName)
+        : await tauriTransport.setChainOutput(row, desired, expected, snapshot.presetName);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setRouteDrafts(Object.fromEntries(result.snapshot.routes.filter((item) => item.inputId !== undefined && item.outputId !== undefined).map((item) => [item.row, { inputId: item.inputId as number, outputId: item.outputId as number }])));
+      }
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
   const navigateBank = useCallback(async (direction: -1 | 1) => {
     if (connection.demo || commandPending) {
       setNotice(connection.demo ? "Connect the Quad Cortex before navigating presets." : "A device command is already in progress.");
@@ -238,6 +284,8 @@ export function App() {
     }
     setDialog("parameters");
     setBlockDetails(undefined);
+    setMoveDestination(undefined);
+    setFootswitchDraft(block.footswitch ?? null);
     setBlockDetailsLoading(true);
     setNotice(`Reading ${block.name} parameters…`);
     try {
@@ -251,6 +299,52 @@ export function App() {
       setBlockDetailsLoading(false);
     }
   }, [actionFailed, commandPending, connection.demo, snapshot.presetName]);
+
+  const moveSelectedBlock = async () => {
+    if (!blockDetails || moveDestination === undefined || commandPending) return;
+    const block = snapshot.blocks.find((candidate) => candidate.row === blockDetails.row && candidate.column === blockDetails.column);
+    if (!block?.modelId) {
+      setNotice("Refresh the live Grid before moving this block.");
+      return;
+    }
+    if (!window.confirm(`Move “${block.name}” from row ${block.row + 1}, column ${block.column + 1} to column ${moveDestination + 1}? This is temporary until the preset is saved.`)) return;
+    setCommandPending(true);
+    setNotice(`Moving ${block.name}…`);
+    try {
+      const result = await tauriTransport.moveBlock(block.row, block.column, moveDestination, block.modelId, snapshot.presetName);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(`block-${block.row}-${moveDestination}`);
+      }
+      setDialog(null);
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const applyFootswitchAssignment = async () => {
+    if (!blockDetails || commandPending) return;
+    const block = snapshot.blocks.find((candidate) => candidate.row === blockDetails.row && candidate.column === blockDetails.column);
+    if (!block?.modelId || footswitchDraft === (block.footswitch ?? null)) return;
+    const target = footswitchDraft === null ? "unassign it from its STOMP footswitch" : `assign it to Footswitch ${String.fromCharCode(65 + footswitchDraft)}`;
+    if (!window.confirm(`${block.name}: ${target}? This is temporary until the preset is saved.`)) return;
+    setCommandPending(true);
+    setNotice(`Updating ${block.name} footswitch assignment…`);
+    try {
+      const result = await tauriTransport.setBlockFootswitch(
+        block.row, block.column, footswitchDraft, block.footswitch ?? null, block.modelId, snapshot.presetName
+      );
+      if (result.snapshot) setSnapshot(result.snapshot);
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
 
   const applyParameter = async (parameter: BlockParameter) => {
     if (!blockDetails || parameter.normalizedValue === null || commandPending) return;
@@ -756,6 +850,7 @@ export function App() {
     else if (item === "About") setDialog("about");
     else if (item === "Connection Log") setDialog("connection-log");
     else if (item === "Current Device Information") setDialog("device-info");
+    else if (item === "Edit Signal Routing…") openRoutingEditor();
     else if (item === "Keyboard Shortcuts…" || item === "Keyboard and Mouse Reference") setDialog("shortcuts");
     else if (item === "User Guide") setDialog("guide");
     else if (item === "Privacy") setDialog("privacy");
@@ -1090,13 +1185,14 @@ export function App() {
         {dialog === "device-info" && <><div className="dialog-kicker">CURRENT DEVICE</div><h2 id="dialog-title">{snapshot.deviceName}</h2><dl><dt>Connection</dt><dd>{connection.phase}</dd><dt>Setlist</dt><dd>{snapshot.setlistName}</dd><dt>Preset</dt><dd>{snapshot.presetLocation} · {snapshot.presetName}</dd><dt>Mode</dt><dd>{snapshot.mode}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + snapshot.activeScene)}</dd><dt>Tempo</dt><dd>{snapshot.tempo} BPM</dd><dt>Grid</dt><dd>{snapshot.blocks.length} blocks</dd><dt>State</dt><dd>{snapshot.dirty ? "Unsaved device changes" : "Clean"}</dd></dl><p>Hardware serial numbers and account identifiers are intentionally not read or displayed.</p></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><div className="setting-row"><span>Push-to-talk transcription<small>Microsoft Edge speech recognition; cloud-audio disclosure appears before first use</small></span><button onClick={() => { localStorage.removeItem(voiceDisclosureKey); setNotice("Voice disclosure choice cleared. It will be shown again before the next recording."); }}>Review disclosure again</button></div></>}
         {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
-        {dialog === "parameters" && <><div className="dialog-kicker">BLOCK PARAMETERS · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
+        {dialog === "parameters" && <><div className="dialog-kicker">BLOCK EDITOR · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <><div className="block-management"><label><span>Move within row {blockDetails.row + 1}<small>Only empty cells are offered; cross-row routing stays unchanged.</small></span><select value={moveDestination ?? ""} disabled={commandPending} onChange={(event) => setMoveDestination(event.target.value === "" ? undefined : Number(event.target.value))}><option value="">Choose empty column…</option>{Array.from({ length: 8 }, (_, column) => column).filter((column) => column !== blockDetails.column && !snapshot.blocks.some((block) => block.row === blockDetails.row && block.column === column)).map((column) => <option value={column} key={column}>Column {column + 1}</option>)}</select><button disabled={moveDestination === undefined || commandPending} onClick={() => void moveSelectedBlock()}>Review move…</button></label><label><span>STOMP footswitch<small>Several blocks may share the same switch.</small></span><select value={footswitchDraft ?? ""} disabled={commandPending} onChange={(event) => setFootswitchDraft(event.target.value === "" ? null : Number(event.target.value))}><option value="">Unassigned</option>{Array.from({ length: 8 }, (_, index) => <option value={index} key={index}>Footswitch {String.fromCharCode(65 + index)}</option>)}</select><button disabled={footswitchDraft === (snapshot.blocks.find((block) => block.row === blockDetails.row && block.column === blockDetails.column)?.footswitch ?? null) || commandPending} onClick={() => void applyFootswitchAssignment()}>Review assignment…</button></label></div><div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
           const draft = parameterDrafts[parameter.index] ?? parameter.normalizedValue ?? 0;
           const changed = parameter.normalizedValue !== null && Math.abs(draft - parameter.normalizedValue) >= 0.000001;
           const optionIndex = parameter.options.length > 1 ? Math.round(draft * (parameter.options.length - 1)) : 0;
           const numericDisplay = parameter.minimum === 0 && parameter.maximum === 1 ? draft : parameter.minimum + draft * (parameter.maximum - parameter.minimum);
           return <div className="parameter-row" key={parameter.index}><div className="parameter-heading"><strong>{parameter.name}</strong><span>{parameter.options.length ? parameter.options[optionIndex] : `${numericDisplay.toFixed(2).replace(/\.00$/, "")} ${parameter.units}`}</span></div>{parameter.options.length > 1 ? <select value={optionIndex} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) / (parameter.options.length - 1) }))}>{parameter.options.map((option, index) => <option value={index} key={`${option}-${index}`}>{option}</option>)}</select> : <input type="range" min="0" max="1" step={parameter.steps && parameter.steps > 1 ? 1 / (parameter.steps - 1) : .001} value={draft} disabled={!parameter.writable || commandPending} onChange={(event) => setParameterDrafts((current) => ({ ...current, [parameter.index]: Number(event.target.value) }))} />}<div className="parameter-actions"><small>{parameter.sceneMode ? "Scene value" : "Global within preset"}</small><button disabled={!changed || !parameter.writable || commandPending} onClick={() => void applyParameter(parameter)}>Apply</button></div></div>;
-        })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
+        })}</div></>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
+        {dialog === "routing" && <><div className="dialog-kicker">SIGNAL ROUTING</div><h2 id="dialog-title">Inputs and outputs</h2><div className="routing-editor">{snapshot.routes.map((route) => { const draft = routeDrafts[route.row]; return <section key={route.row}><strong>Row {route.row + 1}</strong><label><span>Input</span><select value={draft?.inputId ?? route.inputId ?? 0} disabled={commandPending} onChange={(event) => setRouteDrafts((current) => ({ ...current, [route.row]: { inputId: Number(event.target.value), outputId: current[route.row]?.outputId ?? route.outputId ?? 0 } }))}>{inputRoutes.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><button disabled={!draft || draft.inputId === route.inputId || commandPending} onClick={() => void applyRoute(route.row, "input")}>Review…</button></label><label><span>Output</span><select value={draft?.outputId ?? route.outputId ?? 0} disabled={commandPending} onChange={(event) => setRouteDrafts((current) => ({ ...current, [route.row]: { inputId: current[route.row]?.inputId ?? route.inputId ?? 0, outputId: Number(event.target.value) } }))}>{outputRoutes.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select><button disabled={!draft || draft.outputId === route.outputId || commandPending} onClick={() => void applyRoute(route.row, "output")}>Review…</button></label>{route.splitColumn !== undefined && <small>Parallel branch: column {route.splitColumn + 1}{route.mixColumn === -1 ? ", no rejoin" : ` → rejoin ${Number(route.mixColumn) + 1}`}</small>}</section>; })}</div><p>Each change is checked against the current preset and existing route, then verified by readback. Audio may be interrupted; saving remains a separate action.</p></>}
         {dialog === "workspace" && loadedWorkspace && <><div className="dialog-kicker">LOCAL WORKSPACE</div><h2 id="dialog-title">{workspaceName ?? "QC Workspace"}</h2><dl><dt>Saved</dt><dd>{new Date(loadedWorkspace.savedAt).toLocaleString()}</dd><dt>Source</dt><dd>{loadedWorkspace.source.setlistName} · {loadedWorkspace.source.presetLocation}</dd><dt>Preset</dt><dd>{loadedWorkspace.source.presetName}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + loadedWorkspace.snapshot.activeScene)}</dd><dt>Blocks</dt><dd>{loadedWorkspace.snapshot.blocks.length}</dd><dt>Device state</dt><dd>{loadedWorkspace.snapshot.dirty ? "Captured with unsaved changes" : "Clean at capture"}</dd></dl><p>The workspace is a local reference snapshot. Opening it never writes to the connected Quad Cortex.</p><div className="dialog-actions"><button onClick={() => setDialog(null)}>Keep Live Device</button><button className="primary" onClick={() => void saveWorkspace(true)}>Save Copy As…</button></div></>}
         {dialog === "save-device" && <><div className="dialog-kicker">PERSISTENT DEVICE SAVE</div><h2 id="dialog-title">Save Preset As…</h2>{presetSlotsLoading ? <p>Reading all destination slots from the Quad Cortex…</p> : presetSlots && <div className="device-save-form"><label><span>Setlist</span><strong>{presetSlots.setlistName}</strong></label><label><span>Preset name</span><input value={savePresetName} maxLength={80} onChange={(event) => setSavePresetName(event.target.value)} /></label><label><span>Destination</span><select value={savePresetPosition ?? ""} onChange={(event) => setSavePresetPosition(Number(event.target.value))}>{presetSlots.slots.map((slot) => <option key={slot.position} value={slot.position}>{slot.location} — {slot.occupied ? slot.name : "Empty"}</option>)}</select></label>{savePresetPosition !== undefined && presetSlots.slots[savePresetPosition]?.occupied && <p className="overwrite-warning">This destination is occupied. Saving will permanently overwrite “{presetSlots.slots[savePresetPosition].name}”.</p>}<div className="dialog-actions"><button onClick={() => setDialog(null)}>Cancel</button><button className="primary" disabled={!savePresetName.trim() || commandPending} onClick={() => void savePresetToDevice()}>Review & Save</button></div></div>}<p>Device save is separate from local workspace save and always requires final confirmation.</p></>}
         {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Press Footswitches A–H in the current QC mode</dd><dt>Ctrl+1–8</dt><dd>Select Scenes A–H directly</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>Arrow keys / Enter</dt><dd>Select the nearest Grid block / open its live parameters</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+S</dt><dd>Save the local workspace</dd><dt>Ctrl+Shift+S</dt><dd>Review a separate device Save As</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Escape</dt><dd>Cancel voice, a pending edit, or the open dialog</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Grid and performance shortcuts are suspended while an input or the chat composer has focus.</p></>}

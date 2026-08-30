@@ -53,6 +53,18 @@ export const tauriTransport: GatewayTransport = {
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedBypassed, desiredBypassed, expectedPresetName });
   },
+  moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("move_block", { row, fromColumn, toColumn, expectedModelId, expectedPresetName });
+  },
+  setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("set_block_footswitch", { row, column, footswitch, expectedFootswitch, expectedModelId, expectedPresetName });
+  },
+  setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("set_chain_input", { row, inputId, expectedInputId, expectedPresetName });
+  },
+  setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("set_chain_output", { row, outputId, expectedOutputId, expectedPresetName });
+  },
   listPresets(refresh = false): Promise<PresetList> {
     return callTauri<PresetList>("list_presets", { refresh });
   },

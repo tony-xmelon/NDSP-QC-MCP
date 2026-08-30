@@ -27,6 +27,14 @@ class FakeDevice:
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
     def toggle_bypass(self, row, column, expected_scene, expected_bypassed, desired_bypassed, expected_preset_name=""):
         return {"detail": f"bypass {row}:{column}:{expected_scene}:{expected_bypassed}:{desired_bypassed}", "snapshot": self.snapshot()}
+    def move_block(self, row, from_column, to_column, expected_model_id, expected_preset_name=""):
+        return {"detail": f"move {row}:{from_column}:{to_column}:{expected_model_id}", "snapshot": self.snapshot()}
+    def set_block_footswitch(self, row, column, footswitch, expected_footswitch, expected_model_id, expected_preset_name=""):
+        return {"detail": f"assign {row}:{column}:{footswitch}:{expected_footswitch}:{expected_model_id}", "snapshot": self.snapshot()}
+    def set_chain_input(self, row, input_id, expected_input_id, expected_preset_name=""):
+        return {"detail": f"input {row}:{input_id}:{expected_input_id}", "snapshot": self.snapshot()}
+    def set_chain_output(self, row, output_id, expected_output_id, expected_preset_name=""):
+        return {"detail": f"output {row}:{output_id}:{expected_output_id}", "snapshot": self.snapshot()}
     def list_presets(self, refresh=False):
         return {"setlistKey": "fake", "setlistName": "Fake", "currentPosition": 9, "presets": []}
     def navigate_bank(self, direction, expected_preset_name, expected_position):
@@ -95,6 +103,21 @@ class ServiceTests(unittest.TestCase):
             "row": 2, "column": 4, "expectedScene": 3, "expectedBypassed": False,
             "desiredBypassed": True, "expectedPresetName": "Test"
         })
+        moved = self.request("device.moveBlock", {
+            "row": 2, "fromColumn": 4, "toColumn": 6,
+            "expectedModelId": 123, "expectedPresetName": "Test"
+        })
+        assigned = self.request("device.setBlockFootswitch", {
+            "row": 2, "column": 6, "footswitch": 4,
+            "expectedFootswitch": None, "expectedModelId": 123,
+            "expectedPresetName": "Test"
+        })
+        input_route = self.request("device.setChainInput", {
+            "row": 0, "inputId": 3, "expectedInputId": 1, "expectedPresetName": "Test"
+        })
+        output_route = self.request("device.setChainOutput", {
+            "row": 0, "outputId": 19, "expectedOutputId": 4, "expectedPresetName": "Test"
+        })
         tuner = self.request("device.showTuner", {"shown": True})
         gig = self.request("device.showGigView", {"shown": True})
         presets = self.request("device.listPresets")
@@ -130,6 +153,10 @@ class ServiceTests(unittest.TestCase):
         })
         self.assertEqual(scene["result"]["detail"], "scene 3")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3:False:True")
+        self.assertEqual(moved["result"]["detail"], "move 2:4:6:123")
+        self.assertEqual(assigned["result"]["detail"], "assign 2:6:4:None:123")
+        self.assertEqual(input_route["result"]["detail"], "input 0:3:1")
+        self.assertEqual(output_route["result"]["detail"], "output 0:19:4")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
         self.assertEqual(gig["result"]["detail"], "gig True")
         self.assertEqual(presets["result"]["setlistName"], "Fake")

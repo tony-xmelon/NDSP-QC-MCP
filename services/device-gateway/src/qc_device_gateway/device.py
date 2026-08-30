@@ -496,6 +496,177 @@ class PyQuadCortexDevice:
                 }
         raise RuntimeError("The bypass command was sent, but readback did not confirm the requested state.")
 
+    def move_block(
+        self,
+        row: int,
+        from_column: int,
+        to_column: int,
+        expected_model_id: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Move one existing block to an empty cell on the same signal row."""
+        for label, value, maximum in (
+            ("row", row, 3),
+            ("source column", from_column, 7),
+            ("destination column", to_column, 7),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if from_column == to_column:
+            raise ValueError("Choose a different destination column.")
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
+            raise ValueError("Expected model ID must be a positive integer.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        occupied = {(block.row, block.column): block for block in pyquadcortex.blocks(preset)}
+        source = occupied.get((row, from_column))
+        if source is None:
+            raise RuntimeError(f"There is no block at row {row + 1}, column {from_column + 1}.")
+        if int(source.model_id) != expected_model_id:
+            raise RuntimeError("The source block changed on the Quad Cortex. Refresh and retry.")
+        if (row, to_column) in occupied:
+            raise RuntimeError(f"Row {row + 1}, column {to_column + 1} is no longer empty. Refresh and retry.")
+
+        qc.move_block(row, from_column, row, to_column)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current = qc.read_current_preset()
+            cells = {(block.row, block.column): block for block in pyquadcortex.blocks(current)}
+            moved = cells.get((row, to_column))
+            if (row, from_column) not in cells and moved is not None and int(moved.model_id) == expected_model_id:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Block move readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"Block moved to row {row + 1}, column {to_column + 1} and verified",
+                    "snapshot": self.snapshot(),
+                }
+        raise RuntimeError("The move command was sent, but readback did not confirm the destination.")
+
+    def set_block_footswitch(
+        self,
+        row: int,
+        column: int,
+        footswitch: int | None,
+        expected_footswitch: int | None,
+        expected_model_id: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Assign or unassign a block's STOMP footswitch with stale-state guards."""
+        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        for label, value in (("footswitch", footswitch), ("expected footswitch", expected_footswitch)):
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < 8):
+                raise ValueError(f"{label.capitalize()} must be null or an integer from 0 through 7.")
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
+            raise ValueError("Expected model ID must be a positive integer.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        block = next(
+            (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
+            None,
+        )
+        if block is None or int(block.model_id) != expected_model_id:
+            raise RuntimeError("The selected block changed on the Quad Cortex. Refresh and retry.")
+        current = next(
+            (int(item.footswitch) for item in pyquadcortex.stomp_assignments(preset)
+             if item.row == row and item.column == column),
+            None,
+        )
+        if current != expected_footswitch:
+            raise RuntimeError("The block's footswitch assignment changed on the Quad Cortex. Refresh and retry.")
+        if footswitch == current:
+            return {"detail": "Footswitch assignment was already current", "snapshot": self.snapshot()}
+
+        if footswitch is None:
+            qc.clear_stomp_assignment(row, column)
+        else:
+            qc.set_stomp_assignment(row, column, footswitch)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current_preset = qc.read_current_preset()
+            actual = next(
+                (int(item.footswitch) for item in pyquadcortex.stomp_assignments(current_preset)
+                 if item.row == row and item.column == column),
+                None,
+            )
+            if actual == footswitch:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Assignment readback matched, but the device did not mark the preset dirty.")
+                label = "unassigned" if footswitch is None else f"assigned to Footswitch {chr(65 + footswitch)}"
+                return {"detail": f"Block {label} and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("The assignment command was sent, but readback did not confirm the requested state.")
+
+    def _set_chain_route(
+        self,
+        row: int,
+        route_id: int,
+        expected_route_id: int,
+        expected_preset_name: str,
+        route_kind: str,
+    ) -> dict[str, Any]:
+        labels = INPUT_ROUTE_LABELS if route_kind == "input" else OUTPUT_ROUTE_LABELS
+        if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < 4:
+            raise ValueError("Expected row must be an integer from 0 through 3.")
+        for label, value in (("route", route_id), ("expected route", expected_route_id)):
+            if isinstance(value, bool) or not isinstance(value, int) or value not in labels:
+                raise ValueError(f"{label.capitalize()} is not a supported {route_kind} ID.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+
+        def read_route(current_preset: Any) -> int:
+            chain = next(
+                (candidate for index, candidate in enumerate(current_preset.chains)
+                 if (candidate.row if pyquadcortex.field_present(candidate, "row") else index) == row),
+                None,
+            )
+            if chain is None:
+                raise RuntimeError(f"Signal row {row + 1} is unavailable in the active preset.")
+            field = "in_portid" if route_kind == "input" else "out_portid"
+            return int(getattr(chain, field)) if pyquadcortex.field_present(chain, field) else 0
+
+        if read_route(preset) != expected_route_id:
+            raise RuntimeError(f"The row {route_kind} changed on the Quad Cortex. Refresh and retry.")
+        if route_id == expected_route_id:
+            return {"detail": f"Row {row + 1} {route_kind} was already current", "snapshot": self.snapshot()}
+
+        if route_kind == "input":
+            qc.set_chain_input(row, route_id)
+        else:
+            qc.set_chain_output(row, route_id)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            if read_route(qc.read_current_preset()) == route_id:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Routing readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"Row {row + 1} {route_kind} set to {labels[route_id]} and verified",
+                    "snapshot": self.snapshot(),
+                }
+        raise RuntimeError(f"The {route_kind} command was sent, but readback did not confirm the requested route.")
+
+    def set_chain_input(
+        self, row: int, input_id: int, expected_input_id: int, expected_preset_name: str
+    ) -> dict[str, Any]:
+        return self._set_chain_route(row, input_id, expected_input_id, expected_preset_name, "input")
+
+    def set_chain_output(
+        self, row: int, output_id: int, expected_output_id: int, expected_preset_name: str
+    ) -> dict[str, Any]:
+        return self._set_chain_route(row, output_id, expected_output_id, expected_preset_name, "output")
+
     def block_details(
         self, row: int, column: int, expected_preset_name: str = ""
     ) -> dict[str, Any]:
@@ -747,6 +918,10 @@ class PyQuadCortexDevice:
         mode = _normalized_mode(qc)
 
         catalog = qc.catalog
+        stomp_by_cell = {
+            (assignment.row, assignment.column): int(assignment.footswitch)
+            for assignment in pyquadcortex.stomp_assignments(preset)
+        }
         blocks = []
         for block in pyquadcortex.blocks(preset):
             model = catalog.get(block.model_id)
@@ -758,11 +933,13 @@ class PyQuadCortexDevice:
                 bypassed = False
             blocks.append({
                 "id": f"block-{block.row}-{block.column}",
+                "modelId": int(block.model_id),
                 "name": model.name if model else f"Model {block.model_id}",
                 "kind": _block_kind(category),
                 "row": block.row,
                 "column": block.column,
                 "bypassed": bypassed,
+                "footswitch": stomp_by_cell.get((block.row, block.column)),
             })
 
         split_by_row = {split.row: split for split in pyquadcortex.splits(preset)}
@@ -773,6 +950,8 @@ class PyQuadCortexDevice:
             output_id = int(chain.out_portid) if pyquadcortex.field_present(chain, "out_portid") else 0
             route = {
                 "row": row,
+                "inputId": input_id,
+                "outputId": output_id,
                 "input": INPUT_ROUTE_LABELS.get(input_id, f"Input {input_id}"),
                 "output": OUTPUT_ROUTE_LABELS.get(output_id, f"Output {output_id}"),
             }

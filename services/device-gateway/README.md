@@ -9,7 +9,8 @@ The gateway is independently runnable and contains no desktop UI.
 Run `python main.py --stdio` from this directory to serve v1 length-prefixed
 JSON-RPC on stdin/stdout. The Windows Tauri shell launches it automatically from
 the repository virtual environment (or from `QC_GATEWAY_EXECUTABLE` when set),
-keeps one persistent session, and exposes snapshot, scene, block-bypass, preset
+keeps one persistent session, and exposes snapshot, scene, block-bypass, guarded
+same-row block movement, STOMP footswitch assignment, guarded row input/output routing, preset
 directory/recall, bank navigation, tuner, and Gig View methods. State-changing
 commands check the expected preset/scene/slot and use correlated replies or
 readback. Numeric and option block parameters are catalog-driven and require

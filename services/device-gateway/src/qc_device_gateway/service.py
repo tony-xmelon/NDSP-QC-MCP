@@ -54,6 +54,37 @@ class GatewayService:
                     params.get("desiredBypassed"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.moveBlock":
+                result = self.device.move_block(
+                    params.get("row"),
+                    params.get("fromColumn"),
+                    params.get("toColumn"),
+                    params.get("expectedModelId"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.setBlockFootswitch":
+                result = self.device.set_block_footswitch(
+                    params.get("row"),
+                    params.get("column"),
+                    params.get("footswitch"),
+                    params.get("expectedFootswitch"),
+                    params.get("expectedModelId"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.setChainInput":
+                result = self.device.set_chain_input(
+                    params.get("row"),
+                    params.get("inputId"),
+                    params.get("expectedInputId"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.setChainOutput":
+                result = self.device.set_chain_output(
+                    params.get("row"),
+                    params.get("outputId"),
+                    params.get("expectedOutputId"),
+                    params.get("expectedPresetName", ""),
+                )
             elif method == "device.listPresets":
                 result = self.device.list_presets(params.get("refresh", False))
             elif method == "device.navigateBank":

@@ -397,6 +397,92 @@ fn toggle_bypass(
 }
 
 #[tauri::command]
+fn move_block(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    from_column: u8,
+    to_column: u8,
+    expected_model_id: u32,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.moveBlock",
+        json!({
+            "row": row,
+            "fromColumn": from_column,
+            "toColumn": to_column,
+            "expectedModelId": expected_model_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn set_block_footswitch(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    column: u8,
+    footswitch: Option<u8>,
+    expected_footswitch: Option<u8>,
+    expected_model_id: u32,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setBlockFootswitch",
+        json!({
+            "row": row,
+            "column": column,
+            "footswitch": footswitch,
+            "expectedFootswitch": expected_footswitch,
+            "expectedModelId": expected_model_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn set_chain_input(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    input_id: u8,
+    expected_input_id: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setChainInput",
+        json!({
+            "row": row,
+            "inputId": input_id,
+            "expectedInputId": expected_input_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn set_chain_output(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    output_id: u8,
+    expected_output_id: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setChainOutput",
+        json!({
+            "row": row,
+            "outputId": output_id,
+            "expectedOutputId": expected_output_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
 fn list_presets(state: State<'_, Mutex<Gateway>>, refresh: bool) -> Result<Value, String> {
     with_gateway_params(state, "device.listPresets", json!({ "refresh": refresh }))
 }
@@ -921,6 +1007,10 @@ pub fn run() {
             current_snapshot,
             select_scene,
             toggle_bypass,
+            move_block,
+            set_block_footswitch,
+            set_chain_input,
+            set_chain_output,
             list_presets,
             navigate_bank,
             recall_preset,

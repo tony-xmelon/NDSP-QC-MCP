@@ -20,6 +20,7 @@ export type BlockGlyph = BlockKind | "cube" | "gate" | "compressor" | "capture-g
 
 export interface GridBlock {
   id: string;
+  modelId?: number;
   name: string;
   kind: BlockKind;
   row: number;
@@ -27,10 +28,13 @@ export interface GridBlock {
   bypassed?: boolean;
   color?: string;
   glyph?: BlockGlyph;
+  footswitch?: number;
 }
 
 export interface GridRoute {
   row: number;
+  inputId?: number;
+  outputId?: number;
   input: string;
   output: string;
   splitColumn?: number;
@@ -216,6 +220,10 @@ export interface GatewayTransport {
   currentSnapshot(): Promise<PresetSnapshot>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
+  moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   listPresets(refresh?: boolean): Promise<PresetList>;
   navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
