@@ -2,6 +2,11 @@
 <style>
 g[mask="url(#mask1_3601_58193)"] > path:nth-child(n+5):nth-child(-n+12) { stroke: #343539; }
 #qc-foreground:target ~ g[clip-path="url(#clip0_3601_58193)"] g[mask="url(#mask1_3601_58193)"] > path:nth-child(n+5):nth-child(-n+12) { stroke: white; }
+/* The interactive surface renders these five top-row LEDs. Suppress the
+   reference drawing's segmented upper arcs so a second white crescent cannot
+   peek out after the SVG and live controls are independently scaled. */
+g[mask="url(#mask0_3601_58193)"] > path:nth-child(n+43):nth-child(-n+66),
+g[mask="url(#mask0_3601_58193)"] > path:nth-child(n+71):nth-child(-n+86) { display: none; }
 </style>
 <g id="qc-foreground"/>
 <rect width="1202" height="2292" fill="white"/>
