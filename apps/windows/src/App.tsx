@@ -99,6 +99,7 @@ export function App() {
   const submitVoiceOnEnd = useRef(false);
   const voiceError = useRef("");
   const autoConnectStarted = useRef(false);
+  const liveSyncFailures = useRef(0);
   const conversationSequence = useRef(0);
   const tempoCommitTimer = useRef<number | undefined>(undefined);
   const tempoExpected = useRef<number | undefined>(undefined);
@@ -421,6 +422,7 @@ export function App() {
       const next = mode === "reset" ? await tauriTransport.resetSession() : await tauriTransport.reconnect();
       setConnection(next);
       if (next.phase === "ready") {
+        liveSyncFailures.current = 0;
         const current = await tauriTransport.currentSnapshot();
         setSnapshot(current);
         setSelectedBlockId(current.blocks[0]?.id ?? "");
@@ -448,6 +450,7 @@ export function App() {
     setListening(false);
     try {
       const next = await tauriTransport.disconnect();
+      liveSyncFailures.current = 0;
       setConnection(next);
       setNotice(next.detail);
       setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "disconnected" }]);
@@ -493,6 +496,45 @@ export function App() {
     autoConnectStarted.current = true;
     void connect();
   }, []);
+
+  useEffect(() => {
+    if (connection.phase !== "ready" || connection.demo) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const schedule = (delay = 5000) => {
+      if (!cancelled) timer = window.setTimeout(() => void synchronize(), delay);
+    };
+    const synchronize = async () => {
+      if (document.visibilityState !== "visible" || commandPending) {
+        schedule();
+        return;
+      }
+      try {
+        const current = await tauriTransport.currentSnapshot();
+        if (cancelled) return;
+        liveSyncFailures.current = 0;
+        setSnapshot(current);
+        setSelectedBlockId((selected) => current.blocks.some((block) => block.id === selected) ? selected : current.blocks[0]?.id ?? "");
+      } catch (error) {
+        if (cancelled) return;
+        liveSyncFailures.current += 1;
+        if (liveSyncFailures.current >= 2) {
+          const detail = error instanceof Error ? error.message : String(error);
+          setConnection((current) => ({ ...current, phase: "needs-attention", demo: true, detail: `Live synchronization stopped: ${detail}` }));
+          setNotice(`Quad Cortex connection lost. ${detail}`);
+          setDialog("connection");
+          setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "connect-failed" }]);
+          return;
+        }
+      }
+      schedule();
+    };
+    schedule(3000);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [commandPending, connection.demo, connection.phase]);
 
   const refreshSnapshot = async () => {
     if (connection.demo || commandPending) return;

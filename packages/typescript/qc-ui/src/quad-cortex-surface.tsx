@@ -127,31 +127,49 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
 function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction">) {
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false);
   const columns = [98, 184, 273, 361, 448, 528, 616, 703];
-  const screenBlocks = snapshot.blocks.filter((block) => (block.row === 0 || block.row === 2) && block.column >= 0 && block.column < 8);
+  const rowY = [151, 243, 338, 430];
+  const screenBlocks = snapshot.blocks.filter((block) => block.row >= 0 && block.row < 4 && block.column >= 0 && block.column < 8);
   const sceneLetter = String.fromCharCode(65 + snapshot.activeScene);
-  const upperRoute = snapshot.routes.find((route) => route.row === 0);
-  const lowerRoute = snapshot.routes.find((route) => route.row === 2);
-  const lowerLaneRoute = snapshot.routes.find((route) => route.row === 3);
-  const lowerInput = lowerRoute?.input === "Internal" && ["Row 3", "Rows 3/4"].includes(upperRoute?.output ?? "") ? "Prev. Row" : lowerRoute?.input;
-  const lowerOutput = lowerRoute?.output === "Internal" && lowerRoute.splitColumn !== undefined && (lowerRoute.mixColumn ?? -1) < 0 ? lowerLaneRoute?.output : lowerRoute?.output;
+  const routes = rowY.map((_, row) => snapshot.routes.find((route) => route.row === row));
+  const splitRows = new Set(routes.flatMap((route) => route?.splitColumn === undefined ? [] : [route.row + 1]));
+  const displayInput = (row: number) => {
+    const input = routes[row]?.input;
+    if (input !== "Internal") return input;
+    if (splitRows.has(row)) return "Lane";
+    if (row === 2 && ["Row 3", "Rows 3/4"].includes(routes[0]?.output ?? "")) return "Prev. Row";
+    return "+";
+  };
+  const displayOutput = (row: number) => routes[row]?.output === "Internal" ? "+" : routes[row]?.output;
   const routeLines = (label: string | undefined) => {
-    const value = label ?? "Internal";
+    const value = label ?? "+";
     const words = value.split(" ");
     return words.length > 1 ? [words[0], words.slice(1).join(" ")] : [value];
   };
-  const railLabel = (label: string | undefined, x: number, y: number, fontSize = 13) => <text x={x} y={y} fill="#dedede" fontSize={fontSize}>{routeLines(label).map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 17 : 0}>{line}</tspan>)}</text>;
-  const splitMarker = (route: typeof upperRoute, cy: number) => route?.splitColumn === undefined ? null : <>
-    <circle cx={columns[Math.max(0, Math.min(7, route.splitColumn))]} cy={cy} r="6" />
-    {route.mixColumn !== undefined && route.mixColumn >= 0 && <circle cx={columns[Math.max(0, Math.min(7, route.mixColumn))]} cy={cy} r="6" />}
-  </>;
+  const railLabel = (label: string | undefined, x: number, y: number) => {
+    const lines = routeLines(label);
+    const firstY = y - (lines.length - 1) * 8;
+    return <text x={x} y={firstY} fill="#dedede" fontSize={label === "+" ? 25 : 11}>{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 16 : 0}>{line}</tspan>)}</text>;
+  };
+  const splitPath = (row: number) => {
+    const route = routes[row];
+    if (route?.splitColumn === undefined || row >= rowY.length - 1) return null;
+    const splitX = columns[Math.max(0, Math.min(7, route.splitColumn))];
+    const rejoins = route.mixColumn !== undefined && route.mixColumn >= 0;
+    const mixX = rejoins ? columns[Math.max(0, Math.min(7, route.mixColumn!))] : 748;
+    return <g key={`split-${row}`} fill="none" stroke="#c9c9ca" strokeWidth="2">
+      <path d={`M${splitX} ${rowY[row]}V${rowY[row + 1]}H${mixX}`} />
+      <circle cx={splitX} cy={rowY[row]} r="5" fill="#050506" stroke="#efefef" />
+      {rejoins && <circle cx={mixX} cy={rowY[row]} r="5" fill="#050506" stroke="#efefef" />}
+    </g>;
+  };
   const renderBlock = (block: GridBlock) => {
     const cx = columns[block.column];
-    const cy = block.row === 0 ? 147 : 334;
+    const cy = rowY[block.row];
     const color = block.color ?? blockColors[block.kind];
     const selected = selectedBlockId === block.id;
     return <g key={block.id} opacity={block.bypassed ? .16 : 1} color="#f2f2f2">
-      <rect x={cx - 31} y={cy - 31} width="62" height="62" rx="10" fill="#030304" stroke={selected ? "#f5f5f5" : color} strokeWidth={block.bypassed ? 1.5 : 2.2} />
-      <svg x={cx - 18} y={cy - 18} width="36" height="36" viewBox="0 0 32 32"><DeviceGlyph block={block} /></svg>
+      <rect x={cx - 25} y={cy - 25} width="50" height="50" rx="8" fill="#030304" stroke={selected ? "#f5f5f5" : color} strokeWidth={block.bypassed ? 1.5 : 2.2} />
+      <svg x={cx - 15} y={cy - 15} width="30" height="30" viewBox="0 0 32 32"><DeviceGlyph block={block} /></svg>
     </g>;
   };
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
@@ -165,14 +183,15 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
       <g stroke="#f0f0f0" strokeWidth="3" strokeLinecap="round"><path d="M653 57h28M653 66h28M653 75h28" /><circle fill="#f0f0f0" cx="661" cy="57" r="3.5" /><circle fill="#f0f0f0" cx="674" cy="66" r="3.5" /><circle fill="#f0f0f0" cx="663" cy="75" r="3.5" /></g><text x="691" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="24">{snapshot.mode}</text>
       <g fill="#171719" fontFamily="Arial, Helvetica, sans-serif" fontWeight="600" textAnchor="middle">
         <rect x="8" y="108" width="44" height="86" rx="9" /><rect x="8" y="203" width="44" height="79" rx="9" /><rect x="8" y="297" width="44" height="82" rx="9" /><rect x="8" y="390" width="44" height="79" rx="9" /><rect x="748" y="108" width="44" height="86" rx="9" /><rect x="748" y="203" width="44" height="79" rx="9" /><rect x="748" y="297" width="44" height="82" rx="9" /><rect x="748" y="390" width="44" height="79" rx="9" />
-        <path d="M18 115h24" stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />{railLabel(upperRoute?.input, 30, 143, 13)}<text x="30" y="252" fill="#d7d7d7" fontSize="28">＋</text>{railLabel(lowerInput, 30, 327, 12)}<text x="30" y="440" fill="#d7d7d7" fontSize="28">＋</text>
-        {railLabel(upperRoute?.output, 770, 143, 12)}<text x="770" y="252" fill="#d7d7d7" fontSize="28">＋</text>{railLabel(lowerOutput, 770, 327, 12)}<path d="M758 375h24" stroke="#e6403d" strokeWidth="3" strokeLinecap="round" /><text x="770" y="440" fill="#d7d7d7" fontSize="28">＋</text>
+        <path d="M18 115h24" stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />
+        {rowY.map((y, row) => <g key={`rails-${row}`}>{railLabel(displayInput(row), 30, y)}{railLabel(displayOutput(row), 770, y)}</g>)}
       </g>
-      <g stroke="#c9c9ca" strokeWidth="2"><path d="M52 145H748" /><path d="M52 333H748" /></g><g fill="#050506" stroke="#efefef" strokeWidth="2">{splitMarker(upperRoute, 145)}{splitMarker(lowerRoute, 333)}</g>
+      <g stroke="#c9c9ca" strokeWidth="2">{rowY.map((y, row) => <path key={`row-${row}`} d={`M52 ${y}H748`} />)}</g>
+      {rowY.map((_, row) => splitPath(row))}
       <g filter="url(#blockGlow)">{screenBlocks.map(renderBlock)}</g>
     </svg>
     <div className="coros-vector-actions" aria-label="Preset actions"><button className="vector-action-hit undo-hit" title="Undo is unavailable; use the app's verified Discard Unsaved Changes command" aria-label="Undo unavailable" disabled /><button className="vector-action-hit scene-hit" aria-label="Select scene" aria-expanded={sceneMenuOpen} onClick={() => setSceneMenuOpen((open) => !open)} /><button className="vector-action-hit save-hit" title="Use File > Save Preset to Quad Cortex for destination review" aria-label="Use the File menu to save a preset" disabled /><button className="vector-action-hit more-hit" title="Use the application menus for preset operations" aria-label="Use the application menus for preset operations" disabled /></div>
-    {screenBlocks.map((block) => <button key={block.id} className="coros-vector-block-hit" style={{ left: `${columns[block.column] / 8}%`, top: `${(block.row === 0 ? 147 : 334) / 4.8}%` }} title={block.name} aria-label={block.name} aria-pressed={selectedBlockId === block.id} onClick={() => onAction({ kind: "select-block", blockId: block.id })} />)}
+    {screenBlocks.map((block) => <button key={block.id} className="coros-vector-block-hit" style={{ left: `${columns[block.column] / 8}%`, top: `${rowY[block.row] / 4.8}%` }} title={`Row ${block.row + 1}, ${block.name}`} aria-label={`Row ${block.row + 1}, ${block.name}`} aria-pressed={selectedBlockId === block.id} onClick={() => onAction({ kind: "select-block", blockId: block.id })} />)}
     {sceneMenuOpen && <div className="scene-dropdown vector-scene-dropdown" role="menu" aria-label="Scenes">{snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => { setSceneMenuOpen(false); onAction({ kind: "select-scene", scene: index }); }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}</div>}
   </div>;
 }

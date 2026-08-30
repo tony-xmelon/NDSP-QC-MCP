@@ -19,6 +19,11 @@ struct GatewayProcess {
     next_id: u64,
 }
 
+enum GatewayRequestFailure {
+    Transport(String),
+    Remote(String),
+}
+
 impl Drop for GatewayProcess {
     fn drop(&mut self) {
         let _ = self.child.kill();
@@ -90,52 +95,58 @@ impl GatewayProcess {
         })
     }
 
-    fn request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+    fn request(&mut self, method: &str, params: Value) -> Result<Value, GatewayRequestFailure> {
         let id = self.next_id;
         self.next_id += 1;
         let payload = serde_json::to_vec(&json!({
             "jsonrpc": "2.0", "id": id, "method": method, "params": params
         }))
-        .map_err(|error| error.to_string())?;
-        let length = u32::try_from(payload.len()).map_err(|_| "Gateway request is too large")?;
+        .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
+        let length = u32::try_from(payload.len())
+            .map_err(|_| GatewayRequestFailure::Transport("Gateway request is too large".into()))?;
         self.stdin
             .write_all(&length.to_be_bytes())
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
         self.stdin
             .write_all(&payload)
-            .map_err(|error| error.to_string())?;
-        self.stdin.flush().map_err(|error| error.to_string())?;
+            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
+        self.stdin
+            .flush()
+            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
 
         let mut header = [0_u8; 4];
-        self.stdout
-            .read_exact(&mut header)
-            .map_err(|error| format!("Gateway closed: {error}"))?;
+        self.stdout.read_exact(&mut header).map_err(|error| {
+            GatewayRequestFailure::Transport(format!("Gateway closed: {error}"))
+        })?;
         let response_length = u32::from_be_bytes(header) as usize;
         if response_length == 0 || response_length > 16 * 1024 * 1024 {
-            return Err(format!(
+            return Err(GatewayRequestFailure::Transport(format!(
                 "Gateway returned invalid frame length: {response_length}"
-            ));
+            )));
         }
         let mut response_payload = vec![0_u8; response_length];
         self.stdout
             .read_exact(&mut response_payload)
-            .map_err(|error| error.to_string())?;
-        let response: Value =
-            serde_json::from_slice(&response_payload).map_err(|error| error.to_string())?;
+            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
+        let response: Value = serde_json::from_slice(&response_payload)
+            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
         if response.get("id").and_then(Value::as_u64) != Some(id) {
-            return Err("Gateway response did not match the request".into());
+            return Err(GatewayRequestFailure::Transport(
+                "Gateway response did not match the request".into(),
+            ));
         }
         if let Some(error) = response.get("error") {
-            return Err(error
-                .get("message")
-                .and_then(Value::as_str)
-                .unwrap_or("Gateway request failed")
-                .into());
+            return Err(GatewayRequestFailure::Remote(
+                error
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Gateway request failed")
+                    .into(),
+            ));
         }
-        response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| "Gateway response has no result".into())
+        response.get("result").cloned().ok_or_else(|| {
+            GatewayRequestFailure::Transport("Gateway response has no result".into())
+        })
     }
 }
 
@@ -152,6 +163,7 @@ fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
 #[derive(Default)]
 struct Gateway {
     process: Option<GatewayProcess>,
+    connected: bool,
 }
 
 impl Gateway {
@@ -159,15 +171,81 @@ impl Gateway {
         if self.process.is_none() {
             self.process = Some(GatewayProcess::start()?);
         }
-        self.process
+        let result = self
+            .process
             .as_mut()
             .expect("gateway process was initialized")
-            .request(method, params)
+            .request(method, params);
+        let (output, status) = match result {
+            Ok(value) => {
+                if method == "device.disconnect" {
+                    self.connected = false;
+                } else if method.starts_with("device.") {
+                    self.connected = true;
+                }
+                (Ok(value), "ok")
+            }
+            Err(GatewayRequestFailure::Remote(message)) => {
+                if message.contains("No Quad Cortex session") {
+                    self.connected = false;
+                }
+                (Err(message), "remote-error")
+            }
+            Err(GatewayRequestFailure::Transport(message)) => {
+                self.process = None;
+                self.connected = false;
+                (
+                    Err(format!(
+                        "{message}. The failed command was not replayed; the communication session was cleared for a safe reconnect."
+                    )),
+                    "transport-error",
+                )
+            }
+        };
+        write_runtime_health(self, method, status);
+        output
     }
 
     fn restart(&mut self, method: &str) -> Result<Value, String> {
         self.process = None;
         self.request(method, json!({}))
+    }
+}
+
+fn runtime_health_path() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("QC Voice Control")
+        .join("runtime-health.json")
+}
+
+fn runtime_health_document(gateway: &Gateway, method: &str, status: &str) -> Value {
+    json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "appPid": std::process::id(),
+        "gatewayPid": gateway.process.as_ref().map(|process| process.child.id()),
+        "connected": gateway.connected,
+        "lastMethod": method,
+        "lastStatus": status,
+        "lastRequestAtUnix": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    })
+}
+
+fn write_runtime_health(gateway: &Gateway, method: &str, status: &str) {
+    let path = runtime_health_path();
+    let Some(directory) = path.parent() else {
+        return;
+    };
+    if fs::create_dir_all(directory).is_err() {
+        return;
+    }
+    if let Ok(bytes) = serde_json::to_vec_pretty(&runtime_health_document(gateway, method, status))
+    {
+        let _ = fs::write(path, bytes);
     }
 }
 
@@ -709,6 +787,39 @@ mod tests {
         assert!(!text.contains("private"));
         assert_eq!(safe["device"]["tempo"], 45);
         assert_eq!(safe["events"][0]["event"], "connected");
+    }
+
+    #[test]
+    fn runtime_health_contains_only_operational_metadata() {
+        let gateway = Gateway {
+            process: None,
+            connected: true,
+        };
+        let health = runtime_health_document(&gateway, "device.snapshot", "ok");
+        let keys = health
+            .as_object()
+            .expect("health object")
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            keys,
+            [
+                "appPid",
+                "connected",
+                "gatewayPid",
+                "lastMethod",
+                "lastRequestAtUnix",
+                "lastStatus",
+                "version",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+        );
+        assert_eq!(health["connected"], true);
+        assert_eq!(health["lastMethod"], "device.snapshot");
+        assert_eq!(health["lastStatus"], "ok");
     }
 }
 

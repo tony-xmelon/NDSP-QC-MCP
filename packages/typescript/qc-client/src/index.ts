@@ -68,8 +68,8 @@ export const demoSnapshot: PresetSnapshot = {
   routes: [
     { row: 0, input: "In 1", output: "Row 3", splitColumn: 5, mixColumn: 7 },
     { row: 1, input: "Internal", output: "Internal" },
-    { row: 2, input: "Prev. Row", output: "Multi Out" },
-    { row: 3, input: "Internal", output: "Internal" }
+    { row: 2, input: "Prev. Row", output: "Internal", splitColumn: 1, mixColumn: -1 },
+    { row: 3, input: "Internal", output: "Multi Out" }
   ],
   blocks: [
     { id: "in-1", name: "IN 1", kind: "input", row: 0, column: -1 },
@@ -81,6 +81,7 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "cab", name: "4x12 UK V30", kind: "cab", row: 0, column: 5, glyph: "amp" },
     { id: "amp", name: "British 2203", kind: "amp", row: 0, column: 6, color: "#ededed", glyph: "capture" },
     { id: "delay", name: "Digital Delay", kind: "delay", row: 0, column: 7, color: "#625cff", glyph: "cab" },
+    { id: "upper-lane-delay", name: "Tape Echo", kind: "delay", row: 1, column: 6, color: "#625cff", glyph: "wave" },
     { id: "out-3", name: "OUT 3", kind: "output", row: 0, column: 8 },
     { id: "in-usb", name: "USB 5", kind: "input", row: 2, column: -1 },
     { id: "pitch", name: "Dual Octaver", kind: "mod", row: 2, column: 1, bypassed: true, glyph: "level" },
@@ -89,6 +90,7 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "row-3-amp", name: "British Lead", kind: "amp", row: 2, column: 4, bypassed: true, glyph: "wave" },
     { id: "row-3-cab", name: "2x12 Cream", kind: "cab", row: 2, column: 5, color: "#26d6c6", glyph: "cube" },
     { id: "row-3-out", name: "Looper X", kind: "cab", row: 2, column: 7, glyph: "reverb" },
+    { id: "lower-lane-reverb", name: "Plate Reverb", kind: "reverb", row: 3, column: 6, glyph: "reverb" },
     { id: "out-usb", name: "USB 3/4", kind: "output", row: 2, column: 8 }
   ]
 };
