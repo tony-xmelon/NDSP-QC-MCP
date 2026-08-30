@@ -3,7 +3,7 @@ import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionSt
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
-import { diagnosticsFiles, reportVoiceCapability, tauriTransport, workspaceFiles } from "./tauri-transport";
+import { diagnosticsFiles, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createSpeechRecognition, speechRecognitionAvailable, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
 type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "workspace" | "save-device" | null;
@@ -98,6 +98,7 @@ export function App() {
   const voiceTranscript = useRef("");
   const submitVoiceOnEnd = useRef(false);
   const voiceError = useRef("");
+  const voiceTranscriptReported = useRef(false);
   const autoConnectStarted = useRef(false);
   const liveSyncFailures = useRef(0);
   const conversationSequence = useRef(0);
@@ -735,6 +736,7 @@ export function App() {
           speechRecognition.current?.abort();
           setListening(false);
           setNotice("Voice capture cancelled.");
+          void reportVoiceEvent("cancelled");
         }
         setPendingAssistantAction(undefined);
         setDialog(null);
@@ -964,17 +966,20 @@ export function App() {
       submitVoiceOnEnd.current = true;
       speechRecognition.current?.stop();
       setNotice("Finishing the voice transcript…");
+      void reportVoiceEvent("stop-requested");
       return;
     }
     const recognition = createSpeechRecognition();
     if (!recognition) {
       setNotice("Speech recognition is unavailable in this WebView2 runtime. Typed QC commands remain available.");
+      void reportVoiceEvent("unavailable");
       return;
     }
     if (localStorage.getItem(voiceDisclosureKey) !== "accepted") {
       const accepted = window.confirm("Voice transcription uses Microsoft Edge speech recognition. On this stable runtime, microphone audio may be sent to Microsoft Azure for transcription. Continue and remember this choice on this PC?");
       if (!accepted) {
         setNotice("Voice transcription was not enabled. No microphone audio was sent.");
+        void reportVoiceEvent("consent-declined");
         return;
       }
       localStorage.setItem(voiceDisclosureKey, "accepted");
@@ -982,12 +987,14 @@ export function App() {
     voiceTranscript.current = "";
     submitVoiceOnEnd.current = false;
     voiceError.current = "";
+    voiceTranscriptReported.current = false;
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = navigator.language || "en-US";
     recognition.onstart = () => {
       setListening(true);
       setNotice("Listening… click Stop to transcribe and run the command.");
+      void reportVoiceEvent("started");
     };
     recognition.onresult = (event) => {
       let transcript = "";
@@ -995,6 +1002,10 @@ export function App() {
         transcript += event.results[index][0]?.transcript ?? "";
       }
       voiceTranscript.current = transcript.trim();
+      if (voiceTranscript.current && !voiceTranscriptReported.current) {
+        voiceTranscriptReported.current = true;
+        void reportVoiceEvent("transcript-observed");
+      }
       setMessage(voiceTranscript.current);
       setNotice(voiceTranscript.current ? `Heard: “${voiceTranscript.current}”` : "Listening…");
     };
@@ -1003,6 +1014,7 @@ export function App() {
       voiceError.current = event.error;
       setListening(false);
       setNotice(speechRecognitionErrorMessage(event.error));
+      void reportVoiceEvent(`error:${event.error}`);
     };
     recognition.onend = () => {
       const transcript = voiceTranscript.current.trim();
@@ -1011,8 +1023,15 @@ export function App() {
       submitVoiceOnEnd.current = false;
       setListening(false);
       if (voiceError.current) return;
-      if (shouldSubmit) void submitAssistantText(transcript);
-      else if (transcript) setNotice("Voice transcript is ready. Review it, then press Send.");
+      if (shouldSubmit) {
+        void reportVoiceEvent("submitted");
+        void submitAssistantText(transcript);
+      } else if (transcript) {
+        void reportVoiceEvent("transcript-ready");
+        setNotice("Voice transcript is ready. Review it, then press Send.");
+      } else {
+        void reportVoiceEvent("ended-without-transcript");
+      }
     };
     speechRecognition.current = recognition;
     try {
@@ -1021,6 +1040,7 @@ export function App() {
     } catch (error) {
       speechRecognition.current = undefined;
       setListening(false);
+      void reportVoiceEvent("start-error");
       actionFailed(error);
     }
   };

@@ -165,6 +165,8 @@ struct Gateway {
     process: Option<GatewayProcess>,
     connected: bool,
     voice_recognition_available: Option<bool>,
+    voice_last_event: Option<String>,
+    voice_event_at_unix: Option<u64>,
 }
 
 impl Gateway {
@@ -230,6 +232,8 @@ fn runtime_health_document(gateway: &Gateway, method: &str, status: &str) -> Val
         "lastMethod": method,
         "lastStatus": status,
         "voiceRecognitionAvailable": gateway.voice_recognition_available,
+        "voiceLastEvent": gateway.voice_last_event.as_deref(),
+        "voiceEventAtUnix": gateway.voice_event_at_unix,
         "lastRequestAtUnix": std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -262,6 +266,51 @@ fn report_voice_capability(
     gateway.voice_recognition_available = Some(available);
     write_runtime_health(&gateway, "voice.capability", "ok");
     Ok(())
+}
+
+#[tauri::command]
+fn report_voice_event(state: State<'_, Mutex<Gateway>>, event: String) -> Result<(), String> {
+    let normalized = normalize_voice_event(&event)?;
+    let mut gateway = state
+        .lock()
+        .map_err(|_| "Gateway session lock was poisoned".to_string())?;
+    gateway.voice_last_event = Some(normalized);
+    gateway.voice_event_at_unix = Some(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+    );
+    write_runtime_health(&gateway, "voice.event", "ok");
+    Ok(())
+}
+
+fn normalize_voice_event(event: &str) -> Result<String, String> {
+    match event {
+        "started"
+        | "stop-requested"
+        | "transcript-observed"
+        | "transcript-ready"
+        | "submitted"
+        | "cancelled"
+        | "unavailable"
+        | "consent-declined"
+        | "ended-without-transcript"
+        | "start-error" => Ok(event.into()),
+        value if value.starts_with("error:") => {
+            let category = value.trim_start_matches("error:");
+            Ok(match category {
+                "audio-capture"
+                | "language-not-supported"
+                | "network"
+                | "no-speech"
+                | "not-allowed"
+                | "service-not-allowed" => format!("error:{category}"),
+                _ => "error:other".into(),
+            })
+        }
+        _ => Err("Unsupported voice lifecycle event".into()),
+    }
 }
 
 fn with_gateway(state: State<'_, Mutex<Gateway>>, method: &str) -> Result<Value, String> {
@@ -810,6 +859,8 @@ mod tests {
             process: None,
             connected: true,
             voice_recognition_available: Some(true),
+            voice_last_event: Some("submitted".into()),
+            voice_event_at_unix: Some(1),
         };
         let health = runtime_health_document(&gateway, "device.snapshot", "ok");
         let keys = health
@@ -829,6 +880,8 @@ mod tests {
                 "lastStatus",
                 "version",
                 "voiceRecognitionAvailable",
+                "voiceLastEvent",
+                "voiceEventAtUnix",
             ]
             .into_iter()
             .map(str::to_string)
@@ -838,6 +891,21 @@ mod tests {
         assert_eq!(health["lastMethod"], "device.snapshot");
         assert_eq!(health["lastStatus"], "ok");
         assert_eq!(health["voiceRecognitionAvailable"], true);
+        assert_eq!(health["voiceLastEvent"], "submitted");
+    }
+
+    #[test]
+    fn voice_events_are_allowlisted_without_transcript_content() {
+        assert_eq!(normalize_voice_event("started").unwrap(), "started");
+        assert_eq!(
+            normalize_voice_event("error:not-allowed").unwrap(),
+            "error:not-allowed"
+        );
+        assert_eq!(
+            normalize_voice_event("error:private transcript").unwrap(),
+            "error:other"
+        );
+        assert!(normalize_voice_event("transcript:private words").is_err());
     }
 }
 
@@ -869,7 +937,8 @@ pub fn run() {
             save_workspace,
             open_workspace,
             export_diagnostics,
-            report_voice_capability
+            report_voice_capability,
+            report_voice_event
         ])
         .run(tauri::generate_context!())
         .expect("error while running QC Voice Control");

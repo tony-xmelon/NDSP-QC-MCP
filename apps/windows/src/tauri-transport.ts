@@ -19,6 +19,11 @@ export function reportVoiceCapability(available: boolean): Promise<void> {
   return callTauri<void>("report_voice_capability", { available });
 }
 
+export function reportVoiceEvent(event: string): Promise<void> {
+  if (!window.__TAURI_INTERNALS__) return Promise.resolve();
+  return callTauri<void>("report_voice_event", { event });
+}
+
 export const tauriTransport: GatewayTransport = {
   async runtimeStatus(): Promise<RuntimeStatus> {
     if (!window.__TAURI_INTERNALS__) {
