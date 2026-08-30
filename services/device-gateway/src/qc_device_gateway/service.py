@@ -88,6 +88,12 @@ class GatewayService:
                     params.get("expectedScene"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.setTempo":
+                result = self.device.set_tempo(
+                    params.get("bpm"),
+                    params.get("expectedTempo"),
+                    params.get("expectedPresetName", ""),
+                )
             elif method == "device.listPresetSlots":
                 result = self.device.list_preset_slots()
             elif method == "device.savePresetAs":

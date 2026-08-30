@@ -6,6 +6,7 @@ export type AssistantIntent =
   | { kind: "bank"; direction: -1 | 1 }
   | { kind: "view"; view: "tuner" | "gig" }
   | { kind: "recall"; location: string }
+  | { kind: "tempo"; bpm: number }
   | { kind: "bypass"; desired: "bypassed" | "enabled" | "toggle" }
   | { kind: "parameter"; parameter: string; value: string }
   | { kind: "help" };
@@ -13,6 +14,9 @@ export type AssistantIntent =
 export function parseAssistantIntent(input: string): AssistantIntent {
   const value = input.trim();
   const normalized = value.toLowerCase().replace(/[?.!]+$/g, "").trim();
+
+  const tempo = normalized.match(/^(?:set|change|adjust)\s+(?:the\s+)?tempo\s+(?:to|at)\s+(\d{2,3})(?:\s*bpm)?$/);
+  if (tempo) return { kind: "tempo", bpm: Number(tempo[1]) };
 
   const parameter = normalized.match(/^(?:set|change|adjust)\s+(.+?)\s+(?:to|at)\s+(.+)$/);
   if (parameter) return { kind: "parameter", parameter: parameter[1].trim(), value: parameter[2].trim() };
@@ -42,4 +46,4 @@ export function formatSnapshotSummary(snapshot: PresetSnapshot): string {
   return `${snapshot.deviceName} is on ${snapshot.setlistName} ${snapshot.presetLocation} · ${snapshot.presetName}, Scene ${String.fromCharCode(65 + snapshot.activeScene)} (${snapshot.scenes[snapshot.activeScene] ?? "unnamed"}), ${snapshot.tempo} BPM. The Grid has ${snapshot.blocks.length} blocks (${active} active, ${bypassed} bypassed) and is ${snapshot.dirty ? "modified but not saved" : "clean"}.`;
 }
 
-export const assistantHelp = "Try “what preset is active?”, “scene C”, “bank up”, “recall 6B”, “open tuner”, “bypass selected block”, or “set Gain to 55%”. Performance actions run immediately; temporary edits show a preview first.";
+export const assistantHelp = "Try “what preset is active?”, “scene C”, “bank up”, “recall 6B”, “set tempo to 120”, “open tuner”, “bypass selected block”, or “set Gain to 55%”. Performance actions run immediately; temporary edits show a preview first.";

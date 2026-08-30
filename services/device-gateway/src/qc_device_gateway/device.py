@@ -7,6 +7,10 @@ import time
 from typing import Any
 
 
+MIN_TEMPO_BPM = 40
+MAX_TEMPO_BPM = 240
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -30,6 +34,20 @@ def _effective_parameter_value(state: Any, scene: int) -> Any:
     if not state.values:
         return None
     return state.values[scene] if state.scene_mode and scene < len(state.values) else state.values[0]
+
+
+def _tempo_bpm(preset: Any) -> int:
+    """Convert the QC tempo block's normalized value to its displayed BPM."""
+    import pyquadcortex
+
+    value = pyquadcortex.tempo_params(preset).get(0)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise RuntimeError("The active preset did not report a tempo value.")
+    return round(MIN_TEMPO_BPM + (MAX_TEMPO_BPM - MIN_TEMPO_BPM) * float(value))
+
+
+def _tempo_value(bpm: int) -> float:
+    return (bpm - MIN_TEMPO_BPM) / (MAX_TEMPO_BPM - MIN_TEMPO_BPM)
 
 
 def _wait_for_dirty(qc: Any, expected: bool, timeout: float = 3.0) -> bool:
@@ -530,6 +548,50 @@ class PyQuadCortexDevice:
                 }
         raise RuntimeError("The parameter command was sent, but readback did not confirm the requested value.")
 
+    def set_tempo(
+        self,
+        bpm: int,
+        expected_tempo: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        if isinstance(bpm, bool) or not isinstance(bpm, int) or not MIN_TEMPO_BPM <= bpm <= MAX_TEMPO_BPM:
+            raise ValueError(f"Tempo must be an integer from {MIN_TEMPO_BPM} through {MAX_TEMPO_BPM} BPM.")
+        if (
+            isinstance(expected_tempo, bool)
+            or not isinstance(expected_tempo, int)
+            or not MIN_TEMPO_BPM <= expected_tempo <= MAX_TEMPO_BPM
+        ):
+            raise ValueError(f"Expected tempo must be an integer from {MIN_TEMPO_BPM} through {MAX_TEMPO_BPM} BPM.")
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        actual_bpm = _tempo_bpm(preset)
+        if actual_bpm != expected_tempo:
+            raise RuntimeError(
+                f"Tempo changed on the Quad Cortex: expected {expected_tempo} BPM, "
+                f"but it is {actual_bpm} BPM. Refresh and retry."
+            )
+        if bpm == actual_bpm:
+            return {"detail": f"Tempo is already {bpm} BPM", "snapshot": self.snapshot()}
+
+        desired_value = _tempo_value(bpm)
+        qc.set_tempo_param("TEMPO", value=desired_value)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current = qc.read_current_preset()
+            actual_value = pyquadcortex.tempo_params(current).get(0)
+            if isinstance(actual_value, (int, float)) and abs(float(actual_value) - desired_value) <= 0.0025:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Tempo readback matched, but the device did not mark the preset dirty.")
+                snapshot = self.snapshot()
+                if snapshot["tempo"] != bpm:
+                    raise RuntimeError("Tempo write landed, but its displayed BPM did not verify.")
+                return {"detail": f"Tempo set to {bpm} BPM and verified", "snapshot": snapshot}
+        raise RuntimeError("The tempo command was sent, but readback did not confirm the requested BPM.")
+
     def show_tuner(self, shown: bool = True) -> dict[str, Any]:
         if not isinstance(shown, bool):
             raise ValueError("Tuner visibility must be true or false.")
@@ -589,6 +651,6 @@ class PyQuadCortexDevice:
             "activeScene": active_scene,
             "scenes": scenes,
             "blocks": blocks,
-            "tempo": round(float(preset.tempo or 120)),
+            "tempo": _tempo_bpm(preset),
             "dirty": bool(qc.preset_dirty()),
         }

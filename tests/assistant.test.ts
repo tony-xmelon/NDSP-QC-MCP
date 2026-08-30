@@ -7,6 +7,7 @@ test("parses immediate performance commands", () => {
   assert.deepEqual(parseAssistantIntent("bank down"), { kind: "bank", direction: -1 });
   assert.deepEqual(parseAssistantIntent("recall 6b"), { kind: "recall", location: "6B" });
   assert.deepEqual(parseAssistantIntent("open tuner"), { kind: "view", view: "tuner" });
+  assert.deepEqual(parseAssistantIntent("set tempo to 121 BPM"), { kind: "tempo", bpm: 121 });
 });
 
 test("parses edits for preview instead of direct application", () => {

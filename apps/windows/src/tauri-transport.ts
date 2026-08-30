@@ -58,6 +58,9 @@ export const tauriTransport: GatewayTransport = {
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult> {
     return callTauri<ParameterActionResult>("set_parameter", { row, column, parameterIndex, value, expectedValue, expectedScene, expectedPresetName });
   },
+  setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("set_tempo", { bpm, expectedTempo, expectedPresetName });
+  },
   listPresetSlots(): Promise<PresetSlotList> {
     return callTauri<PresetSlotList>("list_preset_slots");
   },

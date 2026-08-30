@@ -8,7 +8,12 @@ $gatewayRoot = Join-Path $repositoryRoot "services\device-gateway"
 $tauriRoot = Join-Path $repositoryRoot "apps\windows\src-tauri"
 $binaryDirectory = Join-Path $tauriRoot "binaries"
 $sidecarBuildDirectory = Join-Path $tauriRoot "target\sidecar-build"
-$sidecarName = "qc-device-gateway-x86_64-pc-windows-msvc"
+$rustHostLine = & rustc -vV | Where-Object { $_ -like "host:*" } | Select-Object -First 1
+if ($LASTEXITCODE -ne 0 -or -not $rustHostLine) {
+    throw "Could not determine the active Rust host target."
+}
+$rustHost = ($rustHostLine -split ":", 2)[1].Trim()
+$sidecarName = "qc-device-gateway-$rustHost"
 
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
     throw "Repository Python runtime is missing: $pythonPath"
@@ -41,6 +46,14 @@ New-Item -ItemType Directory -Force -Path (Join-Path $sidecarBuildDirectory "spe
     --specpath (Join-Path $sidecarBuildDirectory "spec") `
     (Join-Path $gatewayRoot "main.py")
 if ($LASTEXITCODE -ne 0) { throw "Could not build the packaged device gateway." }
+
+$builtSidecar = Join-Path $binaryDirectory "$sidecarName.exe"
+foreach ($windowsTarget in @("x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu")) {
+    $targetSidecar = Join-Path $binaryDirectory "qc-device-gateway-$windowsTarget.exe"
+    if ($targetSidecar -ne $builtSidecar) {
+        Copy-Item -LiteralPath $builtSidecar -Destination $targetSidecar -Force
+    }
+}
 
 Push-Location $repositoryRoot
 try {

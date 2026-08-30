@@ -353,6 +353,24 @@ fn set_parameter(
 }
 
 #[tauri::command]
+fn set_tempo(
+    state: State<'_, Mutex<Gateway>>,
+    bpm: u16,
+    expected_tempo: u16,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setTempo",
+        json!({
+            "bpm": bpm,
+            "expectedTempo": expected_tempo,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
 fn list_preset_slots(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
     with_gateway(state, "device.listPresetSlots")
 }
@@ -569,6 +587,7 @@ pub fn run() {
             reload_preset,
             block_details,
             set_parameter,
+            set_tempo,
             list_preset_slots,
             save_preset_as,
             show_tuner,

@@ -87,13 +87,20 @@ export function App() {
   const voiceError = useRef("");
   const autoConnectStarted = useRef(false);
   const conversationSequence = useRef(0);
+  const tempoCommitTimer = useRef<number | undefined>(undefined);
+  const tempoExpected = useRef<number | undefined>(undefined);
+  const tempoTarget = useRef<number | undefined>(undefined);
+  const tapTimes = useRef<number[]>([]);
 
   const formFactor = useMemo(() => formFactors.find((item) => item.id === formFactorId) ?? formFactors[0], [formFactorId]);
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
 
   useEffect(() => {
     void tauriTransport.runtimeStatus().then(setRuntime).catch((error: Error) => setNotice(error.message));
-    return () => speechRecognition.current?.abort();
+    return () => {
+      speechRecognition.current?.abort();
+      if (tempoCommitTimer.current !== undefined) window.clearTimeout(tempoCommitTimer.current);
+    };
   }, []);
 
   const actionFailed = useCallback((error: unknown) => {
@@ -228,6 +235,68 @@ export function App() {
     }
   };
 
+  const queueTempo = useCallback((requestedBpm: number, source: "Encoder" | "Tap") => {
+    const bpm = Math.max(40, Math.min(240, Math.round(requestedBpm)));
+    if (connection.demo) {
+      setSnapshot((current) => ({ ...current, tempo: bpm }));
+      setNotice(`Demo: ${source.toLowerCase()} tempo ${bpm} BPM.`);
+      return;
+    }
+    if (tempoExpected.current === undefined) {
+      tempoExpected.current = snapshot.tempo;
+      setCommandPending(true);
+    }
+    tempoTarget.current = bpm;
+    setSnapshot((current) => ({ ...current, tempo: bpm }));
+    setNotice(`${source} tempo: ${bpm} BPM…`);
+    if (tempoCommitTimer.current !== undefined) window.clearTimeout(tempoCommitTimer.current);
+    tempoCommitTimer.current = window.setTimeout(async () => {
+      const target = tempoTarget.current;
+      const expected = tempoExpected.current;
+      tempoCommitTimer.current = undefined;
+      if (target === undefined || expected === undefined) return;
+      try {
+        const result = await tauriTransport.setTempo(target, expected, snapshot.presetName);
+        if (result.snapshot) setSnapshot(result.snapshot);
+        setNotice(result.detail);
+      } catch (error) {
+        actionFailed(error);
+        try {
+          setSnapshot(await tauriTransport.currentSnapshot());
+        } catch {
+          // Keep the original command error visible; a manual refresh remains available.
+        }
+      } finally {
+        tempoExpected.current = undefined;
+        tempoTarget.current = undefined;
+        setCommandPending(false);
+      }
+    }, source === "Tap" ? 650 : 350);
+  }, [actionFailed, connection.demo, snapshot.presetName, snapshot.tempo]);
+
+  const adjustTempo = useCallback((delta: number) => {
+    queueTempo((tempoTarget.current ?? snapshot.tempo) + delta, "Encoder");
+  }, [queueTempo, snapshot.tempo]);
+
+  const tapTempo = useCallback(() => {
+    const now = performance.now();
+    const previous = tapTimes.current.at(-1);
+    if (previous === undefined || now - previous > 2500) tapTimes.current = [now];
+    else tapTimes.current = [...tapTimes.current.slice(-4), now];
+    if (tapTimes.current.length < 2) {
+      setNotice("Tap again to set the tempo.");
+      return;
+    }
+    const intervals = tapTimes.current.slice(1).map((time, index) => time - tapTimes.current[index]);
+    const usable = intervals.filter((interval) => interval >= 250 && interval <= 1500);
+    if (!usable.length) {
+      tapTimes.current = [now];
+      setNotice("Tap again at a steady rate between 40 and 240 BPM.");
+      return;
+    }
+    queueTempo(60000 / (usable.reduce((sum, interval) => sum + interval, 0) / usable.length), "Tap");
+  }, [queueTempo]);
+
   const handleHardwareAction = useCallback((action: HardwareAction) => {
     if (action.kind === "select-block") {
       const block = snapshot.blocks.find((candidate) => candidate.id === action.blockId);
@@ -235,10 +304,8 @@ export function App() {
       return;
     }
     if (action.kind === "rotate") {
-      if (connection.demo && action.role === "tempo") {
-        setSnapshot((current) => ({ ...current, tempo: Math.max(30, Math.min(300, current.tempo + action.delta)) }));
-      }
-      setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} encoder writes are not enabled yet.`);
+      if (action.role === "tempo") adjustTempo(action.delta);
+      else setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} encoder writes are not enabled yet.`);
       return;
     }
     if (action.phase === "release" && action.role.startsWith("footswitch:")) {
@@ -253,9 +320,9 @@ export function App() {
       void navigateBank(-1);
       return;
     }
-    if (action.phase === "release" && action.role === "tempo") setNotice(connection.demo ? "Demo: Tap tempo registered." : "Tap tempo control is not enabled yet; use the QC tempo screen.");
+    if (action.phase === "release" && action.role === "tempo") tapTempo();
     else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
-  }, [chooseScene, connection.demo, navigateBank, openBlockEditor, snapshot.blocks]);
+  }, [adjustTempo, chooseScene, connection.demo, navigateBank, openBlockEditor, snapshot.blocks, tapTempo]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -271,12 +338,12 @@ export function App() {
       if (/^[1-8]$/.test(event.key)) void chooseScene(Number(event.key) - 1);
       if (event.key === "[") void navigateBank(-1);
       if (event.key === "]") void navigateBank(1);
-      if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : setNotice("Tap tempo control is not enabled yet; use the QC tempo screen.");
+      if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : tapTempo();
       if (event.key.toLowerCase() === "b" && selectedBlockId) void toggleSelectedBypass();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chooseScene, navigateBank, selectedBlockId, showDeviceView, toggleSelectedBypass]);
+  }, [chooseScene, navigateBank, selectedBlockId, showDeviceView, tapTempo, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
     setConnection({ phase: "discovering", detail: "Looking for device gateway…", demo: true });
@@ -584,6 +651,14 @@ export function App() {
       return;
     }
     if (connection.demo) throw new Error("Connect the Quad Cortex before running that performance command.");
+    if (intent.kind === "tempo") {
+      if (!Number.isInteger(intent.bpm) || intent.bpm < 40 || intent.bpm > 240) throw new Error("Tempo must be from 40 through 240 BPM.");
+      const result = await tauriTransport.setTempo(intent.bpm, snapshot.tempo, snapshot.presetName);
+      if (result.snapshot) setSnapshot(result.snapshot);
+      appendMessage("tool", result.detail);
+      setNotice(result.detail);
+      return;
+    }
     if (intent.kind === "scene") {
       const result = await tauriTransport.selectScene(intent.index, snapshot.presetName);
       if (result.snapshot) setSnapshot(result.snapshot);
