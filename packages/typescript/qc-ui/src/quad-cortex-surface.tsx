@@ -71,7 +71,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
   return <div className="master-volume">
-    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
+    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
     <button className="volume-knob" aria-label="Master volume knob" onWheel={(event) => {
       event.preventDefault();
       onAction({ kind: "rotate", role: "master-volume", delta: event.deltaY < 0 ? 1 : -1 });

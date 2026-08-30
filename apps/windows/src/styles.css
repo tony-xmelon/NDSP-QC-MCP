@@ -449,18 +449,19 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 }
 .skin-official-svg .power-button {
   width: clamp(22px, 2.2vw, 30px);
+  padding: 0;
   border: 1px solid #26272a;
   border-radius: 5px;
   background: linear-gradient(145deg, #5b5c60, #35363a 68%);
   box-shadow: inset 1px 1px #ffffff4a, inset -1px -1px #1118, 0 2px 3px #17181a8a;
 }
-.skin-official-svg .power-icon { width: 55%; height: 55%; fill: none; stroke: #f1f1f1; stroke-width: 1.8; stroke-linecap: round; }
+.skin-official-svg .power-icon { width: 96%; height: 96%; fill: none; stroke: #f1f1f1; stroke-width: 1.75; stroke-linecap: round; }
 .skin-official-svg .volume-knob {
   border: 1px solid #202125;
-  background: repeating-conic-gradient(from -3deg, #18191c 0 2.2deg, #3b3c40 2.2deg 3.6deg, #232428 3.6deg 5.8deg);
-  box-shadow: inset 0 0 0 2px #191a1d, inset 4px 4px 8px #ffffff12, 5px 7px 9px #1617198c;
+  background: radial-gradient(circle at 36% 28%, #55565a 0%, #3b3c40 54%, #222327 100%);
+  box-shadow: inset 2px 2px 4px #ffffff18, inset -3px -3px 6px #11121699, 5px 7px 9px #1617198c;
 }
-.skin-official-svg .volume-knob::before { display: block; left: 10%; top: 10%; width: 80%; background: radial-gradient(circle at 36% 27%, #515256, #393a3e 58%, #242529 100%); box-shadow: inset 1px 1px 1px #ffffff2b, inset -2px -2px 3px #15161999, 0 0 0 1px #18191c; }
+.skin-official-svg .volume-knob::before { display: block; inset: 2px; width: auto; background: linear-gradient(145deg, #55565a, #38393d 58%, #242529); box-shadow: inset 1px 1px 2px #ffffff22, inset -2px -2px 3px #15161999; }
 .skin-official-svg .volume-knob span { display: block; top: 13%; height: 22%; width: 2px; background: #dedede; box-shadow: 1px 0 #161719; }
 .skin-official-svg .screen-nav-control,
 .skin-official-svg .footswitch-deck,
@@ -490,15 +491,15 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 51%;
+  width: 66%;
   border: 1px solid #111215;
   background: repeating-conic-gradient(from -4deg, #111215 0 3deg, #4f5053 3deg 5deg, #1b1c1f 5deg 8deg);
-  box-shadow: 0 0 0 2px #141518, inset 1px 1px 2px #ffffff35, 1px 3px 3px #111a;
+  box-shadow: 0 0 0 2px #141518, inset 1px 1px 2px #ffffff35, 2px 4px 3px #111b;
 }
 .skin-official-svg .switch-cap::before {
-  inset: 8%;
-  background: conic-gradient(from 35deg, #515256, #2d2e32 28%, #68696c 48%, #343539 72%, #55565a);
-  box-shadow: inset 1px 1px 1px #ffffff4d, inset -1px -1px 2px #0c0d0e;
+  inset: 7%;
+  background: linear-gradient(145deg, #6d6f72 0%, #484a4d 48%, #303135 100%);
+  box-shadow: inset 1px 1px 1px #ffffff52, inset -1px -1px 2px #17181a;
 }
 .skin-official-svg .switch-led {
   border: 0;
