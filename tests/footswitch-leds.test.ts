@@ -16,22 +16,30 @@ test("STOMP LEDs follow assignments and bypass state", () => {
     { id: "gate", name: "Adaptive Gate", kind: "utility", category: "Utility", row: 0, column: 0, footswitch: 0, bypassed: false },
     { id: "delay", name: "Analog Delay", kind: "delay", category: "Delay", row: 3, column: 6, footswitch: 7, bypassed: true }
   ] }));
-  assert.deepEqual(leds[0], { active: true, color: "#ffd236" });
-  assert.deepEqual(leds[7], { active: false, color: "#6954ff" });
-  assert.deepEqual(leds[1], { active: false, color: "#626367" });
+  assert.deepEqual(leds[0], { active: true, assigned: true, color: "#ffd236" });
+  assert.deepEqual(leds[7], { active: false, assigned: true, color: "#6954ff" });
+  assert.deepEqual(leds[1], { active: false, assigned: false, color: "#626367" });
 });
 
-test("multi-block STOMP assignments use white and light when any target is active", () => {
+test("multi-block STOMP LEDs follow the first assigned block for inverted groups", () => {
   const leds = footswitchLeds(snapshot({ blocks: [
-    { id: "pitch", name: "Transpose", kind: "mod", category: "Pitch", row: 0, column: 4, footswitch: 4, bypassed: false },
-    { id: "drive", name: "Rodent Drive", kind: "utility", category: "Guitar Overdrive", row: 2, column: 2, footswitch: 4, bypassed: true }
+    { id: "pitch", name: "Transpose", kind: "mod", category: "Pitch", row: 0, column: 4, footswitch: 4, footswitchOrder: 0, bypassed: true },
+    { id: "drive", name: "Rodent Drive", kind: "utility", category: "Guitar Overdrive", row: 2, column: 2, footswitch: 4, footswitchOrder: 1, bypassed: false }
   ] }));
-  assert.deepEqual(leds[4], { active: true, color: "#f4f4f4" });
+  assert.deepEqual(leds[4], { active: false, assigned: true, color: "#3500f1" });
+});
+
+test("device-reported STOMP LED state is authoritative", () => {
+  const leds = footswitchLeds(snapshot({
+    footswitchStates: [{ index: 4, active: true, assigned: true, color: "#123456" }],
+    blocks: [{ id: "pitch", name: "Transpose", kind: "mod", row: 0, column: 4, footswitch: 4, bypassed: true }]
+  }));
+  assert.deepEqual(leds[4], { active: true, assigned: true, color: "#123456" });
 });
 
 test("SCENE and PRESET modes use colors reported by the preset", () => {
   const scene = footswitchLeds(snapshot({ mode: "SCENE", footswitchModes: ["SCENE", "SCENE"], activeScene: 3 }));
-  assert.deepEqual(scene[3], { active: true, color: "#ff02c2" });
+  assert.deepEqual(scene[3], { active: true, assigned: true, color: "#ff02c2" });
   const preset = footswitchLeds(snapshot({ mode: "PRESET", footswitchModes: ["PRESET", "PRESET"], activeScene: 4 }));
-  assert.deepEqual(preset[1], { active: true, color: "#45f862" });
+  assert.deepEqual(preset[1], { active: true, assigned: true, color: "#45f862" });
 });

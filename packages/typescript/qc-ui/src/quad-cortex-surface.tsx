@@ -20,20 +20,40 @@ interface QuadCortexSurfaceProps {
 
 const officialBlockSprite = "/qc-block-samples.svg";
 const officialBlockTiles: Record<string, [number, number]> = {
-  gate: [0, 82], compressor: [80, 0], "capture-grid": [480, 82], wave: [160, 0],
-  level: [160, 82], amp: [480, 0], cab: [80, 82], capture: [400, 82],
-  cube: [240, 82], delay: [240, 0], reverb: [320, 0], mod: [160, 0], utility: [80, 0]
+  utility: [0, 0], equalizer: [80, 0], modulation: [160, 0], splitter: [240, 0],
+  amp: [320, 0], drive: [400, 0], cab: [480, 0], gate: [0, 82],
+  compressor: [80, 82], delay: [160, 82], loop: [240, 82], level: [320, 82],
+  wah: [400, 82], reverb: [480, 82]
 };
 
+function deviceBlockTile(block: GridBlock): [number, number] {
+  if (block.glyph && officialBlockTiles[block.glyph]) return officialBlockTiles[block.glyph];
+  const category = (block.category ?? block.kind).toLowerCase();
+  const name = block.name.toLowerCase();
+  if (name.includes("gate")) return officialBlockTiles.gate;
+  if (category.includes("equalizer")) return officialBlockTiles.equalizer;
+  if (category.includes("compressor")) return officialBlockTiles.compressor;
+  if (category.includes("pitch") || category.includes("modulation")) return officialBlockTiles.modulation;
+  if (category.includes("overdrive") || category.includes("capture")) return officialBlockTiles.drive;
+  if (category.includes("amplifier")) return officialBlockTiles.amp;
+  if (category.includes("cab") || category.includes("impulse")) return officialBlockTiles.cab;
+  if (category.includes("delay")) return officialBlockTiles.delay;
+  if (category.includes("reverb")) return officialBlockTiles.reverb;
+  if (category.includes("fx loop")) return officialBlockTiles.loop;
+  if (category.includes("wah") || category.includes("filter")) return officialBlockTiles.wah;
+  if (name === "gain" || name.includes("level")) return officialBlockTiles.level;
+  return officialBlockTiles.utility;
+}
+
 function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
-  const [tileX, tileY] = officialBlockTiles[block.glyph ?? block.kind] ?? [480, 0];
+  const [tileX, tileY] = deviceBlockTile(block);
   return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
     <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
   </svg>;
 }
 
-function HardwareSwitch({ role, label, active, accent, compact = false, pulseBpm, onAction }: {
-  role: string; label: string; active?: boolean; accent?: string; compact?: boolean; pulseBpm?: number; onAction: (action: HardwareAction) => void;
+function HardwareSwitch({ role, label, active, assigned = false, accent, compact = false, pulseBpm, onAction }: {
+  role: string; label: string; active?: boolean; assigned?: boolean; accent?: string; compact?: boolean; pulseBpm?: number; onAction: (action: HardwareAction) => void;
 }) {
   const drag = useRef<{ pointerId: number; lastY: number; rotated: boolean } | null>(null);
   const hideValueTimer = useRef<number | undefined>(undefined);
@@ -72,7 +92,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, pulseBpm
     rotate(event.deltaY < 0 ? 1 : -1);
   };
   return <button
-    className={`hardware-switch${active || pressed ? " is-active" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
+    className={`hardware-switch${active || pressed ? " is-active" : ""}${assigned ? " is-assigned" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)", "--tempo-period": pulseBpm ? `${60 / pulseBpm}s` : undefined } as CSSProperties}
     aria-label={`${label} encoder footswitch`} aria-pressed={active} aria-valuetext={`${encoderValue} percent`}
     title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
@@ -225,9 +245,9 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
-      <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index].active} accent={leds[index].color} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index].active} assigned={leds[index].assigned} accent={leds[index].color} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>
-      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index + 4].active} accent={leds[index + 4].color} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" active={snapshot.tempoLedEnabled} pulseBpm={snapshot.tempoLedEnabled ? snapshot.tempo : undefined} accent="#e6e6e6" onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index + 4].active} assigned={leds[index + 4].assigned} accent={leds[index + 4].color} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" active={snapshot.tempoLedEnabled} pulseBpm={snapshot.tempoLedEnabled ? snapshot.tempo : undefined} accent="#e6e6e6" onAction={onAction} /></div>
       <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
   </section>;

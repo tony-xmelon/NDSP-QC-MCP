@@ -21,6 +21,7 @@ export type BlockGlyph = BlockKind | "cube" | "gate" | "compressor" | "capture-g
 export interface GridBlock {
   id: string;
   modelId?: number;
+  categoryId?: number;
   name: string;
   kind: BlockKind;
   category?: string;
@@ -30,6 +31,16 @@ export interface GridBlock {
   color?: string;
   glyph?: BlockGlyph;
   footswitch?: number;
+  footswitchOrder?: number;
+}
+
+export interface FootswitchState {
+  index: number;
+  active: boolean;
+  assigned: boolean;
+  color: string;
+  momentary?: boolean;
+  label?: string;
 }
 
 export interface GridRoute {
@@ -54,6 +65,7 @@ export interface PresetSnapshot {
   activeScene: number;
   scenes: string[];
   sceneColors?: string[];
+  footswitchStates?: FootswitchState[];
   blocks: GridBlock[];
   routes: GridRoute[];
   tempo: number;

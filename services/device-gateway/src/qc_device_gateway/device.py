@@ -92,6 +92,27 @@ def _block_kind(category: str) -> str:
     return "utility"
 
 
+def _block_color(category: str, name: str) -> str:
+    """Return the fixed CorOS device-family color used by blocks and STOMP LEDs."""
+    value = category.casefold()
+    model = name.casefold()
+    if "gate" in model or "wah" in value or "filter" in value:
+        return "#ffd236"
+    if "equalizer" in value:
+        return "#0a74e0"
+    if "pitch" in value or "modulation" in value:
+        return "#3500f1"
+    if "overdrive" in value or "capture" in value:
+        return "#ff7000"
+    if "amplifier" in value:
+        return "#ff2727"
+    if "fx loop" in value:
+        return "#00ffdd"
+    if "delay" in value or "reverb" in value:
+        return "#6954ff"
+    return "#959595"
+
+
 def _effective_parameter_value(state: Any, scene: int) -> Any:
     if not state.values:
         return None
@@ -1125,9 +1146,14 @@ class PyQuadCortexDevice:
         master_volume = round(float(qc.master_volume(timeout=3.0).volume) * 100)
 
         catalog = qc.catalog
+        stomp_assignments = list(pyquadcortex.stomp_assignments(preset))
         stomp_by_cell = {
             (assignment.row, assignment.column): int(assignment.footswitch)
-            for assignment in pyquadcortex.stomp_assignments(preset)
+            for assignment in stomp_assignments
+        }
+        stomp_order_by_cell = {
+            (assignment.row, assignment.column): order
+            for order, assignment in enumerate(stomp_assignments)
         }
         blocks = []
         for block in pyquadcortex.blocks(preset):
@@ -1141,13 +1167,41 @@ class PyQuadCortexDevice:
             blocks.append({
                 "id": f"block-{block.row}-{block.column}",
                 "modelId": int(block.model_id),
+                "categoryId": int(model.category_id) if model else -1,
                 "name": model.name if model else f"Model {block.model_id}",
                 "kind": _block_kind(category),
                 "category": category,
                 "row": block.row,
                 "column": block.column,
                 "bypassed": bypassed,
+                "color": _block_color(category, model.name if model else ""),
                 "footswitch": stomp_by_cell.get((block.row, block.column)),
+                "footswitchOrder": stomp_order_by_cell.get((block.row, block.column)),
+            })
+
+        block_by_cell = {(block["row"], block["column"]): block for block in blocks}
+        momentary = dict(preset.stomp_is_momentary)
+        stomp_labels = dict(preset.stomp_labels)
+        single_stomp_labels = dict(preset.single_stomp_labels)
+        footswitch_states = []
+        for index in range(8):
+            targets = [
+                block_by_cell.get((assignment.row, assignment.column))
+                for assignment in stomp_assignments
+                if int(assignment.footswitch) == index
+            ]
+            targets = [target for target in targets if target is not None]
+            # CorOS keys a multi-block STOMP's lamp phase and color to the first
+            # assigned block. Using any(target enabled) breaks inverted groups:
+            # their members swap states, so at least one is always enabled.
+            leader = targets[0] if targets else None
+            footswitch_states.append({
+                "index": index,
+                "active": bool(leader is not None and not leader["bypassed"]),
+                "assigned": bool(targets),
+                "color": leader["color"] if leader else "#626367",
+                "momentary": bool(momentary.get(index, False)),
+                "label": single_stomp_labels.get(index) or stomp_labels.get(index) or "",
             })
 
         split_by_row = {split.row: split for split in pyquadcortex.splits(preset)}
@@ -1184,6 +1238,7 @@ class PyQuadCortexDevice:
             "activeScene": active_scene,
             "scenes": scenes,
             "sceneColors": [_argb_to_css(color) for color in list(preset.scene_colors)[:8]],
+            "footswitchStates": footswitch_states,
             "blocks": blocks,
             "routes": routes,
             "tempo": _tempo_bpm(preset),

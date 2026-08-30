@@ -553,6 +553,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background: #626367;
   box-shadow: none;
 }
+.skin-official-svg .hardware-switch.is-assigned:not(.is-active) .switch-led {
+  border-color: color-mix(in srgb, var(--switch-accent) 48%, #626367);
+  background: color-mix(in srgb, var(--switch-accent) 30%, #26272a);
+  box-shadow: 0 0 2px color-mix(in srgb, var(--switch-accent) 42%, transparent);
+}
 .skin-official-svg .switch-led::before {
   display: none;
 }
