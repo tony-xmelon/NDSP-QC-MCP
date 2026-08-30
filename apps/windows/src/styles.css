@@ -409,8 +409,8 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
      the cropped official SVG, stopping at its continuous inner side rails. */
   left: .85%;
   right: .85%;
-  top: 61.49%;
-  height: 1.165%;
+  top: 60.89%;
+  height: 2.365%;
   border: 0;
   background: linear-gradient(180deg,
     transparent 0%, #00000004 42%, #0000000d 100%);
@@ -527,8 +527,8 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   inset: 2.5%;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
-  background: linear-gradient(145deg, #dedfe1 0%, #96989b 38%, #595b5f 72%, #b7b9bb 100%);
-  box-shadow: inset 1px 1px 1px #ffffff88, inset -2px -2px 2px #25262aaa, 0 0 0 1px #484a4e;
+  background: #929498;
+  box-shadow: 0 0 0 1px #484a4e;
 }
 .skin-official-svg .switch-cap {
   position: relative;
@@ -536,9 +536,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   visibility: visible;
   width: 40%;
   border-radius: 50%;
-  border: 1px solid #111215;
-  background: linear-gradient(145deg, #aeb0b3 0%, #74767a 45%, #4b4d51 72%, #2f3034 100%);
-  box-shadow: 0 0 0 2px #9a9c9f, 0 0 0 3px #36383c, inset 1px 1px 2px #ffffff55, 1px 3px 3px #111a;
+  border: 1px solid #55575b;
+  background: #77797d;
+  box-shadow: inset 0 1px #ffffff30, 1px 2px 2px #1118;
+  transform: none;
+  transition: transform .08s, box-shadow .08s;
 }
 .skin-official-svg .switch-cap::before {
   display: none;
@@ -559,7 +561,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   top: clamp(8px, .96vw, 11px);
 }
 .skin-official-svg .screen-nav-control .switch-ring {
-  width: clamp(30px, 3.85vw, 42px);
+  width: clamp(28px, 3.5vw, 38px);
 }
 .skin-official-svg .footswitch-row:first-child .switch-ring {
   top: 8px;
@@ -578,6 +580,13 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   border-color: #aaabae;
   background: var(--switch-accent);
   box-shadow: 0 0 7px var(--switch-accent);
+}
+.skin-official-svg .hardware-switch:active .switch-ring {
+  transform: none;
+}
+.skin-official-svg .hardware-switch:active .switch-cap {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px #ffffff20, 0 1px 1px #111a;
 }
 .skin-official-svg .hardware-switch { pointer-events: none; }
 .skin-official-svg .hardware-switch::after {
