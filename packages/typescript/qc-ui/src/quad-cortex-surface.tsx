@@ -21,14 +21,15 @@ const blockColors: Record<string, string> = {
 };
 
 function DeviceGlyph({ block }: { block: GridBlock }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (block.kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 25 10 7l4 18 4-13 3 13 3-8 3 8" /></svg>;
-  if (block.kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="6" y="5" width="20" height="22" rx="2" /><circle {...common} cx="16" cy="16" r="6" /><circle fill="currentColor" cx="16" cy="16" r="1.5" /></svg>;
-  if (block.kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 19c4-12 6 12 10 0s6 12 10 0 3-4 4-2" /></svg>;
-  if (block.kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
-  if (block.kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="16" r="5" /><circle {...common} cx="21" cy="16" r="5" /><path {...common} d="M7 10 4 7m3 15-3 3m21-15 3-3m-3 15 3 3" /></svg>;
-  if (block.kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
-  if (block.kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const kind = block.glyph ?? block.kind;
+  if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="5" y="7" width="22" height="18" rx="1.5" /><path {...common} d="M6 13h20M10 19h12" /><circle fill="currentColor" cx="24" cy="19" r="1.6" /></svg>;
+  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="6" y="5" width="20" height="22" rx="2" /><circle {...common} cx="16" cy="16" r="6" /><circle fill="currentColor" cx="16" cy="16" r="1.5" /></svg>;
+  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 19c4-12 6 12 10 0s6 12 10 0 3-4 4-2" /></svg>;
+  if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
+  if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="16" r="5" /><circle {...common} cx="21" cy="16" r="5" /><path {...common} d="M7 10 4 7m3 15-3 3m21-15 3-3m-3 15 3 3" /></svg>;
+  if (kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
+  if (kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 10h20v12H6zM9 16h14" /></svg>;
 }
 
@@ -76,7 +77,7 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
 function ScreenBlock({ block, selected, onAction }: { block: GridBlock; selected: boolean; onAction: (action: HardwareAction) => void }) {
   return <button
     className={`coros-block${block.bypassed ? " is-bypassed" : ""}${selected ? " is-selected" : ""}`}
-    style={{ "--block-color": blockColors[block.kind] } as CSSProperties}
+    style={{ "--block-color": block.color ?? blockColors[block.kind] } as CSSProperties}
     title={block.name} aria-label={block.name} aria-pressed={selected}
     onClick={() => onAction({ kind: "select-block", blockId: block.id })}
   ><DeviceGlyph block={block} /><span className="block-tooltip">{block.name}</span></button>;
@@ -131,7 +132,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinC
   return <section className={`qc-chassis ${skinClassName}`} aria-label={formFactor.displayName}>
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume onAction={onAction} />
-    <div className="device-plate"><span className="pulse-mark">⌁</span> QUADCORTEX <small>CONTROL SURFACE</small></div>
+    <div className="device-plate"><span className="pulse-mark">↯</span> QUADCORTEX <small>CONTROL SURFACE</small></div>
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
     <div className="screen-nav-control"><span className="nav-arrow">⌃</span><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow">⌄</span></div>
     <div className="footswitch-deck">

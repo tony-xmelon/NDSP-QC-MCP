@@ -24,6 +24,8 @@ export interface GridBlock {
   row: number;
   column: number;
   bypassed?: boolean;
+  color?: string;
+  glyph?: BlockKind;
 }
 
 export interface PresetSnapshot {
@@ -54,9 +56,9 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "row-1-mod-a", name: "Vintage Chorus", kind: "mod", row: 0, column: 2, bypassed: true },
     { id: "row-1-mod-b", name: "Analog Flanger", kind: "mod", row: 0, column: 3, bypassed: true },
     { id: "chorus", name: "Dimension", kind: "mod", row: 0, column: 4, bypassed: true },
-    { id: "cab", name: "4x12 UK V30", kind: "cab", row: 0, column: 5 },
-    { id: "amp", name: "British 2203", kind: "amp", row: 0, column: 6 },
-    { id: "delay", name: "Digital Delay", kind: "delay", row: 0, column: 7 },
+    { id: "cab", name: "4x12 UK V30", kind: "cab", row: 0, column: 5, glyph: "amp" },
+    { id: "amp", name: "British 2203", kind: "amp", row: 0, column: 6, color: "#ededed", glyph: "capture" },
+    { id: "delay", name: "Digital Delay", kind: "delay", row: 0, column: 7, color: "#625cff", glyph: "cab" },
     { id: "out-3", name: "OUT 3", kind: "output", row: 0, column: 8 },
     { id: "in-usb", name: "USB 5", kind: "input", row: 2, column: -1 },
     { id: "row-3-capture", name: "Neural Capture", kind: "capture", row: 2, column: 0, bypassed: true },

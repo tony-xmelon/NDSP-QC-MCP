@@ -201,6 +201,18 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background-image: radial-gradient(circle, #fff 0 .35px, transparent .5px);
   background-size: 4px 4px;
 }
+.qc-chassis::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  top: 60.9%;
+  height: 3px;
+  border-top: 1px solid #17181780;
+  border-bottom: 1px solid #b2b2af26;
+  pointer-events: none;
+}
 .rear-connectors { position: absolute; z-index: 1; left: 31%; right: 5%; top: -2.1%; height: 4%; display: flex; align-items: flex-end; justify-content: space-around; }
 .rear-connectors span { width: 7%; height: 72%; border: 1px solid #1c1d1f; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, #17181a, #5d5e61 45%, #1a1b1d); box-shadow: inset 0 1px #aaa5; }
 .rear-connectors span:nth-child(1), .rear-connectors span:nth-child(8) { width: 4%; height: 54%; }
@@ -259,8 +271,10 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .master-volume { display: block; }
 .power-button { position: absolute; left: 50%; top: 10%; justify-self: auto; margin-left: 0; transform: translateX(-50%); }
 .volume-knob { position: absolute; left: 50%; top: 32.5%; width: min(80%, 126px); transform: translateX(-50%); }
-.master-volume strong { position: absolute; left: 0; top: 82%; width: 100%; text-align: center; }
-.device-plate { right: 3.3%; top: 5.6%; }
+.master-volume strong { position: absolute; left: 0; top: 74%; width: 100%; text-align: center; }
+.master-volume strong { font-size: clamp(9px, .9vw, 14px); font-weight: 500; }
+.device-plate { right: 3.3%; top: 5.6%; padding: .55% .95%; font-size: clamp(9px, .9vw, 14px); border-color: #aaa9a5; letter-spacing: .12em; }
+.pulse-mark { margin-right: .18em; font-size: 1.1em; }
 
 .qc-screen-bezel {
   /* SVG landmarks: x 252.8–844.2, y 78.1–411.9 within the panel outline. */
@@ -285,15 +299,16 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   padding: 0 2%;
   background: #020202;
 }
-.coros-title { transform: translateY(1cqi); }
+.coros-title { transform: translateY(.5cqi) scaleX(.78); transform-origin: left top; }
 .coros-actions { transform: translateY(-2.2cqi); }
 .coros-title { font-family: Arial, Helvetica, sans-serif; letter-spacing: 0; }
-.coros-title span, .coros-title em { font-size: 9cqi; }
+.coros-title span, .coros-title em { font-size: 10.2cqi; font-weight: 800; }
 .coros-title em { color: #39e77a; margin-right: .28em; }
-.coros-title strong { max-width: 13ch; font-size: 8.7cqi; letter-spacing: -.01em; }
+.coros-title strong { max-width: 13ch; font-size: 9.8cqi; font-weight: 800; letter-spacing: -.01em; }
 .coros-actions { gap: 2px clamp(4px, .65vw, 9px); }
 .coros-actions > button, .scene-control > button { width: clamp(14px, 1.6vw, 24px); height: clamp(14px, 1.6vw, 24px); }
-.mode-readout { font-size: clamp(6px, .66vw, 10px); }
+.mode-readout { font-size: clamp(10px, 2.7cqi, 17px); }
+.coros-actions > button, .scene-control > button { color: #fff; font-size: clamp(14px, 3.1cqi, 20px); }
 
 .coros-workspace {
   position: relative;
@@ -305,12 +320,13 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   border-radius: 6px;
   background: #18181a;
   color: #d7d7d9;
-  font-size: clamp(5px, .52vw, 8px);
+  font-size: clamp(8px, 2cqi, 13px);
+  font-weight: 500;
   box-shadow: inset 0 1px #ffffff05;
 }
 .io-pill i { left: 25%; right: 25%; height: 2px; background: #efd90f; }
 .output-pill i { position: absolute; top: auto; bottom: 0; background: #f0443b; }
-.row-rail .add-row { font-size: clamp(15px, 1.55vw, 23px); color: #b8b8ba; }
+.row-rail .add-row { font-size: clamp(19px, 3.2cqi, 27px); color: #d0d0d2; font-weight: 300; }
 
 .routing-lanes { grid-template-rows: repeat(4, 1fr); gap: 0; padding: 0 .8%; }
 .routing-lane { min-height: 0; grid-template-columns: repeat(8, 1fr); }
@@ -319,14 +335,14 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .lane-wire { left: -1.5%; right: -1.5%; background: #c9c9ca; }
 .lane-wire::before, .lane-wire::after { width: 4px; border-color: #f0f0f0; }
 .coros-block, .empty-slot {
-  width: min(72%, 50px);
-  padding: 13%;
-  border-width: clamp(1px, .12vw, 2px);
+  width: min(100%, 62px);
+  padding: 8%;
+  border-width: 2px;
   border-radius: 13%;
   background: #030304;
   box-shadow: 0 0 0 1px #000, 0 0 5px color-mix(in srgb, var(--block-color, transparent) 18%, transparent);
 }
-.coros-block svg { width: 78%; height: 78%; }
+.coros-block svg { width: 92%; height: 92%; }
 .coros-block.is-bypassed { opacity: .16; }
 .empty-slot { opacity: 0; }
 
@@ -340,6 +356,13 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .footswitch-row:first-child .switch-ring { position: relative; top: clamp(7px, 1.1vw, 13px); }
 .footswitch-row:nth-child(3) .switch-led { position: relative; top: clamp(-3px, -.25vw, -2px); }
 .footswitch-row:nth-child(3) .switch-ring { position: relative; top: clamp(3px, .5vw, 6px); }
+.footswitch-deck .switch-led { width: clamp(9px, 1.05vw, 15px); border-width: 2px; }
+.footswitch-deck .switch-label { left: 68%; top: 54%; font-size: clamp(16px, 2vw, 30px); font-weight: 400; }
+.screen-nav-control .switch-ring { width: clamp(56px, 5.6vw, 80px); }
+.nav-arrow { font-size: clamp(17px, 1.8vw, 27px); font-weight: 600; }
+.mode-bracket { right: 8.7%; top: 37%; width: 4.5%; height: 34%; font-size: clamp(8px, .8vw, 12px); font-weight: 600; }
+.mode-bracket::before { left: -35%; width: 58%; border-width: 2px; }
+.tuner-hint { right: .45%; bottom: 42%; width: 8.6%; font-size: clamp(7px, .65vw, 10px); font-weight: 600; line-height: 1.15; }
 
 .footswitch-deck .switch-ring,
 .screen-nav-control .switch-ring {
@@ -363,7 +386,6 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background: radial-gradient(circle at 35% 28%, #d7d8d9 0%, #9a9c9e 48%, #66686a 100%);
   box-shadow: inset 1px 1px 2px #fff7, 1px 2px 2px #1117;
 }
-.screen-nav-control .switch-ring { width: clamp(34px, 3.8vw, 47px); }
 
 .status-strip { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 6px 18px; border-top: 1px solid #2d3137; background: #14171a; color: #aeb3bb; font-size: 10px; }
 .status-symbol { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid #69717d; border-radius: 50%; font: 10px serif; }
