@@ -407,13 +407,13 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   z-index: 2;
   /* Match the 17.003-unit bend between y=451.853 and y=468.856 in
      the cropped official SVG, stopping at its continuous inner side rails. */
-  left: .46%;
-  right: .46%;
+  left: .85%;
+  right: .85%;
   top: 60.89%;
   height: 2.365%;
   border: 0;
-  background: radial-gradient(ellipse 98% 155% at 50% -55%,
-    #4b4c50 0%, #4e4f53 34%, #48494d 67%, #424347 100%);
+  background: linear-gradient(180deg,
+    transparent 0%, #00000004 42%, #0000000d 100%);
   box-shadow: none;
   -webkit-mask-image: none;
   mask-image: none;
@@ -524,7 +524,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-ring::before {
   content: "";
   position: absolute;
-  inset: 13%;
+  inset: 3.5%;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
   background: linear-gradient(145deg, #e0e1e2 0%, #9a9c9f 38%, #626468 72%, #bfc1c3 100%);
