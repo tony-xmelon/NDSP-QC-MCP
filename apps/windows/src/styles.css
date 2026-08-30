@@ -668,6 +668,12 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .block-management select, .block-management button { min-width: 0; padding: 6px 8px; border: 1px solid #3f4650; border-radius: 5px; background: #22272d; color: #d9dde2; font-size: 9px; }
 .block-management button { border-color: #4e9ab6; background: #24576a; }
 .block-management button:disabled { opacity: .35; }
+.block-management-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 7px; border-top: 1px solid #30353c; }
+.block-management-actions > span { display: grid; gap: 2px; font-size: 10px; }
+.block-management .danger { border-color: #a95151; background: #622f34; }
+.add-block-form { display: grid; gap: 10px; }
+.add-block-form label { display: grid; gap: 5px; color: #9198a1; font-size: 9px; }
+.add-block-form input, .add-block-form select { width: 100%; padding: 7px; border: 1px solid #3f4650; border-radius: 5px; background: #171a1e; color: #d9dde2; font-size: 10px; }
 .routing-editor { display: grid; gap: 9px; max-height: min(60vh, 540px); overflow-y: auto; }
 .routing-editor section { display: grid; grid-template-columns: 58px 1fr 1fr; align-items: center; gap: 8px; padding: 10px; border: 1px solid #343941; border-radius: 8px; background: #14171a; }
 .routing-editor section > strong { grid-row: 1 / 4; font: 10px "DM Mono", monospace; }

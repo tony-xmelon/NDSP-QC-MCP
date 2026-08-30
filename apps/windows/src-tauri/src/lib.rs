@@ -360,6 +360,11 @@ fn current_snapshot(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
 }
 
 #[tauri::command]
+fn list_models(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
+    with_gateway(state, "device.listModels")
+}
+
+#[tauri::command]
 fn select_scene(
     state: State<'_, Mutex<Gateway>>,
     scene: u8,
@@ -412,6 +417,46 @@ fn move_block(
             "row": row,
             "fromColumn": from_column,
             "toColumn": to_column,
+            "expectedModelId": expected_model_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn add_block(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    column: u8,
+    model_id: u32,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.addBlock",
+        json!({
+            "row": row,
+            "column": column,
+            "modelId": model_id,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
+fn remove_block(
+    state: State<'_, Mutex<Gateway>>,
+    row: u8,
+    column: u8,
+    expected_model_id: u32,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.removeBlock",
+        json!({
+            "row": row,
+            "column": column,
             "expectedModelId": expected_model_id,
             "expectedPresetName": expected_preset_name
         }),
@@ -1029,9 +1074,12 @@ pub fn run() {
             reset_device_session,
             disconnect_device,
             current_snapshot,
+            list_models,
             select_scene,
             toggle_bypass,
             move_block,
+            add_block,
+            remove_block,
             set_block_footswitch,
             set_chain_input,
             set_chain_output,

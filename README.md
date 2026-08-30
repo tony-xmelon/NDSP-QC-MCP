@@ -53,7 +53,8 @@ device gateway owns the QC HID session and hydrates the UI from a live preset
 snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
 Gig View controls are enabled, along with mode-aware A–H footswitch emulation
 through the QC's Windows MIDI endpoint and verified tempo/encoder/tap control,
-live setlist browsing, guarded preset
+live setlist browsing, installed model discovery, guarded block placement/removal/movement,
+STOMP assignment and signal-routing editing, guarded preset
 recall, bank navigation, metadata-driven block parameter editing, and explicit
 dirty-state recovery. The Grid rails and split/rejoin markers are derived from
 the live preset's four-row routing topology rather than demo labels, including

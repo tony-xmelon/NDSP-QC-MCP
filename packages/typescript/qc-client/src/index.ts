@@ -110,6 +110,17 @@ export interface DeviceActionResult {
   snapshot?: PresetSnapshot;
 }
 
+export interface ModelEntry {
+  id: number;
+  name: string;
+  category: string;
+  basedOn: string;
+}
+
+export interface ModelList {
+  models: ModelEntry[];
+}
+
 export interface PresetEntry {
   position: number;
   location: string;
@@ -218,9 +229,12 @@ export interface GatewayTransport {
   resetSession(): Promise<ConnectionState>;
   disconnect(): Promise<ConnectionState>;
   currentSnapshot(): Promise<PresetSnapshot>;
+  listModels(): Promise<ModelList>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  addBlock(row: number, column: number, modelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  removeBlock(row: number, column: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult>;

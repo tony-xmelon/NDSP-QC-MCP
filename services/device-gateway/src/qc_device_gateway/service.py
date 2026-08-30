@@ -41,6 +41,8 @@ class GatewayService:
                 result = self.device.disconnect()
             elif method == "device.snapshot":
                 result = self.device.snapshot()
+            elif method == "device.listModels":
+                result = self.device.list_models()
             elif method == "device.selectScene":
                 result = self.device.select_scene(
                     params.get("scene"), params.get("expectedPresetName", "")
@@ -59,6 +61,20 @@ class GatewayService:
                     params.get("row"),
                     params.get("fromColumn"),
                     params.get("toColumn"),
+                    params.get("expectedModelId"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.addBlock":
+                result = self.device.add_block(
+                    params.get("row"),
+                    params.get("column"),
+                    params.get("modelId"),
+                    params.get("expectedPresetName", ""),
+                )
+            elif method == "device.removeBlock":
+                result = self.device.remove_block(
+                    params.get("row"),
+                    params.get("column"),
                     params.get("expectedModelId"),
                     params.get("expectedPresetName", ""),
                 )

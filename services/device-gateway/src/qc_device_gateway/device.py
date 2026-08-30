@@ -275,6 +275,21 @@ class PyQuadCortexDevice:
             "slots": slots,
         }
 
+    def list_models(self) -> dict[str, Any]:
+        qc = self._require_session()
+        models = [
+            {
+                "id": int(model.id),
+                "name": model.name,
+                "category": model.category,
+                "basedOn": model.based_on,
+            }
+            for model in qc.catalog
+            if not model.hidden and not model.internal and not model.category_hidden and not model.superseded
+        ]
+        models.sort(key=lambda model: (model["category"].casefold(), model["name"].casefold(), model["id"]))
+        return {"models": models}
+
     def save_preset_as(
         self,
         setlist_key: str,
@@ -545,6 +560,85 @@ class PyQuadCortexDevice:
                     "snapshot": self.snapshot(),
                 }
         raise RuntimeError("The move command was sent, but readback did not confirm the destination.")
+
+    def add_block(
+        self,
+        row: int,
+        column: int,
+        model_id: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id <= 0:
+            raise ValueError("Model ID must be a positive integer.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        if any(block.row == row and block.column == column for block in pyquadcortex.blocks(preset)):
+            raise RuntimeError(f"Row {row + 1}, column {column + 1} is no longer empty. Refresh and retry.")
+        model = qc.catalog.get(model_id)
+        if model is None or model.hidden or model.internal or model.category_hidden or model.superseded:
+            raise RuntimeError("The selected model is not available for new blocks on this Quad Cortex.")
+
+        qc.set_block(row, column, model_id, verify=True, timeout=5.0)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current = qc.read_current_preset()
+            placed = next(
+                (block for block in pyquadcortex.blocks(current) if block.row == row and block.column == column),
+                None,
+            )
+            if placed is not None and int(placed.model_id) == model_id:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Block placement readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"{model.name} placed at row {row + 1}, column {column + 1} and verified",
+                    "snapshot": self.snapshot(),
+                }
+        raise RuntimeError("The block was accepted, but final preset readback did not confirm it.")
+
+    def remove_block(
+        self,
+        row: int,
+        column: int,
+        expected_model_id: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
+            raise ValueError("Expected model ID must be a positive integer.")
+
+        import pyquadcortex
+
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        block = next(
+            (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
+            None,
+        )
+        if block is None or int(block.model_id) != expected_model_id:
+            raise RuntimeError("The selected block changed on the Quad Cortex. Refresh and retry.")
+        model = qc.catalog.get(expected_model_id)
+        qc.remove_block(row, column)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            current = qc.read_current_preset()
+            if not any(item.row == row and item.column == column for item in pyquadcortex.blocks(current)):
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Block removal readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"{model.name if model else 'Block'} removed temporarily and verified",
+                    "snapshot": self.snapshot(),
+                }
+        raise RuntimeError("The removal command was sent, but readback still reports the block.")
 
     def set_block_footswitch(
         self,

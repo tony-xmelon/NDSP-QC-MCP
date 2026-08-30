@@ -1,4 +1,4 @@
-import type { BlockDetails, ConnectionState, DeviceActionResult, DiagnosticsReport, GatewayTransport, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
+import type { BlockDetails, ConnectionState, DeviceActionResult, DiagnosticsReport, GatewayTransport, ModelList, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -47,6 +47,9 @@ export const tauriTransport: GatewayTransport = {
   currentSnapshot(): Promise<import("@ndsp-qc/client").PresetSnapshot> {
     return callTauri<import("@ndsp-qc/client").PresetSnapshot>("current_snapshot");
   },
+  listModels(): Promise<ModelList> {
+    return callTauri<ModelList>("list_models");
+  },
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("select_scene", { scene, expectedPresetName });
   },
@@ -55,6 +58,12 @@ export const tauriTransport: GatewayTransport = {
   },
   moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("move_block", { row, fromColumn, toColumn, expectedModelId, expectedPresetName });
+  },
+  addBlock(row: number, column: number, modelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("add_block", { row, column, modelId, expectedPresetName });
+  },
+  removeBlock(row: number, column: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("remove_block", { row, column, expectedModelId, expectedPresetName });
   },
   setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("set_block_footswitch", { row, column, footswitch, expectedFootswitch, expectedModelId, expectedPresetName });

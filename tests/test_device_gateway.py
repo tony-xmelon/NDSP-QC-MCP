@@ -23,12 +23,17 @@ class FakeDevice:
     def reset_session(self): return self.reconnect()
     def disconnect(self): return {"phase": "disconnected", "detail": "fake closed", "demo": True}
     def snapshot(self): return {"presetName": "Test", "blocks": []}
+    def list_models(self): return {"models": [{"id": 123, "name": "Fake model", "category": "Test", "basedOn": ""}]}
     def select_scene(self, scene, expected_preset_name=""):
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
     def toggle_bypass(self, row, column, expected_scene, expected_bypassed, desired_bypassed, expected_preset_name=""):
         return {"detail": f"bypass {row}:{column}:{expected_scene}:{expected_bypassed}:{desired_bypassed}", "snapshot": self.snapshot()}
     def move_block(self, row, from_column, to_column, expected_model_id, expected_preset_name=""):
         return {"detail": f"move {row}:{from_column}:{to_column}:{expected_model_id}", "snapshot": self.snapshot()}
+    def add_block(self, row, column, model_id, expected_preset_name=""):
+        return {"detail": f"add {row}:{column}:{model_id}", "snapshot": self.snapshot()}
+    def remove_block(self, row, column, expected_model_id, expected_preset_name=""):
+        return {"detail": f"remove {row}:{column}:{expected_model_id}", "snapshot": self.snapshot()}
     def set_block_footswitch(self, row, column, footswitch, expected_footswitch, expected_model_id, expected_preset_name=""):
         return {"detail": f"assign {row}:{column}:{footswitch}:{expected_footswitch}:{expected_model_id}", "snapshot": self.snapshot()}
     def set_chain_input(self, row, input_id, expected_input_id, expected_preset_name=""):
@@ -109,6 +114,13 @@ class ServiceTests(unittest.TestCase):
             "row": 2, "fromColumn": 4, "toColumn": 6,
             "expectedModelId": 123, "expectedPresetName": "Test"
         })
+        models = self.request("device.listModels")
+        added = self.request("device.addBlock", {
+            "row": 1, "column": 3, "modelId": 123, "expectedPresetName": "Test"
+        })
+        removed = self.request("device.removeBlock", {
+            "row": 1, "column": 3, "expectedModelId": 123, "expectedPresetName": "Test"
+        })
         assigned = self.request("device.setBlockFootswitch", {
             "row": 2, "column": 6, "footswitch": 4,
             "expectedFootswitch": None, "expectedModelId": 123,
@@ -161,6 +173,9 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(scene["result"]["detail"], "scene 3")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3:False:True")
         self.assertEqual(moved["result"]["detail"], "move 2:4:6:123")
+        self.assertEqual(models["result"]["models"][0]["name"], "Fake model")
+        self.assertEqual(added["result"]["detail"], "add 1:3:123")
+        self.assertEqual(removed["result"]["detail"], "remove 1:3:123")
         self.assertEqual(assigned["result"]["detail"], "assign 2:6:4:None:123")
         self.assertEqual(input_route["result"]["detail"], "input 0:3:1")
         self.assertEqual(output_route["result"]["detail"], "output 0:19:4")
