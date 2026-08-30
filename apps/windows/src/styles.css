@@ -273,7 +273,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .volume-knob { position: absolute; left: 50%; top: 32.5%; width: min(80%, 126px); transform: translateX(-50%); }
 .master-volume strong { position: absolute; left: 0; top: 74%; width: 100%; text-align: center; }
 .master-volume strong { font-size: clamp(9px, .9vw, 14px); font-weight: 500; }
-.device-plate { right: 3.3%; top: 5.6%; padding: .55% .95%; font-size: clamp(9px, .9vw, 14px); border-color: #aaa9a5; letter-spacing: .12em; }
+.device-plate { right: 5.1%; top: 5.6%; width: 12.2%; padding: .55% .5%; text-align: center; font-size: clamp(9px, .9vw, 14px); border-color: #aaa9a5; letter-spacing: .12em; }
 .pulse-mark { margin-right: .18em; font-size: 1.1em; }
 
 .qc-screen-bezel {
@@ -290,30 +290,30 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   container-type: inline-size;
 }
 .qc-screen {
-  grid-template-rows: 20% 80%;
+  grid-template-rows: 16.25% 83.75%;
   border-radius: 1px;
   background: #020202;
 }
 .coros-header {
   align-items: flex-start;
-  padding: 0 2%;
+  padding: 0 3% 0 1.4%;
   background: #020202;
 }
-.coros-title { transform: translateY(.5cqi) scaleX(.78); transform-origin: left top; }
-.coros-actions { transform: translateY(-2.2cqi); }
+.coros-title { transform: translateY(-3.6cqi) scaleX(.78); transform-origin: left top; }
+.coros-actions { transform: translateY(-2.4cqi); }
 .coros-title { font-family: Arial, Helvetica, sans-serif; letter-spacing: 0; }
 .coros-title span, .coros-title em { font-size: 10.2cqi; font-weight: 800; }
 .coros-title em { color: #39e77a; margin-right: .28em; }
 .coros-title strong { max-width: 13ch; font-size: 9.8cqi; font-weight: 800; letter-spacing: -.01em; }
-.coros-actions { gap: 2px clamp(4px, .65vw, 9px); }
+.coros-actions { gap: 2px 2.35cqi; }
 .coros-actions > button, .scene-control > button { width: clamp(14px, 1.6vw, 24px); height: clamp(14px, 1.6vw, 24px); }
-.mode-readout { font-size: clamp(10px, 2.7cqi, 17px); }
+.mode-readout { font-size: clamp(10px, 2.7cqi, 17px); transform: translateY(2cqi); }
 .coros-actions > button, .scene-control > button { color: #fff; font-size: clamp(14px, 3.1cqi, 20px); }
 
 .coros-workspace {
   position: relative;
-  grid-template-columns: 7.2% 1fr 7.2%;
-  padding: 0 1.7%;
+  grid-template-columns: 5.7% 1fr 5.7%;
+  padding: 0 1.1%;
 }
 .row-rail { gap: 4%; padding: 0; }
 .row-rail span {
@@ -335,8 +335,8 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .lane-wire { left: -1.5%; right: -1.5%; background: #c9c9ca; }
 .lane-wire::before, .lane-wire::after { width: 4px; border-color: #f0f0f0; }
 .coros-block, .empty-slot {
-  width: min(100%, 62px);
-  padding: 8%;
+  width: min(78%, 50px);
+  padding: 10%;
   border-width: 2px;
   border-radius: 13%;
   background: #030304;
@@ -352,17 +352,18 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .footswitch-row > :nth-child(2) { transform: translateX(-16.25%); }
 .footswitch-row > :nth-child(4) { transform: translateX(16.25%); }
 .footswitch-row > :nth-child(5) { transform: translateX(32.5%); }
-.footswitch-row:first-child .switch-led { position: relative; top: clamp(2px, .35vw, 4px); }
+.footswitch-row:first-child .switch-led { position: relative; top: clamp(6px, .7vw, 9px); }
 .footswitch-row:first-child .switch-ring { position: relative; top: clamp(7px, 1.1vw, 13px); }
-.footswitch-row:nth-child(3) .switch-led { position: relative; top: clamp(-3px, -.25vw, -2px); }
+.footswitch-row:nth-child(3) .switch-led { position: relative; top: 2px; }
 .footswitch-row:nth-child(3) .switch-ring { position: relative; top: clamp(3px, .5vw, 6px); }
-.footswitch-deck .switch-led { width: clamp(9px, 1.05vw, 15px); border-width: 2px; }
-.footswitch-deck .switch-label { left: 68%; top: 54%; font-size: clamp(16px, 2vw, 30px); font-weight: 400; }
-.screen-nav-control .switch-ring { width: clamp(56px, 5.6vw, 80px); }
+.footswitch-deck .switch-led { width: clamp(12px, 1.5vw, 19px); border-width: 2px; }
+.footswitch-deck .switch-ring,
+.screen-nav-control .switch-ring { width: clamp(46px, 4.7vw, 60px); }
+.footswitch-deck .switch-label { left: 68%; top: 54%; font-size: clamp(18px, 2.5vw, 36px); font-weight: 400; }
 .nav-arrow { font-size: clamp(17px, 1.8vw, 27px); font-weight: 600; }
-.mode-bracket { right: 8.7%; top: 37%; width: 4.5%; height: 34%; font-size: clamp(8px, .8vw, 12px); font-weight: 600; }
+.mode-bracket { right: 5.9%; top: 31.5%; width: 4.5%; height: 36%; font-size: clamp(8px, .8vw, 12px); font-weight: 600; }
 .mode-bracket::before { left: -35%; width: 58%; border-width: 2px; }
-.tuner-hint { right: .45%; bottom: 42%; width: 8.6%; font-size: clamp(7px, .65vw, 10px); font-weight: 600; line-height: 1.15; }
+.tuner-hint { right: .4%; bottom: 47.5%; width: 8.6%; font-size: clamp(7px, .65vw, 10px); font-weight: 600; line-height: 1.15; }
 
 .footswitch-deck .switch-ring,
 .screen-nav-control .switch-ring {

@@ -154,7 +154,9 @@ def write_comparison(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--photo", type=Path, required=True)
+    panel_source = parser.add_mutually_exclusive_group(required=True)
+    panel_source.add_argument("--photo", type=Path)
+    panel_source.add_argument("--panel-reference", type=Path)
     parser.add_argument("--grid-reference", type=Path, required=True)
     parser.add_argument("--panel-renderer", type=Path, required=True)
     parser.add_argument("--grid-renderer", type=Path, required=True)
@@ -164,7 +166,11 @@ def main() -> None:
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
-    panel_reference = normalize_photo(args.photo)
+    panel_reference = (
+        normalize(Image.open(args.panel_reference), PANEL_SIZE)
+        if args.panel_reference
+        else normalize_photo(args.photo)
+    )
     panel_renderer = normalize(Image.open(args.panel_renderer), PANEL_SIZE)
     grid_reference = normalize_grid_reference(args.grid_reference)
     grid_renderer = normalize(Image.open(args.grid_renderer), GRID_SIZE)
