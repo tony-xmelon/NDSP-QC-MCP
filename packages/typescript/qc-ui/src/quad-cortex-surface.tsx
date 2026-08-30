@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerE
 import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
 import { footswitchLeds } from "./footswitch-leds";
+import "./live-surface.css";
 
 export type HardwareAction =
   | { kind: "switch"; role: string; phase: "press" | "release" }
@@ -31,13 +32,14 @@ function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; 
   </svg>;
 }
 
-function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
-  role: string; label: string; active?: boolean; accent?: string; compact?: boolean; onAction: (action: HardwareAction) => void;
+function HardwareSwitch({ role, label, active, accent, compact = false, pulseBpm, onAction }: {
+  role: string; label: string; active?: boolean; accent?: string; compact?: boolean; pulseBpm?: number; onAction: (action: HardwareAction) => void;
 }) {
   const drag = useRef<{ pointerId: number; lastY: number; rotated: boolean } | null>(null);
   const hideValueTimer = useRef<number | undefined>(undefined);
   const [encoderValue, setEncoderValue] = useState(50);
   const [showValue, setShowValue] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const rotate = (delta: number) => {
     setEncoderValue((current) => Math.max(0, Math.min(100, current + delta)));
     setShowValue(true);
@@ -48,6 +50,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
   const release = (event: PointerEvent<HTMLButtonElement>, cancelled = false) => {
     const gesture = drag.current;
     drag.current = null;
+    setPressed(false);
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (!cancelled && gesture && !gesture.rotated) {
       onAction({ kind: "switch", role, phase: "press" });
@@ -69,11 +72,11 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
     rotate(event.deltaY < 0 ? 1 : -1);
   };
   return <button
-    className={`hardware-switch${active ? " is-active" : ""}${compact ? " is-compact" : ""}`}
-    style={{ "--switch-accent": accent ?? "var(--accent)" } as CSSProperties}
+    className={`hardware-switch${active || pressed ? " is-active" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
+    style={{ "--switch-accent": accent ?? "var(--accent)", "--tempo-period": pulseBpm ? `${60 / pulseBpm}s` : undefined } as CSSProperties}
     aria-label={`${label} encoder footswitch`} aria-pressed={active} aria-valuetext={`${encoderValue} percent`}
     title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
-    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
+    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); setPressed(true); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
     onPointerMove={(event) => {
       const gesture = drag.current;
       if (!gesture || gesture.pointerId !== event.pointerId) return;
@@ -91,13 +94,11 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
   </button>;
 }
 
-function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
+function MasterVolume({ value, onAction }: { value: number; onAction: (action: HardwareAction) => void }) {
   const drag = useRef<{ pointerId: number; lastY: number } | null>(null);
   const hideValueTimer = useRef<number | undefined>(undefined);
-  const [value, setValue] = useState(40);
   const [showValue, setShowValue] = useState(false);
   const rotate = (delta: number) => {
-    setValue((current) => Math.max(0, Math.min(100, current + delta)));
     setShowValue(true);
     if (hideValueTimer.current !== undefined) window.clearTimeout(hideValueTimer.current);
     hideValueTimer.current = window.setTimeout(() => setShowValue(false), 900);
@@ -106,7 +107,7 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
   const angle = -135 + value * 2.7;
   return <div className="master-volume">
     <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
-    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" aria-valuetext={`${value} percent`} title="Drag vertically for a preview; hardware Master Volume remains safety locked" onPointerDown={(event) => {
+    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-valuetext={`${value} percent`} title={`Master Volume ${value}; drag vertically, use the mouse wheel, or press arrow keys`} onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       drag.current = { pointerId: event.pointerId, lastY: event.clientY };
     }} onPointerMove={(event) => {
@@ -219,14 +220,14 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
   return <section className={`qc-chassis ${skin.className}`} aria-label={formFactor.displayName}>
     {skin.svgAsset && <div className="official-svg-viewport" aria-hidden="true"><img className="official-svg-source" src={skin.svgAsset.url} alt="" style={svgCropStyle} /></div>}
     <div className="chassis-edge" aria-hidden="true" />
-    <MasterVolume onAction={onAction} />
+    <MasterVolume value={snapshot.masterVolume} onAction={onAction} />
     <div className="device-plate"><svg className="pulse-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 3.5 8H7l-1 7 6.5-8H9z" /></svg><span>QUADCORTEX</span><small>CONTROL SURFACE</small></div>
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index].active} accent={leds[index].color} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>
-      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index + 4].active} accent={leds[index + 4].color} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" accent="#e6e6e6" onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index + 4].active} accent={leds[index + 4].color} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" active={snapshot.tempoLedEnabled} pulseBpm={snapshot.tempoLedEnabled ? snapshot.tempo : undefined} accent="#e6e6e6" onAction={onAction} /></div>
       <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
   </section>;

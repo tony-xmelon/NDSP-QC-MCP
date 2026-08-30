@@ -56,6 +56,8 @@ class FakeDevice:
         return {"detail": f"parameter {parameter_index}:{value}", "block": self.block_details(row, column), "snapshot": self.snapshot()}
     def set_tempo(self, bpm, expected_tempo, expected_preset_name):
         return {"detail": f"tempo {bpm}:{expected_tempo}", "snapshot": self.snapshot()}
+    def set_master_volume(self, value, expected_value):
+        return {"detail": f"volume {value}:{expected_value}", "snapshot": self.snapshot()}
     def press_footswitch(self, index, expected_mode, expected_preset_name):
         return {"detail": f"footswitch {index}:{expected_mode}", "snapshot": self.snapshot()}
     def list_preset_slots(self):
@@ -161,6 +163,9 @@ class ServiceTests(unittest.TestCase):
         tempo = self.request("device.setTempo", {
             "bpm": 121, "expectedTempo": 120, "expectedPresetName": "Test"
         })
+        volume = self.request("device.setMasterVolume", {
+            "value": 57, "expectedValue": 56
+        })
         footswitch = self.request("device.pressFootswitch", {
             "index": 4, "expectedMode": "STOMP", "expectedPresetName": "Test"
         })
@@ -189,6 +194,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(details["result"]["name"], "Fake block")
         self.assertEqual(parameter["result"]["detail"], "parameter 2:0.75")
         self.assertEqual(tempo["result"]["detail"], "tempo 121:120")
+        self.assertEqual(volume["result"]["detail"], "volume 57:56")
         self.assertEqual(footswitch["result"]["detail"], "footswitch 4:STOMP")
         self.assertEqual(slots["result"]["setlistName"], "Fake")
         self.assertEqual(saved["result"]["detail"], "save 17:Copy:True")

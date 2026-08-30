@@ -57,6 +57,8 @@ export interface PresetSnapshot {
   blocks: GridBlock[];
   routes: GridRoute[];
   tempo: number;
+  tempoLedEnabled?: boolean;
+  masterVolume: number;
   dirty: boolean;
 }
 
@@ -73,6 +75,8 @@ export const demoSnapshot: PresetSnapshot = {
   scenes: ["Clean", "Edge", "Crunch", "Lead", "Ambient", "Octave", "Solo +", "Mute"],
   sceneColors: ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"],
   tempo: 120,
+  tempoLedEnabled: true,
+  masterVolume: 40,
   dirty: false,
   routes: [
     { row: 0, input: "In 1", output: "Row 3", splitColumn: 5, mixColumn: 7 },
@@ -251,6 +255,7 @@ export interface GatewayTransport {
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult>;
   pressFootswitch(index: number, expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;
   listPresetSlots(): Promise<PresetSlotList>;
   savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult>;

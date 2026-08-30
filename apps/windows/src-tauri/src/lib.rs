@@ -673,6 +673,19 @@ fn set_tempo(
 }
 
 #[tauri::command]
+fn set_master_volume(
+    state: State<'_, Mutex<Gateway>>,
+    value: u8,
+    expected_value: u8,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.setMasterVolume",
+        json!({ "value": value, "expectedValue": expected_value }),
+    )
+}
+
+#[tauri::command]
 fn press_footswitch(
     state: State<'_, Mutex<Gateway>>,
     index: u8,
@@ -1091,6 +1104,7 @@ pub fn run() {
             block_details,
             set_parameter,
             set_tempo,
+            set_master_volume,
             press_footswitch,
             list_preset_slots,
             save_preset_as,

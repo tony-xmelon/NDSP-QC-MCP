@@ -152,6 +152,10 @@ class GatewayService:
                     params.get("expectedTempo"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.setMasterVolume":
+                result = self.device.set_master_volume(
+                    params.get("value"), params.get("expectedValue")
+                )
             elif method == "device.pressFootswitch":
                 result = self.device.press_footswitch(
                     params.get("index"),

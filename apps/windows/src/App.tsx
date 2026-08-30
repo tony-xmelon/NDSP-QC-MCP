@@ -127,6 +127,9 @@ export function App() {
   const tempoCommitTimer = useRef<number | undefined>(undefined);
   const tempoExpected = useRef<number | undefined>(undefined);
   const tempoTarget = useRef<number | undefined>(undefined);
+  const volumeCommitTimer = useRef<number | undefined>(undefined);
+  const volumeExpected = useRef<number | undefined>(undefined);
+  const volumeTarget = useRef<number | undefined>(undefined);
   const tapTimes = useRef<number[]>([]);
 
   const formFactor = useMemo(() => formFactors.find((item) => item.id === formFactorId) ?? formFactors[0], [formFactorId]);
@@ -145,6 +148,7 @@ export function App() {
     return () => {
       speechRecognition.current?.abort();
       if (tempoCommitTimer.current !== undefined) window.clearTimeout(tempoCommitTimer.current);
+      if (volumeCommitTimer.current !== undefined) window.clearTimeout(volumeCommitTimer.current);
     };
   }, []);
 
@@ -545,6 +549,41 @@ export function App() {
     queueTempo((tempoTarget.current ?? snapshot.tempo) + delta, "Encoder");
   }, [queueTempo, snapshot.tempo]);
 
+  const adjustMasterVolume = useCallback((delta: number) => {
+    const value = Math.max(0, Math.min(100, Math.round((volumeTarget.current ?? snapshot.masterVolume) + delta)));
+    if (connection.demo) {
+      setSnapshot((current) => ({ ...current, masterVolume: value }));
+      setNotice(`Demo: Master Volume ${value}.`);
+      return;
+    }
+    if (volumeExpected.current === undefined) {
+      volumeExpected.current = snapshot.masterVolume;
+      setCommandPending(true);
+    }
+    volumeTarget.current = value;
+    setSnapshot((current) => ({ ...current, masterVolume: value }));
+    setNotice(`Master Volume: ${value}…`);
+    if (volumeCommitTimer.current !== undefined) window.clearTimeout(volumeCommitTimer.current);
+    volumeCommitTimer.current = window.setTimeout(async () => {
+      const target = volumeTarget.current;
+      const expected = volumeExpected.current;
+      volumeCommitTimer.current = undefined;
+      if (target === undefined || expected === undefined) return;
+      try {
+        const result = await tauriTransport.setMasterVolume(target, expected);
+        if (result.snapshot) setSnapshot(result.snapshot);
+        setNotice(result.detail);
+      } catch (error) {
+        actionFailed(error);
+        try { setSnapshot(await tauriTransport.currentSnapshot()); } catch { /* Preserve the command error. */ }
+      } finally {
+        volumeExpected.current = undefined;
+        volumeTarget.current = undefined;
+        setCommandPending(false);
+      }
+    }, 350);
+  }, [actionFailed, connection.demo, snapshot.masterVolume]);
+
   const tapTempo = useCallback(() => {
     const now = performance.now();
     const previous = tapTimes.current.at(-1);
@@ -592,7 +631,7 @@ export function App() {
     }
     if (action.kind === "rotate") {
       if (action.role === "tempo") adjustTempo(action.delta);
-      else if (action.role === "master-volume") setNotice("Master Volume writes are safety-locked; use the physical QC volume control.");
+      else if (action.role === "master-volume") adjustMasterVolume(action.delta);
       else setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} has no verified encoder action on the current screen.`);
       return;
     }
@@ -611,7 +650,7 @@ export function App() {
     if (action.phase === "release" && action.role === "tempo") tapTempo();
     else if (action.phase === "release" && action.role === "power") setNotice("Power and lock actions are intentionally available only on the physical Quad Cortex.");
     else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} has no verified action on the current screen.`);
-  }, [adjustTempo, chooseScene, connection.demo, navigateBank, openBlockEditor, pressFootswitch, snapshot.blocks, tapTempo]);
+  }, [adjustMasterVolume, adjustTempo, chooseScene, connection.demo, navigateBank, openBlockEditor, pressFootswitch, snapshot.blocks, tapTempo]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -727,7 +766,7 @@ export function App() {
     if (connection.phase !== "ready" || connection.demo) return;
     let cancelled = false;
     let timer: number | undefined;
-    const schedule = (delay = 5000) => {
+    const schedule = (delay = 750) => {
       if (!cancelled) timer = window.setTimeout(() => void synchronize(), delay);
     };
     const synchronize = async () => {
@@ -755,7 +794,7 @@ export function App() {
       }
       schedule();
     };
-    schedule(3000);
+    schedule(750);
     return () => {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);

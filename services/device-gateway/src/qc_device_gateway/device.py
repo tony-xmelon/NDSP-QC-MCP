@@ -1018,6 +1018,37 @@ class PyQuadCortexDevice:
                 return {"detail": f"Tempo set to {bpm} BPM and verified", "snapshot": snapshot}
         raise RuntimeError("The tempo command was sent, but readback did not confirm the requested BPM.")
 
+    def set_master_volume(self, value: int, expected_value: int) -> dict[str, Any]:
+        """Set the live QC master volume using its displayed 0-100 scale."""
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+            raise ValueError("Master Volume must be an integer from 0 through 100.")
+        if isinstance(expected_value, bool) or not isinstance(expected_value, int) or not 0 <= expected_value <= 100:
+            raise ValueError("Expected Master Volume must be an integer from 0 through 100.")
+
+        qc = self._require_session()
+        actual = round(float(qc.master_volume(timeout=3.0).volume) * 100)
+        if abs(actual - expected_value) > 1:
+            raise RuntimeError(
+                f"Master Volume changed on the Quad Cortex: expected {expected_value}, found {actual}. "
+                "The current device value has been restored in QC Control."
+            )
+        if actual == value:
+            return {"detail": f"Master Volume is already {value}", "snapshot": self.snapshot()}
+
+        qc.set_master_volume(value / 100.0)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.15)
+            confirmed = round(float(qc.master_volume(timeout=3.0).volume) * 100)
+            if abs(confirmed - value) <= 1:
+                snapshot = self.snapshot()
+                snapshot["masterVolume"] = confirmed
+                return {
+                    "detail": f"Master Volume set to {confirmed}; the physical wheel will resume after soft takeover",
+                    "snapshot": snapshot,
+                }
+        raise RuntimeError("The Master Volume command was sent, but readback did not confirm the requested value.")
+
     def press_footswitch(
         self,
         index: int,
@@ -1091,6 +1122,7 @@ class PyQuadCortexDevice:
         active_scene = int(qc.active_scene())
         mode = _normalized_mode(qc)
         footswitch_modes = _footswitch_modes(qc)
+        master_volume = round(float(qc.master_volume(timeout=3.0).volume) * 100)
 
         catalog = qc.catalog
         stomp_by_cell = {
@@ -1139,6 +1171,7 @@ class PyQuadCortexDevice:
 
         labels = list(preset.scene_labels)
         scenes = [(labels[index] if index < len(labels) and labels[index] else f"Scene {chr(65 + index)}") for index in range(8)]
+        tempo_values = pyquadcortex.tempo_params(preset)
         return {
             "deviceName": "Quad Cortex",
             "presetName": preset.name or "Current preset",
@@ -1154,5 +1187,7 @@ class PyQuadCortexDevice:
             "blocks": blocks,
             "routes": routes,
             "tempo": _tempo_bpm(preset),
+            "tempoLedEnabled": tempo_values.get(2, 0.0) >= 0.5,
+            "masterVolume": master_volume,
             "dirty": bool(qc.preset_dirty()),
         }

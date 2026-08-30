@@ -1,0 +1,12 @@
+@keyframes qc-tempo-led-pulse {
+  0%, 12% { opacity: 1; filter: brightness(1.25); }
+  38%, 100% { opacity: .16; filter: brightness(.55); }
+}
+
+.hardware-switch.is-tempo-pulse.is-active .switch-led::before {
+  animation: qc-tempo-led-pulse var(--tempo-period, 1s) steps(2, jump-none) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hardware-switch.is-tempo-pulse.is-active .switch-led::before { animation: none; }
+}
