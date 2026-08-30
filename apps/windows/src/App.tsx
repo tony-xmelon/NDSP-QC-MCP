@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DiagnosticsReport, type GridBlock, type ModelEntry, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
+import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type ModelEntry, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { optimisticallyPressFootswitch, QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
@@ -11,6 +11,7 @@ type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text
 type ConnectionEvent = { at: string; event: "app-start" | "runtime-ready" | "connect-attempt" | "connected" | "connect-failed" | "disconnected" | "reset-attempt" | "diagnostics-exported" };
 type MenuItem = string | { label: string; disabledReason: string };
 type RouteDraft = { inputId: number; outputId: number; splitColumn: number | null; mixColumn: number | null };
+type UndoEntry = { label: string; execute: (current: PresetSnapshot) => Promise<DeviceActionResult> };
 type PendingAssistantAction =
   | { kind: "bypass"; block: GridBlock; targetBypassed: boolean; label: string }
   | { kind: "parameter"; block: BlockDetails; parameter: BlockParameter; value: number; label: string };
@@ -113,6 +114,7 @@ export function App() {
   const [savePresetName, setSavePresetName] = useState("");
   const [savePresetPosition, setSavePresetPosition] = useState<number>();
   const [presetSlotsLoading, setPresetSlotsLoading] = useState(false);
+  const [undoEntry, setUndoEntry] = useState<UndoEntry>();
   const [surfaceView, setSurfaceView] = useState<"fit" | "actual">("fit");
   const [connectionEvents, setConnectionEvents] = useState<ConnectionEvent[]>([{ at: new Date().toISOString(), event: "app-start" }]);
   const chatInput = useRef<HTMLTextAreaElement>(null);
@@ -131,6 +133,7 @@ export function App() {
   const volumeExpected = useRef<number | undefined>(undefined);
   const volumeTarget = useRef<number | undefined>(undefined);
   const tapTimes = useRef<number[]>([]);
+  const undoPresetContext = useRef(`${demoSnapshot.setlistKey}:${demoSnapshot.presetPosition}`);
 
   const formFactor = useMemo(() => formFactors.find((item) => item.id === formFactorId) ?? formFactors[0], [formFactorId]);
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
@@ -138,6 +141,12 @@ export function App() {
     const query = modelFilter.trim().toLocaleLowerCase();
     return query ? models.filter((model) => `${model.category} ${model.name} ${model.basedOn}`.toLocaleLowerCase().includes(query)) : models;
   }, [modelFilter, models]);
+
+  useEffect(() => {
+    const context = `${snapshot.setlistKey}:${snapshot.presetPosition}`;
+    if (context !== undoPresetContext.current) setUndoEntry(undefined);
+    undoPresetContext.current = context;
+  }, [snapshot.presetPosition, snapshot.setlistKey]);
 
   useEffect(() => {
     void reportVoiceCapability(speechRecognitionAvailable());
@@ -190,6 +199,8 @@ export function App() {
     try {
       const result = await tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, block.bypassed ?? false, !(block.bypassed ?? false), snapshot.presetName);
       if (result.snapshot) setSnapshot(result.snapshot);
+      const previousBypassed = block.bypassed ?? false;
+      setUndoEntry({ label: `${previousBypassed ? "enable" : "bypass"} ${block.name}`, execute: (current) => tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, !previousBypassed, previousBypassed, current.presetName) });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -216,6 +227,7 @@ export function App() {
         setSnapshot(result.snapshot);
         if (presetChanged) setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
       }
+      setUndoEntry({ label: `Footswitch ${label}`, execute: (current) => tauriTransport.pressFootswitch(index, current.mode, current.presetName) });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -278,6 +290,12 @@ export function App() {
         setSnapshot(result.snapshot);
         setRouteDrafts(Object.fromEntries(result.snapshot.routes.filter((item) => item.inputId !== undefined && item.outputId !== undefined).map((item) => [item.row, { inputId: item.inputId as number, outputId: item.outputId as number, splitColumn: item.splitColumn ?? null, mixColumn: item.splitColumn === undefined ? null : item.mixColumn ?? -1 }])));
       }
+      setUndoEntry({
+        label: `row ${row + 1} ${kind}`,
+        execute: (current) => kind === "input"
+          ? tauriTransport.setChainInput(row, expected, desired, current.presetName)
+          : tauriTransport.setChainOutput(row, expected, desired, current.presetName)
+      });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -305,6 +323,7 @@ export function App() {
         setSnapshot(result.snapshot);
         setRouteDrafts(Object.fromEntries(result.snapshot.routes.filter((item) => item.inputId !== undefined && item.outputId !== undefined).map((item) => [item.row, { inputId: item.inputId as number, outputId: item.outputId as number, splitColumn: item.splitColumn ?? null, mixColumn: item.splitColumn === undefined ? null : item.mixColumn ?? -1 }])));
       }
+      setUndoEntry({ label: `row ${row + 1} branch routing`, execute: (current) => tauriTransport.setChainSplit(row, expectedSplit, expectedMix, draft.splitColumn, draft.mixColumn, current.presetName) });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -374,6 +393,7 @@ export function App() {
         setSnapshot(result.snapshot);
         setSelectedBlockId(`block-${block.row}-${moveDestination}`);
       }
+      setUndoEntry({ label: `move ${block.name}`, execute: (current) => tauriTransport.moveBlock(block.row, moveDestination, block.column, block.modelId as number, current.presetName) });
       setDialog(null);
       setNotice(result.detail);
     } catch (error) {
@@ -396,6 +416,7 @@ export function App() {
         block.row, block.column, footswitchDraft, block.footswitch ?? null, block.modelId, snapshot.presetName
       );
       if (result.snapshot) setSnapshot(result.snapshot);
+      setUndoEntry({ label: `${block.name} footswitch assignment`, execute: (current) => tauriTransport.setBlockFootswitch(block.row, block.column, block.footswitch ?? null, footswitchDraft, block.modelId as number, current.presetName) });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -415,11 +436,36 @@ export function App() {
     setCommandPending(true);
     setNotice(`Removing ${block.name}…`);
     try {
+      const removedDetails = await tauriTransport.blockDetails(block.row, block.column, snapshot.presetName);
       const result = await tauriTransport.removeBlock(block.row, block.column, block.modelId, snapshot.presetName);
       if (result.snapshot) {
         setSnapshot(result.snapshot);
         setSelectedBlockId(result.snapshot.blocks.find((candidate) => candidate.column >= 0)?.id ?? "");
       }
+      setUndoEntry({
+        label: `remove ${block.name}`,
+        execute: async (current) => {
+          let latest = await tauriTransport.addBlock(block.row, block.column, block.modelId as number, current.presetName);
+          let working = latest.snapshot ?? current;
+          const defaults = await tauriTransport.blockDetails(block.row, block.column, working.presetName);
+          for (const parameter of removedDetails.parameters) {
+            const defaultParameter = defaults.parameters.find((candidate) => candidate.index === parameter.index);
+            if (!parameter.writable || parameter.normalizedValue === null || defaultParameter?.normalizedValue === null || defaultParameter?.normalizedValue === undefined || Math.abs(parameter.normalizedValue - defaultParameter.normalizedValue) < .000001) continue;
+            latest = await tauriTransport.setParameter(block.row, block.column, parameter.index, parameter.normalizedValue, defaultParameter.normalizedValue, snapshot.activeScene, working.presetName);
+            working = latest.snapshot ?? working;
+          }
+          const restored = working.blocks.find((candidate) => candidate.row === block.row && candidate.column === block.column);
+          if ((block.footswitch ?? null) !== (restored?.footswitch ?? null)) {
+            latest = await tauriTransport.setBlockFootswitch(block.row, block.column, block.footswitch ?? null, restored?.footswitch ?? null, block.modelId as number, working.presetName);
+            working = latest.snapshot ?? working;
+          }
+          const restoredAfterAssignment = working.blocks.find((candidate) => candidate.row === block.row && candidate.column === block.column);
+          if ((block.bypassed ?? false) !== (restoredAfterAssignment?.bypassed ?? false)) {
+            latest = await tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, restoredAfterAssignment?.bypassed ?? false, block.bypassed ?? false, working.presetName);
+          }
+          return { ...latest, detail: `Restored ${block.name} and its previous settings.` };
+        }
+      });
       setDialog(null);
       setNotice(result.detail);
     } catch (error) {
@@ -476,6 +522,7 @@ export function App() {
         setSnapshot(result.snapshot);
         setSelectedBlockId(`block-${row}-${column}`);
       }
+      setUndoEntry({ label: `add ${model.name}`, execute: (current) => tauriTransport.removeBlock(row, column, addModelId, current.presetName) });
       setDialog(null);
       setNotice(result.detail);
     } catch (error) {
@@ -504,6 +551,7 @@ export function App() {
       setBlockDetails(result.block);
       setParameterDrafts(Object.fromEntries(result.block.parameters.filter((candidate) => candidate.normalizedValue !== null).map((candidate) => [candidate.index, candidate.normalizedValue as number])));
       if (result.snapshot) setSnapshot(result.snapshot);
+      setUndoEntry({ label: `${blockDetails.name} ${parameter.name}`, execute: (current) => tauriTransport.setParameter(blockDetails.row, blockDetails.column, parameter.index, parameter.normalizedValue as number, value, snapshot.activeScene, current.presetName) });
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
@@ -535,6 +583,7 @@ export function App() {
       try {
         const result = await tauriTransport.setTempo(target, expected, snapshot.presetName);
         if (result.snapshot) setSnapshot(result.snapshot);
+        setUndoEntry({ label: `tempo change`, execute: (current) => tauriTransport.setTempo(expected, target, current.presetName) });
         setNotice(result.detail);
       } catch (error) {
         actionFailed(error);
@@ -869,9 +918,41 @@ export function App() {
         setSnapshot(result.snapshot);
         setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
       }
+      setUndoEntry(undefined);
       setNotice(result.detail);
     } catch (error) {
       actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const undoLastAction = async () => {
+    const entry = undoEntry;
+    if (!entry) {
+      setNotice("There is no app action to undo.");
+      return;
+    }
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? "Connect the Quad Cortex before undoing a live action." : "A device command is already in progress.");
+      return;
+    }
+    setCommandPending(true);
+    setNotice(`Undoing ${entry.label}…`);
+    try {
+      const result = await entry.execute(snapshot);
+      const verified = result.snapshot ?? await tauriTransport.currentSnapshot();
+      setSnapshot(verified);
+      setSelectedBlockId((current) => verified.blocks.some((block) => block.id === current) ? current : verified.blocks[0]?.id ?? "");
+      setUndoEntry(undefined);
+      setNotice(`Undid ${entry.label}. ${result.detail}`);
+    } catch (error) {
+      actionFailed(error);
+      try {
+        setSnapshot(await tauriTransport.currentSnapshot());
+      } catch {
+        // Preserve the undo entry so the user can retry after reconnecting.
+      }
     } finally {
       setCommandPending(false);
     }
@@ -1128,6 +1209,7 @@ export function App() {
       if (!Number.isInteger(intent.bpm) || intent.bpm < 40 || intent.bpm > 240) throw new Error("Tempo must be from 40 through 240 BPM.");
       const result = await tauriTransport.setTempo(intent.bpm, snapshot.tempo, snapshot.presetName);
       if (result.snapshot) setSnapshot(result.snapshot);
+      setUndoEntry({ label: `tempo change`, execute: (current) => tauriTransport.setTempo(snapshot.tempo, intent.bpm, current.presetName) });
       appendMessage("tool", result.detail);
       setNotice(result.detail);
       return;
@@ -1204,6 +1286,7 @@ export function App() {
       if (pending.kind === "bypass") {
         const result = await tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.block.bypassed as boolean, pending.targetBypassed, snapshot.presetName);
         if (result.snapshot) setSnapshot(result.snapshot);
+        setUndoEntry({ label: `${pending.targetBypassed ? "bypass" : "enable"} ${pending.block.name}`, execute: (current) => tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.targetBypassed, pending.block.bypassed as boolean, current.presetName) });
         appendMessage("tool", result.detail);
         setNotice(result.detail);
       } else {
@@ -1217,6 +1300,7 @@ export function App() {
           snapshot.presetName
         );
         if (result.snapshot) setSnapshot(result.snapshot);
+        setUndoEntry({ label: `${pending.block.name} ${pending.parameter.name}`, execute: (current) => tauriTransport.setParameter(pending.block.row, pending.block.column, pending.parameter.index, pending.parameter.normalizedValue as number, pending.value, snapshot.activeScene, current.presetName) });
         setBlockDetails(result.block);
         setParameterDrafts(Object.fromEntries(result.block.parameters.filter((parameter) => parameter.normalizedValue !== null).map((parameter) => [parameter.index, parameter.normalizedValue as number])));
         appendMessage("tool", result.detail);
@@ -1322,7 +1406,7 @@ export function App() {
 
     <div className={`app-content${chatOpen ? "" : " chat-closed"}`}>
       <main className={`workspace view-${surfaceView}`}>
-        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} onOpenPreset={() => void openPresetBrowser()} onUndo={() => snapshot.dirty ? void reloadPreset() : setNotice("The current preset has no unsaved changes to undo.")} onSave={() => void openDeviceSave()} onOpenRouting={() => openRoutingEditor()} onRefresh={() => void refreshSnapshot()} />
+        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} onOpenPreset={() => void openPresetBrowser()} onUndo={() => void undoLastAction()} canUndo={Boolean(undoEntry)} undoLabel={undoEntry?.label} onSave={() => void openDeviceSave()} onOpenRouting={() => openRoutingEditor()} onRefresh={() => void refreshSnapshot()} />
       </main>
 
       {chatOpen ? <section className="chat-dock" aria-label="QC assistant">

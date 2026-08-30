@@ -18,6 +18,8 @@ interface QuadCortexSurfaceProps {
   onAction: (action: HardwareAction) => void;
   onOpenPreset: () => void;
   onUndo: () => void;
+  canUndo: boolean;
+  undoLabel?: string;
   onSave: () => void;
   onOpenRouting: (row?: number, side?: "input" | "output") => void;
   onRefresh: () => void;
@@ -156,7 +158,7 @@ function MasterVolume({ value, onAction }: { value: number; onAction: (action: H
   </div>;
 }
 
-function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, onSave, onOpenRouting, onRefresh }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction" | "onOpenPreset" | "onUndo" | "onSave" | "onOpenRouting" | "onRefresh">) {
+function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, canUndo, undoLabel, onSave, onOpenRouting, onRefresh }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction" | "onOpenPreset" | "onUndo" | "canUndo" | "undoLabel" | "onSave" | "onOpenRouting" | "onRefresh">) {
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false);
   const [screenMenuOpen, setScreenMenuOpen] = useState(false);
   const columns = [98, 184, 273, 361, 448, 528, 616, 703];
@@ -229,7 +231,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     </svg>
     <div className="coros-vector-actions" aria-label="Grid controls">
       <button className="vector-action-hit preset-title-hit" title="Open device presets" aria-label={`Open preset browser; current preset ${snapshot.presetLocation} ${snapshot.presetName}`} onClick={onOpenPreset} />
-      <button className="vector-action-hit undo-hit" title={snapshot.dirty ? "Discard unsaved changes and reload the stored preset" : "Nothing to undo"} aria-label={snapshot.dirty ? "Undo unsaved changes" : "Nothing to undo"} onClick={onUndo} />
+      <button className="vector-action-hit undo-hit" title={canUndo ? `Undo ${undoLabel ?? "last action"}` : "Nothing to undo"} aria-label={canUndo ? `Undo ${undoLabel ?? "last action"}` : "Nothing to undo"} onClick={onUndo} />
       <button className="vector-action-hit scene-hit" aria-label="Select scene" aria-expanded={sceneMenuOpen} onClick={() => { setScreenMenuOpen(false); setSceneMenuOpen((open) => !open); }} />
       <button className="vector-action-hit save-hit" title="Save preset to Quad Cortex" aria-label="Save preset to Quad Cortex" onClick={onSave} />
       <button className="vector-action-hit more-hit" title="Grid menu" aria-label="Open Grid menu" aria-expanded={screenMenuOpen} onClick={() => { setSceneMenuOpen(false); setScreenMenuOpen((open) => !open); }} />
@@ -240,13 +242,13 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     </div>
     {screenBlocks.map((block) => <button key={block.id} className="coros-vector-block-hit" style={{ left: `${columns[block.column] / 8}%`, top: `${rowY[block.row] / 4.8}%` }} title={`Row ${block.row + 1}, ${block.name}`} aria-label={`Row ${block.row + 1}, ${block.name}`} aria-pressed={selectedBlockId === block.id} onClick={() => onAction({ kind: "select-block", blockId: block.id })} />)}
     {sceneMenuOpen && <div className="scene-dropdown vector-scene-dropdown" role="menu" aria-label="Scenes">{snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => { setSceneMenuOpen(false); onAction({ kind: "select-scene", scene: index }); }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}</div>}
-    {screenMenuOpen && <div className="coros-screen-menu" role="menu" aria-label="Grid menu"><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onOpenPreset(); }}>Open Preset…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onSave(); }}>Save Preset…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onOpenRouting(); }}>Edit Signal Routing…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onRefresh(); }}>Refresh Grid</button><button role="menuitem" disabled={!snapshot.dirty} onClick={() => { setScreenMenuOpen(false); onUndo(); }}>Discard Unsaved Changes…</button></div>}
+    {screenMenuOpen && <div className="coros-screen-menu" role="menu" aria-label="Grid menu"><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onOpenPreset(); }}>Open Preset…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onSave(); }}>Save Preset…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onOpenRouting(); }}>Edit Signal Routing…</button><button role="menuitem" onClick={() => { setScreenMenuOpen(false); onRefresh(); }}>Refresh Grid</button><button role="menuitem" disabled={!canUndo} onClick={() => { setScreenMenuOpen(false); onUndo(); }}>Undo {undoLabel ?? "Last Action"}</button></div>}
   </div>;
 }
 
 function controlByRole(controls: HardwareControl[], role: string) { return controls.find((control) => control.role === role); }
 
-export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin, onAction, onOpenPreset, onUndo, onSave, onOpenRouting, onRefresh }: QuadCortexSurfaceProps) {
+export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin, onAction, onOpenPreset, onUndo, canUndo, undoLabel, onSave, onOpenRouting, onRefresh }: QuadCortexSurfaceProps) {
   const scenes = formFactor.controls.filter((control) => control.group === "scene");
   const bankUp = controlByRole(formFactor.controls, "bank:up")!;
   const bankDown = controlByRole(formFactor.controls, "bank:down")!;
@@ -262,7 +264,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume value={snapshot.masterVolume} onAction={onAction} />
     <div className="device-plate"><svg className="pulse-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 3.5 8H7l-1 7 6.5-8H9z" /></svg><span>QUADCORTEX</span><small>CONTROL SURFACE</small></div>
-    <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} /></div>
+    <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} /></div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index].active} assigned={leds[index].assigned} accent={leds[index].color} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
