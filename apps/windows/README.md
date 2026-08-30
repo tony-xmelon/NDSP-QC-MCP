@@ -1,4 +1,4 @@
-# Windows client
+# QC Control
 
 Tauri 2 desktop composition root for the large Quad Cortex surface, application menus, keyboard/mouse input, chat, voice capture, settings, and gateway sidecar lifecycle.
 

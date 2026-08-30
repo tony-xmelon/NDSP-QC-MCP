@@ -913,7 +913,7 @@ fn export_diagnostics(report: Value) -> Result<Value, String> {
     let timestamp = chrono_free_timestamp();
     let Some(path) = rfd::FileDialog::new()
         .add_filter("QC Diagnostics", &["json"])
-        .set_file_name(format!("QC Voice Control Diagnostics {timestamp}.json"))
+        .set_file_name(format!("QC Control Diagnostics {timestamp}.json"))
         .save_file()
     else {
         return Ok(json!({ "cancelled": true }));
@@ -923,7 +923,7 @@ fn export_diagnostics(report: Value) -> Result<Value, String> {
     Ok(json!({
         "cancelled": false,
         "path": path.to_string_lossy(),
-        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("QC Voice Control Diagnostics.json")
+        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("QC Control Diagnostics.json")
     }))
 }
 
@@ -1104,5 +1104,5 @@ pub fn run() {
             report_voice_event
         ])
         .run(tauri::generate_context!())
-        .expect("error while running QC Voice Control");
+        .expect("error while running QC Control");
 }

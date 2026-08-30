@@ -39,9 +39,14 @@ const menus: Array<{ name: string; items: MenuItem[] }> = [
   { name: "Help", items: ["User Guide", "Keyboard and Mouse Reference", "Report a Problem…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
 ];
 
-function MenuBar({ onSelect }: { onSelect: (item: string) => void }) {
+function MenuBar({ onSelect, connection, reconnecting, onReconnect, onConnectionDetails }: {
+  onSelect: (item: string) => void;
+  connection: ConnectionState;
+  reconnecting: boolean;
+  onReconnect: () => void;
+  onConnectionDetails: () => void;
+}) {
   return <nav className="menu-bar" aria-label="Application menu">
-    <div className="app-wordmark"><span className="wordmark-dot" /> QC VOICE CONTROL</div>
     <div className="menus">
       {menus.map((menu) => <details key={menu.name} className="menu">
         <summary>{menu.name}</summary>
@@ -56,7 +61,13 @@ function MenuBar({ onSelect }: { onSelect: (item: string) => void }) {
         </div>
       </details>)}
     </div>
-    <div className="window-title">Windows Client</div>
+    <div className="menubar-actions" title={connection.detail}>
+      <div className="menubar-status-group">
+        <ConnectionBadge connection={connection} />
+        <button className="menubar-more" title="Connection details" aria-label="Connection details" onClick={onConnectionDetails}>•••</button>
+      </div>
+      <button className="menubar-reconnect" onClick={onReconnect} disabled={reconnecting}>↻ Reconnect</button>
+    </div>
   </nav>;
 }
 
@@ -1262,31 +1273,16 @@ export function App() {
   };
 
   return <div className="app-shell">
-    <MenuBar onSelect={menuSelect} />
+    <MenuBar onSelect={menuSelect} connection={connection} reconnecting={commandPending} onReconnect={() => void connect()} onConnectionDetails={() => setDialog("connection")} />
 
-    <header className="device-toolbar">
-      <div className="connection-cluster">
-        <ConnectionBadge connection={connection} />
-        <div><strong>{connection.detail}</strong><span>{runtime?.message ?? "Checking desktop runtime…"}</span></div>
-      </div>
-      <div className="toolbar-controls">
-        <label>FORM FACTOR<select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label>
-        <label>SKIN<select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label>
-        <button className="toolbar-button" onClick={() => void connect()} disabled={commandPending}>↻ Reconnect</button>
-        <button className="icon-button" title="Connection details" aria-label="Connection details" onClick={() => setDialog("connection")}>•••</button>
-      </div>
-    </header>
+    <div className={`app-content${chatOpen ? "" : " chat-closed"}`}>
+      <main className={`workspace view-${surfaceView}`}>
+        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
+      </main>
 
-    <main className={`workspace view-${surfaceView}`}>
-      <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
-    </main>
-
-    <div className="status-strip" role="status"><span className="status-symbol">i</span>{notice}<span className="shortcut-hint">1–8 switches · Ctrl+1–8 scenes · B bypass · [ ] bank · T tempo</span></div>
-
-    {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
-      {messages.length > 0 && <div className="conversation-preview" aria-live="polite">{messages.slice(-4).map((item) => <div className={`${item.role}-message`} key={item.id}><span>{item.role === "tool" ? "QC RESULT" : item.role.toUpperCase()}</span>{item.text}</div>)}</div>}
+      {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
+      <div className="conversation-preview" aria-live="polite">{messages.length > 0 ? messages.map((item) => <div className={`${item.role}-message`} key={item.id}><span>{item.role === "tool" ? "QC RESULT" : item.role.toUpperCase()}</span>{item.text}</div>) : <p className="conversation-empty">Your QC conversation and command results will appear here.</p>}</div>
       {pendingAssistantAction && <div className="assistant-action-card"><div><span>REVIEW TEMPORARY EDIT</span><strong>{pendingAssistantAction.label}</strong><small>This changes the live Grid but does not save the preset.</small></div><div><button onClick={() => setPendingAssistantAction(undefined)} disabled={commandPending}>Cancel</button><button className="primary" onClick={() => void applyPendingAssistantAction()} disabled={commandPending}>Apply temporarily</button></div></div>}
-      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED DEVICE CHANGES</span>}{workspaceName && <span>Workspace: {workspaceName}</span>}<span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
       <div className="composer">
         <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
@@ -1296,7 +1292,14 @@ export function App() {
         <button className="send-button" onClick={() => void sendMessage()} disabled={!message.trim() || commandPending} aria-label="Send message">↑</button>
       </div>
       <p className="safety-copy">Typed inspection and performance commands are available offline. Temporary edits show a preview; hardware save always requires confirmation.</p>
-    </section> : <button className="restore-chat" onClick={() => setChatOpen(true)}>Open assistant <span>Ctrl+L</span></button>}
+      </section> : <button className="restore-chat" onClick={() => setChatOpen(true)}>Open assistant <span>Ctrl+L</span></button>}
+    </div>
+
+    <div className="status-strip" role="status">
+      <span className="status-symbol">i</span>
+      <span className="status-notice">{notice}</span>
+      <span className="status-context"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED</span>}{workspaceName && <span>{workspaceName}</span>}<span>{selectedBlockId ? snapshot.blocks.find((block) => block.id === selectedBlockId)?.name : "No selection"}</span></span>
+    </div>
 
     {dialog && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setDialog(null)}>
       <section className="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -1320,10 +1323,10 @@ export function App() {
         {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Press Footswitches A–H in the current QC mode</dd><dt>Ctrl+1–8</dt><dd>Select Scenes A–H directly</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>Arrow keys / Enter</dt><dd>Select the nearest Grid block / open its live parameters</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Delete</dt><dd>Review temporary removal of the selected block</dd><dt>Ctrl+S</dt><dd>Save the local workspace</dd><dt>Ctrl+Shift+S</dt><dd>Review a separate device Save As</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Escape</dt><dd>Cancel voice, a pending edit, or the open dialog</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Grid and performance shortcuts are suspended while an input or the chat composer has focus.</p></>}
         {dialog === "guide" && <><div className="dialog-kicker">USER GUIDE</div><h2 id="dialog-title">Safe QC control</h2><p>Connect the QC by USB and close Cortex Control, which otherwise owns the interface. Click Grid blocks to inspect parameters, move them, assign STOMP switches, or review removal. Add blocks and edit routing from the Device menu; temporary edits mark the preset unsaved.</p><p>Use the preset browser or Bank controls only when the preset is clean. “Save Workspace” writes a local reference file. “Save Preset to Quad Cortex” is the separate persistent operation and always asks for a destination and confirmation.</p><p>Typed or spoken commands use the same guarded controls. Bypass and parameter edits show a preview before application.</p></>}
         {dialog === "privacy" && <><div className="dialog-kicker">PRIVACY</div><h2 id="dialog-title">Local by default</h2><p>Manual control, typed commands, workspaces, and diagnostics operate locally. The desktop configuration binds no network listener and does not collect analytics.</p><p>Push-to-talk uses Microsoft Edge speech recognition only after disclosure and consent; that service may send microphone audio to Microsoft Azure. Conversation text is never included in diagnostics.</p></>}
-        {dialog === "legal" && <><div className="dialog-kicker">LEGAL</div><h2 id="dialog-title">Unofficial controller</h2><p>QC Voice Control is not affiliated with, endorsed by, or supported by Neural DSP Technologies. “Neural DSP” and “Quad Cortex” are trademarks of their respective owner and are used only to describe compatibility.</p><p>No project source license has been granted. Third-party components retain their own licenses.</p></>}
+        {dialog === "legal" && <><div className="dialog-kicker">LEGAL</div><h2 id="dialog-title">Unofficial controller</h2><p>QC Control is not affiliated with, endorsed by, or supported by Neural DSP Technologies. “Neural DSP” and “Quad Cortex” are trademarks of their respective owner and are used only to describe compatibility.</p><p>No project source license has been granted. Third-party components retain their own licenses.</p></>}
         {dialog === "notices" && <><div className="dialog-kicker">THIRD-PARTY NOTICES</div><h2 id="dialog-title">Runtime components</h2><p>This build includes Tauri, React, WebView2 integration, PyInstaller, hidapi, protobuf, and the community-maintained pyquadcortex library. Their respective licenses and notices remain with those projects.</p><p>pyquadcortex is unofficial and communicates with the QC over its existing USB protocol; it does not modify device firmware.</p></>}
         {dialog === "feedback" && <><div className="dialog-kicker">REPORT A PROBLEM</div><h2 id="dialog-title">Prepare a safe report</h2><p>Export the diagnostic report and attach it through your preferred support channel. The export contains app/runtime state and lifecycle event names while omitting serial numbers, MAC addresses, usernames, filesystem paths, preset/setlist names, and conversation content.</p><div className="dialog-actions"><button className="primary" onClick={() => void exportDiagnostics()}>Export redacted diagnostics…</button></div></>}
-        {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
+        {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>
     </div>}
   </div>;
