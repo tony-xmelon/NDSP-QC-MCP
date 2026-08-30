@@ -20,29 +20,23 @@ const blockColors: Record<string, string> = {
   mod: "#44d86e", delay: "#427cff", reverb: "#26d6c6", output: "#16c8be"
 };
 
-const neuralGridReference = "https://images.ctfassets.net/8puu65w27ud0/1sQ38yop5e2pKq1Pcs79yi/3d50f3ffd1d5cbea749f23febdd8b6f6/qc-1a-brit-2203.png";
-const neuralGlyphCrops: Record<string, { x: number; y: number }> = {
-  gate: { x: 73, y: 99 },
-  compressor: { x: 129, y: 99 },
-  "capture-grid": { x: 185, y: 99 },
-  wave: { x: 241, y: 99 },
-  amp: { x: 353, y: 99 },
-  capture: { x: 409, y: 99 },
-  cab: { x: 466, y: 99 },
-  level: { x: 129, y: 229 },
-  mod: { x: 241, y: 229 },
-  cube: { x: 352, y: 228 },
-  reverb: { x: 466, y: 228 },
-  utility: { x: 128, y: 228 },
-  delay: { x: 296, y: 229 }
-};
-
 function DeviceGlyph({ block }: { block: GridBlock }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const kind = block.glyph ?? block.kind;
-  const crop = neuralGlyphCrops[kind] ?? neuralGlyphCrops.amp;
-  return <svg className="neural-reference-glyph" viewBox={`${crop.x - 13} ${crop.y - 13} 26 26`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-    <image href={neuralGridReference} x="0" y="0" width="530" height="318" />
-  </svg>;
+  if (kind === "gate") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 22c4 0 5-13 9-13s5 13 9 13h4M7 24 24 7" /></svg>;
+  if (kind === "compressor") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 8v16m5-12v8m4-10v12m4-8v4m5-10v16" /></svg>;
+  if (kind === "capture-grid") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect fill="currentColor" x="7" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="14" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="21" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="10.5" y="15" width="4" height="4" rx=".7" /><rect fill="currentColor" x="17.5" y="15" width="4" height="4" rx=".7" /><path {...common} d="M7 24h18" /></svg>;
+  if (kind === "wave") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c3-12 6 12 9 0s6 12 9 0 5 3 6 1" /></svg>;
+  if (kind === "level") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 16h4m2-5v10m3-14v18m3-11v4m3-9v14m3-7h4" /></svg>;
+  if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="7" y="9" width="18" height="5" rx=".5" /><rect {...common} x="7" y="18" width="18" height="5" rx=".5" /></svg>;
+  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="16" r="7" /><circle fill="currentColor" cx="16" cy="16" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /><circle fill="currentColor" cx="7" cy="24" r="1.5" /><circle fill="currentColor" cx="25" cy="24" r="1.5" /></svg>;
+  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 26 11 7M8 26l6-16m-4 16 8-14m-6 14 11-11m-9 11 13-6m-11 6h12" /></svg>;
+  if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 11h13v15H6zM6 11l7-6h13v15l-7 6M19 11l7-6M19 26l7-6" /></svg>;
+  if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
+  if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="13" r="5" /><circle {...common} cx="21" cy="13" r="5" /><circle fill="currentColor" cx="11" cy="13" r="1.4" /><circle fill="currentColor" cx="21" cy="13" r="1.4" /><path {...common} d="M6 22h10m0 0h10M8 25h6m4 0h6" /></svg>;
+  if (kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
+  if (kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
+  return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 10h20v12H6zM9 16h14" /></svg>;
 }
 
 function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
@@ -77,7 +71,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
   return <div className="master-volume">
-    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
+    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
     <button className="volume-knob" aria-label="Master volume knob" onWheel={(event) => {
       event.preventDefault();
       onAction({ kind: "rotate", role: "master-volume", delta: event.deltaY < 0 ? 1 : -1 });
