@@ -29,6 +29,14 @@ export interface GridBlock {
   glyph?: BlockGlyph;
 }
 
+export interface GridRoute {
+  row: number;
+  input: string;
+  output: string;
+  splitColumn?: number;
+  mixColumn?: number;
+}
+
 export interface PresetSnapshot {
   deviceName: string;
   presetName: string;
@@ -40,6 +48,7 @@ export interface PresetSnapshot {
   activeScene: number;
   scenes: string[];
   blocks: GridBlock[];
+  routes: GridRoute[];
   tempo: number;
   dirty: boolean;
 }
@@ -56,6 +65,12 @@ export const demoSnapshot: PresetSnapshot = {
   scenes: ["Clean", "Edge", "Crunch", "Lead", "Ambient", "Octave", "Solo +", "Mute"],
   tempo: 120,
   dirty: false,
+  routes: [
+    { row: 0, input: "In 1", output: "Row 3", splitColumn: 5, mixColumn: 7 },
+    { row: 1, input: "Internal", output: "Internal" },
+    { row: 2, input: "Prev. Row", output: "Multi Out" },
+    { row: 3, input: "Internal", output: "Internal" }
+  ],
   blocks: [
     { id: "in-1", name: "IN 1", kind: "input", row: 0, column: -1 },
     { id: "gate", name: "Gate", kind: "utility", row: 0, column: 0, bypassed: true, glyph: "gate" },

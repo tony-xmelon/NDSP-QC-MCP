@@ -8,8 +8,10 @@ $gatewayRoot = Join-Path $repositoryRoot "services\device-gateway"
 $tauriRoot = Join-Path $repositoryRoot "apps\windows\src-tauri"
 $binaryDirectory = Join-Path $tauriRoot "binaries"
 $sidecarBuildDirectory = Join-Path $tauriRoot "target\sidecar-build"
-$rustHostLine = & rustc -vV | Where-Object { $_ -like "host:*" } | Select-Object -First 1
-if ($LASTEXITCODE -ne 0 -or -not $rustHostLine) {
+$rustVersion = @(& rustc -vV 2>&1)
+$rustExitCode = $LASTEXITCODE
+$rustHostLine = $rustVersion | Where-Object { "$_" -match "^host:\s*" } | Select-Object -First 1
+if ($rustExitCode -ne 0 -or -not $rustHostLine) {
     throw "Could not determine the active Rust host target."
 }
 $rustHost = ($rustHostLine -split ":", 2)[1].Trim()

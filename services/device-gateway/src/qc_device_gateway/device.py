@@ -10,6 +10,21 @@ from typing import Any
 MIN_TEMPO_BPM = 40
 MAX_TEMPO_BPM = 240
 
+INPUT_ROUTE_LABELS = {
+    0: "Internal", 1: "In 1", 2: "In 2", 3: "In 1/2", 4: "Return 1",
+    5: "Return 2", 6: "Return 1/2", 7: "Prev. Row", 8: "USB 5",
+    9: "USB 6", 10: "USB 7", 11: "USB 8", 12: "USB 5/6",
+    13: "USB 7/8", 14: "Sidechain",
+}
+
+OUTPUT_ROUTE_LABELS = {
+    0: "Internal", 1: "Out 1/2", 2: "Out 3/4", 3: "Send 1/2", 4: "Out 1",
+    5: "Out 2", 6: "Out 3", 7: "Out 4", 8: "Send 1", 9: "Send 2",
+    10: "USB 5", 11: "USB 6", 12: "USB 7", 13: "USB 8", 14: "USB 5/6",
+    15: "USB 7/8", 16: "Row 3", 17: "Row 4", 18: "Rows 3/4",
+    19: "Multi Out", 20: "USB 3", 21: "USB 4", 22: "USB 3/4",
+}
+
 
 def _send_qc_midi_cc(controller: int, value: int = 127) -> str:
     """Send one Windows MIDI CC to the connected Quad Cortex endpoint."""
@@ -750,6 +765,23 @@ class PyQuadCortexDevice:
                 "bypassed": bypassed,
             })
 
+        split_by_row = {split.row: split for split in pyquadcortex.splits(preset)}
+        routes = []
+        for index, chain in enumerate(preset.chains):
+            row = chain.row if pyquadcortex.field_present(chain, "row") else index
+            input_id = int(chain.in_portid) if pyquadcortex.field_present(chain, "in_portid") else 0
+            output_id = int(chain.out_portid) if pyquadcortex.field_present(chain, "out_portid") else 0
+            route = {
+                "row": row,
+                "input": INPUT_ROUTE_LABELS.get(input_id, f"Input {input_id}"),
+                "output": OUTPUT_ROUTE_LABELS.get(output_id, f"Output {output_id}"),
+            }
+            split = split_by_row.get(row)
+            if split is not None:
+                route["splitColumn"] = split.split_column
+                route["mixColumn"] = split.mix_column
+            routes.append(route)
+
         labels = list(preset.scene_labels)
         scenes = [(labels[index] if index < len(labels) and labels[index] else f"Scene {chr(65 + index)}") for index in range(8)]
         return {
@@ -763,6 +795,7 @@ class PyQuadCortexDevice:
             "activeScene": active_scene,
             "scenes": scenes,
             "blocks": blocks,
+            "routes": routes,
             "tempo": _tempo_bpm(preset),
             "dirty": bool(qc.preset_dirty()),
         }

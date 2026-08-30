@@ -9,6 +9,7 @@ import { createSpeechRecognition, speechRecognitionErrorMessage, type SpeechReco
 type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
 type ConnectionEvent = { at: string; event: "app-start" | "runtime-ready" | "connect-attempt" | "connected" | "connect-failed" | "disconnected" | "reset-attempt" | "diagnostics-exported" };
+type MenuItem = string | { label: string; disabledReason: string };
 type PendingAssistantAction =
   | { kind: "bypass"; block: GridBlock; targetBypassed: boolean; label: string }
   | { kind: "parameter"; block: BlockDetails; parameter: BlockParameter; value: number; label: string };
@@ -21,9 +22,15 @@ const initialConnection: ConnectionState = {
 
 const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
 
-const menus = [
+const menus: Array<{ name: string; items: MenuItem[] }> = [
   { name: "File", items: ["Open Workspace…", "Open Device Preset…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
-  { name: "Edit", items: ["Undo Last App Change", "Redo", "Copy Block Settings", "Paste Block Settings", "Keyboard Shortcuts…"] },
+  { name: "Edit", items: [
+    { label: "Undo Last App Change", disabledReason: "Use Discard Unsaved Changes for a verified full-preset restore." },
+    { label: "Redo", disabledReason: "No application command journal is available yet." },
+    { label: "Copy Block Settings", disabledReason: "Cross-block paste is disabled until model compatibility checks are complete." },
+    { label: "Paste Block Settings", disabledReason: "Cross-block paste is disabled until model compatibility checks are complete." },
+    "Keyboard Shortcuts…"
+  ] },
   { name: "View", items: ["Fit Hardware to Window", "Actual Size", "Full Screen", "Show/Hide Chat", "Connection Log"] },
   { name: "Device", items: ["Connect", "Disconnect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Current Device Information", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View", "Export Diagnostics…"] },
   { name: "Help", items: ["User Guide", "Keyboard and Mouse Reference", "Report a Problem…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
@@ -36,10 +43,13 @@ function MenuBar({ onSelect }: { onSelect: (item: string) => void }) {
       {menus.map((menu) => <details key={menu.name} className="menu">
         <summary>{menu.name}</summary>
         <div className="menu-popover">
-          {menu.items.map((item) => <button key={item} onClick={(event) => {
-            onSelect(item);
+          {menu.items.map((item) => {
+            const label = typeof item === "string" ? item : item.label;
+            return <button key={label} disabled={typeof item !== "string"} title={typeof item === "string" ? undefined : item.disabledReason} onClick={(event) => {
+            onSelect(label);
             event.currentTarget.closest("details")?.removeAttribute("open");
-          }}>{item}</button>)}
+          }}>{label}</button>;
+          })}
         </div>
       </details>)}
     </div>
@@ -81,6 +91,7 @@ export function App() {
   const [savePresetName, setSavePresetName] = useState("");
   const [savePresetPosition, setSavePresetPosition] = useState<number>();
   const [presetSlotsLoading, setPresetSlotsLoading] = useState(false);
+  const [surfaceView, setSurfaceView] = useState<"fit" | "actual">("fit");
   const [connectionEvents, setConnectionEvents] = useState<ConnectionEvent[]>([{ at: new Date().toISOString(), event: "app-start" }]);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const speechRecognition = useRef<SpeechRecognitionLike | undefined>(undefined);
@@ -327,7 +338,27 @@ export function App() {
     queueTempo(60000 / (usable.reduce((sum, interval) => sum + interval, 0) / usable.length), "Tap");
   }, [queueTempo]);
 
+  const moveBlockSelection = useCallback((key: string) => {
+    const blocks = snapshot.blocks.filter((block) => block.column >= 0).sort((a, b) => a.row - b.row || a.column - b.column);
+    if (!blocks.length) return;
+    const current = blocks.find((block) => block.id === selectedBlockId) ?? blocks[0];
+    const candidates = key === "ArrowLeft"
+      ? blocks.filter((block) => block.row === current.row && block.column < current.column).sort((a, b) => b.column - a.column)
+      : key === "ArrowRight"
+        ? blocks.filter((block) => block.row === current.row && block.column > current.column).sort((a, b) => a.column - b.column)
+        : key === "ArrowUp"
+          ? blocks.filter((block) => block.row < current.row).sort((a, b) => b.row - a.row || Math.abs(a.column - current.column) - Math.abs(b.column - current.column))
+          : blocks.filter((block) => block.row > current.row).sort((a, b) => a.row - b.row || Math.abs(a.column - current.column) - Math.abs(b.column - current.column));
+    const next = candidates[0] ?? current;
+    setSelectedBlockId(next.id);
+    setNotice(`${next.name} selected.`);
+  }, [selectedBlockId, snapshot.blocks]);
+
   const handleHardwareAction = useCallback((action: HardwareAction) => {
+    if (action.kind === "select-scene") {
+      void chooseScene(action.scene);
+      return;
+    }
     if (action.kind === "select-block") {
       const block = snapshot.blocks.find((candidate) => candidate.id === action.blockId);
       if (block) void openBlockEditor(block);
@@ -335,7 +366,8 @@ export function App() {
     }
     if (action.kind === "rotate") {
       if (action.role === "tempo") adjustTempo(action.delta);
-      else setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} encoder writes are not enabled yet.`);
+      else if (action.role === "master-volume") setNotice("Master Volume writes are safety-locked; use the physical QC volume control.");
+      else setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} has no verified encoder action on the current screen.`);
       return;
     }
     if (action.phase === "release" && action.role.startsWith("footswitch:")) {
@@ -351,8 +383,9 @@ export function App() {
       return;
     }
     if (action.phase === "release" && action.role === "tempo") tapTempo();
-    else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
-  }, [adjustTempo, connection.demo, navigateBank, openBlockEditor, pressFootswitch, snapshot.blocks, tapTempo]);
+    else if (action.phase === "release" && action.role === "power") setNotice("Power and lock actions are intentionally available only on the physical Quad Cortex.");
+    else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} has no verified action on the current screen.`);
+  }, [adjustTempo, chooseScene, connection.demo, navigateBank, openBlockEditor, pressFootswitch, snapshot.blocks, tapTempo]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -365,15 +398,21 @@ export function App() {
         return;
       }
       if (textEntry) return;
+      if (target?.matches("button, select")) return;
       if (/^[1-8]$/.test(event.key)) event.ctrlKey ? void chooseScene(Number(event.key) - 1) : void pressFootswitch(Number(event.key) - 1);
       if (event.key === "[") void navigateBank(-1);
       if (event.key === "]") void navigateBank(1);
       if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : tapTempo();
       if (event.key.toLowerCase() === "b" && selectedBlockId) void toggleSelectedBypass();
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); moveBlockSelection(event.key); }
+      if (event.key === "Enter") {
+        const block = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
+        if (block) void openBlockEditor(block);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chooseScene, navigateBank, pressFootswitch, selectedBlockId, showDeviceView, tapTempo, toggleSelectedBypass]);
+  }, [chooseScene, moveBlockSelection, navigateBank, openBlockEditor, pressFootswitch, selectedBlockId, showDeviceView, snapshot.blocks, tapTempo, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
     setConnectionEvents((current) => [...current, { at: new Date().toISOString(), event: mode === "reset" ? "reset-attempt" : "connect-attempt" }]);
@@ -639,6 +678,29 @@ export function App() {
     }
   };
 
+  useEffect(() => {
+    const onApplicationShortcut = (event: globalThis.KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (event.shiftKey) void openDeviceSave();
+        else void saveWorkspace();
+        return;
+      }
+      if (event.key === "Escape") {
+        if (listening) {
+          submitVoiceOnEnd.current = false;
+          speechRecognition.current?.abort();
+          setListening(false);
+          setNotice("Voice capture cancelled.");
+        }
+        setPendingAssistantAction(undefined);
+        setDialog(null);
+      }
+    };
+    window.addEventListener("keydown", onApplicationShortcut);
+    return () => window.removeEventListener("keydown", onApplicationShortcut);
+  }, [listening, openDeviceSave, saveWorkspace]);
+
   const menuSelect = (item: string) => {
     if (item === "Settings…") setDialog("settings");
     else if (item === "Open Workspace…") void openWorkspace();
@@ -656,6 +718,8 @@ export function App() {
     else if (item === "Third-Party Notices") setDialog("notices");
     else if (item === "Report a Problem…") setDialog("feedback");
     else if (item === "Show/Hide Chat") setChatOpen((open) => !open);
+    else if (item === "Fit Hardware to Window") { setSurfaceView("fit"); setNotice("Hardware surface fitted to the application window."); }
+    else if (item === "Actual Size") { setSurfaceView("actual"); setNotice("Hardware surface set to its 96-DPI physical-width approximation."); }
     else if (item === "Connect" || item === "Reconnect" || item === "Rescan USB Devices") void connect();
     else if (item === "Disconnect") void disconnectDevice();
     else if (item === "Reset Communication Session") void connect("reset");
@@ -666,7 +730,7 @@ export function App() {
     else if (item === "Export Diagnostics…") void exportDiagnostics();
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
     else if (item === "Exit") void exitApp();
-    else setNotice(`${item} is present in the shell and will be wired in its delivery phase.`);
+    else setNotice(`${item} is not available in this build.`);
   };
 
   const appendMessage = (role: ConversationEntry["role"], text: string) => {
@@ -934,7 +998,7 @@ export function App() {
       </div>
     </header>
 
-    <main className="workspace">
+    <main className={`workspace view-${surfaceView}`}>
       <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
     </main>
 
@@ -972,7 +1036,7 @@ export function App() {
         })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
         {dialog === "workspace" && loadedWorkspace && <><div className="dialog-kicker">LOCAL WORKSPACE</div><h2 id="dialog-title">{workspaceName ?? "QC Workspace"}</h2><dl><dt>Saved</dt><dd>{new Date(loadedWorkspace.savedAt).toLocaleString()}</dd><dt>Source</dt><dd>{loadedWorkspace.source.setlistName} · {loadedWorkspace.source.presetLocation}</dd><dt>Preset</dt><dd>{loadedWorkspace.source.presetName}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + loadedWorkspace.snapshot.activeScene)}</dd><dt>Blocks</dt><dd>{loadedWorkspace.snapshot.blocks.length}</dd><dt>Device state</dt><dd>{loadedWorkspace.snapshot.dirty ? "Captured with unsaved changes" : "Clean at capture"}</dd></dl><p>The workspace is a local reference snapshot. Opening it never writes to the connected Quad Cortex.</p><div className="dialog-actions"><button onClick={() => setDialog(null)}>Keep Live Device</button><button className="primary" onClick={() => void saveWorkspace(true)}>Save Copy As…</button></div></>}
         {dialog === "save-device" && <><div className="dialog-kicker">PERSISTENT DEVICE SAVE</div><h2 id="dialog-title">Save Preset As…</h2>{presetSlotsLoading ? <p>Reading all destination slots from the Quad Cortex…</p> : presetSlots && <div className="device-save-form"><label><span>Setlist</span><strong>{presetSlots.setlistName}</strong></label><label><span>Preset name</span><input value={savePresetName} maxLength={80} onChange={(event) => setSavePresetName(event.target.value)} /></label><label><span>Destination</span><select value={savePresetPosition ?? ""} onChange={(event) => setSavePresetPosition(Number(event.target.value))}>{presetSlots.slots.map((slot) => <option key={slot.position} value={slot.position}>{slot.location} — {slot.occupied ? slot.name : "Empty"}</option>)}</select></label>{savePresetPosition !== undefined && presetSlots.slots[savePresetPosition]?.occupied && <p className="overwrite-warning">This destination is occupied. Saving will permanently overwrite “{presetSlots.slots[savePresetPosition].name}”.</p>}<div className="dialog-actions"><button onClick={() => setDialog(null)}>Cancel</button><button className="primary" disabled={!savePresetName.trim() || commandPending} onClick={() => void savePresetToDevice()}>Review & Save</button></div></div>}<p>Device save is separate from local workspace save and always requires final confirmation.</p></>}
-        {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Press Footswitches A–H in the current QC mode</dd><dt>Ctrl+1–8</dt><dd>Select Scenes A–H directly</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Shortcuts are suspended while an input or the chat composer has focus.</p></>}
+        {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Press Footswitches A–H in the current QC mode</dd><dt>Ctrl+1–8</dt><dd>Select Scenes A–H directly</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>Arrow keys / Enter</dt><dd>Select the nearest Grid block / open its live parameters</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+S</dt><dd>Save the local workspace</dd><dt>Ctrl+Shift+S</dt><dd>Review a separate device Save As</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Escape</dt><dd>Cancel voice, a pending edit, or the open dialog</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Grid and performance shortcuts are suspended while an input or the chat composer has focus.</p></>}
         {dialog === "guide" && <><div className="dialog-kicker">USER GUIDE</div><h2 id="dialog-title">Safe QC control</h2><p>Connect the QC by USB and close Cortex Control, which otherwise owns the interface. Click Grid blocks to inspect and edit their live parameters; temporary edits mark the preset unsaved.</p><p>Use the preset browser or Bank controls only when the preset is clean. “Save Workspace” writes a local reference file. “Save Preset to Quad Cortex” is the separate persistent operation and always asks for a destination and confirmation.</p><p>Typed or spoken commands use the same guarded controls. Bypass and parameter edits show a preview before application.</p></>}
         {dialog === "privacy" && <><div className="dialog-kicker">PRIVACY</div><h2 id="dialog-title">Local by default</h2><p>Manual control, typed commands, workspaces, and diagnostics operate locally. The desktop configuration binds no network listener and does not collect analytics.</p><p>Push-to-talk uses Microsoft Edge speech recognition only after disclosure and consent; that service may send microphone audio to Microsoft Azure. Conversation text is never included in diagnostics.</p></>}
         {dialog === "legal" && <><div className="dialog-kicker">LEGAL</div><h2 id="dialog-title">Unofficial controller</h2><p>QC Voice Control is not affiliated with, endorsed by, or supported by Neural DSP Technologies. “Neural DSP” and “Quad Cortex” are trademarks of their respective owner and are used only to describe compatibility.</p><p>No project source license has been granted. Third-party components retain their own licenses.</p></>}

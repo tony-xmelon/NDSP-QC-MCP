@@ -7,7 +7,7 @@ Allowed dependencies: TypeScript client/UI/form-factor packages and platform ada
 ## Current slice
 
 - scalable large-QC chassis, screen grid, A–H encoders/footswitches, bank and tempo controls;
-- live scene selection, mode-aware A–H footswitches, guarded tempo/tap, block bypass and parameter editing, preset/setlist browsing, bank navigation, and keyboard shortcuts;
+- live scene selection, mode-aware A–H footswitches, guarded tempo/tap, block bypass and parameter editing, preset/setlist browsing, bank navigation, live input/output and split routing display, and keyboard shortcuts;
 - local `.qcw` workspace save/open plus separately confirmed Quad Cortex preset Save As;
 - File/Edit/View/Device/Help menus and Settings/About/connection dialogs;
 - explicit disconnect, connection state/log, safe reconnect/reset failure behavior, device details, and redacted diagnostics export;

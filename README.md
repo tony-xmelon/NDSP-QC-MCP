@@ -55,7 +55,8 @@ Gig View controls are enabled, along with mode-aware A–H footswitch emulation
 through the QC's Windows MIDI endpoint and verified tempo/encoder/tap control,
 live setlist browsing, guarded preset
 recall, bank navigation, metadata-driven block parameter editing, and explicit
-dirty-state recovery. Explicit disconnect/reconnect, a privacy-safe connection
+dirty-state recovery. The Grid rails and split/rejoin markers are derived from
+the live preset's four-row routing topology rather than demo labels. Explicit disconnect/reconnect, a privacy-safe connection
 log, current-device details, and an allowlisted redacted diagnostics export are
 available from the application menus. State-changing commands use expected-state guards,
 value readback, and dirty-state verification. Local `.qcw` workspace snapshots
