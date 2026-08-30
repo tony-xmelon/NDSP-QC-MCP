@@ -109,8 +109,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
       <div className="routing-lanes">
         {visibleRows.map((row) => <div className="routing-lane" key={row}>
           <span className="lane-wire" aria-hidden="true" />
-          {Array.from({ length: 6 }, (_, index) => {
-            const column = index + 1;
+          {Array.from({ length: 8 }, (_, column) => {
             const block = snapshot.blocks.find((candidate) => candidate.row === row && candidate.column === column);
             return <div className="coros-slot" key={`${row}-${column}`}>{block ? <ScreenBlock block={block} selected={selectedBlockId === block.id} onAction={onAction} /> : <button className="empty-slot" aria-label={`Empty slot row ${row + 1}, column ${column + 1}`}>＋</button>}</div>;
           })}
@@ -132,7 +131,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinC
   return <section className={`qc-chassis ${skinClassName}`} aria-label={formFactor.displayName}>
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume onAction={onAction} />
-    <div className="device-plate"><span className="pulse-mark">⌁</span> QUAD CORTEX <small>CONTROL SURFACE</small></div>
+    <div className="device-plate"><span className="pulse-mark">⌁</span> QUADCORTEX <small>CONTROL SURFACE</small></div>
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
     <div className="screen-nav-control"><span className="nav-arrow">⌃</span><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow">⌄</span></div>
     <div className="footswitch-deck">
