@@ -410,13 +410,15 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg::after {
   display: block;
   z-index: 2;
-  top: 59.45%;
-  height: 5.8%;
+  left: .75%;
+  right: .75%;
+  top: 59.6%;
+  height: 5.5%;
   border: 0;
-  background: linear-gradient(180deg, #494a4e 0%, #535458 30%, #414246 72%, #494a4e 100%);
+  background: linear-gradient(180deg, #4b4c50 0%, #494a4e 42%, #47484c 68%, #45464a 100%);
   box-shadow: none;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .skin-official-svg .official-svg-viewport {
   position: absolute;
@@ -521,12 +523,36 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background: #494a4e;
   box-shadow: inset 1px 1px 2px #161719aa, 0 1px 1px #ffffff26;
 }
+.skin-official-svg .screen-nav-control .switch-led {
+  position: relative;
+  top: clamp(14px, 1.5vw, 19px);
+  width: clamp(12px, 1.5vw, 19px);
+}
 .skin-official-svg .hardware-switch.is-active .switch-led {
   visibility: visible;
+  border-color: #c9cacc;
   background: var(--switch-accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--switch-accent) 70%, transparent);
+  box-shadow: inset 0 0 0 1px #242529, 0 0 8px color-mix(in srgb, var(--switch-accent) 70%, transparent);
 }
-.skin-official-svg .hardware-switch:focus-visible { outline: 1px solid #1687c8; outline-offset: -2px; border-radius: 6px; }
+.skin-official-svg .hardware-switch { pointer-events: none; }
+.skin-official-svg .hardware-switch::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 57%;
+  width: clamp(64px, 6.4vw, 86px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+.skin-official-svg .hardware-switch > * { pointer-events: none; }
+.skin-official-svg .hardware-switch:focus-visible { outline: none; }
+.skin-official-svg .hardware-switch:focus-visible .switch-ring {
+  outline: 2px solid #1687c8;
+  outline-offset: 5px;
+}
 .skin-official-svg .power-button:focus-visible,
 .skin-official-svg .volume-knob:focus-visible {
   outline: 2px solid #1687c8;
