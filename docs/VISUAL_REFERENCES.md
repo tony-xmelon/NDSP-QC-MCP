@@ -8,7 +8,7 @@ The large Quad Cortex skin is based on official Neural DSP reference material cu
 - [Official Quad Cortex manual](https://neuraldsp.com/manual/quad-cortex) — 29 × 19.5 cm top-panel drawing and exact placement of Master Volume, power, screen, navigation, A–H, Bank, Mode, Tempo, and Tuner labels.
 - [Near-top-down retail photograph](https://www.tonefestguitargallery.com/products/neural-dsp-quad-cortex) — direct visual comparison for chassis color, rear connector silhouettes, actuator depth, label offsets, and screen-to-enclosure proportions.
 
-The CSS surface uses the documented 29:19.5 chassis ratio. Geometry is represented with percentages so the relationship between controls survives scaling.
+The CSS surface uses the documented 29:19.5 chassis ratio. It is an orthographic recreation of the top panel only; rear connectors and side-wall perspective are intentionally excluded. Geometry is represented with percentages so the relationship between controls survives scaling.
 
 ## CorOS Grid
 
@@ -21,5 +21,7 @@ The manual’s current CorOS 4.1 screenshots define the screen treatment:
 - compact rounded device blocks with colored outlines and white category glyphs;
 - input/output and add-row pills on the left and right rails;
 - a dark eight-item Scene dropdown opened from the Scene indicator.
+
+The Windows hardware renderer follows the current `QC 1A Brit 2203` manual image for its default demo: four eight-slot rows, `In 1` / add / `Prev. Row` / add rails on the left, `Row 3` / add / `Multi Out` / add rails on the right, and a 5:3 display viewport. It recreates the layout with interactive HTML and original SVG glyphs; the reference image itself is not shipped with the application.
 
 Device glyphs in the application are original inline SVG approximations keyed by semantic device category. Product and trademark labels remain isolated presentation tokens so they can be replaced if distribution requirements change.
