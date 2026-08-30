@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import type { GridBlock } from "../packages/typescript/qc-client/src/index.ts";
+import { demoSnapshot, type GridBlock } from "../packages/typescript/qc-client/src/index.ts";
 import { officialBlockVisual, type OfficialBlockVisualKey } from "../packages/typescript/qc-ui/src/block-visuals.ts";
 import { REFERENCE_BLOCK_ICONS } from "../packages/typescript/qc-ui/src/reference-block-icons.ts";
 
@@ -34,11 +34,26 @@ test("official category mapping covers every Quad Cortex virtual-device family",
   for (const [name, category, expected] of cases) assert.equal(officialBlockVisual(block(name, category)).key, expected, `${name} should use ${expected}`);
 });
 
-test("Adaptive Gate uses the white Utility visual reported on the device", () => {
+test("Adaptive Gate uses the yellow Grid color shown in the official Brit 2203 reference", () => {
   const visual = officialBlockVisual(block("Adaptive Gate", "Utility"));
   assert.equal(visual.key, "gate");
   assert.deepEqual(visual.tile, [400, 82]);
-  assert.equal(visual.color, "#f4f4f4");
+  assert.equal(visual.color, "#ffd236");
+});
+
+test("compact runtime kinds resolve to their QC category colors", () => {
+  assert.equal(officialBlockVisual(block("Vintage Chorus", "", "mod")).key, "modulation");
+  assert.equal(officialBlockVisual(block("Vintage Chorus", "", "mod")).color, "#3500f1");
+  assert.equal(officialBlockVisual(block("Looper X", "Looper", "cab")).key, "looper");
+  assert.equal(officialBlockVisual(block("Looper X", "Looper", "cab")).color, "#ff2727");
+});
+
+test("demo snapshot displays every QC color family used by its blocks", () => {
+  const colors = new Set(demoSnapshot.blocks
+    .filter((item) => item.kind !== "input" && item.kind !== "output")
+    .map((item) => officialBlockVisual(item).color));
+
+  assert.deepEqual(colors, new Set(["#ffd236", "#959595", "#3500f1", "#6954ff", "#ff2727", "#00ffdd"]));
 });
 
 test("every family resolves to its named official glyph and device color", () => {
