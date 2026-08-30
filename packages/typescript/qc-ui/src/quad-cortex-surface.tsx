@@ -290,8 +290,8 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
       <rect width="800" height="480" fill="#020202" />
       <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y={presetTitleBaseline} fill="#f4f4f4" fontSize={presetTitleFontSize} fontStyle={snapshot.dirty ? "italic" : "normal"} textLength={squeezePresetTitle ? 520 : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</text></g>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-        <g transform="translate(0 6)"><path d="M626 4l-7 7 7 7" /><path d="M620 11a13 13 0 1 1 3 16" /></g>
-        <path d="M709 10h18l6 6v9M709 10v29h21M714 10v10h12V10" /><path d="M718 30h17m0 0-6-6m6 6-6 6" />
+        <path d="M620 26A13 13 0 1 0 633 13" /><path d="M640 9l-7 4 7 4" />
+        <path d="M709 10h18l6 6v23h-24zM714 10v10h12V10M715 28h12v11H715z" />
       </g>
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
