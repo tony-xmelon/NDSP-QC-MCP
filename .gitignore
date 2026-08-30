@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node / web
+node_modules/
+.pnpm-store/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# Tauri / Rust
+target/
+
+# Mobile
+.gradle/
+**/local.properties
+DerivedData/
+Pods/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local configuration, credentials, and diagnostics
+.env
+.env.*
+!.env.example
+*.log
+diagnostics/
+*.qcw
+
+# Generated contract clients
+generated/
