@@ -1322,7 +1322,7 @@ export function App() {
 
     <div className={`app-content${chatOpen ? "" : " chat-closed"}`}>
       <main className={`workspace view-${surfaceView}`}>
-        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
+        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} onOpenPreset={() => void openPresetBrowser()} onUndo={() => snapshot.dirty ? void reloadPreset() : setNotice("The current preset has no unsaved changes to undo.")} onSave={() => void openDeviceSave()} onOpenRouting={() => openRoutingEditor()} onRefresh={() => void refreshSnapshot()} />
       </main>
 
       {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
