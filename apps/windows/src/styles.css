@@ -349,7 +349,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .coros-block.is-bypassed { opacity: .16; }
 .empty-slot { opacity: 0; }
 
-.screen-nav-control { top: 16.8%; right: .9%; }
+.screen-nav-control { top: 16.8%; right: 1.08%; }
 .footswitch-deck { top: 61.5%; bottom: .5%; grid-template-rows: 34% 34%; align-content: space-between; }
 .footswitch-row > :nth-child(1) { transform: translateX(-32.5%); }
 .footswitch-row > :nth-child(2) { transform: translateX(-16.25%); }
@@ -573,7 +573,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   display: none;
 }
 .skin-official-svg .screen-nav-control .switch-led {
-  width: clamp(11px, 1.22vw, 14px);
+  width: clamp(13px, 1.45vw, 16px);
   top: clamp(8px, .96vw, 11px);
 }
 .skin-official-svg .screen-nav-control .switch-ring {
