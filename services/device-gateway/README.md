@@ -18,3 +18,12 @@ the user explicitly reloads the stored slot. The gateway also lists all user
 setlist slots and exposes Save As with active-preset guards, an explicit occupied-slot
 overwrite flag, device confirmation, slot readback, and final clean-state verification.
 Factory-library and global-setting writes remain unavailable.
+
+## Packaged runtime
+
+`services/device-gateway/requirements.txt` pins the validated Windows HID and
+protobuf runtime. The root `npm run build:installer` command installs the build
+requirements, packages this service as a one-file console sidecar, and embeds it
+in the Tauri NSIS installer. The console subsystem is required for framed
+stdin/stdout IPC; the Windows host launches it with `CREATE_NO_WINDOW` so no
+console is shown to the user.

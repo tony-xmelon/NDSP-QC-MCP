@@ -59,7 +59,13 @@ can be saved and reopened without touching the hardware. Persistent device
 Save As is available only through a separate destination review and final
 confirmation; global-setting writes remain locked. The chat dock also executes
 offline typed inspection/performance commands and previews bypass or parameter
-edits before applying them temporarily.
+edits before applying them temporarily. Windows installer builds embed the
+Python gateway and its USB dependencies, so an installed app does not require
+Python, Node, Rust, the source tree, or a repository `.venv` at runtime.
+Push-to-talk voice transcription is runtime-detected and opt-in: the app
+discloses that stable Microsoft Edge speech recognition may send microphone
+audio to Microsoft Azure before starting it, then routes the visible transcript
+through the same guarded typed-command path.
 
 The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 

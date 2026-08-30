@@ -6,6 +6,12 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
 use tauri::State;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 struct GatewayProcess {
     child: Child,
     stdin: ChildStdin,
@@ -25,33 +31,45 @@ impl GatewayProcess {
         let mut command = if let Ok(executable) = std::env::var("QC_GATEWAY_EXECUTABLE") {
             Command::new(executable)
         } else {
-            let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .and_then(|path| path.parent())
-                .and_then(|path| path.parent())
-                .ok_or("Could not resolve the repository root")?
-                .to_path_buf();
-            let python = repository.join(".venv").join("Scripts").join("python.exe");
-            let script = repository
-                .join("services")
-                .join("device-gateway")
-                .join("main.py");
-            if !python.is_file() {
-                return Err(format!(
-                    "Gateway Python runtime is missing: {}",
-                    python.display()
-                ));
+            let executable_directory = std::env::current_exe()
+                .ok()
+                .and_then(|path| path.parent().map(Path::to_path_buf));
+            let packaged = executable_directory
+                .as_deref()
+                .and_then(locate_packaged_gateway);
+            if let Some(executable) = packaged {
+                Command::new(executable)
+            } else {
+                let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .and_then(|path| path.parent())
+                    .and_then(|path| path.parent())
+                    .ok_or("Could not resolve the repository root")?
+                    .to_path_buf();
+                let python = repository.join(".venv").join("Scripts").join("python.exe");
+                let script = repository
+                    .join("services")
+                    .join("device-gateway")
+                    .join("main.py");
+                if !python.is_file() {
+                    return Err(format!(
+                        "Gateway Python runtime is missing: {}",
+                        python.display()
+                    ));
+                }
+                if !script.is_file() {
+                    return Err(format!(
+                        "Gateway entry point is missing: {}",
+                        script.display()
+                    ));
+                }
+                let mut command = Command::new(python);
+                command.arg(script);
+                command
             }
-            if !script.is_file() {
-                return Err(format!(
-                    "Gateway entry point is missing: {}",
-                    script.display()
-                ));
-            }
-            let mut command = Command::new(python);
-            command.arg(script);
-            command
         };
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
         let mut child = command
             .arg("--stdio")
             .stdin(Stdio::piped())
@@ -119,6 +137,16 @@ impl GatewayProcess {
             .cloned()
             .ok_or_else(|| "Gateway response has no result".into())
     }
+}
+
+fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
+    [
+        "qc-device-gateway.exe",
+        "qc-device-gateway-x86_64-pc-windows-msvc.exe",
+    ]
+    .into_iter()
+    .map(|name| executable_directory.join(name))
+    .find(|path| path.is_file())
 }
 
 #[derive(Default)]
@@ -503,6 +531,24 @@ mod tests {
             .expect("workspace JSON");
         assert_eq!(loaded, document);
         fs::remove_file(&path).expect("workspace cleanup");
+    }
+
+    #[test]
+    fn packaged_gateway_is_found_beside_the_app() {
+        let directory = std::env::temp_dir().join(format!(
+            "qc-sidecar-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        fs::create_dir(&directory).expect("sidecar test directory");
+        let sidecar = directory.join("qc-device-gateway.exe");
+        fs::write(&sidecar, b"test").expect("sidecar test file");
+        assert_eq!(locate_packaged_gateway(&directory), Some(sidecar.clone()));
+        fs::remove_file(&sidecar).expect("sidecar test file cleanup");
+        fs::remove_dir(&directory).expect("sidecar test directory cleanup");
     }
 }
 

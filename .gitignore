@@ -25,6 +25,7 @@ apps/windows/src-tauri/gen/
 apps/windows/src-tauri/icons/android/
 apps/windows/src-tauri/icons/ios/
 apps/windows/src-tauri/icons/icon.icns
+apps/windows/src-tauri/binaries/*.exe
 
 # Mobile
 .gradle/

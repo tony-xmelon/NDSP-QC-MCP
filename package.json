@@ -10,9 +10,11 @@
   "scripts": {
     "dev:windows": "npm run dev --workspace @ndsp-qc/windows",
     "build:windows": "npm run build --workspace @ndsp-qc/windows",
+    "build:installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-installer.ps1",
     "tauri:dev": "npm run tauri:dev --workspace @ndsp-qc/windows",
     "tauri:build": "npm run tauri:build --workspace @ndsp-qc/windows",
-    "test:assistant": "node --experimental-strip-types --test tests/assistant.test.ts",
+    "test:assistant": "npm run test:frontend",
+    "test:frontend": "node --experimental-strip-types --test tests/assistant.test.ts tests/voice.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {

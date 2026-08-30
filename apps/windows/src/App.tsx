@@ -4,6 +4,7 @@ import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
 import { tauriTransport, workspaceFiles } from "./tauri-transport";
+import { createSpeechRecognition, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
 type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
@@ -16,6 +17,8 @@ const initialConnection: ConnectionState = {
   detail: "Device gateway is not connected",
   demo: true
 };
+
+const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
 
 const menus = [
   { name: "File", items: ["Open Workspace…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
@@ -78,7 +81,10 @@ export function App() {
   const [savePresetPosition, setSavePresetPosition] = useState<number>();
   const [presetSlotsLoading, setPresetSlotsLoading] = useState(false);
   const chatInput = useRef<HTMLTextAreaElement>(null);
-  const mediaStream = useRef<MediaStream | undefined>(undefined);
+  const speechRecognition = useRef<SpeechRecognitionLike | undefined>(undefined);
+  const voiceTranscript = useRef("");
+  const submitVoiceOnEnd = useRef(false);
+  const voiceError = useRef("");
   const autoConnectStarted = useRef(false);
   const conversationSequence = useRef(0);
 
@@ -87,6 +93,7 @@ export function App() {
 
   useEffect(() => {
     void tauriTransport.runtimeStatus().then(setRuntime).catch((error: Error) => setNotice(error.message));
+    return () => speechRecognition.current?.abort();
   }, []);
 
   const actionFailed = useCallback((error: unknown) => {
@@ -619,8 +626,8 @@ export function App() {
     }
   };
 
-  const sendMessage = async () => {
-    const trimmed = message.trim();
+  const submitAssistantText = async (text: string) => {
+    const trimmed = text.trim();
     if (!trimmed || commandPending) return;
     appendMessage("user", trimmed);
     setMessage("");
@@ -637,6 +644,8 @@ export function App() {
       setCommandPending(false);
     }
   };
+
+  const sendMessage = async () => submitAssistantText(message);
 
   const applyPendingAssistantAction = async () => {
     const pending = pendingAssistantAction;
@@ -677,18 +686,67 @@ export function App() {
 
   const toggleMicrophone = async () => {
     if (listening) {
-      mediaStream.current?.getTracks().forEach((track) => track.stop());
-      mediaStream.current = undefined;
-      setListening(false);
-      setNotice("Voice capture stopped. No recording was retained.");
+      submitVoiceOnEnd.current = true;
+      speechRecognition.current?.stop();
+      setNotice("Finishing the voice transcript…");
       return;
     }
-    try {
-      mediaStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recognition = createSpeechRecognition();
+    if (!recognition) {
+      setNotice("Speech recognition is unavailable in this WebView2 runtime. Typed QC commands remain available.");
+      return;
+    }
+    if (localStorage.getItem(voiceDisclosureKey) !== "accepted") {
+      const accepted = window.confirm("Voice transcription uses Microsoft Edge speech recognition. On this stable runtime, microphone audio may be sent to Microsoft Azure for transcription. Continue and remember this choice on this PC?");
+      if (!accepted) {
+        setNotice("Voice transcription was not enabled. No microphone audio was sent.");
+        return;
+      }
+      localStorage.setItem(voiceDisclosureKey, "accepted");
+    }
+    voiceTranscript.current = "";
+    submitVoiceOnEnd.current = false;
+    voiceError.current = "";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || "en-US";
+    recognition.onstart = () => {
       setListening(true);
-      setNotice("Microphone is live for push-to-talk preview. Transcription is not configured yet.");
-    } catch {
-      setNotice("Microphone access was not granted. Check Windows privacy settings and app permissions.");
+      setNotice("Listening… click Stop to transcribe and run the command.");
+    };
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        transcript += event.results[index][0]?.transcript ?? "";
+      }
+      voiceTranscript.current = transcript.trim();
+      setMessage(voiceTranscript.current);
+      setNotice(voiceTranscript.current ? `Heard: “${voiceTranscript.current}”` : "Listening…");
+    };
+    recognition.onerror = (event) => {
+      submitVoiceOnEnd.current = false;
+      voiceError.current = event.error;
+      setListening(false);
+      setNotice(speechRecognitionErrorMessage(event.error));
+    };
+    recognition.onend = () => {
+      const transcript = voiceTranscript.current.trim();
+      const shouldSubmit = submitVoiceOnEnd.current && Boolean(transcript);
+      speechRecognition.current = undefined;
+      submitVoiceOnEnd.current = false;
+      setListening(false);
+      if (voiceError.current) return;
+      if (shouldSubmit) void submitAssistantText(transcript);
+      else if (transcript) setNotice("Voice transcript is ready. Review it, then press Send.");
+    };
+    speechRecognition.current = recognition;
+    try {
+      setListening(true);
+      recognition.start();
+    } catch (error) {
+      speechRecognition.current = undefined;
+      setListening(false);
+      actionFailed(error);
     }
   };
 
@@ -733,7 +791,7 @@ export function App() {
       <section className="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="dialog-close" aria-label="Close" onClick={() => setDialog(null)}>×</button>
         {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, block bypass, tuner, and Gig View enabled with validation</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
-        {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Global push-to-talk<small>Disabled until explicitly configured</small></span><input type="checkbox" disabled /></label></>}
+        {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><div className="setting-row"><span>Push-to-talk transcription<small>Microsoft Edge speech recognition; cloud-audio disclosure appears before first use</small></span><button onClick={() => { localStorage.removeItem(voiceDisclosureKey); setNotice("Voice disclosure choice cleared. It will be shown again before the next recording."); }}>Review disclosure again</button></div></>}
         {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
         {dialog === "parameters" && <><div className="dialog-kicker">BLOCK PARAMETERS · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
           const draft = parameterDrafts[parameter.index] ?? parameter.normalizedValue ?? 0;

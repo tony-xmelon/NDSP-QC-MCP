@@ -26,6 +26,16 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": ["binaries/qc-device-gateway"],
+    "shortDescription": "Safe desktop control for Neural DSP Quad Cortex",
+    "longDescription": "Unofficial Windows controller for a connected Neural DSP Quad Cortex with guarded live controls, workspaces, typed commands, and explicit device-save confirmation.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "startMenuFolder": "QC Voice Control"
+      }
+    }
   }
 }
