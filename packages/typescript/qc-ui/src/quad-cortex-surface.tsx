@@ -16,28 +16,18 @@ interface QuadCortexSurfaceProps {
   onAction: (action: HardwareAction) => void;
 }
 
-const blockColors: Record<string, string> = {
-  input: "#ff8b22", utility: "#d7b940", capture: "#ff8a35", amp: "#ed4b43", cab: "#f03f55",
-  mod: "#44d86e", delay: "#427cff", reverb: "#26d6c6", output: "#16c8be"
+const officialBlockSprite = "/qc-block-samples.svg";
+const officialBlockTiles: Record<string, [number, number]> = {
+  gate: [0, 82], compressor: [80, 0], "capture-grid": [480, 82], wave: [160, 0],
+  level: [160, 82], amp: [480, 0], cab: [80, 82], capture: [400, 82],
+  cube: [240, 82], delay: [240, 0], reverb: [320, 0], mod: [160, 0], utility: [80, 0]
 };
 
-function DeviceGlyph({ block }: { block: GridBlock }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  const kind = block.glyph ?? block.kind;
-  if (kind === "gate") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 22c4 0 5-13 9-13s5 13 9 13h4M7 24 24 7" /></svg>;
-  if (kind === "compressor") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 8v16m5-12v8m4-10v12m4-8v4m5-10v16" /></svg>;
-  if (kind === "capture-grid") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect fill="currentColor" x="7" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="14" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="21" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="10.5" y="15" width="4" height="4" rx=".7" /><rect fill="currentColor" x="17.5" y="15" width="4" height="4" rx=".7" /><path {...common} d="M7 24h18" /></svg>;
-  if (kind === "wave") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c3-12 6 12 9 0s6 12 9 0 5 3 6 1" /></svg>;
-  if (kind === "level") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 16h4m2-5v10m3-14v18m3-11v4m3-9v14m3-7h4" /></svg>;
-  if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="7" y="9" width="18" height="5" rx=".5" /><rect {...common} x="7" y="18" width="18" height="5" rx=".5" /></svg>;
-  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="16" r="7" /><circle fill="currentColor" cx="16" cy="16" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /><circle fill="currentColor" cx="7" cy="24" r="1.5" /><circle fill="currentColor" cx="25" cy="24" r="1.5" /></svg>;
-  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 26 11 7M8 26l6-16m-4 16 8-14m-6 14 11-11m-9 11 13-6m-11 6h12" /></svg>;
-  if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 11h13v15H6zM6 11l7-6h13v15l-7 6M19 11l7-6M19 26l7-6" /></svg>;
-  if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
-  if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="13" r="5" /><circle {...common} cx="21" cy="13" r="5" /><circle fill="currentColor" cx="11" cy="13" r="1.4" /><circle fill="currentColor" cx="21" cy="13" r="1.4" /><path {...common} d="M6 22h10m0 0h10M8 25h6m4 0h6" /></svg>;
-  if (kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
-  if (kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
-  return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 10h20v12H6zM9 16h14" /></svg>;
+function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
+  const [tileX, tileY] = officialBlockTiles[block.glyph ?? block.kind] ?? [480, 0];
+  return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
+    <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
+  </svg>;
 }
 
 function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
@@ -181,11 +171,11 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
   const renderBlock = (block: GridBlock) => {
     const cx = columns[block.column];
     const cy = rowY[block.row];
-    const color = block.color ?? blockColors[block.kind];
     const selected = selectedBlockId === block.id;
-    return <g key={block.id} opacity={block.bypassed ? .16 : 1} color="#f2f2f2">
-      <rect x={cx - 25} y={cy - 25} width="50" height="50" rx="8" fill="#030304" stroke={selected ? "#f5f5f5" : color} strokeWidth={block.bypassed ? 1.5 : 2.2} />
-      <svg x={cx - 15} y={cy - 15} width="30" height="30" viewBox="0 0 32 32"><DeviceGlyph block={block} /></svg>
+    return <g key={block.id} opacity={block.bypassed ? .48 : 1}>
+      <DeviceGlyph block={block} x={cx} y={cy} />
+      {selected && <rect x={cx - 34} y={cy - 34} width="68" height="68" rx="15" fill="none" stroke="#f5f5f5" strokeWidth="2" />}
+      {block.bypassed && <path d={`M${cx - 32} ${cy}H${cx + 32}`} fill="none" stroke="#c9c9ca" strokeWidth="2" opacity=".9" />}
     </g>;
   };
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
