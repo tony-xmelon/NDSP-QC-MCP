@@ -1323,12 +1323,14 @@ export function App() {
       <div className="conversation-preview" aria-live="polite">{messages.length > 0 ? messages.map((item) => <div className={`${item.role}-message`} key={item.id}><span>{item.role === "tool" ? "QC RESULT" : item.role.toUpperCase()}</span>{item.text}</div>) : <p className="conversation-empty">Your QC conversation and command results will appear here.</p>}</div>
       {pendingAssistantAction && <div className="assistant-action-card"><div><span>REVIEW TEMPORARY EDIT</span><strong>{pendingAssistantAction.label}</strong><small>This changes the live Grid but does not save the preset.</small></div><div><button onClick={() => setPendingAssistantAction(undefined)} disabled={commandPending}>Cancel</button><button className="primary" onClick={() => void applyPendingAssistantAction()} disabled={commandPending}>Apply temporarily</button></div></div>}
       <div className="composer">
-        <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); }
         }} placeholder="Ask about this preset or describe a change…" rows={1} />
-        <button className={`mic-button${listening ? " is-listening" : ""}`} onClick={() => void toggleMicrophone()} aria-pressed={listening} title="Push to talk">{listening ? "■" : "●"}<span>{listening ? "STOP" : "VOICE"}</span></button>
-        <button className="send-button" onClick={() => void sendMessage()} disabled={!message.trim() || commandPending} aria-label="Send message">↑</button>
+        <div className="composer-actions">
+          <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
+          <button className={`mic-button${listening ? " is-listening" : ""}`} onClick={() => void toggleMicrophone()} aria-pressed={listening} title="Push to talk">{listening ? "■" : "●"}<span>{listening ? "STOP" : "VOICE"}</span></button>
+          <button className="send-button" onClick={() => void sendMessage()} disabled={!message.trim() || commandPending} aria-label="Send message">↑</button>
+        </div>
       </div>
       <p className="safety-copy">Typed inspection and performance commands are available offline. Temporary edits show a preview; hardware save always requires confirmation.</p>
       </section> : <button className="restore-chat" onClick={() => setChatOpen(true)}>Open assistant <span>Ctrl+L</span></button>}

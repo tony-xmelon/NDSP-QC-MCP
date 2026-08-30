@@ -656,9 +656,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .assistant-action-card button.primary { border-color: #947c32; background: #5d4b17; color: #fff3c2; }
 .context-pill { padding: 2px 5px; border: 1px solid #635c36; border-radius: 3px; color: #e0c568; }
 .dirty-state { color: #ff9b78; }
-.composer { min-width: 0; min-height: 92px; display: grid; grid-template-columns: auto 1fr auto auto; align-items: end; gap: 6px; padding: 8px; border: 1px solid #383d46; border-radius: 15px; background: #20242a; box-shadow: 0 10px 30px #0007; }
-.composer textarea { min-width: 0; min-height: 74px; max-height: 180px; resize: vertical; padding: 8px 2px; border: 0; outline: 0; color: #e8eaed; background: transparent; font-size: 12px; }
+.composer { min-width: 0; min-height: 92px; display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 6px; padding: 8px; border: 1px solid #383d46; border-radius: 15px; background: #20242a; box-shadow: 0 10px 30px #0007; }
+.composer textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 74px; max-height: 180px; resize: vertical; padding: 8px 2px; border: 0; outline: 0; color: #e8eaed; background: transparent; font-size: 12px; }
 .composer textarea::placeholder { color: #737983; }
+.composer-actions { display: flex; align-items: center; gap: 6px; }
+.composer-actions .mic-button { margin-left: auto; }
 .composer-tool, .mic-button, .send-button { height: 34px; border: 0; border-radius: 10px; background: #2c3037; cursor: pointer; }
 .composer-tool { width: 34px; font-size: 20px; color: #aeb4bd; }
 .mic-button { min-width: 58px; display: flex; align-items: center; justify-content: center; gap: 5px; color: #ff7e72; font-size: 11px; }
