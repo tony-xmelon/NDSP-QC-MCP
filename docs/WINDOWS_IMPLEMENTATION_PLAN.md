@@ -168,6 +168,8 @@ The initial form factor contains:
 
 The screen renderer and hardware surface are separate. The screen owns Grid/Directory/dialog interaction. The hardware shell owns footswitches, encoders, rings, and physical gestures.
 
+The large-QC reference implementation follows the official 29 × 19.5 cm top-panel proportions and current CorOS 4.1 Grid conventions: the Master Volume and power controls flank the 7-inch screen, A–D and E–H sit in two rows below it, and the screen shows two routing rows at a time with outlined device glyphs. Reference photography and manual screenshots are design inputs only; the app uses original CSS/vector rendering rather than bundled Neural DSP product artwork.
+
 ### Form-factor manifest
 
 Each profile supplies data rather than application behavior:

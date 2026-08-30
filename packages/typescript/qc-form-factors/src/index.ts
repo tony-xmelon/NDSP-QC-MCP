@@ -29,7 +29,7 @@ const sceneControls = "ABCDEFGH".split("").map((label) => ({
 export const largeQuadCortex: FormFactorManifest = {
   id: "quad-cortex-large",
   displayName: "Quad Cortex — Large",
-  chassisAspectRatio: 1.58,
+  chassisAspectRatio: 29 / 19.5,
   defaultSkinId: "obsidian",
   controls: [
     ...sceneControls,
@@ -42,6 +42,6 @@ export const largeQuadCortex: FormFactorManifest = {
 export const formFactors = [largeQuadCortex];
 
 export const skins: SkinManifest[] = [
-  { id: "obsidian", displayName: "Obsidian", className: "skin-obsidian" },
+  { id: "obsidian", displayName: "Graphite Hardware", className: "skin-obsidian" },
   { id: "high-contrast", displayName: "High Contrast", className: "skin-high-contrast" }
 ];

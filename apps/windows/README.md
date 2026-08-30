@@ -11,10 +11,12 @@ Allowed dependencies: TypeScript client/UI/form-factor packages and platform ada
 - File/Edit/View/Device/Help menus and Settings/About/connection dialogs;
 - connection state and safe reconnect/reset failure behavior;
 - docked chat composer and microphone permission/capture lifecycle;
-- Obsidian and high-contrast skins loaded through shared manifests;
+- graphite-hardware and high-contrast skins loaded through shared manifests;
 - deterministic, clearly marked demo state for UI development.
 
 Device writes are intentionally locked until `services/device-gateway` is attached. Chat messages remain local until an assistant transport is configured.
+
+Hardware proportions and CorOS screen conventions are documented in [`docs/VISUAL_REFERENCES.md`](../../docs/VISUAL_REFERENCES.md).
 
 ## Run
 
