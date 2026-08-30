@@ -23,15 +23,26 @@ const blockColors: Record<string, string> = {
 function DeviceGlyph({ block }: { block: GridBlock }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const kind = block.glyph ?? block.kind;
-  if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="5" y="7" width="22" height="18" rx="1.5" /><path {...common} d="M6 13h20M10 19h12" /><circle fill="currentColor" cx="24" cy="19" r="1.6" /></svg>;
-  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="6" y="5" width="20" height="22" rx="2" /><circle {...common} cx="16" cy="16" r="6" /><circle fill="currentColor" cx="16" cy="16" r="1.5" /></svg>;
-  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 25 10 7l4 18 4-13 3 13 3-8 3 8" /></svg>;
-  if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="m16 5 9 5v12l-9 5-9-5V10l9-5Zm-9 5 9 5 9-5M16 15v12" /></svg>;
+  if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="7" y="9" width="18" height="5" rx=".5" /><rect {...common} x="7" y="18" width="18" height="5" rx=".5" /></svg>;
+  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="17" r="7" /><circle fill="currentColor" cx="16" cy="17" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /></svg>;
+  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 25 10 7l2 18 4-16-1 16m3 0 7-13m-7 13 10-6m-10 6h11" /></svg>;
+  if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 11h13v15H6zM6 11l7-6h13v15l-7 6M19 11l7-6M19 26l7-6" /></svg>;
   if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
-  if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="16" r="5" /><circle {...common} cx="21" cy="16" r="5" /><path {...common} d="M7 10 4 7m3 15-3 3m21-15 3-3m-3 15 3 3" /></svg>;
+  if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="13" r="5" /><circle {...common} cx="21" cy="13" r="5" /><circle fill="currentColor" cx="11" cy="13" r="1.4" /><circle fill="currentColor" cx="21" cy="13" r="1.4" /><path {...common} d="M6 22h10m0 0h10M8 25h6m4 0h6" /></svg>;
   if (kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
   if (kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 10h20v12H6zM9 16h14" /></svg>;
+}
+
+function ActionGlyph({ kind }: { kind: "undo" | "save" | "mode" | "more" }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (kind === "undo") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M10 9H4V3M5 9a12 12 0 1 1-1 13" /><path {...common} d="m4 9 6-6" /></svg>;
+  if (kind === "save") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 4h17l4 4v19H6zM10 4v8h12V4M12 22h9" /><path {...common} d="m19 17 5 5-5 5" /></svg>;
+  if (kind === "mode") return <svg viewBox="0 0 32 32" aria-hidden="true">
+    <path {...common} d="M5 8h22M5 16h22M5 24h22" />
+    <circle fill="currentColor" cx="11" cy="8" r="3.2" /><circle fill="currentColor" cx="22" cy="16" r="3.2" /><circle fill="currentColor" cx="13" cy="24" r="3.2" />
+  </svg>;
+  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle fill="currentColor" cx="16" cy="6" r="2.2" /><circle fill="currentColor" cx="16" cy="16" r="2.2" /><circle fill="currentColor" cx="16" cy="26" r="2.2" /></svg>;
 }
 
 function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
@@ -91,7 +102,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
     <header className="coros-header">
       <div className="coros-title"><span>{snapshot.presetLocation.slice(0, -1)}</span><em>{snapshot.presetLocation.slice(-1)}</em><strong>{snapshot.presetName}</strong></div>
       <div className="coros-actions" aria-label="Preset actions">
-        <button title="Undo" aria-label="Undo">↶</button>
+        <button title="Undo" aria-label="Undo"><ActionGlyph kind="undo" /></button>
         <div className="scene-control">
           <button className="scene-indicator" aria-label="Select scene" aria-expanded={sceneMenuOpen} onClick={() => setSceneMenuOpen((open) => !open)}><span>{String.fromCharCode(65 + snapshot.activeScene)}</span></button>
           {sceneMenuOpen && <div className="scene-dropdown" role="menu" aria-label="Scenes">
@@ -101,9 +112,9 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
             }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}
           </div>}
         </div>
-        <button title="Save preset" aria-label="Save preset">▣</button>
-        <button title="More" aria-label="Preset menu">⋮</button>
-        <div className="mode-readout"><span>▦</span>{snapshot.mode}</div>
+        <button title="Save preset" aria-label="Save preset"><ActionGlyph kind="save" /></button>
+        <button title="More" aria-label="Preset menu"><ActionGlyph kind="more" /></button>
+        <div className="mode-readout"><ActionGlyph kind="mode" />{snapshot.mode}</div>
       </div>
     </header>
     <div className="coros-workspace">
@@ -133,9 +144,9 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinC
   return <section className={`qc-chassis ${skinClassName}`} aria-label={formFactor.displayName}>
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume onAction={onAction} />
-    <div className="device-plate"><span className="pulse-mark">↯</span> QUADCORTEX <small>CONTROL SURFACE</small></div>
+    <div className="device-plate"><svg className="pulse-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 3.5 8H7l-1 7 6.5-8H9z" /></svg><span>QUADCORTEX</span><small>CONTROL SURFACE</small></div>
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
-    <div className="screen-nav-control"><span className="nav-arrow">⌃</span><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow">⌄</span></div>
+    <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index} accent={accents[index]} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>

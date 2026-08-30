@@ -62,13 +62,11 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "delay", name: "Digital Delay", kind: "delay", row: 0, column: 7, color: "#625cff", glyph: "cab" },
     { id: "out-3", name: "OUT 3", kind: "output", row: 0, column: 8 },
     { id: "in-usb", name: "USB 5", kind: "input", row: 2, column: -1 },
-    { id: "row-3-capture", name: "Neural Capture", kind: "capture", row: 2, column: 0, bypassed: true },
     { id: "pitch", name: "Dual Octaver", kind: "mod", row: 2, column: 1, bypassed: true },
     { id: "row-3-mod-a", name: "Vintage Tremolo", kind: "mod", row: 2, column: 2, color: "#ededed", glyph: "capture" },
     { id: "row-3-mod-b", name: "Dimension B", kind: "mod", row: 2, column: 3, bypassed: true },
     { id: "row-3-amp", name: "British Lead", kind: "amp", row: 2, column: 4, bypassed: true },
     { id: "row-3-cab", name: "2x12 Cream", kind: "cab", row: 2, column: 5, color: "#26d6c6", glyph: "cube" },
-    { id: "reverb", name: "Mind Hall", kind: "reverb", row: 2, column: 6, bypassed: true },
     { id: "row-3-out", name: "Looper X", kind: "cab", row: 2, column: 7, glyph: "reverb" },
     { id: "out-usb", name: "USB 3/4", kind: "output", row: 2, column: 8 }
   ]
