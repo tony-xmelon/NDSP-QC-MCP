@@ -1,0 +1,19 @@
+{
+  "name": "ndsp-qc-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/windows",
+    "packages/typescript/*"
+  ],
+  "scripts": {
+    "dev:windows": "npm run dev --workspace @ndsp-qc/windows",
+    "build:windows": "npm run build --workspace @ndsp-qc/windows",
+    "tauri:dev": "npm run tauri:dev --workspace @ndsp-qc/windows",
+    "tauri:build": "npm run tauri:build --workspace @ndsp-qc/windows",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

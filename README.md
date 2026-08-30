@@ -46,7 +46,9 @@ See [Architecture](docs/ARCHITECTURE.md) and the [Windows implementation plan](d
 
 ## Status
 
-Architecture and Windows implementation planning. The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`; implementation scaffolding is next.
+The first Windows client slice is implemented: Tauri/WebView2 shell, reusable hardware surface, form-factor/skin packages, demo QC state, keyboard/mouse interaction, connection diagnostics, menus, chat composer, and microphone capture lifecycle. Hardware commands remain locked until the persistent device gateway is connected.
+
+The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 
 ## Licensing
 

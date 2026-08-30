@@ -1,0 +1,13 @@
+{
+  "name": "@ndsp-qc/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "peerDependencies": {
+    "@ndsp-qc/client": "0.1.0",
+    "@ndsp-qc/form-factors": "0.1.0",
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}

@@ -21,6 +21,10 @@ coverage/
 
 # Tauri / Rust
 target/
+apps/windows/src-tauri/gen/
+apps/windows/src-tauri/icons/android/
+apps/windows/src-tauri/icons/ios/
+apps/windows/src-tauri/icons/icon.icns
 
 # Mobile
 .gradle/
