@@ -289,7 +289,6 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   };
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
-      <defs><filter id="blockGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
       <rect width="800" height="480" fill="#020202" />
       <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y={presetTitleBaseline} fill="#f4f4f4" fontSize={presetTitleFontSize} fontStyle={snapshot.dirty ? "italic" : "normal"} textLength={squeezePresetTitle ? 520 : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</text></g>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
@@ -311,7 +310,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
       </g>
       <g fill="none" stroke="#8f9092" strokeWidth="1.4">{rowY.map((_, row) => rowRail(row))}</g>
       {rowY.map((_, row) => splitPath(row))}
-      <g filter="url(#blockGlow)">{screenBlocks.map(renderBlock)}</g>
+      <g>{screenBlocks.map(renderBlock)}</g>
     </svg>
     <div className="coros-vector-actions" aria-label="Grid controls">
       <button className="vector-action-hit preset-title-hit" title="Open device Directory" aria-label={`Open preset Directory; current preset ${snapshot.presetLocation} ${snapshot.presetName}`} onClick={() => { setSceneMenuOpen(false); setScreenMenuOpen(false); onOpenPreset(); }} />
