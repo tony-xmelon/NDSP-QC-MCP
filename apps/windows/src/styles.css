@@ -437,7 +437,9 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   z-index: 0;
   left: 0;
   right: 0;
-  top: 64.7%;
+  /* The lower face begins at the lower SVG bend seam (y=468.856). This
+     opaque layer also clips the upper-face grain at that exact boundary. */
+  top: 63.255%;
   bottom: 0;
   background:
     radial-gradient(ellipse 115% 105% at 50% -8%, #515256 0%, #45464a 48%, #393a3e 100%),
@@ -527,14 +529,21 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   inset: 2.5%;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
-  background: #929498;
-  box-shadow: 0 0 0 1px #484a4e;
+  background: linear-gradient(135deg,
+    #b7b9bc 0 18%,
+    #96989b 18% 43%,
+    #737579 43% 72%,
+    #999b9e 72% 100%);
+  box-shadow:
+    inset 1px 1px 0 #ffffff52,
+    inset -1px -1px 0 #35373a70,
+    0 0 0 1px #484a4e;
 }
 .skin-official-svg .switch-cap {
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 40%;
+  width: 66%;
   border-radius: 50%;
   border: 1px solid #55575b;
   background: #77797d;
