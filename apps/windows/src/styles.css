@@ -555,8 +555,20 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .status-symbol { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid #69717d; border-radius: 50%; font: 10px serif; }
 .shortcut-hint { margin-left: auto; color: #676d76; font: 9px "DM Mono", monospace; }
 .chat-dock { padding: 9px max(8%, 60px) 12px; border-top: 1px solid #292d33; background: #101216; box-shadow: 0 -8px 28px #0005; }
-.conversation-preview { max-width: 960px; margin: 0 auto 8px; display: grid; justify-items: end; gap: 4px; }
-.user-message { max-width: 65%; padding: 6px 10px; border-radius: 10px 10px 2px 10px; background: #2b3038; font-size: 11px; color: #d9dde2; }
+.conversation-preview { max-width: 960px; margin: 0 auto 8px; display: grid; gap: 4px; }
+.user-message, .assistant-message, .tool-message { max-width: 72%; padding: 6px 10px; border-radius: 10px; font-size: 11px; color: #d9dde2; }
+.user-message { justify-self: end; border-radius: 10px 10px 2px 10px; background: #2b3038; }
+.assistant-message, .tool-message { justify-self: start; border-radius: 10px 10px 10px 2px; background: #1b2026; }
+.tool-message { border: 1px solid #315b69; background: #17242a; color: #cbe9f2; }
+.user-message span, .assistant-message span, .tool-message span { display: block; margin-bottom: 2px; color: #707985; font: 7px "DM Mono", monospace; letter-spacing: .08em; }
+.assistant-action-card { max-width: 960px; margin: 0 auto 8px; padding: 9px 11px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #7f6a2e; border-radius: 7px; background: #282310; }
+.assistant-action-card > div { display: grid; gap: 3px; }
+.assistant-action-card > div:last-child { display: flex; }
+.assistant-action-card span { color: #d8bc57; font: 8px "DM Mono", monospace; letter-spacing: .08em; }
+.assistant-action-card strong { color: #f1e5b4; font-size: 11px; }
+.assistant-action-card small { color: #91886b; font-size: 9px; }
+.assistant-action-card button { padding: 7px 10px; border: 1px solid #504a35; border-radius: 5px; background: #1b1b18; color: #d9d6ca; font-size: 9px; }
+.assistant-action-card button.primary { border-color: #947c32; background: #5d4b17; color: #fff3c2; }
 .context-line { max-width: 960px; margin: 0 auto 6px; display: flex; align-items: center; gap: 10px; color: #7f8690; font: 9px "DM Mono", monospace; }
 .context-line strong { color: #bdc2ca; font-weight: 500; }
 .context-pill { padding: 2px 5px; border: 1px solid #635c36; border-radius: 3px; color: #e0c568; }

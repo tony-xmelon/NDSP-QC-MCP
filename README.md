@@ -57,7 +57,9 @@ dirty-state recovery. State-changing commands use expected-state guards,
 value readback, and dirty-state verification. Local `.qcw` workspace snapshots
 can be saved and reopened without touching the hardware. Persistent device
 Save As is available only through a separate destination review and final
-confirmation; global-setting writes remain locked.
+confirmation; global-setting writes remain locked. The chat dock also executes
+offline typed inspection/performance commands and previews bypass or parameter
+edits before applying them temporarily.
 
 The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 

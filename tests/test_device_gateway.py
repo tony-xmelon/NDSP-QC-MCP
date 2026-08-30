@@ -24,8 +24,8 @@ class FakeDevice:
     def snapshot(self): return {"presetName": "Test", "blocks": []}
     def select_scene(self, scene, expected_preset_name=""):
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
-    def toggle_bypass(self, row, column, expected_scene, expected_preset_name=""):
-        return {"detail": f"bypass {row}:{column}:{expected_scene}", "snapshot": self.snapshot()}
+    def toggle_bypass(self, row, column, expected_scene, expected_bypassed, desired_bypassed, expected_preset_name=""):
+        return {"detail": f"bypass {row}:{column}:{expected_scene}:{expected_bypassed}:{desired_bypassed}", "snapshot": self.snapshot()}
     def list_presets(self, refresh=False):
         return {"setlistKey": "fake", "setlistName": "Fake", "currentPosition": 9, "presets": []}
     def navigate_bank(self, direction, expected_preset_name, expected_position):
@@ -66,10 +66,11 @@ class ServiceTests(unittest.TestCase):
     def request(self, method, params=None):
         return self.service.handle({"jsonrpc": "2.0", "id": 7, "method": method, "params": params or {}})
 
-    def test_status_is_available_and_persistent_writes_are_locked(self):
+    def test_status_reports_save_as_and_remaining_write_lock(self):
         result = self.request("system.status")["result"]
         self.assertTrue(result["gatewayAvailable"])
-        self.assertIn("persistent writes remain locked", result["message"])
+        self.assertIn("preset Save As", result["message"])
+        self.assertIn("other persistent writes remain locked", result["message"])
 
     def test_reconnect_and_snapshot(self):
         self.assertEqual(self.request("device.reconnect")["result"]["phase"], "ready")
@@ -85,7 +86,8 @@ class ServiceTests(unittest.TestCase):
     def test_live_control_methods_are_dispatched_with_params(self):
         scene = self.request("device.selectScene", {"scene": 3, "expectedPresetName": "Test"})
         bypass = self.request("device.toggleBypass", {
-            "row": 2, "column": 4, "expectedScene": 3, "expectedPresetName": "Test"
+            "row": 2, "column": 4, "expectedScene": 3, "expectedBypassed": False,
+            "desiredBypassed": True, "expectedPresetName": "Test"
         })
         tuner = self.request("device.showTuner", {"shown": True})
         gig = self.request("device.showGigView", {"shown": True})
@@ -115,7 +117,7 @@ class ServiceTests(unittest.TestCase):
             "confirmOverwrite": True
         })
         self.assertEqual(scene["result"]["detail"], "scene 3")
-        self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3")
+        self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3:False:True")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
         self.assertEqual(gig["result"]["detail"], "gig True")
         self.assertEqual(presets["result"]["setlistName"], "Fake")

@@ -2,9 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type GridBlock, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
+import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
 import { tauriTransport, workspaceFiles } from "./tauri-transport";
 
 type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | "workspace" | "save-device" | null;
+type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
+type PendingAssistantAction =
+  | { kind: "bypass"; block: GridBlock; targetBypassed: boolean; label: string }
+  | { kind: "parameter"; block: BlockDetails; parameter: BlockParameter; value: number; label: string };
 
 const initialConnection: ConnectionState = {
   phase: "disconnected",
@@ -56,7 +61,8 @@ export function App() {
   const [dialog, setDialog] = useState<DialogName>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<ConversationEntry[]>([]);
+  const [pendingAssistantAction, setPendingAssistantAction] = useState<PendingAssistantAction>();
   const [listening, setListening] = useState(false);
   const [commandPending, setCommandPending] = useState(false);
   const [presetList, setPresetList] = useState<PresetList>();
@@ -74,6 +80,7 @@ export function App() {
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const mediaStream = useRef<MediaStream | undefined>(undefined);
   const autoConnectStarted = useRef(false);
+  const conversationSequence = useRef(0);
 
   const formFactor = useMemo(() => formFactors.find((item) => item.id === formFactorId) ?? formFactors[0], [formFactorId]);
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
@@ -118,7 +125,7 @@ export function App() {
     setCommandPending(true);
     setNotice(`${block.bypassed ? "Enabling" : "Bypassing"} ${block.name}…`);
     try {
-      const result = await tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, snapshot.presetName);
+      const result = await tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, block.bypassed ?? false, !(block.bypassed ?? false), snapshot.presetName);
       if (result.snapshot) setSnapshot(result.snapshot);
       setNotice(result.detail);
     } catch (error) {
@@ -495,12 +502,177 @@ export function App() {
     else setNotice(`${item} is present in the shell and will be wired in its delivery phase.`);
   };
 
-  const sendMessage = () => {
+  const appendMessage = (role: ConversationEntry["role"], text: string) => {
+    const entry = { id: ++conversationSequence.current, role, text };
+    setMessages((current) => [...current, entry]);
+  };
+
+  const resolveParameterValue = (parameter: BlockParameter, rawValue: string) => {
+    const value = rawValue.trim().replace(/^[“”"']|[“”"']$/g, "");
+    if (parameter.options.length > 1) {
+      const optionIndex = parameter.options.findIndex((option) => option.toLowerCase() === value.toLowerCase());
+      if (optionIndex < 0) throw new Error(`Choose one of: ${parameter.options.join(", ")}.`);
+      return { normalized: optionIndex / (parameter.options.length - 1), display: parameter.options[optionIndex] };
+    }
+    if (value.endsWith("%")) {
+      const percentage = Number(value.slice(0, -1));
+      if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) throw new Error("Use a percentage from 0% through 100%.");
+      return { normalized: percentage / 100, display: `${percentage}%` };
+    }
+    const numeric = Number(value.replace(parameter.units, "").trim());
+    if (!Number.isFinite(numeric)) throw new Error(`I could not interpret “${rawValue}” as a value for ${parameter.name}.`);
+    if (numeric < parameter.minimum || numeric > parameter.maximum || parameter.maximum === parameter.minimum) {
+      throw new Error(`${parameter.name} accepts ${parameter.minimum} through ${parameter.maximum}${parameter.units ? ` ${parameter.units}` : ""}, or a percentage.`);
+    }
+    return {
+      normalized: (numeric - parameter.minimum) / (parameter.maximum - parameter.minimum),
+      display: `${numeric}${parameter.units ? ` ${parameter.units}` : ""}`
+    };
+  };
+
+  const executeImmediateAssistantIntent = async (intent: ReturnType<typeof parseAssistantIntent>) => {
+    if (intent.kind === "inspect") {
+      appendMessage("assistant", formatSnapshotSummary(snapshot));
+      setNotice("Current QC context summarized locally.");
+      return;
+    }
+    if (intent.kind === "help") {
+      appendMessage("assistant", assistantHelp);
+      setNotice("Typed QC command examples are shown in chat.");
+      return;
+    }
+    if (intent.kind === "bypass") {
+      const block = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
+      if (!block || block.bypassed === undefined) throw new Error("Select a bypass-capable block on the Grid first.");
+      const targetBypassed = intent.desired === "toggle" ? !block.bypassed : intent.desired === "bypassed";
+      if (block.bypassed === targetBypassed) {
+        appendMessage("assistant", `${block.name} is already ${targetBypassed ? "bypassed" : "enabled"}.`);
+        setNotice(`${block.name} already matches the requested bypass state.`);
+        return;
+      }
+      const label = `${targetBypassed ? "Bypass" : "Enable"} ${block.name} in Scene ${String.fromCharCode(65 + snapshot.activeScene)}`;
+      setPendingAssistantAction({ kind: "bypass", block, targetBypassed, label });
+      appendMessage("assistant", "I prepared a temporary Grid edit. Review it below before applying.");
+      setNotice("Temporary bypass edit is waiting for review.");
+      return;
+    }
+    if (intent.kind === "parameter") {
+      if (connection.demo) throw new Error("Connect the Quad Cortex before preparing a live parameter edit.");
+      const selected = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
+      if (!selected) throw new Error("Select a block on the Grid first.");
+      const details = await tauriTransport.blockDetails(selected.row, selected.column, snapshot.presetName);
+      const needle = intent.parameter.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const matches = details.parameters.filter((parameter) => parameter.writable && parameter.name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(needle));
+      if (matches.length !== 1) {
+        const choices = details.parameters.filter((parameter) => parameter.writable).map((parameter) => parameter.name).join(", ");
+        throw new Error(matches.length > 1 ? `That matches more than one parameter. Be more specific: ${matches.map((item) => item.name).join(", ")}.` : `I could not find that writable parameter on ${details.name}. Available: ${choices || "none"}.`);
+      }
+      const parameter = matches[0];
+      if (parameter.normalizedValue === null) throw new Error(`${parameter.name} has no readable live value, so I will not write it.`);
+      const resolved = resolveParameterValue(parameter, intent.value);
+      const label = `Set ${details.name} · ${parameter.name} from ${parameter.displayValue} to ${resolved.display} in Scene ${String.fromCharCode(65 + snapshot.activeScene)}`;
+      setPendingAssistantAction({ kind: "parameter", block: details, parameter, value: resolved.normalized, label });
+      appendMessage("assistant", "I prepared a temporary parameter edit. Review it below before applying.");
+      setNotice("Temporary parameter edit is waiting for review.");
+      return;
+    }
+    if (connection.demo) throw new Error("Connect the Quad Cortex before running that performance command.");
+    if (intent.kind === "scene") {
+      const result = await tauriTransport.selectScene(intent.index, snapshot.presetName);
+      if (result.snapshot) setSnapshot(result.snapshot);
+      appendMessage("tool", result.detail);
+      setNotice(result.detail);
+      return;
+    }
+    if (intent.kind === "bank") {
+      const result = await tauriTransport.navigateBank(intent.direction, snapshot.presetName, snapshot.presetPosition);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      appendMessage("tool", result.detail);
+      setNotice(result.detail);
+      return;
+    }
+    if (intent.kind === "view") {
+      const result = intent.view === "tuner" ? await tauriTransport.showTuner() : await tauriTransport.showGigView();
+      appendMessage("tool", result.detail);
+      setNotice(result.detail);
+      return;
+    }
+    if (intent.kind === "recall") {
+      const list = await tauriTransport.listPresets(false);
+      const entry = list.presets.find((candidate) => candidate.location.toUpperCase() === intent.location);
+      if (!entry) throw new Error(`${intent.location} is empty in ${list.setlistName}.`);
+      if (entry.position === snapshot.presetPosition) {
+        appendMessage("assistant", `${entry.location} · ${entry.name} is already active.`);
+        setNotice(`${entry.location} is already active.`);
+        return;
+      }
+      const result = await tauriTransport.recallPreset(list.setlistKey, entry.position, snapshot.presetName, snapshot.presetPosition);
+      if (result.snapshot) {
+        setSnapshot(result.snapshot);
+        setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      appendMessage("tool", result.detail);
+      setNotice(result.detail);
+    }
+  };
+
+  const sendMessage = async () => {
     const trimmed = message.trim();
-    if (!trimmed) return;
-    setMessages((current) => [...current, trimmed]);
+    if (!trimmed || commandPending) return;
+    appendMessage("user", trimmed);
     setMessage("");
-    setNotice("Chat transport is not configured. The command was kept locally and nothing was sent to the QC.");
+    setPendingAssistantAction(undefined);
+    setCommandPending(true);
+    setNotice("Interpreting the typed QC command…");
+    try {
+      await executeImmediateAssistantIntent(parseAssistantIntent(trimmed));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      appendMessage("assistant", detail);
+      setNotice(detail);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const applyPendingAssistantAction = async () => {
+    const pending = pendingAssistantAction;
+    if (!pending || commandPending) return;
+    setCommandPending(true);
+    setNotice(`Applying: ${pending.label}…`);
+    try {
+      if (pending.kind === "bypass") {
+        const result = await tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.block.bypassed as boolean, pending.targetBypassed, snapshot.presetName);
+        if (result.snapshot) setSnapshot(result.snapshot);
+        appendMessage("tool", result.detail);
+        setNotice(result.detail);
+      } else {
+        const result = await tauriTransport.setParameter(
+          pending.block.row,
+          pending.block.column,
+          pending.parameter.index,
+          pending.value,
+          pending.parameter.normalizedValue as number,
+          snapshot.activeScene,
+          snapshot.presetName
+        );
+        if (result.snapshot) setSnapshot(result.snapshot);
+        setBlockDetails(result.block);
+        setParameterDrafts(Object.fromEntries(result.block.parameters.filter((parameter) => parameter.normalizedValue !== null).map((parameter) => [parameter.index, parameter.normalizedValue as number])));
+        appendMessage("tool", result.detail);
+        setNotice(result.detail);
+      }
+      setPendingAssistantAction(undefined);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      appendMessage("assistant", detail);
+      setNotice(detail);
+    } finally {
+      setCommandPending(false);
+    }
   };
 
   const toggleMicrophone = async () => {
@@ -543,17 +715,18 @@ export function App() {
     <div className="status-strip" role="status"><span className="status-symbol">i</span>{notice}<span className="shortcut-hint">1–8 scenes · B bypass · [ ] bank · T tempo · Ctrl+L chat</span></div>
 
     {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
-      {messages.length > 0 && <div className="conversation-preview">{messages.slice(-2).map((item, index) => <div className="user-message" key={`${item}-${index}`}>{item}</div>)}</div>}
+      {messages.length > 0 && <div className="conversation-preview" aria-live="polite">{messages.slice(-4).map((item) => <div className={`${item.role}-message`} key={item.id}><span>{item.role === "tool" ? "QC RESULT" : item.role.toUpperCase()}</span>{item.text}</div>)}</div>}
+      {pendingAssistantAction && <div className="assistant-action-card"><div><span>REVIEW TEMPORARY EDIT</span><strong>{pendingAssistantAction.label}</strong><small>This changes the live Grid but does not save the preset.</small></div><div><button onClick={() => setPendingAssistantAction(undefined)} disabled={commandPending}>Cancel</button><button className="primary" onClick={() => void applyPendingAssistantAction()} disabled={commandPending}>Apply temporarily</button></div></div>}
       <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span>{snapshot.dirty && <span className="dirty-state">UNSAVED DEVICE CHANGES</span>}{workspaceName && <span>Workspace: {workspaceName}</span>}<span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
       <div className="composer">
         <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); }
+          if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); }
         }} placeholder="Ask about this preset or describe a change…" rows={1} />
         <button className={`mic-button${listening ? " is-listening" : ""}`} onClick={() => void toggleMicrophone()} aria-pressed={listening} title="Push to talk">{listening ? "■" : "●"}<span>{listening ? "STOP" : "VOICE"}</span></button>
-        <button className="send-button" onClick={sendMessage} disabled={!message.trim()} aria-label="Send message">↑</button>
+        <button className="send-button" onClick={() => void sendMessage()} disabled={!message.trim() || commandPending} aria-label="Send message">↑</button>
       </div>
-      <p className="safety-copy">AI actions will show a preview before device edits. Hardware save always requires confirmation.</p>
+      <p className="safety-copy">Typed inspection and performance commands are available offline. Temporary edits show a preview; hardware save always requires confirmation.</p>
     </section> : <button className="restore-chat" onClick={() => setChatOpen(true)}>Open assistant <span>Ctrl+L</span></button>}
 
     {dialog && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setDialog(null)}>

@@ -31,7 +31,7 @@ class GatewayService:
                 result = {
                     "platform": "Python device gateway",
                     "gatewayAvailable": True,
-                    "message": "Gateway active; guarded live controls are available and persistent writes remain locked.",
+                    "message": "Gateway active; guarded live controls and explicitly confirmed preset Save As are available; other persistent writes remain locked.",
                 }
             elif method == "device.reconnect":
                 result = self.device.reconnect()
@@ -48,6 +48,8 @@ class GatewayService:
                     params.get("row"),
                     params.get("column"),
                     params.get("expectedScene"),
+                    params.get("expectedBypassed"),
+                    params.get("desiredBypassed"),
                     params.get("expectedPresetName", ""),
                 )
             elif method == "device.listPresets":

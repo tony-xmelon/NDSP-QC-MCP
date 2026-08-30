@@ -180,7 +180,7 @@ export interface GatewayTransport {
   resetSession(): Promise<ConnectionState>;
   currentSnapshot(): Promise<PresetSnapshot>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
-  toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   listPresets(refresh?: boolean): Promise<PresetList>;
   navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;

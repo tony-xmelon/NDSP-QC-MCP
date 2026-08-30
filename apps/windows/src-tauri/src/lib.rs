@@ -203,6 +203,8 @@ fn toggle_bypass(
     row: u8,
     column: u8,
     expected_scene: u8,
+    expected_bypassed: bool,
+    desired_bypassed: bool,
     expected_preset_name: String,
 ) -> Result<Value, String> {
     with_gateway_params(
@@ -212,6 +214,8 @@ fn toggle_bypass(
             "row": row,
             "column": column,
             "expectedScene": expected_scene,
+            "expectedBypassed": expected_bypassed,
+            "desiredBypassed": desired_bypassed,
             "expectedPresetName": expected_preset_name
         }),
     )

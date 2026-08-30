@@ -350,11 +350,15 @@ class PyQuadCortexDevice:
         row: int,
         column: int,
         expected_scene: int,
+        expected_bypassed: bool,
+        desired_bypassed: bool,
         expected_preset_name: str = "",
     ) -> dict[str, Any]:
         for label, value, maximum in (("row", row, 3), ("column", column, 7), ("scene", expected_scene, 7)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if not isinstance(expected_bypassed, bool) or not isinstance(desired_bypassed, bool):
+            raise ValueError("Expected and desired bypass states must be true or false.")
 
         import pyquadcortex
 
@@ -371,8 +375,12 @@ class PyQuadCortexDevice:
             raise RuntimeError(f"There is no block at row {row + 1}, column {column + 1}.")
         before = pyquadcortex.bypass_state(preset, row, column)
         before_value = before.scenes[expected_scene] if before.scene_mode else before.scenes[0]
-        desired = not before_value
-        qc.set_bypass(row, column, desired)
+        if before_value != expected_bypassed:
+            raise RuntimeError(
+                f"Bypass state changed on the Quad Cortex: expected {'bypassed' if expected_bypassed else 'enabled'}, "
+                f"but it is {'bypassed' if before_value else 'enabled'}. Refresh and retry."
+            )
+        qc.set_bypass(row, column, desired_bypassed)
 
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
@@ -380,11 +388,11 @@ class PyQuadCortexDevice:
             current = qc.read_current_preset()
             state = pyquadcortex.bypass_state(current, row, column)
             actual = state.scenes[expected_scene] if state.scene_mode else state.scenes[0]
-            if actual == desired:
+            if actual == desired_bypassed:
                 if not _wait_for_dirty(qc, True):
                     raise RuntimeError("Bypass readback matched, but the device did not mark the preset dirty.")
                 return {
-                    "detail": f"Block {'bypassed' if desired else 'enabled'} and verified",
+                    "detail": f"Block {'bypassed' if desired_bypassed else 'enabled'} and verified",
                     "snapshot": self.snapshot(),
                 }
         raise RuntimeError("The bypass command was sent, but readback did not confirm the requested state.")

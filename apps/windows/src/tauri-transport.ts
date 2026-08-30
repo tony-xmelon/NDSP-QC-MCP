@@ -37,8 +37,8 @@ export const tauriTransport: GatewayTransport = {
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("select_scene", { scene, expectedPresetName });
   },
-  toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedPresetName });
+  toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedBypassed, desiredBypassed, expectedPresetName });
   },
   listPresets(refresh = false): Promise<PresetList> {
     return callTauri<PresetList>("list_presets", { refresh });

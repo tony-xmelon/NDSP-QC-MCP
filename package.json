@@ -1,6 +1,7 @@
 {
   "name": "ndsp-qc-mcp",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "workspaces": [
     "apps/windows",
@@ -11,6 +12,7 @@
     "build:windows": "npm run build --workspace @ndsp-qc/windows",
     "tauri:dev": "npm run tauri:dev --workspace @ndsp-qc/windows",
     "tauri:build": "npm run tauri:build --workspace @ndsp-qc/windows",
+    "test:assistant": "node --experimental-strip-types --test tests/assistant.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {
