@@ -11,6 +11,53 @@ MIN_TEMPO_BPM = 40
 MAX_TEMPO_BPM = 240
 
 
+def _send_qc_midi_cc(controller: int, value: int = 127) -> str:
+    """Send one Windows MIDI CC to the connected Quad Cortex endpoint."""
+    import ctypes
+    from ctypes import wintypes
+    import sys
+
+    if sys.platform != "win32":
+        raise RuntimeError("QC footswitch emulation currently requires Windows MIDI.")
+
+    class MidiOutCaps(ctypes.Structure):
+        _fields_ = [
+            ("wMid", wintypes.WORD),
+            ("wPid", wintypes.WORD),
+            ("vDriverVersion", wintypes.DWORD),
+            ("szPname", wintypes.WCHAR * 32),
+            ("wTechnology", wintypes.WORD),
+            ("wVoices", wintypes.WORD),
+            ("wNotes", wintypes.WORD),
+            ("wChannelMask", wintypes.WORD),
+            ("dwSupport", wintypes.DWORD),
+        ]
+
+    winmm = ctypes.WinDLL("winmm")
+    endpoint: tuple[int, str] | None = None
+    for device_id in range(winmm.midiOutGetNumDevs()):
+        caps = MidiOutCaps()
+        result = winmm.midiOutGetDevCapsW(device_id, ctypes.byref(caps), ctypes.sizeof(caps))
+        if result == 0 and "quad cortex" in caps.szPname.casefold():
+            endpoint = (device_id, caps.szPname)
+            break
+    if endpoint is None:
+        raise RuntimeError("Quad Cortex Windows MIDI output was not found. Enable MIDI over USB and reconnect.")
+
+    handle = wintypes.HANDLE()
+    result = winmm.midiOutOpen(ctypes.byref(handle), endpoint[0], 0, 0, 0)
+    if result != 0:
+        raise RuntimeError(f"Could not open the Quad Cortex MIDI output (Windows MIDI error {result}).")
+    try:
+        message = 0xB0 | (controller << 8) | (value << 16)
+        result = winmm.midiOutShortMsg(handle, message)
+        if result != 0:
+            raise RuntimeError(f"Could not send the Quad Cortex MIDI command (Windows MIDI error {result}).")
+    finally:
+        winmm.midiOutClose(handle)
+    return endpoint[1]
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -48,6 +95,16 @@ def _tempo_bpm(preset: Any) -> int:
 
 def _tempo_value(bpm: int) -> float:
     return (bpm - MIN_TEMPO_BPM) / (MAX_TEMPO_BPM - MIN_TEMPO_BPM)
+
+
+def _normalized_mode(qc: Any) -> str:
+    import pyquadcortex
+
+    value = int(qc.mode().mode)
+    if value in pyquadcortex.HYBRID_MODES:
+        return "HYBRID"
+    mode = pyquadcortex.describe_mode(value).upper()
+    return mode if mode in {"PRESET", "SCENE", "STOMP"} else "PRESET"
 
 
 def _wait_for_dirty(qc: Any, expected: bool, timeout: float = 3.0) -> bool:
@@ -601,6 +658,58 @@ class PyQuadCortexDevice:
                 return {"detail": f"Tempo set to {bpm} BPM and verified", "snapshot": snapshot}
         raise RuntimeError("The tempo command was sent, but readback did not confirm the requested BPM.")
 
+    def press_footswitch(
+        self,
+        index: int,
+        expected_mode: str,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < 8:
+            raise ValueError("Footswitch must be an integer from 0 through 7.")
+        if expected_mode not in {"PRESET", "SCENE", "STOMP", "HYBRID"}:
+            raise ValueError("Expected mode must be PRESET, SCENE, STOMP, or HYBRID.")
+
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        actual_mode = _normalized_mode(qc)
+        if actual_mode != expected_mode:
+            raise RuntimeError(
+                f"Footswitch mode changed on the Quad Cortex: expected {expected_mode}, "
+                f"but it is {actual_mode}. Refresh and retry."
+            )
+        if actual_mode == "PRESET" and qc.preset_dirty():
+            raise RuntimeError("The current preset has unsaved changes. Save or revert them before pressing a preset footswitch.")
+
+        before = self.snapshot()
+        endpoint = _send_qc_midi_cc(35 + index)
+        time.sleep(0.35)
+        try:
+            self._remember_position(self._read_position_state(timeout=5.0))
+        except TimeoutError:
+            pass
+        after = self.snapshot()
+        label = chr(65 + index)
+        if actual_mode == "SCENE" and after["activeScene"] != index:
+            raise RuntimeError(f"Footswitch {label} was sent, but Scene {label} did not verify.")
+        if actual_mode == "PRESET":
+            target_position = (before["presetPosition"] // 8) * 8 + index
+            if after["presetPosition"] != target_position:
+                raise RuntimeError(f"Footswitch {label} was sent, but its bank preset did not verify.")
+        changed = (
+            before["presetPosition"] != after["presetPosition"]
+            or before["activeScene"] != after["activeScene"]
+            or [(block["id"], block["bypassed"]) for block in before["blocks"]]
+            != [(block["id"], block["bypassed"]) for block in after["blocks"]]
+        )
+        detail = f"Footswitch {label} pressed through {endpoint}"
+        if changed:
+            detail += " and resulting device state verified"
+        else:
+            detail += "; no visible assignment changed"
+        return {"detail": detail, "snapshot": after}
+
     def show_tuner(self, shown: bool = True) -> dict[str, Any]:
         if not isinstance(shown, bool):
             raise ValueError("Tuner visibility must be true or false.")
@@ -620,13 +729,7 @@ class PyQuadCortexDevice:
         preset = qc.read_current_preset()
         setlist_key, preset_position, _ = self._current_position()
         active_scene = int(qc.active_scene())
-        mode_state = qc.mode()
-        try:
-            mode = pyquadcortex.describe_mode(mode_state.mode).upper()
-        except Exception:
-            mode = "PRESET"
-        if mode not in {"PRESET", "SCENE", "STOMP", "HYBRID"}:
-            mode = "PRESET"
+        mode = _normalized_mode(qc)
 
         catalog = qc.catalog
         blocks = []

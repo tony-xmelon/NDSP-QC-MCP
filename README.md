@@ -51,7 +51,8 @@ form-factor/skin packages, keyboard/mouse interaction, connection diagnostics,
 menus, chat composer, and microphone capture lifecycle. Its persistent Python
 device gateway owns the QC HID session and hydrates the UI from a live preset
 snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
-Gig View controls are enabled, along with verified tempo/encoder/tap control,
+Gig View controls are enabled, along with mode-aware A–H footswitch emulation
+through the QC's Windows MIDI endpoint and verified tempo/encoder/tap control,
 live setlist browsing, guarded preset
 recall, bank navigation, metadata-driven block parameter editing, and explicit
 dirty-state recovery. Explicit disconnect/reconnect, a privacy-safe connection

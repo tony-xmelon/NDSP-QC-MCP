@@ -96,6 +96,12 @@ class GatewayService:
                     params.get("expectedTempo"),
                     params.get("expectedPresetName", ""),
                 )
+            elif method == "device.pressFootswitch":
+                result = self.device.press_footswitch(
+                    params.get("index"),
+                    params.get("expectedMode"),
+                    params.get("expectedPresetName", ""),
+                )
             elif method == "device.listPresetSlots":
                 result = self.device.list_preset_slots()
             elif method == "device.savePresetAs":

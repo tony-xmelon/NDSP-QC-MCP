@@ -154,6 +154,30 @@ export function App() {
     }
   }, [actionFailed, commandPending, connection.demo, selectedBlockId, snapshot]);
 
+  const pressFootswitch = useCallback(async (index: number) => {
+    const label = String.fromCharCode(65 + index);
+    if (connection.demo) {
+      setNotice(`Demo: Footswitch ${label} pressed locally; hardware was not changed.`);
+      return;
+    }
+    if (commandPending) return;
+    setCommandPending(true);
+    setNotice(`Pressing Footswitch ${label} in ${snapshot.mode} mode…`);
+    try {
+      const result = await tauriTransport.pressFootswitch(index, snapshot.mode, snapshot.presetName);
+      if (result.snapshot) {
+        const presetChanged = result.snapshot.presetPosition !== snapshot.presetPosition;
+        setSnapshot(result.snapshot);
+        if (presetChanged) setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
+      }
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  }, [actionFailed, commandPending, connection.demo, snapshot.mode, snapshot.presetName, snapshot.presetPosition]);
+
   const showDeviceView = useCallback(async (view: "tuner" | "gig") => {
     if (connection.demo || commandPending) {
       setNotice(connection.demo ? `Connect the Quad Cortex before opening ${view === "tuner" ? "the tuner" : "Gig View"}.` : "A device command is already in progress.");
@@ -314,7 +338,7 @@ export function App() {
       return;
     }
     if (action.phase === "release" && action.role.startsWith("footswitch:")) {
-      void chooseScene(action.role.charCodeAt(action.role.length - 1) - 65);
+      void pressFootswitch(action.role.charCodeAt(action.role.length - 1) - 65);
       return;
     }
     if (action.phase === "release" && action.role === "bank:up") {
@@ -327,7 +351,7 @@ export function App() {
     }
     if (action.phase === "release" && action.role === "tempo") tapTempo();
     else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
-  }, [adjustTempo, chooseScene, connection.demo, navigateBank, openBlockEditor, snapshot.blocks, tapTempo]);
+  }, [adjustTempo, connection.demo, navigateBank, openBlockEditor, pressFootswitch, snapshot.blocks, tapTempo]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -340,7 +364,7 @@ export function App() {
         return;
       }
       if (textEntry) return;
-      if (/^[1-8]$/.test(event.key)) void chooseScene(Number(event.key) - 1);
+      if (/^[1-8]$/.test(event.key)) event.ctrlKey ? void chooseScene(Number(event.key) - 1) : void pressFootswitch(Number(event.key) - 1);
       if (event.key === "[") void navigateBank(-1);
       if (event.key === "]") void navigateBank(1);
       if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : tapTempo();
@@ -348,7 +372,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chooseScene, navigateBank, selectedBlockId, showDeviceView, tapTempo, toggleSelectedBypass]);
+  }, [chooseScene, navigateBank, pressFootswitch, selectedBlockId, showDeviceView, tapTempo, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
     setConnectionEvents((current) => [...current, { at: new Date().toISOString(), event: mode === "reset" ? "reset-attempt" : "connect-attempt" }]);
@@ -913,7 +937,7 @@ export function App() {
       <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} />
     </main>
 
-    <div className="status-strip" role="status"><span className="status-symbol">i</span>{notice}<span className="shortcut-hint">1–8 scenes · B bypass · [ ] bank · T tempo · Ctrl+L chat</span></div>
+    <div className="status-strip" role="status"><span className="status-symbol">i</span>{notice}<span className="shortcut-hint">1–8 switches · Ctrl+1–8 scenes · B bypass · [ ] bank · T tempo</span></div>
 
     {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
       {messages.length > 0 && <div className="conversation-preview" aria-live="polite">{messages.slice(-4).map((item) => <div className={`${item.role}-message`} key={item.id}><span>{item.role === "tool" ? "QC RESULT" : item.role.toUpperCase()}</span>{item.text}</div>)}</div>}
@@ -947,7 +971,7 @@ export function App() {
         })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
         {dialog === "workspace" && loadedWorkspace && <><div className="dialog-kicker">LOCAL WORKSPACE</div><h2 id="dialog-title">{workspaceName ?? "QC Workspace"}</h2><dl><dt>Saved</dt><dd>{new Date(loadedWorkspace.savedAt).toLocaleString()}</dd><dt>Source</dt><dd>{loadedWorkspace.source.setlistName} · {loadedWorkspace.source.presetLocation}</dd><dt>Preset</dt><dd>{loadedWorkspace.source.presetName}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + loadedWorkspace.snapshot.activeScene)}</dd><dt>Blocks</dt><dd>{loadedWorkspace.snapshot.blocks.length}</dd><dt>Device state</dt><dd>{loadedWorkspace.snapshot.dirty ? "Captured with unsaved changes" : "Clean at capture"}</dd></dl><p>The workspace is a local reference snapshot. Opening it never writes to the connected Quad Cortex.</p><div className="dialog-actions"><button onClick={() => setDialog(null)}>Keep Live Device</button><button className="primary" onClick={() => void saveWorkspace(true)}>Save Copy As…</button></div></>}
         {dialog === "save-device" && <><div className="dialog-kicker">PERSISTENT DEVICE SAVE</div><h2 id="dialog-title">Save Preset As…</h2>{presetSlotsLoading ? <p>Reading all destination slots from the Quad Cortex…</p> : presetSlots && <div className="device-save-form"><label><span>Setlist</span><strong>{presetSlots.setlistName}</strong></label><label><span>Preset name</span><input value={savePresetName} maxLength={80} onChange={(event) => setSavePresetName(event.target.value)} /></label><label><span>Destination</span><select value={savePresetPosition ?? ""} onChange={(event) => setSavePresetPosition(Number(event.target.value))}>{presetSlots.slots.map((slot) => <option key={slot.position} value={slot.position}>{slot.location} — {slot.occupied ? slot.name : "Empty"}</option>)}</select></label>{savePresetPosition !== undefined && presetSlots.slots[savePresetPosition]?.occupied && <p className="overwrite-warning">This destination is occupied. Saving will permanently overwrite “{presetSlots.slots[savePresetPosition].name}”.</p>}<div className="dialog-actions"><button onClick={() => setDialog(null)}>Cancel</button><button className="primary" disabled={!savePresetName.trim() || commandPending} onClick={() => void savePresetToDevice()}>Review & Save</button></div></div>}<p>Device save is separate from local workspace save and always requires final confirmation.</p></>}
-        {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Select Scenes A–H</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Shortcuts are suspended while an input or the chat composer has focus.</p></>}
+        {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Press Footswitches A–H in the current QC mode</dd><dt>Ctrl+1–8</dt><dd>Select Scenes A–H directly</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Shortcuts are suspended while an input or the chat composer has focus.</p></>}
         {dialog === "guide" && <><div className="dialog-kicker">USER GUIDE</div><h2 id="dialog-title">Safe QC control</h2><p>Connect the QC by USB and close Cortex Control, which otherwise owns the interface. Click Grid blocks to inspect and edit their live parameters; temporary edits mark the preset unsaved.</p><p>Use the preset browser or Bank controls only when the preset is clean. “Save Workspace” writes a local reference file. “Save Preset to Quad Cortex” is the separate persistent operation and always asks for a destination and confirmation.</p><p>Typed or spoken commands use the same guarded controls. Bypass and parameter edits show a preview before application.</p></>}
         {dialog === "privacy" && <><div className="dialog-kicker">PRIVACY</div><h2 id="dialog-title">Local by default</h2><p>Manual control, typed commands, workspaces, and diagnostics operate locally. The desktop configuration binds no network listener and does not collect analytics.</p><p>Push-to-talk uses Microsoft Edge speech recognition only after disclosure and consent; that service may send microphone audio to Microsoft Azure. Conversation text is never included in diagnostics.</p></>}
         {dialog === "legal" && <><div className="dialog-kicker">LEGAL</div><h2 id="dialog-title">Unofficial controller</h2><p>QC Voice Control is not affiliated with, endorsed by, or supported by Neural DSP Technologies. “Neural DSP” and “Quad Cortex” are trademarks of their respective owner and are used only to describe compatibility.</p><p>No project source license has been granted. Third-party components retain their own licenses.</p></>}

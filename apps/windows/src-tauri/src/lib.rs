@@ -376,6 +376,24 @@ fn set_tempo(
 }
 
 #[tauri::command]
+fn press_footswitch(
+    state: State<'_, Mutex<Gateway>>,
+    index: u8,
+    expected_mode: String,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    with_gateway_params(
+        state,
+        "device.pressFootswitch",
+        json!({
+            "index": index,
+            "expectedMode": expected_mode,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+}
+
+#[tauri::command]
 fn list_preset_slots(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
     with_gateway(state, "device.listPresetSlots")
 }
@@ -713,6 +731,7 @@ pub fn run() {
             block_details,
             set_parameter,
             set_tempo,
+            press_footswitch,
             list_preset_slots,
             save_preset_as,
             show_tuner,

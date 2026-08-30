@@ -64,6 +64,9 @@ export const tauriTransport: GatewayTransport = {
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult> {
     return callTauri<DeviceActionResult>("set_tempo", { bpm, expectedTempo, expectedPresetName });
   },
+  pressFootswitch(index: number, expectedMode: import("@ndsp-qc/client").PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("press_footswitch", { index, expectedMode, expectedPresetName });
+  },
   listPresetSlots(): Promise<PresetSlotList> {
     return callTauri<PresetSlotList>("list_preset_slots");
   },

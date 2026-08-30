@@ -26,6 +26,7 @@
             "device.blockDetails",
             "device.setParameter",
             "device.setTempo",
+            "device.pressFootswitch",
             "device.listPresetSlots",
             "device.savePresetAs",
             "device.showTuner",
