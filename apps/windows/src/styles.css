@@ -409,8 +409,8 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
      the cropped official SVG, stopping at its continuous inner side rails. */
   left: .85%;
   right: .85%;
-  top: 60.89%;
-  height: 2.365%;
+  top: 61.49%;
+  height: 1.165%;
   border: 0;
   background: linear-gradient(180deg,
     transparent 0%, #00000004 42%, #0000000d 100%);
@@ -500,10 +500,10 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .power-icon { visibility: hidden; }
 .skin-official-svg .volume-knob {
   border: 1px solid #202125;
-  background: radial-gradient(circle at 36% 28%, #55565a 0%, #3b3c40 54%, #222327 100%);
-  box-shadow: inset 2px 2px 4px #ffffff18, inset -3px -3px 6px #11121699, 5px 7px 9px #1617198c;
+  background: linear-gradient(145deg, #85878a 0%, #626468 55%, #44464a 100%);
+  box-shadow: inset 2px 2px 4px #ffffff28, inset -3px -3px 6px #22232788, 5px 7px 9px #16171970;
 }
-.skin-official-svg .volume-knob::before { display: block; inset: 2px; width: auto; background: linear-gradient(145deg, #55565a, #38393d 58%, #242529); box-shadow: inset 1px 1px 2px #ffffff22, inset -2px -2px 3px #15161999; }
+.skin-official-svg .volume-knob::before { display: block; inset: 2px; width: auto; background: linear-gradient(145deg, #8b8d90, #66686a 58%, #484a4e); box-shadow: inset 1px 1px 2px #ffffff42, inset -2px -2px 3px #25262a88; }
 .skin-official-svg .volume-knob .volume-pointer { display: block; top: 13%; height: 22%; width: 2px; background: #dedede; box-shadow: 1px 0 #161719; }
 .skin-official-svg .screen-nav-control,
 .skin-official-svg .footswitch-deck,
@@ -513,22 +513,22 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-ring {
   visibility: visible;
   position: relative;
-  width: 29.5%;
+  width: 27%;
   border: 0;
   border-radius: 50%;
   clip-path: none;
-  background: radial-gradient(circle at 37% 31%, #d7d8da 0%, #a4a6a9 42%, #66686c 72%, #393b3f 100%);
-  box-shadow: inset 1px 1px 2px #fff9, inset -2px -2px 3px #20212599;
+  background: linear-gradient(145deg, #85878a 0%, #5d5f63 55%, #3e4044 100%);
+  box-shadow: inset 1px 1px 1px #ffffff55, inset -1px -1px 2px #20212599, 0 0 0 1px #303236;
   filter: drop-shadow(3px 5px 3px #17181a99);
 }
 .skin-official-svg .switch-ring::before {
   content: "";
   position: absolute;
-  inset: 3.5%;
+  inset: 2.5%;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
-  background: linear-gradient(145deg, #e0e1e2 0%, #9a9c9f 38%, #626468 72%, #bfc1c3 100%);
-  box-shadow: inset 1px 1px 2px #ffffff77, inset -2px -2px 2px #25262a99;
+  background: linear-gradient(145deg, #dedfe1 0%, #96989b 38%, #595b5f 72%, #b7b9bb 100%);
+  box-shadow: inset 1px 1px 1px #ffffff88, inset -2px -2px 2px #25262aaa, 0 0 0 1px #484a4e;
 }
 .skin-official-svg .switch-cap {
   position: relative;
