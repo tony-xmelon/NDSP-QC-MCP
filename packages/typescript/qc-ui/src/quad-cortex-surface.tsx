@@ -258,7 +258,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     top: `${-skin.svgAsset.crop.y / skin.svgAsset.crop.height * 100}%`
   } as CSSProperties : undefined;
   return <section className={`qc-chassis ${skin.className}`} aria-label={formFactor.displayName}>
-    {skin.svgAsset && <div className="official-svg-viewport" aria-hidden="true"><img className="official-svg-source" src={skin.svgAsset.url} alt="" style={svgCropStyle} /></div>}
+    {skin.svgAsset && <div className="official-svg-viewport" aria-hidden="true"><img className="official-svg-source" src={`${skin.svgAsset.url}#qc-foreground`} alt="" style={svgCropStyle} /></div>}
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume value={snapshot.masterVolume} onAction={onAction} />
     <div className="device-plate"><svg className="pulse-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 3.5 8H7l-1 7 6.5-8H9z" /></svg><span>QUADCORTEX</span><small>CONTROL SURFACE</small></div>

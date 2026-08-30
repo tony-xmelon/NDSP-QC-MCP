@@ -1,4 +1,9 @@
 <svg width="1202" height="2292" viewBox="0 0 1202 2292" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+g[mask="url(#mask1_3601_58193)"] > path:nth-child(n+5):nth-child(-n+12) { stroke: #343539; }
+#qc-foreground:target ~ g[clip-path="url(#clip0_3601_58193)"] g[mask="url(#mask1_3601_58193)"] > path:nth-child(n+5):nth-child(-n+12) { stroke: white; }
+</style>
+<g id="qc-foreground"/>
 <rect width="1202" height="2292" fill="white"/>
 <g clip-path="url(#clip0_3601_58193)">
 <mask id="mask0_3601_58193" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="14" width="1097" height="720">

@@ -514,29 +514,6 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .master-volume { z-index: 4; }
 .skin-official-svg .switch-label,
 .skin-official-svg .nav-arrow { visibility: hidden; }
-.skin-official-svg .footswitch-deck .switch-label {
-  visibility: visible;
-  z-index: 3;
-  isolation: isolate;
-  left: 73%;
-  top: 66%;
-  color: #d5d6d8;
-  font-size: clamp(15px, 2.15vw, 28px);
-  font-weight: 400;
-  -webkit-text-stroke: .8px #343539;
-  paint-order: stroke fill;
-  text-shadow: none;
-}
-.skin-official-svg .footswitch-deck .switch-label::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -1px -4px;
-  background: radial-gradient(ellipse at center, #4b4c50 0 58%, #4b4c50ed 70%, transparent 88%);
-}
-.skin-official-svg .footswitch-row:nth-child(3) .switch-label::before {
-  background: radial-gradient(ellipse at center, #424347 0 58%, #424347ed 70%, transparent 88%);
-}
 .skin-official-svg .switch-ring {
   visibility: visible;
   position: relative;
