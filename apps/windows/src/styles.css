@@ -419,7 +419,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
     linear-gradient(90deg,
       transparent 0 .2%, #aaa9ac .2% .3%, transparent .3% .62%, #aaa9ac .62% .72%,
       transparent .72% 99.28%, #aaa9ac 99.28% 99.38%, transparent 99.38% 99.7%, #aaa9ac 99.7% 99.8%, transparent 99.8%),
-    linear-gradient(180deg, #4a4b4f 0%, #494a4e 52%, #48494d 100%);
+    linear-gradient(180deg, #4a4b4f 0%, #494a4e 100%);
   box-shadow: none;
   -webkit-mask-image: none;
   mask-image: none;
