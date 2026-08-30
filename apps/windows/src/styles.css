@@ -434,8 +434,22 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
     linear-gradient(165deg, #5b5c60 0%, #4a4b4f 47%, #3e3f43 100%);
   pointer-events: none;
 }
+.skin-official-svg .official-svg-viewport::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 64.7%;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse 115% 105% at 50% -8%, #515256 0%, #45464a 48%, #393a3e 100%),
+    repeating-linear-gradient(103deg, #ffffff03 0 1px, transparent 1px 4px, #00000005 4px 5px);
+  box-shadow: inset 0 10px 20px #11121622;
+}
 .skin-official-svg .official-svg-source {
   position: absolute;
+  z-index: 1;
   display: block;
   height: auto;
   max-width: none;
@@ -489,7 +503,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .switch-ring {
   visibility: visible;
   position: relative;
-  width: clamp(36px, 4.25vw, 56px);
+  width: clamp(44px, 4.9vw, 66px);
   border: 0;
   border-radius: 0;
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
@@ -509,7 +523,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 76%;
+  width: 72%;
   border-radius: 50%;
   border: 1px solid #111215;
   background: linear-gradient(145deg, #5f6064 0%, #444549 48%, #2f3034 100%);
@@ -520,9 +534,10 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 }
 .skin-official-svg .switch-led {
   position: relative;
-  width: clamp(17px, 1.7vw, 22px);
-  border: 1.5px solid #aaabae;
-  background: #55565a;
+  z-index: 1;
+  width: clamp(21px, 2vw, 26px);
+  border: 2px solid #aaabae;
+  background: #626367;
   box-shadow: none;
 }
 .skin-official-svg .switch-led::before {
@@ -530,7 +545,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: #707175;
+  background: #626367;
 }
 .skin-official-svg .screen-nav-control .switch-led {
   top: clamp(14px, 1.5vw, 19px);
@@ -538,13 +553,41 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .hardware-switch.is-active .switch-led {
   visibility: visible;
   border-color: #aaabae;
-  background: #55565a;
+  background: #626367;
   box-shadow: none;
 }
 .skin-official-svg .hardware-switch.is-active .switch-led::before {
   background: var(--switch-accent);
   box-shadow: 0 0 7px var(--switch-accent);
 }
+.official-switch-letter-layer { display: none; }
+.skin-official-svg .official-switch-letter-layer {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+.skin-official-svg .official-switch-letter-layer span {
+  position: absolute;
+  color: #eeeeef;
+  font: 400 clamp(20px, 2.55vw, 36px) Arial, Helvetica, sans-serif;
+  line-height: 1;
+  -webkit-text-stroke: 1px #292a2e;
+  paint-order: stroke fill;
+  text-shadow: 0 1px 0 #242529;
+  transform: translate(-50%, -50%);
+}
+.skin-official-svg .official-switch-letter-layer span:nth-child(1),
+.skin-official-svg .official-switch-letter-layer span:nth-child(5) { left: 11.45%; }
+.skin-official-svg .official-switch-letter-layer span:nth-child(2),
+.skin-official-svg .official-switch-letter-layer span:nth-child(6) { left: 33.25%; }
+.skin-official-svg .official-switch-letter-layer span:nth-child(3),
+.skin-official-svg .official-switch-letter-layer span:nth-child(7) { left: 55.35%; }
+.skin-official-svg .official-switch-letter-layer span:nth-child(4),
+.skin-official-svg .official-switch-letter-layer span:nth-child(8) { left: 77.55%; }
+.skin-official-svg .official-switch-letter-layer span:nth-child(-n+4) { top: 70.85%; }
+.skin-official-svg .official-switch-letter-layer span:nth-child(n+5) { top: 94.65%; }
 .skin-official-svg .hardware-switch { pointer-events: none; }
 .skin-official-svg .hardware-switch::after {
   content: "";

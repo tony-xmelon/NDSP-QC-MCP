@@ -54,7 +54,7 @@ export const skins: SkinManifest[] = [
     displayName: "Official SVG Overlay",
     className: "skin-official-svg",
     svgAsset: {
-      url: "https://images.ctfassets.net/8puu65w27ud0/3CBFXZiqvuUgrRBfFpoxup/67c9879f1616437e98e684ef58d4a715/qc-overview-001.svg",
+      url: "/qc-overview-001.svg",
       sourceWidth: 1202,
       sourceHeight: 2292,
       crop: { x: 0, y: 14, width: 1096.94, height: 719.079 },
