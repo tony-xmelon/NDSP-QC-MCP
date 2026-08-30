@@ -56,10 +56,10 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "chorus", name: "Dimension", kind: "mod", row: 0, column: 5, bypassed: true },
     { id: "delay", name: "Digital Delay", kind: "delay", row: 0, column: 6 },
     { id: "out-3", name: "OUT 3", kind: "output", row: 0, column: 7 },
-    { id: "in-usb", name: "USB 5", kind: "input", row: 2, column: 0 },
-    { id: "pitch", name: "Dual Octaver", kind: "mod", row: 2, column: 2, bypassed: true },
-    { id: "reverb", name: "Mind Hall", kind: "reverb", row: 2, column: 5 },
-    { id: "out-usb", name: "USB 3/4", kind: "output", row: 2, column: 7 }
+    { id: "in-usb", name: "USB 5", kind: "input", row: 1, column: 0 },
+    { id: "pitch", name: "Dual Octaver", kind: "mod", row: 1, column: 2, bypassed: true },
+    { id: "reverb", name: "Mind Hall", kind: "reverb", row: 1, column: 5 },
+    { id: "out-usb", name: "USB 3/4", kind: "output", row: 1, column: 7 }
   ]
 };
 

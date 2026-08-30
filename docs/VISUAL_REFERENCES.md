@@ -6,6 +6,7 @@ The large Quad Cortex skin is based on official Neural DSP reference material cu
 
 - [Quad Cortex product page](https://neuraldsp.com/quad-cortex) — graphite anodized-aluminum finish, stainless rotary footswitch construction, screen glass/bezel treatment, and physical product photography.
 - [Official Quad Cortex manual](https://neuraldsp.com/manual/quad-cortex) — 29 × 19.5 cm top-panel drawing and exact placement of Master Volume, power, screen, navigation, A–H, Bank, Mode, Tempo, and Tuner labels.
+- [Near-top-down retail photograph](https://www.tonefestguitargallery.com/products/neural-dsp-quad-cortex) — direct visual comparison for chassis color, rear connector silhouettes, actuator depth, label offsets, and screen-to-enclosure proportions.
 
 The CSS surface uses the documented 29:19.5 chassis ratio. Geometry is represented with percentages so the relationship between controls survives scaling.
 
@@ -16,7 +17,7 @@ The manual’s current CorOS 4.1 screenshots define the screen treatment:
 - black 5:3 display canvas;
 - large preset bank/slot and name at upper left;
 - undo, active Scene, save, contextual menu, and Mode at upper right;
-- two visible routing rows with thin light signal paths;
+- four routing rows with thin light signal paths, with the upper rows populated and lower rows left visually empty;
 - compact rounded device blocks with colored outlines and white category glyphs;
 - input/output and add-row pills on the left and right rails;
 - a dark eight-item Scene dropdown opened from the Scene indicator.

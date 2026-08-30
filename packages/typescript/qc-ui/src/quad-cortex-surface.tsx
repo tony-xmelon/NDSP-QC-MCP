@@ -84,7 +84,7 @@ function ScreenBlock({ block, selected, onAction }: { block: GridBlock; selected
 
 function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction">) {
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false);
-  const visibleRows = [0, 2];
+  const visibleRows = [0, 1, 2, 3];
   return <div className="qc-screen" aria-label="CorOS Grid">
     <header className="coros-header">
       <div className="coros-title"><span>{snapshot.presetLocation.slice(0, -1)}</span><em>{snapshot.presetLocation.slice(-1)}</em><strong>{snapshot.presetName}</strong></div>
@@ -105,7 +105,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
       </div>
     </header>
     <div className="coros-workspace">
-      <div className="row-rail row-rail-left" aria-hidden="true"><span className="io-pill"><i />In<br />1</span><span className="add-row">＋</span><span className="io-pill">Prev.<br />Row</span><span className="add-row">＋</span></div>
+      <div className="row-rail row-rail-left" aria-hidden="true"><span className="io-pill"><i />In<br />1</span><span className="add-row">＋</span><span className="add-row">＋</span><span className="add-row">＋</span></div>
       <div className="routing-lanes">
         {visibleRows.map((row) => <div className="routing-lane" key={row}>
           <span className="lane-wire" aria-hidden="true" />
@@ -116,7 +116,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
           })}
         </div>)}
       </div>
-      <div className="row-rail row-rail-right" aria-hidden="true"><span className="io-pill">Out<br />3</span><span className="add-row">＋</span><span className="io-pill">Multi<br />Out</span><span className="add-row">＋</span></div>
+      <div className="row-rail row-rail-right" aria-hidden="true"><span className="io-pill">Out<br />1/2</span><span className="add-row">＋</span><span className="add-row">＋</span><span className="add-row">＋</span></div>
     </div>
   </div>;
 }
@@ -130,6 +130,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinC
   const tempo = controlByRole(formFactor.controls, "tempo")!;
   const accents = ["#c7adff", "#4bd89a", "#f6da58", "#70d7ff", "#c7adff", "#4bd89a", "#f6da58", "#70d7ff"];
   return <section className={`qc-chassis ${skinClassName}`} aria-label={formFactor.displayName}>
+    <div className="rear-connectors" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <span key={index} />)}</div>
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume onAction={onAction} />
     <div className="device-plate"><span className="pulse-mark">⌁</span> QUAD CORTEX <small>CONTROL SURFACE</small></div>
@@ -139,7 +140,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skinC
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index} accent={accents[index]} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>
       <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index + 4} accent={accents[index + 4]} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" accent="#e6e6e6" onAction={onAction} /></div>
-      <span className="tuner-hint">HOLD: TUNER</span>
+      <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
   </section>;
 }
