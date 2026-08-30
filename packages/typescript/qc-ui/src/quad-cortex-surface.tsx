@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
+import { footswitchLeds } from "./footswitch-leds";
 
 export type HardwareAction =
   | { kind: "switch"; role: string; phase: "press" | "release" }
@@ -209,7 +210,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
   const bankUp = controlByRole(formFactor.controls, "bank:up")!;
   const bankDown = controlByRole(formFactor.controls, "bank:down")!;
   const tempo = controlByRole(formFactor.controls, "tempo")!;
-  const accents = ["#c7adff", "#4bd89a", "#f6da58", "#70d7ff", "#c7adff", "#4bd89a", "#f6da58", "#70d7ff"];
+  const leds = footswitchLeds(snapshot);
   const svgCropStyle = skin.svgAsset ? {
     width: `${skin.svgAsset.sourceWidth / skin.svgAsset.crop.width * 100}%`,
     left: `${-skin.svgAsset.crop.x / skin.svgAsset.crop.width * 100}%`,
@@ -223,9 +224,9 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} /></div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact accent="#83ddfa" onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
-      <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index} accent={accents[index]} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index].active} accent={leds[index].color} onAction={onAction} />)}<HardwareSwitch role={bankDown.role} label="BANK DOWN" accent="#d8dde0" onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>
-      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index + 4} accent={accents[index + 4]} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" accent="#e6e6e6" onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={leds[index + 4].active} accent={leds[index + 4].color} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" accent="#e6e6e6" onAction={onAction} /></div>
       <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
   </section>;

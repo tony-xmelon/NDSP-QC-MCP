@@ -23,6 +23,7 @@ export interface GridBlock {
   modelId?: number;
   name: string;
   kind: BlockKind;
+  category?: string;
   row: number;
   column: number;
   bypassed?: boolean;
@@ -49,8 +50,10 @@ export interface PresetSnapshot {
   setlistKey: string;
   setlistName: string;
   mode: "PRESET" | "SCENE" | "STOMP" | "HYBRID";
+  footswitchModes?: ["PRESET" | "SCENE" | "STOMP", "PRESET" | "SCENE" | "STOMP"];
   activeScene: number;
   scenes: string[];
+  sceneColors?: string[];
   blocks: GridBlock[];
   routes: GridRoute[];
   tempo: number;
@@ -65,8 +68,10 @@ export const demoSnapshot: PresetSnapshot = {
   setlistKey: "demo",
   setlistName: "Demo Presets",
   mode: "PRESET",
+  footswitchModes: ["PRESET", "PRESET"],
   activeScene: 0,
   scenes: ["Clean", "Edge", "Crunch", "Lead", "Ambient", "Octave", "Solo +", "Mute"],
+  sceneColors: ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"],
   tempo: 120,
   dirty: false,
   routes: [

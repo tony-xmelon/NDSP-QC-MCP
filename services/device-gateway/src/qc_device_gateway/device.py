@@ -122,6 +122,25 @@ def _normalized_mode(qc: Any) -> str:
     return mode if mode in {"PRESET", "SCENE", "STOMP"} else "PRESET"
 
 
+def _footswitch_modes(qc: Any) -> list[str]:
+    """Return the mode used by the physical top and bottom A-H switch rows."""
+    import pyquadcortex
+
+    value = int(qc.mode().mode)
+    if value in pyquadcortex.HYBRID_MODES:
+        return [mode.name for mode in pyquadcortex.HYBRID_MODES[value]]
+    try:
+        mode = pyquadcortex.FootswitchMode(value).name
+    except ValueError:
+        mode = "PRESET"
+    return [mode, mode]
+
+
+def _argb_to_css(value: int) -> str:
+    """Convert the QC's ARGB uint32 scene color to an opaque CSS color."""
+    return f"#{int(value) & 0xFFFFFF:06x}"
+
+
 def _wait_for_dirty(qc: Any, expected: bool, timeout: float = 3.0) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -1071,6 +1090,7 @@ class PyQuadCortexDevice:
         setlist_key, preset_position, _ = self._current_position()
         active_scene = int(qc.active_scene())
         mode = _normalized_mode(qc)
+        footswitch_modes = _footswitch_modes(qc)
 
         catalog = qc.catalog
         stomp_by_cell = {
@@ -1091,6 +1111,7 @@ class PyQuadCortexDevice:
                 "modelId": int(block.model_id),
                 "name": model.name if model else f"Model {block.model_id}",
                 "kind": _block_kind(category),
+                "category": category,
                 "row": block.row,
                 "column": block.column,
                 "bypassed": bypassed,
@@ -1126,8 +1147,10 @@ class PyQuadCortexDevice:
             "setlistKey": setlist_key,
             "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
             "mode": mode,
+            "footswitchModes": footswitch_modes,
             "activeScene": active_scene,
             "scenes": scenes,
+            "sceneColors": [_argb_to_css(color) for color in list(preset.scene_colors)[:8]],
             "blocks": blocks,
             "routes": routes,
             "tempo": _tempo_bpm(preset),
