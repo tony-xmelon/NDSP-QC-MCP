@@ -30,7 +30,7 @@ function DeviceGlyph({ block }: { block: GridBlock }) {
   if (kind === "level") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 16h4m2-5v10m3-14v18m3-11v4m3-9v14m3-7h4" /></svg>;
   if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="7" y="9" width="18" height="5" rx=".5" /><rect {...common} x="7" y="18" width="18" height="5" rx=".5" /></svg>;
   if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="16" r="7" /><circle fill="currentColor" cx="16" cy="16" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /><circle fill="currentColor" cx="7" cy="24" r="1.5" /><circle fill="currentColor" cx="25" cy="24" r="1.5" /></svg>;
-  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 25 10 7l2 18 4-16-1 16m3 0 7-13m-7 13 10-6m-10 6h11" /></svg>;
+  if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 26 11 7M8 26l6-16m-4 16 8-14m-6 14 11-11m-9 11 13-6m-11 6h12" /></svg>;
   if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 11h13v15H6zM6 11l7-6h13v15l-7 6M19 11l7-6M19 26l7-6" /></svg>;
   if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
   if (kind === "reverb") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="11" cy="13" r="5" /><circle {...common} cx="21" cy="13" r="5" /><circle fill="currentColor" cx="11" cy="13" r="1.4" /><circle fill="currentColor" cx="21" cy="13" r="1.4" /><path {...common} d="M6 22h10m0 0h10M8 25h6m4 0h6" /></svg>;
@@ -71,7 +71,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
   return <div className="master-volume">
-    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><span /></button>
+    <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
     <button className="volume-knob" aria-label="Master volume knob" onWheel={(event) => {
       event.preventDefault();
       onAction({ kind: "rotate", role: "master-volume", delta: event.deltaY < 0 ? 1 : -1 });
@@ -100,7 +100,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfa
       <defs><filter id="blockGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
       <rect width="800" height="480" fill="#020202" />
       <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y="75" fill="#f4f4f4">{snapshot.presetName}</text></g>
-      <g fill="none" stroke="#f0f0f0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M632 14a13 13 0 1 1-11 7M621 21l1-9 8 4" /><path d="M709 11h20l6 6v24h-26zM714 11v10h14V11m-10 24h10m-5-7 7 7-7 7" /></g>
+      <g fill="none" stroke="#f0f0f0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M635 16a13 13 0 1 1-13 2M622 18v-9m0 9 8-5" /><path d="M709 11h20l6 6v24h-26zM714 11v10h14V11m-10 14h10m-5 2 7 7-7 7" /></g>
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
       <g stroke="#f0f0f0" strokeWidth="3" strokeLinecap="round"><path d="M653 57h28M653 66h28M653 75h28" /><circle fill="#f0f0f0" cx="661" cy="57" r="3.5" /><circle fill="#f0f0f0" cx="674" cy="66" r="3.5" /><circle fill="#f0f0f0" cx="663" cy="75" r="3.5" /></g><text x="691" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="24">{snapshot.mode}</text>

@@ -448,18 +448,20 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   pointer-events: none;
 }
 .skin-official-svg .power-button {
-  border-color: #242529;
-  background: linear-gradient(145deg, #77787c, #3a3b3f);
-  box-shadow: inset 1px 1px #ffffff6e, 0 2px 4px #17181ab8;
+  width: clamp(22px, 2.2vw, 30px);
+  border: 1px solid #26272a;
+  border-radius: 5px;
+  background: linear-gradient(145deg, #5b5c60, #35363a 68%);
+  box-shadow: inset 1px 1px #ffffff4a, inset -1px -1px #1118, 0 2px 3px #17181a8a;
 }
-.skin-official-svg .power-button span { display: block; }
+.skin-official-svg .power-icon { width: 55%; height: 55%; fill: none; stroke: #f1f1f1; stroke-width: 1.8; stroke-linecap: round; }
 .skin-official-svg .volume-knob {
   border: 1px solid #202125;
-  background: repeating-conic-gradient(from -5deg, #2a2b2e 0 3deg, #696a6d 3deg 5deg, #343539 5deg 8deg);
-  box-shadow: inset 0 0 0 3px #242529, inset 5px 5px 10px #ffffff18, 5px 7px 9px #1617198c;
+  background: repeating-conic-gradient(from -3deg, #18191c 0 2.2deg, #3b3c40 2.2deg 3.6deg, #232428 3.6deg 5.8deg);
+  box-shadow: inset 0 0 0 2px #191a1d, inset 4px 4px 8px #ffffff12, 5px 7px 9px #1617198c;
 }
-.skin-official-svg .volume-knob::before { display: block; background: radial-gradient(circle at 36% 28%, #77787c, #505155 55%, #292a2e 100%); }
-.skin-official-svg .volume-knob span { display: block; background: #17181b; box-shadow: 1px 0 #ffffff52; }
+.skin-official-svg .volume-knob::before { display: block; left: 10%; top: 10%; width: 80%; background: radial-gradient(circle at 36% 27%, #515256, #393a3e 58%, #242529 100%); box-shadow: inset 1px 1px 1px #ffffff2b, inset -2px -2px 3px #15161999, 0 0 0 1px #18191c; }
+.skin-official-svg .volume-knob span { display: block; top: 13%; height: 22%; width: 2px; background: #dedede; box-shadow: 1px 0 #161719; }
 .skin-official-svg .screen-nav-control,
 .skin-official-svg .footswitch-deck,
 .skin-official-svg .master-volume { z-index: 4; }
@@ -467,21 +469,36 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .nav-arrow { visibility: hidden; }
 .skin-official-svg .switch-ring {
   visibility: visible;
-  width: clamp(30px, 3.5vw, 46px);
+  position: relative;
+  width: clamp(36px, 4.25vw, 56px);
   border: 0;
-  background: radial-gradient(circle, transparent 0 27%, #1c1d20 28% 36%, #a8aaac 37% 49%, #55575a 50% 64%, transparent 66%);
-  box-shadow: none;
+  border-radius: 0;
+  clip-path: polygon(25% 5%, 75% 5%, 97% 28%, 97% 72%, 75% 95%, 25% 95%, 3% 72%, 3% 28%);
+  background: linear-gradient(145deg, #f0f0ef 0%, #929498 39%, #505256 70%, #d4d5d5 100%);
+  box-shadow: inset 2px 2px 2px #fff9, inset -2px -2px 2px #20212588;
   filter: drop-shadow(3px 5px 3px #17181a99);
 }
+.skin-official-svg .switch-ring::before {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #111215 0 2px, #3a3b3e 2px 3px, #151619 3px 5px);
+  box-shadow: inset 0 0 0 1px #08090a, 0 0 0 1px #b7b8b9;
+}
 .skin-official-svg .switch-cap {
+  position: relative;
+  z-index: 2;
   visibility: visible;
-  width: 48%;
-  border: 1px solid #292a2d;
-  background: repeating-conic-gradient(from -6deg, #aeb0b2 0 4deg, #4d4f52 4deg 7deg);
-  box-shadow: inset 1px 1px 2px #ffffff8a, 1px 2px 2px #1118;
+  width: 51%;
+  border: 1px solid #111215;
+  background: repeating-conic-gradient(from -4deg, #111215 0 3deg, #4f5053 3deg 5deg, #1b1c1f 5deg 8deg);
+  box-shadow: 0 0 0 2px #141518, inset 1px 1px 2px #ffffff35, 1px 3px 3px #111a;
 }
 .skin-official-svg .switch-cap::before {
-  background: radial-gradient(circle at 35% 27%, #d2d3d4, #7f8184 52%, #444649 100%);
+  inset: 8%;
+  background: conic-gradient(from 35deg, #515256, #2d2e32 28%, #68696c 48%, #343539 72%, #55565a);
+  box-shadow: inset 1px 1px 1px #ffffff4d, inset -1px -1px 2px #0c0d0e;
 }
 .skin-official-svg .switch-led {
   border: 0;
