@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type ModelEntry, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { optimisticallyPressFootswitch, QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
+import { optimisticallyPressFootswitch, QuadCortexSurface, type CorOsContextAction, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
 import { diagnosticsFiles, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createSpeechRecognition, speechRecognitionAvailable, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
-type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "add-block" | "routing" | "workspace" | "save-device" | null;
+type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "parameters" | "add-block" | "routing" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
 type ConnectionEvent = { at: string; event: "app-start" | "runtime-ready" | "connect-attempt" | "connected" | "connect-failed" | "disconnected" | "reset-attempt" | "diagnostics-exported" };
 type MenuItem = string | { label: string; disabledReason: string };
@@ -96,6 +96,7 @@ export function App() {
   const [commandPending, setCommandPending] = useState(false);
   const [presetList, setPresetList] = useState<PresetList>();
   const [presetListLoading, setPresetListLoading] = useState(false);
+  const [presetDirectoryOpen, setPresetDirectoryOpen] = useState(false);
   const [blockDetails, setBlockDetails] = useState<BlockDetails>();
   const [parameterDrafts, setParameterDrafts] = useState<Record<number, number>>({});
   const [moveDestination, setMoveDestination] = useState<number>();
@@ -876,7 +877,8 @@ export function App() {
       setNotice(connection.demo ? "Connect the Quad Cortex before opening its preset browser." : "A device command is already in progress.");
       return;
     }
-    setDialog("presets");
+    setDialog(null);
+    setPresetDirectoryOpen(true);
     setPresetListLoading(true);
     try {
       const list = await tauriTransport.listPresets(refresh);
@@ -899,7 +901,7 @@ export function App() {
         setSelectedBlockId(result.snapshot.blocks[0]?.id ?? "");
       }
       setNotice(result.detail);
-      setDialog(null);
+      setPresetDirectoryOpen(false);
     } catch (error) {
       actionFailed(error);
     } finally {
@@ -1090,6 +1092,7 @@ export function App() {
         }
         setPendingAssistantAction(undefined);
         setDialog(null);
+        setPresetDirectoryOpen(false);
       }
     };
     window.addEventListener("keydown", onApplicationShortcut);
@@ -1128,6 +1131,22 @@ export function App() {
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
     else if (item === "Exit") void exitApp();
     else setNotice(`${item} is not available in this build.`);
+  };
+
+  const handleCorOsContextAction = (action: CorOsContextAction) => {
+    if (action === "edit-details") void openDeviceSave();
+    else if (action === "settings") setDialog("settings");
+    else {
+      const labels: Record<Exclude<CorOsContextAction, "edit-details" | "settings">, string> = {
+        "preset-midi-out": "Preset MIDI Out",
+        favorite: "Add to favorites",
+        "delete-preset": "Delete preset",
+        "new-capture": "New Neural Capture",
+        tempo: "Tempo",
+        "cpu-monitor": "CPU monitor"
+      };
+      setNotice(`${labels[action]} is shown in the device-accurate Grid menu, but this command is not exposed by the current USB gateway.`);
+    }
   };
 
   const appendMessage = (role: ConversationEntry["role"], text: string) => {
@@ -1406,7 +1425,7 @@ export function App() {
 
     <div className={`app-content${chatOpen ? "" : " chat-closed"}`}>
       <main className={`workspace view-${surfaceView}`}>
-        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} onOpenPreset={() => void openPresetBrowser()} onUndo={() => void undoLastAction()} canUndo={Boolean(undoEntry)} undoLabel={undoEntry?.label} onSave={() => void openDeviceSave()} onOpenRouting={() => openRoutingEditor()} onRefresh={() => void refreshSnapshot()} />
+        <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin} onAction={handleHardwareAction} onOpenPreset={() => void openPresetBrowser()} onUndo={() => void undoLastAction()} canUndo={Boolean(undoEntry)} undoLabel={undoEntry?.label} onSave={() => void openDeviceSave()} onOpenRouting={() => openRoutingEditor()} onRefresh={() => void refreshSnapshot()} presetDirectory={{ open: presetDirectoryOpen, list: presetList, loading: presetListLoading, disabled: commandPending, onClose: () => setPresetDirectoryOpen(false), onRefresh: () => void openPresetBrowser(true), onRecall: (entry) => void recallPreset(entry) }} onContextAction={handleCorOsContextAction} />
       </main>
 
       {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
@@ -1439,7 +1458,6 @@ export function App() {
         {dialog === "connection-log" && <><div className="dialog-kicker">CONNECTION LOG</div><h2 id="dialog-title">Session lifecycle</h2><div className="connection-event-list">{connectionEvents.map((entry, index) => <div key={`${entry.at}-${index}`}><time>{new Date(entry.at).toLocaleTimeString()}</time><strong>{entry.event.replaceAll("-", " ")}</strong></div>)}</div><p>This log contains lifecycle event names only. Device identifiers, paths, preset names, and conversation text are not recorded.</p><div className="dialog-actions"><button onClick={() => setConnectionEvents([{ at: new Date().toISOString(), event: "app-start" }])}>Clear</button><button className="primary" onClick={() => void exportDiagnostics()}>Export redacted diagnostics…</button></div></>}
         {dialog === "device-info" && <><div className="dialog-kicker">CURRENT DEVICE</div><h2 id="dialog-title">{snapshot.deviceName}</h2><dl><dt>Connection</dt><dd>{connection.phase}</dd><dt>Setlist</dt><dd>{snapshot.setlistName}</dd><dt>Preset</dt><dd>{snapshot.presetLocation} · {snapshot.presetName}</dd><dt>Mode</dt><dd>{snapshot.mode}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + snapshot.activeScene)}</dd><dt>Tempo</dt><dd>{snapshot.tempo} BPM</dd><dt>Grid</dt><dd>{snapshot.blocks.length} blocks</dd><dt>State</dt><dd>{snapshot.dirty ? "Unsaved device changes" : "Clean"}</dd></dl><p>Hardware serial numbers and account identifiers are intentionally not read or displayed.</p></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><div className="setting-row"><span>Push-to-talk transcription<small>Microsoft Edge speech recognition; cloud-audio disclosure appears before first use</small></span><button onClick={() => { localStorage.removeItem(voiceDisclosureKey); setNotice("Voice disclosure choice cleared. It will be shown again before the next recording."); }}>Review disclosure again</button></div></>}
-        {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
         {dialog === "parameters" && <><div className="dialog-kicker">BLOCK EDITOR · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <><div className="block-management"><label><span>Move within row {blockDetails.row + 1}<small>Only empty cells are offered; cross-row routing stays unchanged.</small></span><select value={moveDestination ?? ""} disabled={commandPending} onChange={(event) => setMoveDestination(event.target.value === "" ? undefined : Number(event.target.value))}><option value="">Choose empty column…</option>{Array.from({ length: 8 }, (_, column) => column).filter((column) => column !== blockDetails.column && !snapshot.blocks.some((block) => block.row === blockDetails.row && block.column === column)).map((column) => <option value={column} key={column}>Column {column + 1}</option>)}</select><button disabled={moveDestination === undefined || commandPending} onClick={() => void moveSelectedBlock()}>Review move…</button></label><label><span>STOMP footswitch<small>Several blocks may share the same switch.</small></span><select value={footswitchDraft ?? ""} disabled={commandPending} onChange={(event) => setFootswitchDraft(event.target.value === "" ? null : Number(event.target.value))}><option value="">Unassigned</option>{Array.from({ length: 8 }, (_, index) => <option value={index} key={index}>Footswitch {String.fromCharCode(65 + index)}</option>)}</select><button disabled={footswitchDraft === (snapshot.blocks.find((block) => block.row === blockDetails.row && block.column === blockDetails.column)?.footswitch ?? null) || commandPending} onClick={() => void applyFootswitchAssignment()}>Review assignment…</button></label><div className="block-management-actions"><span>Remove this block<small>Discard Unsaved Changes restores the stored preset.</small></span><button className="danger" disabled={commandPending} onClick={() => void removeSelectedBlock()}>Review removal…</button></div></div><div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
           const draft = parameterDrafts[parameter.index] ?? parameter.normalizedValue ?? 0;
           const changed = parameter.normalizedValue !== null && Math.abs(draft - parameter.normalizedValue) >= 0.000001;
