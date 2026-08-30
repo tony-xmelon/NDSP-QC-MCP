@@ -23,8 +23,13 @@ const blockColors: Record<string, string> = {
 function DeviceGlyph({ block }: { block: GridBlock }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const kind = block.glyph ?? block.kind;
+  if (kind === "gate") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 22c4 0 5-13 9-13s5 13 9 13h4M7 24 24 7" /></svg>;
+  if (kind === "compressor") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 8v16m5-12v8m4-10v12m4-8v4m5-10v16" /></svg>;
+  if (kind === "capture-grid") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect fill="currentColor" x="7" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="14" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="21" y="8" width="4" height="4" rx=".7" /><rect fill="currentColor" x="10.5" y="15" width="4" height="4" rx=".7" /><rect fill="currentColor" x="17.5" y="15" width="4" height="4" rx=".7" /><path {...common} d="M7 24h18" /></svg>;
+  if (kind === "wave") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c3-12 6 12 9 0s6 12 9 0 5 3 6 1" /></svg>;
+  if (kind === "level") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M5 16h4m2-5v10m3-14v18m3-11v4m3-9v14m3-7h4" /></svg>;
   if (kind === "amp") return <svg viewBox="0 0 32 32" aria-hidden="true"><rect {...common} x="7" y="9" width="18" height="5" rx=".5" /><rect {...common} x="7" y="18" width="18" height="5" rx=".5" /></svg>;
-  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="17" r="7" /><circle fill="currentColor" cx="16" cy="17" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /></svg>;
+  if (kind === "cab") return <svg viewBox="0 0 32 32" aria-hidden="true"><circle {...common} cx="16" cy="16" r="7" /><circle fill="currentColor" cx="16" cy="16" r="2" /><circle fill="currentColor" cx="7" cy="8" r="1.5" /><circle fill="currentColor" cx="25" cy="8" r="1.5" /><circle fill="currentColor" cx="7" cy="24" r="1.5" /><circle fill="currentColor" cx="25" cy="24" r="1.5" /></svg>;
   if (kind === "capture") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 25 10 7l2 18 4-16-1 16m3 0 7-13m-7 13 10-6m-10 6h11" /></svg>;
   if (kind === "cube") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 11h13v15H6zM6 11l7-6h13v15l-7 6M19 11l7-6M19 26l7-6" /></svg>;
   if (kind === "delay") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 16h4m3 0h4m3 0h4M9 10v12m7-9v6m7-9v12" /></svg>;
@@ -32,17 +37,6 @@ function DeviceGlyph({ block }: { block: GridBlock }) {
   if (kind === "mod") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M4 18c4-13 8 13 12 0s8 13 12 0" /></svg>;
   if (kind === "utility") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M7 10h18M7 16h18M7 22h18M12 7v6m8 0v6m-5 0v6" /></svg>;
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 10h20v12H6zM9 16h14" /></svg>;
-}
-
-function ActionGlyph({ kind }: { kind: "undo" | "save" | "mode" | "more" }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.4, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (kind === "undo") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M10 9H4V3M5 9a12 12 0 1 1-1 13" /><path {...common} d="m4 9 6-6" /></svg>;
-  if (kind === "save") return <svg viewBox="0 0 32 32" aria-hidden="true"><path {...common} d="M6 4h17l4 4v19H6zM10 4v8h12V4M12 22h9" /><path {...common} d="m19 17 5 5-5 5" /></svg>;
-  if (kind === "mode") return <svg viewBox="0 0 32 32" aria-hidden="true">
-    <path {...common} d="M5 8h22M5 16h22M5 24h22" />
-    <circle fill="currentColor" cx="11" cy="8" r="3.2" /><circle fill="currentColor" cx="22" cy="16" r="3.2" /><circle fill="currentColor" cx="13" cy="24" r="3.2" />
-  </svg>;
-  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle fill="currentColor" cx="16" cy="6" r="2.2" /><circle fill="currentColor" cx="16" cy="16" r="2.2" /><circle fill="currentColor" cx="16" cy="26" r="2.2" /></svg>;
 }
 
 function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
@@ -86,50 +80,41 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
   </div>;
 }
 
-function ScreenBlock({ block, selected, onAction }: { block: GridBlock; selected: boolean; onAction: (action: HardwareAction) => void }) {
-  return <button
-    className={`coros-block${block.bypassed ? " is-bypassed" : ""}${selected ? " is-selected" : ""}`}
-    style={{ "--block-color": block.color ?? blockColors[block.kind] } as CSSProperties}
-    title={block.name} aria-label={block.name} aria-pressed={selected}
-    onClick={() => onAction({ kind: "select-block", blockId: block.id })}
-  ><DeviceGlyph block={block} /><span className="block-tooltip">{block.name}</span></button>;
-}
-
 function CorOsGrid({ snapshot, selectedBlockId, onAction }: Pick<QuadCortexSurfaceProps, "snapshot" | "selectedBlockId" | "onAction">) {
   const [sceneMenuOpen, setSceneMenuOpen] = useState(false);
-  const visibleRows = [0, 1, 2, 3];
-  return <div className="qc-screen" aria-label="CorOS Grid">
-    <header className="coros-header">
-      <div className="coros-title"><span>{snapshot.presetLocation.slice(0, -1)}</span><em>{snapshot.presetLocation.slice(-1)}</em><strong>{snapshot.presetName}</strong></div>
-      <div className="coros-actions" aria-label="Preset actions">
-        <button title="Undo" aria-label="Undo"><ActionGlyph kind="undo" /></button>
-        <div className="scene-control">
-          <button className="scene-indicator" aria-label="Select scene" aria-expanded={sceneMenuOpen} onClick={() => setSceneMenuOpen((open) => !open)}><span>{String.fromCharCode(65 + snapshot.activeScene)}</span></button>
-          {sceneMenuOpen && <div className="scene-dropdown" role="menu" aria-label="Scenes">
-            {snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => {
-              setSceneMenuOpen(false);
-              onAction({ kind: "switch", role: `footswitch:${String.fromCharCode(65 + index)}`, phase: "release" });
-            }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}
-          </div>}
-        </div>
-        <button title="Save preset" aria-label="Save preset"><ActionGlyph kind="save" /></button>
-        <button title="More" aria-label="Preset menu"><ActionGlyph kind="more" /></button>
-        <div className="mode-readout"><ActionGlyph kind="mode" />{snapshot.mode}</div>
-      </div>
-    </header>
-    <div className="coros-workspace">
-      <div className="row-rail row-rail-left" aria-hidden="true"><span className="io-pill"><i />In<br />1</span><span className="add-row">＋</span><span className="io-pill">Prev.<br />Row</span><span className="add-row">＋</span></div>
-      <div className="routing-lanes">
-        {visibleRows.map((row) => <div className="routing-lane" key={row}>
-          <span className="lane-wire" aria-hidden="true" />
-          {Array.from({ length: 8 }, (_, column) => {
-            const block = snapshot.blocks.find((candidate) => candidate.row === row && candidate.column === column);
-            return <div className="coros-slot" key={`${row}-${column}`}>{block ? <ScreenBlock block={block} selected={selectedBlockId === block.id} onAction={onAction} /> : <button className="empty-slot" aria-label={`Empty slot row ${row + 1}, column ${column + 1}`}>＋</button>}</div>;
-          })}
-        </div>)}
-      </div>
-      <div className="row-rail row-rail-right" aria-hidden="true"><span className="io-pill">Row<br />3</span><span className="add-row">＋</span><span className="io-pill output-pill">Multi<br />Out<i /></span><span className="add-row">＋</span></div>
-    </div>
+  const columns = [98, 184, 273, 361, 448, 528, 616, 703];
+  const screenBlocks = snapshot.blocks.filter((block) => (block.row === 0 || block.row === 2) && block.column >= 0 && block.column < 8);
+  const sceneLetter = String.fromCharCode(65 + snapshot.activeScene);
+  const renderBlock = (block: GridBlock) => {
+    const cx = columns[block.column];
+    const cy = block.row === 0 ? 147 : 334;
+    const color = block.color ?? blockColors[block.kind];
+    const selected = selectedBlockId === block.id;
+    return <g key={block.id} opacity={block.bypassed ? .16 : 1} color="#f2f2f2">
+      <rect x={cx - 31} y={cy - 31} width="62" height="62" rx="10" fill="#030304" stroke={selected ? "#f5f5f5" : color} strokeWidth={block.bypassed ? 1.5 : 2.2} />
+      <svg x={cx - 18} y={cy - 18} width="36" height="36" viewBox="0 0 32 32"><DeviceGlyph block={block} /></svg>
+    </g>;
+  };
+  return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
+    <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
+      <defs><filter id="blockGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
+      <rect width="800" height="480" fill="#020202" />
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y="75" fill="#f4f4f4">{snapshot.presetName}</text></g>
+      <g fill="none" stroke="#f0f0f0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M632 14a13 13 0 1 1-11 7M621 21l1-9 8 4" /><path d="M709 11h20l6 6v24h-26zM714 11v10h14V11m-10 24h10m-5-7 7 7-7 7" /></g>
+      <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
+      <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
+      <g stroke="#f0f0f0" strokeWidth="3" strokeLinecap="round"><path d="M653 57h28M653 66h28M653 75h28" /><circle fill="#f0f0f0" cx="661" cy="57" r="3.5" /><circle fill="#f0f0f0" cx="674" cy="66" r="3.5" /><circle fill="#f0f0f0" cx="663" cy="75" r="3.5" /></g><text x="691" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="24">{snapshot.mode}</text>
+      <g fill="#171719" fontFamily="Arial, Helvetica, sans-serif" fontWeight="600" textAnchor="middle">
+        <rect x="8" y="108" width="44" height="86" rx="9" /><rect x="8" y="203" width="44" height="79" rx="9" /><rect x="8" y="297" width="44" height="82" rx="9" /><rect x="8" y="390" width="44" height="79" rx="9" /><rect x="748" y="108" width="44" height="86" rx="9" /><rect x="748" y="203" width="44" height="79" rx="9" /><rect x="748" y="297" width="44" height="82" rx="9" /><rect x="748" y="390" width="44" height="79" rx="9" />
+        <path d="M18 115h24" stroke="#f28c22" strokeWidth="3" strokeLinecap="round" /><text x="30" y="143" fill="#dedede" fontSize="15"><tspan x="30">In</tspan><tspan x="30" dy="18">1</tspan></text><text x="30" y="252" fill="#d7d7d7" fontSize="28">＋</text><text x="30" y="327" fill="#dedede" fontSize="13"><tspan x="30">Prev.</tspan><tspan x="30" dy="17">Row</tspan></text><text x="30" y="440" fill="#d7d7d7" fontSize="28">＋</text>
+        <text x="770" y="143" fill="#dedede" fontSize="14"><tspan x="770">Row</tspan><tspan x="770" dy="18">3</tspan></text><text x="770" y="252" fill="#d7d7d7" fontSize="28">＋</text><text x="770" y="327" fill="#dedede" fontSize="13"><tspan x="770">Multi</tspan><tspan x="770" dy="17">Out</tspan></text><path d="M758 375h24" stroke="#e6403d" strokeWidth="3" strokeLinecap="round" /><text x="770" y="440" fill="#d7d7d7" fontSize="28">＋</text>
+      </g>
+      <g stroke="#c9c9ca" strokeWidth="2"><path d="M52 145H748" /><path d="M52 333H748" /></g><g fill="#050506" stroke="#efefef" strokeWidth="2"><circle cx="53" cy="145" r="6" /><circle cx="574" cy="145" r="6" /><circle cx="154" cy="333" r="5" /></g>
+      <g filter="url(#blockGlow)">{screenBlocks.map(renderBlock)}</g>
+    </svg>
+    <div className="coros-vector-actions" aria-label="Preset actions"><button className="vector-action-hit undo-hit" title="Undo" aria-label="Undo" /><button className="vector-action-hit scene-hit" aria-label="Select scene" aria-expanded={sceneMenuOpen} onClick={() => setSceneMenuOpen((open) => !open)} /><button className="vector-action-hit save-hit" title="Save preset" aria-label="Save preset" /><button className="vector-action-hit more-hit" title="More" aria-label="Preset menu" /></div>
+    {screenBlocks.map((block) => <button key={block.id} className="coros-vector-block-hit" style={{ left: `${columns[block.column] / 8}%`, top: `${(block.row === 0 ? 147 : 334) / 4.8}%` }} title={block.name} aria-label={block.name} aria-pressed={selectedBlockId === block.id} onClick={() => onAction({ kind: "select-block", blockId: block.id })} />)}
+    {sceneMenuOpen && <div className="scene-dropdown vector-scene-dropdown" role="menu" aria-label="Scenes">{snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => { setSceneMenuOpen(false); onAction({ kind: "switch", role: `footswitch:${String.fromCharCode(65 + index)}`, phase: "release" }); }}><span>{String.fromCharCode(65 + index)}</span>{scene}</button>)}</div>}
   </div>;
 }
 

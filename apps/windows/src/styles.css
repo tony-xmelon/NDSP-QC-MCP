@@ -398,8 +398,8 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   aspect-ratio: 1096.94 / 719.079;
   border: 0;
   border-radius: 0;
-  background: white;
-  box-shadow: 0 22px 48px #000a;
+  background: #494a4e;
+  box-shadow: inset 0 1px 1px #ffffff5c, inset 0 -4px 8px #10111488, 0 22px 48px #000a;
 }
 .skin-official-svg::before,
 .skin-official-svg::after { display: none; }
@@ -409,6 +409,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   inset: 0;
   display: block;
   overflow: hidden;
+  background:
+    radial-gradient(ellipse at 28% 2%, #ffffff20 0%, transparent 44%),
+    linear-gradient(96deg, transparent 0 11%, #ffffff0c 26%, transparent 43% 78%, #00000016),
+    repeating-linear-gradient(103deg, #ffffff03 0 1px, transparent 1px 4px, #00000004 4px 5px),
+    linear-gradient(165deg, #5b5c60 0%, #4a4b4f 47%, #3e3f43 100%);
   pointer-events: none;
 }
 .skin-official-svg .official-svg-source {
@@ -416,6 +421,9 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   display: block;
   height: auto;
   max-width: none;
+  filter: invert(1) grayscale(1) contrast(1.3);
+  mix-blend-mode: screen;
+  opacity: .72;
   user-select: none;
 }
 .skin-official-svg .chassis-edge,
@@ -429,26 +437,52 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background: transparent;
   box-shadow: none;
 }
+.skin-official-svg .qc-screen-bezel::after {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  inset: 1%;
+  border-radius: 2px;
+  background: linear-gradient(155deg, #ffffff0b, transparent 25% 76%, #6f8ca008);
+  box-shadow: inset 0 0 12px #000b;
+  pointer-events: none;
+}
 .skin-official-svg .power-button {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+  border-color: #242529;
+  background: linear-gradient(145deg, #77787c, #3a3b3f);
+  box-shadow: inset 1px 1px #ffffff6e, 0 2px 4px #17181ab8;
 }
-.skin-official-svg .power-button span,
-.skin-official-svg .volume-knob::before,
-.skin-official-svg .volume-knob span { display: none; }
+.skin-official-svg .power-button span { display: block; }
 .skin-official-svg .volume-knob {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid #202125;
+  background: repeating-conic-gradient(from -5deg, #2a2b2e 0 3deg, #696a6d 3deg 5deg, #343539 5deg 8deg);
+  box-shadow: inset 0 0 0 3px #242529, inset 5px 5px 10px #ffffff18, 5px 7px 9px #1617198c;
 }
+.skin-official-svg .volume-knob::before { display: block; background: radial-gradient(circle at 36% 28%, #77787c, #505155 55%, #292a2e 100%); }
+.skin-official-svg .volume-knob span { display: block; background: #17181b; box-shadow: 1px 0 #ffffff52; }
 .skin-official-svg .screen-nav-control,
 .skin-official-svg .footswitch-deck,
 .skin-official-svg .master-volume { z-index: 4; }
-.skin-official-svg .switch-ring,
 .skin-official-svg .switch-label,
 .skin-official-svg .nav-arrow { visibility: hidden; }
-.skin-official-svg .switch-cap { visibility: hidden; }
+.skin-official-svg .switch-ring {
+  visibility: visible;
+  width: clamp(30px, 3.5vw, 46px);
+  border: 0;
+  background: radial-gradient(circle, transparent 0 27%, #1c1d20 28% 36%, #a8aaac 37% 49%, #55575a 50% 64%, transparent 66%);
+  box-shadow: none;
+  filter: drop-shadow(3px 5px 3px #17181a99);
+}
+.skin-official-svg .switch-cap {
+  visibility: visible;
+  width: 48%;
+  border: 1px solid #292a2d;
+  background: repeating-conic-gradient(from -6deg, #aeb0b2 0 4deg, #4d4f52 4deg 7deg);
+  box-shadow: inset 1px 1px 2px #ffffff8a, 1px 2px 2px #1118;
+}
+.skin-official-svg .switch-cap::before {
+  background: radial-gradient(circle at 35% 27%, #d2d3d4, #7f8184 52%, #444649 100%);
+}
 .skin-official-svg .switch-led {
   border: 0;
   background: transparent;
@@ -473,15 +507,41 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .skin-official-svg .hardware-switch:focus-visible .switch-ring {
   visibility: visible;
   border-color: transparent;
-  background: transparent;
   box-shadow: 0 0 0 2px #1687c8;
-  filter: none;
 }
 .skin-official-svg .power-button:focus-visible,
 .skin-official-svg .volume-knob:focus-visible {
   outline: 2px solid #1687c8;
   outline-offset: 3px;
 }
+
+/* CorOS reference canvas. The visual surface stays in the native 800×480
+   coordinate system; accessible HTML hit targets are aligned over the SVG. */
+.coros-vector-screen { position: relative; display: block; container-type: normal; background: #020202; }
+.coros-vector-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.coros-vector-canvas svg { overflow: visible; }
+.coros-vector-actions { position: absolute; inset: 0; pointer-events: none; }
+.vector-action-hit,
+.coros-vector-block-hit {
+  position: absolute;
+  z-index: 6;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.vector-action-hit { top: 1.5%; height: 8%; }
+.undo-hit { left: 75.8%; width: 5%; }
+.scene-hit { left: 81.7%; width: 4.5%; }
+.save-hit { left: 87.8%; width: 5%; }
+.more-hit { left: 93.5%; width: 4%; }
+.coros-vector-block-hit { width: 8.7%; height: 14.6%; transform: translate(-50%, -50%); border-radius: 12%; }
+.vector-action-hit:focus-visible,
+.coros-vector-block-hit:focus-visible { outline: 2px solid #69cbf3; outline-offset: 1px; }
+.coros-vector-block-hit:hover { box-shadow: inset 0 0 0 1px #ffffff80; }
+.vector-scene-dropdown { right: 4%; top: 10%; }
 
 .status-strip { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 6px 18px; border-top: 1px solid #2d3137; background: #14171a; color: #aeb3bb; font-size: 10px; }
 .status-symbol { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid #69717d; border-radius: 50%; font: 10px serif; }
