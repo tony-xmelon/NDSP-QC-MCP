@@ -92,9 +92,14 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
   const drag = useRef<{ pointerId: number; lastY: number } | null>(null);
+  const [angle, setAngle] = useState(-28);
+  const rotate = (delta: number) => {
+    setAngle((current) => Math.max(-135, Math.min(135, current + delta * 5)));
+    onAction({ kind: "rotate", role: "master-volume", delta });
+  };
   return <div className="master-volume">
     <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
-    <button className="volume-knob" aria-label="Master volume knob" title="Safety locked in the app; use the physical Quad Cortex Master Volume control" onPointerDown={(event) => {
+    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" title="Drag vertically for a preview; hardware Master Volume remains safety locked" onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       drag.current = { pointerId: event.pointerId, lastY: event.clientY };
     }} onPointerMove={(event) => {
@@ -103,17 +108,17 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
       const steps = Math.trunc((gesture.lastY - event.clientY) / 12);
       if (!steps) return;
       gesture.lastY -= steps * 12;
-      onAction({ kind: "rotate", role: "master-volume", delta: steps });
+      rotate(steps);
     }} onPointerUp={(event) => {
       drag.current = null;
       if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     }} onPointerCancel={() => { drag.current = null; }} onKeyDown={(event) => {
       if (!["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(event.key)) return;
       event.preventDefault();
-      onAction({ kind: "rotate", role: "master-volume", delta: event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1 });
+      rotate(event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1);
     }} onWheel={(event) => {
       event.preventDefault();
-      onAction({ kind: "rotate", role: "master-volume", delta: event.deltaY < 0 ? 1 : -1 });
+      rotate(event.deltaY < 0 ? 1 : -1);
     }}><span /></button>
     <strong>VOLUME</strong>
   </div>;

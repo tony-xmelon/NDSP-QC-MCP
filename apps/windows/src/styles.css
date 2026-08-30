@@ -124,7 +124,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .power-button span::before { content: ""; position: absolute; left: 50%; top: -30%; width: 1px; height: 58%; background: #e7e8e9; transform: translateX(-50%); }
 .volume-knob { position: relative; width: min(76%, 104px); aspect-ratio: 1; align-self: center; border: 0; border-radius: 50%; background: repeating-conic-gradient(from -4deg, #151619 0 2deg, #2c2d30 2deg 5deg); box-shadow: inset 0 0 0 3px #17181a, inset 8px 8px 15px #5556, 0 5px 12px #111b; cursor: ns-resize; touch-action: none; }
 .volume-knob::before { content: ""; position: absolute; left: 23%; top: 23%; width: 54%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 38% 30%, #45464a, #17181b 65%, #090a0b); box-shadow: inset 0 1px #aaa5; }
-.volume-knob span { position: absolute; width: 2px; height: 22%; top: 17%; left: 50%; background: #ddd; transform: translateX(-50%) rotate(-28deg); transform-origin: 50% 150%; }
+.volume-knob span { position: absolute; width: 2px; height: 22%; top: 17%; left: 50%; background: #ddd; transform: translateX(-50%) rotate(var(--volume-angle, -28deg)); transform-origin: 50% 150%; transition: transform 60ms linear; }
 .master-volume strong { color: #e5e5e6; font: 600 clamp(6px, .55vw, 9px) "Cascadia Mono", Consolas, monospace; letter-spacing: .11em; }
 
 .device-plate { position: absolute; z-index: 2; right: 4%; top: 5%; padding: .6% 1.1%; border: 1px solid #8b8c90; border-radius: 4px; color: #f0f0f0; font: 600 clamp(6px, .62vw, 10px) "Cascadia Mono", Consolas, monospace; letter-spacing: .15em; box-shadow: inset 0 1px #fff3; }
@@ -404,8 +404,16 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   background: #494a4e;
   box-shadow: inset 0 1px 1px #ffffff5c, inset 0 -4px 8px #10111488, 0 22px 48px #000a;
 }
-.skin-official-svg::before,
-.skin-official-svg::after { display: none; }
+.skin-official-svg::before { display: none; }
+.skin-official-svg::after {
+  display: block;
+  z-index: 2;
+  top: 60.55%;
+  height: 2.7%;
+  border: 0;
+  background: linear-gradient(180deg, #57585cdd 0%, #505155f2 30%, #444549f4 68%, #4b4c50ef 100%);
+  box-shadow: inset 0 5px 9px -9px #ffffff80, inset 0 -6px 10px -10px #090a0b99;
+}
 .skin-official-svg .official-svg-viewport {
   position: absolute;
   z-index: 0;
@@ -494,7 +502,7 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   position: relative;
   z-index: 2;
   visibility: visible;
-  width: 76%;
+  width: 88%;
   border: 1px solid #111215;
   background: repeating-conic-gradient(from -4deg, #111215 0 3deg, #4f5053 3deg 5deg, #1b1c1f 5deg 8deg);
   box-shadow: 0 0 0 2px #141518, inset 1px 1px 2px #ffffff35, 2px 4px 3px #111b;
@@ -505,9 +513,9 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
   box-shadow: inset 1px 1px 1px #ffffff52, inset -1px -1px 2px #17181a;
 }
 .skin-official-svg .switch-led {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  border: 1.5px solid #c9cacc;
+  background: #494a4e;
+  box-shadow: inset 1px 1px 2px #161719aa, 0 1px 1px #ffffff26;
 }
 .skin-official-svg .hardware-switch.is-active .switch-led {
   visibility: visible;
