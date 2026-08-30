@@ -213,6 +213,17 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   const rowY = [151, 243, 338, 430];
   const screenBlocks = snapshot.blocks.filter((block) => block.row >= 0 && block.row < 4 && block.column >= 0 && block.column < 8);
   const sceneLetter = String.fromCharCode(65 + snapshot.activeScene);
+  const presetTitle = `${snapshot.presetName}${snapshot.dirty ? "*" : ""}`;
+  const presetTitleWidthAtFullSize = (() => {
+    if (typeof document === "undefined") return presetTitle.length * 40;
+    const context = document.createElement("canvas").getContext("2d");
+    if (!context) return presetTitle.length * 40;
+    context.font = `${snapshot.dirty ? "italic " : ""}800 68px Arial`;
+    return context.measureText(presetTitle).width;
+  })();
+  const presetTitleFontSize = Math.max(22, Math.min(68, 68 * 520 / Math.max(1, presetTitleWidthAtFullSize)));
+  const squeezePresetTitle = presetTitleWidthAtFullSize * presetTitleFontSize / 68 > 520;
+  const presetTitleBaseline = 75 - (68 - presetTitleFontSize) * .28;
   const routes = rowY.map((_, row) => snapshot.routes.find((route) => route.row === row));
   const displayInput = (row: number) => {
     const input = routes[row]?.input;
@@ -277,9 +288,9 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <defs><filter id="blockGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
       <rect width="800" height="480" fill="#020202" />
-      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y="75" fill="#f4f4f4" fontStyle={snapshot.dirty ? "italic" : "normal"}>{snapshot.presetName}{snapshot.dirty ? "*" : ""}</text></g>
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68" letterSpacing="-2"><text x="14" y="75" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="56" y="75" textLength="42" lengthAdjust="spacingAndGlyphs" fill="#3ee77b">{snapshot.presetLocation.slice(-1)}</text><text x="114" y={presetTitleBaseline} fill="#f4f4f4" fontSize={presetTitleFontSize} fontStyle={snapshot.dirty ? "italic" : "normal"} textLength={squeezePresetTitle ? 520 : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</text></g>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M626 4l-7 7 7 7" /><path d="M620 11a13 13 0 1 1 3 16" />
+        <g transform="translate(0 6)"><path d="M626 4l-7 7 7 7" /><path d="M620 11a13 13 0 1 1 3 16" /></g>
         <path d="M709 10h18l6 6v9M709 10v29h21M714 10v10h12V10" /><path d="M718 30h17m0 0-6-6m6 6-6 6" />
       </g>
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
