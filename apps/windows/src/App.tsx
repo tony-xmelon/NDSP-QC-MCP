@@ -16,7 +16,7 @@ const menus = [
   { name: "File", items: ["Open Workspace…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
   { name: "Edit", items: ["Undo Last App Change", "Redo", "Copy Block Settings", "Paste Block Settings", "Keyboard Shortcuts…"] },
   { name: "View", items: ["Fit Hardware to Window", "Actual Size", "Full Screen", "Show/Hide Chat", "Connection Log"] },
-  { name: "Device", items: ["Connect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State"] },
+  { name: "Device", items: ["Connect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Open Tuner", "Open Gig View"] },
   { name: "Help", items: ["User Guide", "Send Feedback…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
 ];
 
@@ -34,7 +34,7 @@ function MenuBar({ onSelect }: { onSelect: (item: string) => void }) {
         </div>
       </details>)}
     </div>
-    <div className="window-title">Windows Client · Preview</div>
+    <div className="window-title">Windows Client</div>
   </nav>;
 }
 
@@ -58,8 +58,10 @@ export function App() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
+  const [commandPending, setCommandPending] = useState(false);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const mediaStream = useRef<MediaStream | undefined>(undefined);
+  const autoConnectStarted = useRef(false);
 
   const formFactor = useMemo(() => formFactors.find((item) => item.id === formFactorId) ?? formFactors[0], [formFactorId]);
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
@@ -68,10 +70,68 @@ export function App() {
     void tauriTransport.runtimeStatus().then(setRuntime).catch((error: Error) => setNotice(error.message));
   }, []);
 
-  const chooseScene = useCallback((index: number) => {
-    setSnapshot((current) => ({ ...current, activeScene: index }));
-    setNotice(`Demo: selected Scene ${String.fromCharCode(65 + index)} — ${snapshot.scenes[index]}. Hardware was not changed.`);
-  }, [snapshot.scenes]);
+  const actionFailed = useCallback((error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    setNotice(detail);
+    setConnection((current) => ({ ...current, phase: "needs-attention", detail }));
+  }, []);
+
+  const chooseScene = useCallback(async (index: number) => {
+    if (connection.demo) {
+      setSnapshot((current) => ({ ...current, activeScene: index }));
+      setNotice(`Demo: selected Scene ${String.fromCharCode(65 + index)} — ${snapshot.scenes[index]}. Hardware was not changed.`);
+      return;
+    }
+    if (commandPending) return;
+    setCommandPending(true);
+    setNotice(`Selecting Scene ${String.fromCharCode(65 + index)}…`);
+    try {
+      const result = await tauriTransport.selectScene(index, snapshot.presetName);
+      if (result.snapshot) setSnapshot(result.snapshot);
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  }, [actionFailed, commandPending, connection.demo, snapshot.presetName, snapshot.scenes]);
+
+  const toggleSelectedBypass = useCallback(async () => {
+    const block = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
+    if (!block || commandPending) return;
+    if (connection.demo) {
+      setSnapshot((current) => ({ ...current, blocks: current.blocks.map((candidate) => candidate.id === block.id ? { ...candidate, bypassed: !candidate.bypassed } : candidate) }));
+      setNotice("Demo: selected block bypass toggled locally.");
+      return;
+    }
+    setCommandPending(true);
+    setNotice(`${block.bypassed ? "Enabling" : "Bypassing"} ${block.name}…`);
+    try {
+      const result = await tauriTransport.toggleBypass(block.row, block.column, snapshot.activeScene, snapshot.presetName);
+      if (result.snapshot) setSnapshot(result.snapshot);
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  }, [actionFailed, commandPending, connection.demo, selectedBlockId, snapshot]);
+
+  const showDeviceView = useCallback(async (view: "tuner" | "gig") => {
+    if (connection.demo || commandPending) {
+      setNotice(connection.demo ? `Connect the Quad Cortex before opening ${view === "tuner" ? "the tuner" : "Gig View"}.` : "A device command is already in progress.");
+      return;
+    }
+    setCommandPending(true);
+    try {
+      const result = view === "tuner" ? await tauriTransport.showTuner() : await tauriTransport.showGigView();
+      setNotice(result.detail);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  }, [actionFailed, commandPending, connection.demo]);
 
   const handleHardwareAction = useCallback((action: HardwareAction) => {
     if (action.kind === "select-block") {
@@ -81,18 +141,19 @@ export function App() {
       return;
     }
     if (action.kind === "rotate") {
-      if (action.role === "tempo") {
+      if (connection.demo && action.role === "tempo") {
         setSnapshot((current) => ({ ...current, tempo: Math.max(30, Math.min(300, current.tempo + action.delta)) }));
       }
-      setNotice(`Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.`);
+      setNotice(connection.demo ? `Demo encoder: ${action.role} ${action.delta > 0 ? "+" : "−"}1.` : `${action.role} encoder writes are not enabled yet.`);
       return;
     }
     if (action.phase === "release" && action.role.startsWith("footswitch:")) {
-      chooseScene(action.role.charCodeAt(action.role.length - 1) - 65);
+      void chooseScene(action.role.charCodeAt(action.role.length - 1) - 65);
       return;
     }
-    if (action.phase === "release") setNotice(`Demo switch: ${action.role}. Hardware was not changed.`);
-  }, [chooseScene, snapshot.blocks]);
+    if (action.phase === "release" && action.role === "tempo") setNotice(connection.demo ? "Demo: Tap tempo registered." : "Tap tempo control is not enabled yet; use the QC tempo screen.");
+    else if (action.phase === "release") setNotice(connection.demo ? `Demo switch: ${action.role}. Hardware was not changed.` : `${action.role} is not enabled in the live control slice yet.`);
+  }, [chooseScene, connection.demo, snapshot.blocks]);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -105,30 +166,55 @@ export function App() {
         return;
       }
       if (textEntry) return;
-      if (/^[1-8]$/.test(event.key)) chooseScene(Number(event.key) - 1);
-      if (event.key === "[") setNotice("Demo: Bank down requested.");
-      if (event.key === "]") setNotice("Demo: Bank up requested.");
-      if (event.key.toLowerCase() === "t") setNotice(event.shiftKey ? "Demo: Tuner requested." : "Demo: Tap tempo registered.");
-      if (event.key.toLowerCase() === "b" && selectedBlockId) {
-        setSnapshot((current) => ({ ...current, blocks: current.blocks.map((block) => block.id === selectedBlockId ? { ...block, bypassed: !block.bypassed } : block) }));
-        setNotice("Demo: selected block bypass toggled locally.");
-      }
+      if (/^[1-8]$/.test(event.key)) void chooseScene(Number(event.key) - 1);
+      if (event.key === "[") setNotice("Bank Down will be enabled with preset-browser synchronization.");
+      if (event.key === "]") setNotice("Bank Up will be enabled with preset-browser synchronization.");
+      if (event.key.toLowerCase() === "t") event.shiftKey ? void showDeviceView("tuner") : setNotice("Tap tempo control is not enabled yet; use the QC tempo screen.");
+      if (event.key.toLowerCase() === "b" && selectedBlockId) void toggleSelectedBypass();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chooseScene, selectedBlockId]);
+  }, [chooseScene, selectedBlockId, showDeviceView, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
     setConnection({ phase: "discovering", detail: "Looking for device gateway…", demo: true });
     try {
       const next = mode === "reset" ? await tauriTransport.resetSession() : await tauriTransport.reconnect();
       setConnection(next);
-      setNotice(next.detail);
+      if (next.phase === "ready") {
+        const current = await tauriTransport.currentSnapshot();
+        setSnapshot(current);
+        setSelectedBlockId(current.blocks[0]?.id ?? "");
+        setNotice(`${next.detail}. Live preset state synchronized.`);
+      } else {
+        setNotice(next.detail);
+      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setConnection({ phase: "needs-attention", detail, demo: true });
       setNotice(detail);
       setDialog("connection");
+    }
+  };
+
+  useEffect(() => {
+    if (autoConnectStarted.current) return;
+    autoConnectStarted.current = true;
+    void connect();
+  }, []);
+
+  const refreshSnapshot = async () => {
+    if (connection.demo || commandPending) return;
+    setCommandPending(true);
+    setNotice("Refreshing complete device state…");
+    try {
+      const current = await tauriTransport.currentSnapshot();
+      setSnapshot(current);
+      setNotice("Live preset state refreshed.");
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
     }
   };
 
@@ -138,6 +224,9 @@ export function App() {
     else if (item === "Show/Hide Chat") setChatOpen((open) => !open);
     else if (item === "Connect" || item === "Reconnect") void connect();
     else if (item === "Reset Communication Session") void connect("reset");
+    else if (item === "Refresh Complete State") void refreshSnapshot();
+    else if (item === "Open Tuner") void showDeviceView("tuner");
+    else if (item === "Open Gig View") void showDeviceView("gig");
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
     else setNotice(`${item} is present in the shell and will be wired in its delivery phase.`);
   };
@@ -178,7 +267,7 @@ export function App() {
       <div className="toolbar-controls">
         <label>FORM FACTOR<select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label>
         <label>SKIN<select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label>
-        <button className="toolbar-button" onClick={() => void connect()}>↻ Reconnect</button>
+        <button className="toolbar-button" onClick={() => void connect()} disabled={commandPending}>↻ Reconnect</button>
         <button className="icon-button" title="Connection details" aria-label="Connection details" onClick={() => setDialog("connection")}>•••</button>
       </div>
     </header>
@@ -191,7 +280,7 @@ export function App() {
 
     {chatOpen ? <section className="chat-dock" aria-label="QC assistant">
       {messages.length > 0 && <div className="conversation-preview">{messages.slice(-2).map((item, index) => <div className="user-message" key={`${item}-${index}`}>{item}</div>)}</div>}
-      <div className="context-line"><span className="context-pill">DEMO</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span><span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
+      <div className="context-line"><span className="context-pill">{connection.demo ? "DEMO" : "LIVE"}</span><strong>{snapshot.presetLocation} · {snapshot.presetName}</strong><span>Scene {String.fromCharCode(65 + snapshot.activeScene)}</span><span>{selectedBlockId ? `Selected: ${snapshot.blocks.find((block) => block.id === selectedBlockId)?.name}` : "No block selected"}</span></div>
       <div className="composer">
         <button className="composer-tool" title="Attach QC context" aria-label="Attach QC context">＋</button>
         <textarea ref={chatInput} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
@@ -206,7 +295,7 @@ export function App() {
     {dialog && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setDialog(null)}>
       <section className="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="dialog-close" aria-label="Close" onClick={() => setDialog(null)}>×</button>
-        {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">Gateway not connected</h2><p>The visual client is running with deterministic demo state. The next backend slice will launch the Python device gateway and perform the QC handshake over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Not packaged"}</dd><dt>Safety</dt><dd>All hardware writes locked</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
+        {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, block bypass, tuner, and Gig View enabled with validation</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Global push-to-talk<small>Disabled until explicitly configured</small></span><input type="checkbox" disabled /></label></>}
         {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>

@@ -1,4 +1,4 @@
-import type { ConnectionState, GatewayTransport, RuntimeStatus } from "@ndsp-qc/client";
+import type { ConnectionState, DeviceActionResult, GatewayTransport, RuntimeStatus } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -6,12 +6,12 @@ declare global {
   }
 }
 
-async function callTauri<T>(command: string): Promise<T> {
+async function callTauri<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (!window.__TAURI_INTERNALS__) {
     throw new Error("Desktop runtime is not active. Start with npm run tauri:dev.");
   }
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<T>(command);
+  return invoke<T>(command, args);
 }
 
 export const tauriTransport: GatewayTransport = {
@@ -30,5 +30,20 @@ export const tauriTransport: GatewayTransport = {
   },
   resetSession(): Promise<ConnectionState> {
     return callTauri<ConnectionState>("reset_device_session");
+  },
+  currentSnapshot(): Promise<import("@ndsp-qc/client").PresetSnapshot> {
+    return callTauri<import("@ndsp-qc/client").PresetSnapshot>("current_snapshot");
+  },
+  selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("select_scene", { scene, expectedPresetName });
+  },
+  toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedPresetName });
+  },
+  showTuner(shown = true): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("show_tuner", { shown });
+  },
+  showGigView(shown = true): Promise<DeviceActionResult> {
+    return callTauri<DeviceActionResult>("show_gig_view", { shown });
   }
 };

@@ -78,8 +78,18 @@ export interface RuntimeStatus {
   message: string;
 }
 
+export interface DeviceActionResult {
+  detail: string;
+  snapshot?: PresetSnapshot;
+}
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
   resetSession(): Promise<ConnectionState>;
+  currentSnapshot(): Promise<PresetSnapshot>;
+  selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  toggleBypass(row: number, column: number, expectedScene: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  showTuner(shown?: boolean): Promise<DeviceActionResult>;
+  showGigView(shown?: boolean): Promise<DeviceActionResult>;
 }

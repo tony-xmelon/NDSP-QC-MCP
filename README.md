@@ -46,7 +46,13 @@ See [Architecture](docs/ARCHITECTURE.md) and the [Windows implementation plan](d
 
 ## Status
 
-The first Windows client slice is implemented: Tauri/WebView2 shell, reusable hardware surface, form-factor/skin packages, demo QC state, keyboard/mouse interaction, connection diagnostics, menus, chat composer, and microphone capture lifecycle. Hardware commands remain locked until the persistent device gateway is connected.
+The Windows client now has a Tauri/WebView2 shell, reusable hardware surface,
+form-factor/skin packages, keyboard/mouse interaction, connection diagnostics,
+menus, chat composer, and microphone capture lifecycle. Its persistent Python
+device gateway owns the QC HID session and hydrates the UI from a live preset
+snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
+Gig View controls are enabled; state-changing block commands use expected-state
+guards and readback. Persistent preset and global-setting writes remain locked.
 
 The USB transport has been validated locally against a connected Quad Cortex using `pyquadcortex`.
 
