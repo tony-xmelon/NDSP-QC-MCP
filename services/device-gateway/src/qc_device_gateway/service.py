@@ -37,6 +37,8 @@ class GatewayService:
                 result = self.device.reconnect()
             elif method == "device.resetSession":
                 result = self.device.reset_session()
+            elif method == "device.disconnect":
+                result = self.device.disconnect()
             elif method == "device.snapshot":
                 result = self.device.snapshot()
             elif method == "device.selectScene":

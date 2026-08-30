@@ -599,6 +599,11 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: #d9dce1; background
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .dialog-actions button { padding: 8px 12px; border: 1px solid #3b414a; border-radius: 6px; background: #272b31; font-size: 11px; }
 .dialog-actions .primary { border-color: #66c9ef; background: #23627b; }
+.connection-event-list { display: grid; max-height: 280px; overflow-y: auto; border: 1px solid #30343b; border-radius: 8px; background: #121417; }
+.connection-event-list > div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 9px 12px; border-bottom: 1px solid #292d33; font-size: 11px; }
+.connection-event-list > div:last-child { border-bottom: 0; }
+.connection-event-list time { color: #747b85; font-family: "DM Mono", monospace; }
+.connection-event-list strong { color: #d8dbe0; font-weight: 500; text-transform: capitalize; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; border-top: 1px solid #30343b; }
 .setting-row > span { display: grid; gap: 4px; font-size: 12px; }
 .setting-row small { color: #777e88; font-size: 9px; }

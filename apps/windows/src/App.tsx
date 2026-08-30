@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type GridBlock, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
+import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DiagnosticsReport, type GridBlock, type PresetEntry, type PresetList, type PresetSlotList, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QuadCortexSurface, type HardwareAction } from "@ndsp-qc/ui";
 import { assistantHelp, formatSnapshotSummary, parseAssistantIntent } from "./assistant";
-import { tauriTransport, workspaceFiles } from "./tauri-transport";
+import { diagnosticsFiles, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createSpeechRecognition, speechRecognitionErrorMessage, type SpeechRecognitionLike } from "./voice";
 
-type DialogName = "settings" | "about" | "connection" | "presets" | "parameters" | "workspace" | "save-device" | null;
+type DialogName = "settings" | "about" | "connection" | "connection-log" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "presets" | "parameters" | "workspace" | "save-device" | null;
 type ConversationEntry = { id: number; role: "user" | "assistant" | "tool"; text: string };
+type ConnectionEvent = { at: string; event: "app-start" | "runtime-ready" | "connect-attempt" | "connected" | "connect-failed" | "disconnected" | "reset-attempt" | "diagnostics-exported" };
 type PendingAssistantAction =
   | { kind: "bypass"; block: GridBlock; targetBypassed: boolean; label: string }
   | { kind: "parameter"; block: BlockDetails; parameter: BlockParameter; value: number; label: string };
@@ -21,11 +22,11 @@ const initialConnection: ConnectionState = {
 const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
 
 const menus = [
-  { name: "File", items: ["Open Workspace…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
+  { name: "File", items: ["Open Workspace…", "Open Device Preset…", "Save Workspace", "Save Workspace As…", "Save Preset to Quad Cortex…", "Settings…", "Exit"] },
   { name: "Edit", items: ["Undo Last App Change", "Redo", "Copy Block Settings", "Paste Block Settings", "Keyboard Shortcuts…"] },
   { name: "View", items: ["Fit Hardware to Window", "Actual Size", "Full Screen", "Show/Hide Chat", "Connection Log"] },
-  { name: "Device", items: ["Connect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View"] },
-  { name: "Help", items: ["User Guide", "Send Feedback…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
+  { name: "Device", items: ["Connect", "Disconnect", "Reconnect", "Reset Communication Session", "Rescan USB Devices", "Refresh Complete State", "Current Device Information", "Discard Unsaved Changes…", "Open Tuner", "Open Gig View", "Export Diagnostics…"] },
+  { name: "Help", items: ["User Guide", "Keyboard and Mouse Reference", "Report a Problem…", "About", "Third-Party Notices", "Privacy", "Legal Notices"] }
 ];
 
 function MenuBar({ onSelect }: { onSelect: (item: string) => void }) {
@@ -80,6 +81,7 @@ export function App() {
   const [savePresetName, setSavePresetName] = useState("");
   const [savePresetPosition, setSavePresetPosition] = useState<number>();
   const [presetSlotsLoading, setPresetSlotsLoading] = useState(false);
+  const [connectionEvents, setConnectionEvents] = useState<ConnectionEvent[]>([{ at: new Date().toISOString(), event: "app-start" }]);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const speechRecognition = useRef<SpeechRecognitionLike | undefined>(undefined);
   const voiceTranscript = useRef("");
@@ -96,7 +98,10 @@ export function App() {
   const skin = useMemo(() => skins.find((item) => item.id === skinId) ?? skins[0], [skinId]);
 
   useEffect(() => {
-    void tauriTransport.runtimeStatus().then(setRuntime).catch((error: Error) => setNotice(error.message));
+    void tauriTransport.runtimeStatus().then((status) => {
+      setRuntime(status);
+      setConnectionEvents((current) => [...current, { at: new Date().toISOString(), event: "runtime-ready" }]);
+    }).catch((error: Error) => setNotice(error.message));
     return () => {
       speechRecognition.current?.abort();
       if (tempoCommitTimer.current !== undefined) window.clearTimeout(tempoCommitTimer.current);
@@ -346,6 +351,7 @@ export function App() {
   }, [chooseScene, navigateBank, selectedBlockId, showDeviceView, tapTempo, toggleSelectedBypass]);
 
   const connect = async (mode: "reconnect" | "reset" = "reconnect") => {
+    setConnectionEvents((current) => [...current, { at: new Date().toISOString(), event: mode === "reset" ? "reset-attempt" : "connect-attempt" }]);
     setConnection({ phase: "discovering", detail: "Looking for device gateway…", demo: true });
     try {
       const next = mode === "reset" ? await tauriTransport.resetSession() : await tauriTransport.reconnect();
@@ -355,6 +361,7 @@ export function App() {
         setSnapshot(current);
         setSelectedBlockId(current.blocks[0]?.id ?? "");
         setNotice(`${next.detail}. Live preset state synchronized.`);
+        setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "connected" }]);
       } else {
         setNotice(next.detail);
       }
@@ -363,6 +370,57 @@ export function App() {
       setConnection({ phase: "needs-attention", detail, demo: true });
       setNotice(detail);
       setDialog("connection");
+      setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "connect-failed" }]);
+    }
+  };
+
+  const disconnectDevice = async () => {
+    if (commandPending) {
+      setNotice("Wait for the current device command to finish before disconnecting.");
+      return;
+    }
+    setCommandPending(true);
+    speechRecognition.current?.abort();
+    setListening(false);
+    try {
+      const next = await tauriTransport.disconnect();
+      setConnection(next);
+      setNotice(next.detail);
+      setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "disconnected" }]);
+    } catch (error) {
+      actionFailed(error);
+    } finally {
+      setCommandPending(false);
+    }
+  };
+
+  const exportDiagnostics = async () => {
+    const report: DiagnosticsReport = {
+      generatedAt: new Date().toISOString(),
+      appVersion: "0.1.0",
+      runtime: { platform: runtime?.platform ?? "unknown", gatewayAvailable: runtime?.gatewayAvailable ?? false },
+      connection: { phase: connection.phase, demo: connection.demo },
+      device: {
+        presetLocation: snapshot.presetLocation,
+        presetPosition: snapshot.presetPosition,
+        mode: snapshot.mode,
+        activeScene: snapshot.activeScene,
+        tempo: snapshot.tempo,
+        dirty: snapshot.dirty,
+        blockCount: snapshot.blocks.length
+      },
+      events: connectionEvents
+    };
+    try {
+      const result = await diagnosticsFiles.export(report);
+      if (result.cancelled) {
+        setNotice("Diagnostics export cancelled.");
+        return;
+      }
+      setConnectionEvents((events) => [...events, { at: new Date().toISOString(), event: "diagnostics-exported" }]);
+      setNotice(`Redacted diagnostics exported as ${result.name}.`);
+    } catch (error) {
+      actionFailed(error);
     }
   };
 
@@ -564,13 +622,23 @@ export function App() {
     else if (item === "Save Preset to Quad Cortex…") void openDeviceSave();
     else if (item === "Open Device Preset…") void openPresetBrowser();
     else if (item === "About") setDialog("about");
+    else if (item === "Connection Log") setDialog("connection-log");
+    else if (item === "Current Device Information") setDialog("device-info");
+    else if (item === "Keyboard Shortcuts…" || item === "Keyboard and Mouse Reference") setDialog("shortcuts");
+    else if (item === "User Guide") setDialog("guide");
+    else if (item === "Privacy") setDialog("privacy");
+    else if (item === "Legal Notices") setDialog("legal");
+    else if (item === "Third-Party Notices") setDialog("notices");
+    else if (item === "Report a Problem…") setDialog("feedback");
     else if (item === "Show/Hide Chat") setChatOpen((open) => !open);
-    else if (item === "Connect" || item === "Reconnect") void connect();
+    else if (item === "Connect" || item === "Reconnect" || item === "Rescan USB Devices") void connect();
+    else if (item === "Disconnect") void disconnectDevice();
     else if (item === "Reset Communication Session") void connect("reset");
     else if (item === "Refresh Complete State") void refreshSnapshot();
     else if (item === "Discard Unsaved Changes…") void reloadPreset();
     else if (item === "Open Tuner") void showDeviceView("tuner");
     else if (item === "Open Gig View") void showDeviceView("gig");
+    else if (item === "Export Diagnostics…") void exportDiagnostics();
     else if (item === "Full Screen") void document.documentElement.requestFullscreen?.();
     else if (item === "Exit") void exitApp();
     else setNotice(`${item} is present in the shell and will be wired in its delivery phase.`);
@@ -865,7 +933,9 @@ export function App() {
     {dialog && <div className="dialog-backdrop" role="presentation" onMouseDown={() => setDialog(null)}>
       <section className="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onMouseDown={(event) => event.stopPropagation()}>
         <button className="dialog-close" aria-label="Close" onClick={() => setDialog(null)}>×</button>
-        {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, block bypass, tuner, and Gig View enabled with validation</dd></dl><div className="dialog-actions"><button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
+        {dialog === "connection" && <><div className="dialog-kicker">DEVICE CONNECTION</div><h2 id="dialog-title">{connection.phase === "ready" ? "Quad Cortex connected" : "Device needs attention"}</h2><p>{connection.detail}. The Python gateway owns the USB session and synchronizes state over private framed JSON-RPC.</p><dl><dt>Runtime</dt><dd>{runtime?.platform ?? "Unknown"}</dd><dt>Gateway</dt><dd>{runtime?.gatewayAvailable ? "Available" : "Unavailable"}</dd><dt>Controls</dt><dd>Scenes, tempo, block parameters/bypass, presets, tuner, and Gig View</dd></dl><div className="dialog-actions">{connection.phase === "ready" && <button onClick={() => void disconnectDevice()}>Disconnect</button>}<button onClick={() => void connect("reset")}>Reset session</button><button className="primary" onClick={() => void connect()}>Retry</button></div></>}
+        {dialog === "connection-log" && <><div className="dialog-kicker">CONNECTION LOG</div><h2 id="dialog-title">Session lifecycle</h2><div className="connection-event-list">{connectionEvents.map((entry, index) => <div key={`${entry.at}-${index}`}><time>{new Date(entry.at).toLocaleTimeString()}</time><strong>{entry.event.replaceAll("-", " ")}</strong></div>)}</div><p>This log contains lifecycle event names only. Device identifiers, paths, preset names, and conversation text are not recorded.</p><div className="dialog-actions"><button onClick={() => setConnectionEvents([{ at: new Date().toISOString(), event: "app-start" }])}>Clear</button><button className="primary" onClick={() => void exportDiagnostics()}>Export redacted diagnostics…</button></div></>}
+        {dialog === "device-info" && <><div className="dialog-kicker">CURRENT DEVICE</div><h2 id="dialog-title">{snapshot.deviceName}</h2><dl><dt>Connection</dt><dd>{connection.phase}</dd><dt>Setlist</dt><dd>{snapshot.setlistName}</dd><dt>Preset</dt><dd>{snapshot.presetLocation} · {snapshot.presetName}</dd><dt>Mode</dt><dd>{snapshot.mode}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + snapshot.activeScene)}</dd><dt>Tempo</dt><dd>{snapshot.tempo} BPM</dd><dt>Grid</dt><dd>{snapshot.blocks.length} blocks</dd><dt>State</dt><dd>{snapshot.dirty ? "Unsaved device changes" : "Clean"}</dd></dl><p>Hardware serial numbers and account identifiers are intentionally not read or displayed.</p></>}
         {dialog === "settings" && <><div className="dialog-kicker">SETTINGS</div><h2 id="dialog-title">Desktop preferences</h2><label className="setting-row"><span>Form factor<small>Geometry and control placement</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><label className="setting-row"><span>Skin<small>Appearance only; commands never change</small></span><select value={skinId} onChange={(event) => setSkinId(event.target.value)}>{skins.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label><div className="setting-row"><span>Push-to-talk transcription<small>Microsoft Edge speech recognition; cloud-audio disclosure appears before first use</small></span><button onClick={() => { localStorage.removeItem(voiceDisclosureKey); setNotice("Voice disclosure choice cleared. It will be shown again before the next recording."); }}>Review disclosure again</button></div></>}
         {dialog === "presets" && <><div className="dialog-kicker">DEVICE PRESETS</div><h2 id="dialog-title">{presetList?.setlistName ?? "Loading setlist…"}</h2><div className="preset-browser-toolbar"><span>{presetList ? `${presetList.presets.length} occupied slots` : "Reading from Quad Cortex"}</span><button onClick={() => void openPresetBrowser(true)} disabled={presetListLoading || commandPending}>Refresh</button></div><div className="preset-browser" role="listbox" aria-label="Device presets">{presetListLoading && !presetList ? <p>Loading preset directory…</p> : presetList?.presets.map((entry) => <button key={entry.position} role="option" aria-selected={entry.position === snapshot.presetPosition} className={entry.position === snapshot.presetPosition ? "is-current" : ""} disabled={commandPending} onClick={() => void recallPreset(entry)}><strong>{entry.location}</strong><span>{entry.name}</span></button>)}</div><p>Recalling a preset is blocked while the current preset has unsaved changes.</p></>}
         {dialog === "parameters" && <><div className="dialog-kicker">BLOCK PARAMETERS · SCENE {String.fromCharCode(65 + snapshot.activeScene)}</div><h2 id="dialog-title">{blockDetails?.name ?? "Loading block…"}</h2>{blockDetailsLoading ? <p>Reading parameter metadata and live values…</p> : blockDetails && <div className="parameter-editor">{blockDetails.parameters.length === 0 && <p>This block exposes no editable catalog parameters.</p>}{blockDetails.parameters.map((parameter) => {
@@ -877,6 +947,12 @@ export function App() {
         })}</div>}<p>Changes apply temporarily to the live Grid and require a separate preset save to persist.</p></>}
         {dialog === "workspace" && loadedWorkspace && <><div className="dialog-kicker">LOCAL WORKSPACE</div><h2 id="dialog-title">{workspaceName ?? "QC Workspace"}</h2><dl><dt>Saved</dt><dd>{new Date(loadedWorkspace.savedAt).toLocaleString()}</dd><dt>Source</dt><dd>{loadedWorkspace.source.setlistName} · {loadedWorkspace.source.presetLocation}</dd><dt>Preset</dt><dd>{loadedWorkspace.source.presetName}</dd><dt>Scene</dt><dd>{String.fromCharCode(65 + loadedWorkspace.snapshot.activeScene)}</dd><dt>Blocks</dt><dd>{loadedWorkspace.snapshot.blocks.length}</dd><dt>Device state</dt><dd>{loadedWorkspace.snapshot.dirty ? "Captured with unsaved changes" : "Clean at capture"}</dd></dl><p>The workspace is a local reference snapshot. Opening it never writes to the connected Quad Cortex.</p><div className="dialog-actions"><button onClick={() => setDialog(null)}>Keep Live Device</button><button className="primary" onClick={() => void saveWorkspace(true)}>Save Copy As…</button></div></>}
         {dialog === "save-device" && <><div className="dialog-kicker">PERSISTENT DEVICE SAVE</div><h2 id="dialog-title">Save Preset As…</h2>{presetSlotsLoading ? <p>Reading all destination slots from the Quad Cortex…</p> : presetSlots && <div className="device-save-form"><label><span>Setlist</span><strong>{presetSlots.setlistName}</strong></label><label><span>Preset name</span><input value={savePresetName} maxLength={80} onChange={(event) => setSavePresetName(event.target.value)} /></label><label><span>Destination</span><select value={savePresetPosition ?? ""} onChange={(event) => setSavePresetPosition(Number(event.target.value))}>{presetSlots.slots.map((slot) => <option key={slot.position} value={slot.position}>{slot.location} — {slot.occupied ? slot.name : "Empty"}</option>)}</select></label>{savePresetPosition !== undefined && presetSlots.slots[savePresetPosition]?.occupied && <p className="overwrite-warning">This destination is occupied. Saving will permanently overwrite “{presetSlots.slots[savePresetPosition].name}”.</p>}<div className="dialog-actions"><button onClick={() => setDialog(null)}>Cancel</button><button className="primary" disabled={!savePresetName.trim() || commandPending} onClick={() => void savePresetToDevice()}>Review & Save</button></div></div>}<p>Device save is separate from local workspace save and always requires final confirmation.</p></>}
+        {dialog === "shortcuts" && <><div className="dialog-kicker">INPUT REFERENCE</div><h2 id="dialog-title">Keyboard and mouse</h2><dl><dt>1–8</dt><dd>Select Scenes A–H</dd><dt>[ / ]</dt><dd>Bank down / up</dd><dt>T / Shift+T</dt><dd>Tap tempo / open tuner</dd><dt>B</dt><dd>Toggle the selected block</dd><dt>Ctrl+L</dt><dd>Focus the assistant</dd><dt>Click block</dt><dd>Open live parameters</dd><dt>Tempo encoder</dt><dd>Turn to adjust; press repeatedly to tap</dd></dl><p>Shortcuts are suspended while an input or the chat composer has focus.</p></>}
+        {dialog === "guide" && <><div className="dialog-kicker">USER GUIDE</div><h2 id="dialog-title">Safe QC control</h2><p>Connect the QC by USB and close Cortex Control, which otherwise owns the interface. Click Grid blocks to inspect and edit their live parameters; temporary edits mark the preset unsaved.</p><p>Use the preset browser or Bank controls only when the preset is clean. “Save Workspace” writes a local reference file. “Save Preset to Quad Cortex” is the separate persistent operation and always asks for a destination and confirmation.</p><p>Typed or spoken commands use the same guarded controls. Bypass and parameter edits show a preview before application.</p></>}
+        {dialog === "privacy" && <><div className="dialog-kicker">PRIVACY</div><h2 id="dialog-title">Local by default</h2><p>Manual control, typed commands, workspaces, and diagnostics operate locally. The desktop configuration binds no network listener and does not collect analytics.</p><p>Push-to-talk uses Microsoft Edge speech recognition only after disclosure and consent; that service may send microphone audio to Microsoft Azure. Conversation text is never included in diagnostics.</p></>}
+        {dialog === "legal" && <><div className="dialog-kicker">LEGAL</div><h2 id="dialog-title">Unofficial controller</h2><p>QC Voice Control is not affiliated with, endorsed by, or supported by Neural DSP Technologies. “Neural DSP” and “Quad Cortex” are trademarks of their respective owner and are used only to describe compatibility.</p><p>No project source license has been granted. Third-party components retain their own licenses.</p></>}
+        {dialog === "notices" && <><div className="dialog-kicker">THIRD-PARTY NOTICES</div><h2 id="dialog-title">Runtime components</h2><p>This build includes Tauri, React, WebView2 integration, PyInstaller, hidapi, protobuf, and the community-maintained pyquadcortex library. Their respective licenses and notices remain with those projects.</p><p>pyquadcortex is unofficial and communicates with the QC over its existing USB protocol; it does not modify device firmware.</p></>}
+        {dialog === "feedback" && <><div className="dialog-kicker">REPORT A PROBLEM</div><h2 id="dialog-title">Prepare a safe report</h2><p>Export the diagnostic report and attach it through your preferred support channel. The export contains app/runtime state and lifecycle event names while omitting serial numbers, MAC addresses, usernames, filesystem paths, preset/setlist names, and conversation content.</p><div className="dialog-actions"><button className="primary" onClick={() => void exportDiagnostics()}>Export redacted diagnostics…</button></div></>}
         {dialog === "about" && <><div className="dialog-kicker">ABOUT</div><h2 id="dialog-title">QC Voice Control <span>0.1.0</span></h2><p>An unofficial, hardware-familiar desktop controller built around a reusable QC core and standalone MCP service.</p><p className="legal-note">Not affiliated with or endorsed by Neural DSP. Product names are used only to describe compatibility.</p></>}
       </section>
     </div>}

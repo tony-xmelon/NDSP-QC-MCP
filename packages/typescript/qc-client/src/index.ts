@@ -159,6 +159,23 @@ export interface WorkspaceFileResult {
   document?: WorkspaceDocument;
 }
 
+export interface DiagnosticsReport {
+  generatedAt: string;
+  appVersion: string;
+  runtime: { platform: string; gatewayAvailable: boolean };
+  connection: { phase: ConnectionPhase; demo: boolean };
+  device: {
+    presetLocation: string;
+    presetPosition: number;
+    mode: PresetSnapshot["mode"];
+    activeScene: number;
+    tempo: number;
+    dirty: boolean;
+    blockCount: number;
+  };
+  events: Array<{ at: string; event: string }>;
+}
+
 export interface PresetSlot extends PresetEntry {
   occupied: boolean;
 }
@@ -178,6 +195,7 @@ export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
   resetSession(): Promise<ConnectionState>;
+  disconnect(): Promise<ConnectionState>;
   currentSnapshot(): Promise<PresetSnapshot>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;

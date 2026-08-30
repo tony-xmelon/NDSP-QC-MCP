@@ -7,10 +7,10 @@ Allowed dependencies: TypeScript client/UI/form-factor packages and platform ada
 ## Current slice
 
 - scalable large-QC chassis, screen grid, A–H encoders/footswitches, bank and tempo controls;
-- live scene selection, guarded block bypass and parameter editing, preset/setlist browsing, bank navigation, and keyboard shortcuts;
+- live scene selection, guarded tempo/tap, block bypass and parameter editing, preset/setlist browsing, bank navigation, and keyboard shortcuts;
 - local `.qcw` workspace save/open plus separately confirmed Quad Cortex preset Save As;
 - File/Edit/View/Device/Help menus and Settings/About/connection dialogs;
-- connection state and safe reconnect/reset failure behavior;
+- explicit disconnect, connection state/log, safe reconnect/reset failure behavior, device details, and redacted diagnostics export;
 - docked chat composer with offline typed inspection/performance commands, previewed temporary edits, and opt-in push-to-talk transcription;
 - graphite-hardware and high-contrast skins loaded through shared manifests;
 - deterministic demo state for browser-only UI development and automatic live hydration in Tauri.

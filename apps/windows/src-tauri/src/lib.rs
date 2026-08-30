@@ -208,6 +208,11 @@ fn reset_device_session(state: State<'_, Mutex<Gateway>>) -> Result<Value, Strin
 }
 
 #[tauri::command]
+fn disconnect_device(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
+    with_gateway(state, "device.disconnect")
+}
+
+#[tauri::command]
 fn current_snapshot(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
     with_gateway(state, "device.snapshot")
 }
@@ -515,6 +520,106 @@ fn open_workspace() -> Result<Value, String> {
     }))
 }
 
+fn diagnostic_string(report: &Value, section: &str, key: &str, maximum: usize) -> String {
+    report
+        .get(section)
+        .and_then(|value| value.get(key))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(maximum)
+        .collect()
+}
+
+fn redacted_diagnostics(report: &Value) -> Value {
+    let events: Vec<Value> = report
+        .get("events")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .take(100)
+        .filter_map(|entry| {
+            let at: String = entry
+                .get("at")?
+                .as_str()?
+                .chars()
+                .filter(|character| !character.is_control())
+                .take(40)
+                .collect();
+            let event = entry.get("event")?.as_str()?;
+            const ALLOWED_EVENTS: &[&str] = &[
+                "app-start",
+                "runtime-ready",
+                "connect-attempt",
+                "connected",
+                "connect-failed",
+                "disconnected",
+                "reset-attempt",
+                "diagnostics-exported",
+            ];
+            ALLOWED_EVENTS
+                .contains(&event)
+                .then(|| json!({ "at": at, "event": event }))
+        })
+        .collect();
+
+    json!({
+        "format": "qc-voice-control-diagnostics-v1",
+        "generatedAt": report.get("generatedAt").and_then(Value::as_str).unwrap_or(""),
+        "appVersion": report.get("appVersion").and_then(Value::as_str).unwrap_or("unknown"),
+        "runtime": {
+            "platform": diagnostic_string(report, "runtime", "platform", 80),
+            "gatewayAvailable": report.get("runtime").and_then(|value| value.get("gatewayAvailable")).and_then(Value::as_bool).unwrap_or(false)
+        },
+        "connection": {
+            "phase": diagnostic_string(report, "connection", "phase", 32),
+            "demo": report.get("connection").and_then(|value| value.get("demo")).and_then(Value::as_bool).unwrap_or(true)
+        },
+        "device": {
+            "presetLocation": diagnostic_string(report, "device", "presetLocation", 8),
+            "presetPosition": report.get("device").and_then(|value| value.get("presetPosition")).and_then(Value::as_u64).unwrap_or(0),
+            "mode": diagnostic_string(report, "device", "mode", 16),
+            "activeScene": report.get("device").and_then(|value| value.get("activeScene")).and_then(Value::as_u64).unwrap_or(0),
+            "tempo": report.get("device").and_then(|value| value.get("tempo")).and_then(Value::as_u64).unwrap_or(0),
+            "dirty": report.get("device").and_then(|value| value.get("dirty")).and_then(Value::as_bool).unwrap_or(false),
+            "blockCount": report.get("device").and_then(|value| value.get("blockCount")).and_then(Value::as_u64).unwrap_or(0)
+        },
+        "events": events,
+        "redaction": {
+            "omitted": ["serial numbers", "MAC addresses", "usernames", "paths", "preset and setlist names", "conversation content"]
+        }
+    })
+}
+
+#[tauri::command]
+fn export_diagnostics(report: Value) -> Result<Value, String> {
+    let document = redacted_diagnostics(&report);
+    let timestamp = chrono_free_timestamp();
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("QC Diagnostics", &["json"])
+        .set_file_name(format!("QC Voice Control Diagnostics {timestamp}.json"))
+        .save_file()
+    else {
+        return Ok(json!({ "cancelled": true }));
+    };
+    let bytes = serde_json::to_vec_pretty(&document).map_err(|error| error.to_string())?;
+    fs::write(&path, bytes).map_err(|error| format!("Could not export diagnostics: {error}"))?;
+    Ok(json!({
+        "cancelled": false,
+        "path": path.to_string_lossy(),
+        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("QC Voice Control Diagnostics.json")
+    }))
+}
+
+fn chrono_free_timestamp() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    seconds.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,6 +673,25 @@ mod tests {
         fs::remove_file(&sidecar).expect("sidecar test file cleanup");
         fs::remove_dir(&directory).expect("sidecar test directory cleanup");
     }
+
+    #[test]
+    fn diagnostics_are_allowlisted_and_redacted() {
+        let report = json!({
+            "generatedAt": "2026-08-30T17:00:00Z",
+            "appVersion": "0.1.0",
+            "runtime": { "platform": "Python gateway", "gatewayAvailable": true, "username": "secret" },
+            "connection": { "phase": "ready", "demo": false, "detail": "C:\\Users\\secret" },
+            "device": { "presetLocation": "6B", "presetPosition": 41, "mode": "STOMP", "activeScene": 0, "tempo": 45, "dirty": false, "blockCount": 18, "presetName": "private" },
+            "events": [{ "at": "now", "event": "connected", "message": "private" }],
+            "conversation": "private"
+        });
+        let safe = redacted_diagnostics(&report);
+        let text = serde_json::to_string(&safe).expect("diagnostic JSON");
+        assert!(!text.contains("secret"));
+        assert!(!text.contains("private"));
+        assert_eq!(safe["device"]["tempo"], 45);
+        assert_eq!(safe["events"][0]["event"], "connected");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -578,6 +702,7 @@ pub fn run() {
             runtime_status,
             reconnect_device,
             reset_device_session,
+            disconnect_device,
             current_snapshot,
             select_scene,
             toggle_bypass,
@@ -594,7 +719,8 @@ pub fn run() {
             show_gig_view,
             save_workspace_as,
             save_workspace,
-            open_workspace
+            open_workspace,
+            export_diagnostics
         ])
         .run(tauri::generate_context!())
         .expect("error while running QC Voice Control");

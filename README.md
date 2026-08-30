@@ -51,9 +51,12 @@ form-factor/skin packages, keyboard/mouse interaction, connection diagnostics,
 menus, chat composer, and microphone capture lifecycle. Its persistent Python
 device gateway owns the QC HID session and hydrates the UI from a live preset
 snapshot over private framed JSON-RPC. Scene selection, block bypass, tuner, and
-Gig View controls are enabled, along with live setlist browsing, guarded preset
+Gig View controls are enabled, along with verified tempo/encoder/tap control,
+live setlist browsing, guarded preset
 recall, bank navigation, metadata-driven block parameter editing, and explicit
-dirty-state recovery. State-changing commands use expected-state guards,
+dirty-state recovery. Explicit disconnect/reconnect, a privacy-safe connection
+log, current-device details, and an allowlisted redacted diagnostics export are
+available from the application menus. State-changing commands use expected-state guards,
 value readback, and dirty-state verification. Local `.qcw` workspace snapshots
 can be saved and reopened without touching the hardware. Persistent device
 Save As is available only through a separate destination review and final

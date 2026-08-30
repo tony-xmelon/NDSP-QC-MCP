@@ -94,6 +94,15 @@ class PyQuadCortexDevice:
     def reset_session(self) -> dict[str, Any]:
         return self.reconnect()
 
+    def disconnect(self) -> dict[str, Any]:
+        self.close()
+        return {
+            "phase": "disconnected",
+            "detail": "Quad Cortex session closed",
+            "lastSync": _utc_now(),
+            "demo": True,
+        }
+
     def connection_state(self, detail: str | None = None) -> dict[str, Any]:
         if not self.connected:
             return {"phase": "disconnected", "detail": detail or "No active device session", "demo": False}

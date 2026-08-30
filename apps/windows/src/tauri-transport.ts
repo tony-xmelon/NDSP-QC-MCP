@@ -1,4 +1,4 @@
-import type { BlockDetails, ConnectionState, DeviceActionResult, GatewayTransport, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
+import type { BlockDetails, ConnectionState, DeviceActionResult, DiagnosticsReport, GatewayTransport, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
 
 declare global {
   interface Window {
@@ -30,6 +30,9 @@ export const tauriTransport: GatewayTransport = {
   },
   resetSession(): Promise<ConnectionState> {
     return callTauri<ConnectionState>("reset_device_session");
+  },
+  disconnect(): Promise<ConnectionState> {
+    return callTauri<ConnectionState>("disconnect_device");
   },
   currentSnapshot(): Promise<import("@ndsp-qc/client").PresetSnapshot> {
     return callTauri<import("@ndsp-qc/client").PresetSnapshot>("current_snapshot");
@@ -84,5 +87,11 @@ export const workspaceFiles = {
   },
   open(): Promise<WorkspaceFileResult> {
     return callTauri<WorkspaceFileResult>("open_workspace");
+  }
+};
+
+export const diagnosticsFiles = {
+  export(report: DiagnosticsReport): Promise<WorkspaceFileResult> {
+    return callTauri<WorkspaceFileResult>("export_diagnostics", { report });
   }
 };

@@ -21,6 +21,7 @@ class FakeDevice:
     def close(self): self.closed = True
     def reconnect(self): return {"phase": "ready", "detail": "fake ready", "demo": False}
     def reset_session(self): return self.reconnect()
+    def disconnect(self): return {"phase": "disconnected", "detail": "fake closed", "demo": True}
     def snapshot(self): return {"presetName": "Test", "blocks": []}
     def select_scene(self, scene, expected_preset_name=""):
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
@@ -77,6 +78,7 @@ class ServiceTests(unittest.TestCase):
     def test_reconnect_and_snapshot(self):
         self.assertEqual(self.request("device.reconnect")["result"]["phase"], "ready")
         self.assertEqual(self.request("device.snapshot")["result"]["presetName"], "Test")
+        self.assertEqual(self.request("device.disconnect")["result"]["phase"], "disconnected")
 
     def test_unknown_method_uses_json_rpc_error(self):
         self.assertEqual(self.request("device.mutate")["error"]["code"], -32601)

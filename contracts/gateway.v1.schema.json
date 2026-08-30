@@ -15,6 +15,7 @@
             "system.status",
             "device.reconnect",
             "device.resetSession",
+            "device.disconnect",
             "device.snapshot",
             "device.selectScene",
             "device.toggleBypass",
