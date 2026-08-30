@@ -157,7 +157,8 @@ export function App() {
   const pressFootswitch = useCallback(async (index: number) => {
     const label = String.fromCharCode(65 + index);
     if (connection.demo) {
-      setNotice(`Demo: Footswitch ${label} pressed locally; hardware was not changed.`);
+      setSnapshot((current) => ({ ...current, activeScene: index }));
+      setNotice(`Demo: Footswitch ${label} activated locally; hardware was not changed.`);
       return;
     }
     if (commandPending) return;

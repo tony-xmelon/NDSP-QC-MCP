@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
 
@@ -42,14 +42,24 @@ function DeviceGlyph({ block }: { block: GridBlock }) {
 function HardwareSwitch({ role, label, active, accent, compact = false, onAction }: {
   role: string; label: string; active?: boolean; accent?: string; compact?: boolean; onAction: (action: HardwareAction) => void;
 }) {
-  const release = (event: PointerEvent<HTMLButtonElement>) => {
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    onAction({ kind: "switch", role, phase: "release" });
+  const drag = useRef<{ pointerId: number; lastY: number; rotated: boolean } | null>(null);
+  const release = (event: PointerEvent<HTMLButtonElement>, cancelled = false) => {
+    const gesture = drag.current;
+    drag.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!cancelled && gesture && !gesture.rotated) {
+      onAction({ kind: "switch", role, phase: "press" });
+      onAction({ kind: "switch", role, phase: "release" });
+    }
   };
   const keyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(event.key)) {
       event.preventDefault();
       onAction({ kind: "rotate", role, delta: event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1 });
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onAction({ kind: "switch", role, phase: "press" });
+      onAction({ kind: "switch", role, phase: "release" });
     }
   };
   const wheel = (event: WheelEvent<HTMLButtonElement>) => {
@@ -60,8 +70,18 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
     className={`hardware-switch${active ? " is-active" : ""}${compact ? " is-compact" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)" } as CSSProperties}
     aria-label={`${label} encoder footswitch`} aria-pressed={active}
-    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); onAction({ kind: "switch", role, phase: "press" }); }}
-    onPointerUp={release} onPointerCancel={release} onKeyDown={keyboard} onWheel={wheel}
+    title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
+    onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
+    onPointerMove={(event) => {
+      const gesture = drag.current;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const steps = Math.trunc((gesture.lastY - event.clientY) / 12);
+      if (!steps) return;
+      gesture.rotated = true;
+      gesture.lastY -= steps * 12;
+      onAction({ kind: "rotate", role, delta: steps });
+    }}
+    onPointerUp={(event) => release(event)} onPointerCancel={(event) => release(event, true)} onKeyDown={keyboard} onWheel={wheel}
   >
     <span className="switch-led" aria-hidden="true" />
     <span className="switch-ring" aria-hidden="true"><span className="switch-cap" /></span>
@@ -70,9 +90,27 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
 }
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
+  const drag = useRef<{ pointerId: number; lastY: number } | null>(null);
   return <div className="master-volume">
     <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
-    <button className="volume-knob" aria-label="Master volume knob" onWheel={(event) => {
+    <button className="volume-knob" aria-label="Master volume knob" title="Drag vertically, use the mouse wheel, or press arrow keys to adjust volume" onPointerDown={(event) => {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      drag.current = { pointerId: event.pointerId, lastY: event.clientY };
+    }} onPointerMove={(event) => {
+      const gesture = drag.current;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      const steps = Math.trunc((gesture.lastY - event.clientY) / 12);
+      if (!steps) return;
+      gesture.lastY -= steps * 12;
+      onAction({ kind: "rotate", role: "master-volume", delta: steps });
+    }} onPointerUp={(event) => {
+      drag.current = null;
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }} onPointerCancel={() => { drag.current = null; }} onKeyDown={(event) => {
+      if (!["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(event.key)) return;
+      event.preventDefault();
+      onAction({ kind: "rotate", role: "master-volume", delta: event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1 });
+    }} onWheel={(event) => {
       event.preventDefault();
       onAction({ kind: "rotate", role: "master-volume", delta: event.deltaY < 0 ? 1 : -1 });
     }}><span /></button>
