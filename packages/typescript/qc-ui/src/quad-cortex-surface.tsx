@@ -228,8 +228,5 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
       <div className="footswitch-row">{scenes.slice(4).map((control, index) => <HardwareSwitch key={control.id} role={control.role} label={control.label} active={snapshot.activeScene === index + 4} accent={accents[index + 4]} onAction={onAction} />)}<HardwareSwitch role={tempo.role} label="TEMPO" accent="#e6e6e6" onAction={onAction} /></div>
       <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
-    <div className="official-switch-letter-layer" aria-hidden="true">
-      {"ABCDEFGH".split("").map((letter) => <span key={letter}>{letter}</span>)}
-    </div>
   </section>;
 }
