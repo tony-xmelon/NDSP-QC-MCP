@@ -1,87 +1,86 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { demoSnapshot, type GridBlock } from "../packages/typescript/qc-client/src/index.ts";
-import { officialBlockVisual, type OfficialBlockVisualKey } from "../packages/typescript/qc-ui/src/block-visuals.ts";
-import { REFERENCE_BLOCK_ICONS } from "../packages/typescript/qc-ui/src/reference-block-icons.ts";
+import { OFFICIAL_BLOCK_CATEGORIES, officialBlockVisual, type OfficialBlockVisualKey } from "../packages/typescript/qc-ui/src/block-visuals.ts";
 
 const block = (name: string, category: string, kind = "utility"): GridBlock => ({ id: name, name, category, kind, row: 0, column: 0 });
 
-test("embedded reference icons remain byte-identical to the verified Neural DSP crops", () => {
-  const expected = {
-    delay: "dee665d53bfd3f7ed33c5f0185424390d5b9639087881c5dd8624c7018c5283e",
-    compressor: "ca7d1c3842f5cc3784e34c23c4567c788fa597ad9db6bd05647cf54d3dec2faa"
-  } as const;
-  for (const [name, source] of Object.entries(REFERENCE_BLOCK_ICONS)) {
-    assert.match(source, /^data:image\/webp;base64,/);
-    const bytes = Buffer.from(source.slice(source.indexOf(",") + 1), "base64");
-    assert.equal(createHash("sha256").update(bytes).digest("hex"), expected[name as keyof typeof expected]);
-  }
+const expectedCategories: Array<[OfficialBlockVisualKey, string, [number, number], string]> = [
+  ["plugin", "Plugins", [560, 0], "#ff7000"],
+  ["amp", "Amp", [480, 0], "#ff2727"],
+  ["capture", "Neural Capture", [640, 0], "#959595"],
+  ["cab", "Cab", [80, 82], "#6954ff"],
+  ["overdrive", "Overdrive", [400, 0], "#ffd236"],
+  ["delay", "Delay", [240, 0], "#00ffdd"],
+  ["reverb", "Reverb", [240, 82], "#00ffdd"],
+  ["compressor", "Compressor", [400, 82], "#45f862"],
+  ["pitch", "Pitch", [0, 82], "#ffd236"],
+  ["modulation", "Modulation", [160, 0], "#3500f1"],
+  ["morph", "Morph", [640, 82], "#959595"],
+  ["synth", "Synth", [480, 82], "#e44a5d"],
+  ["filter", "Filter", [560, 82], "#87daff"],
+  ["equalizer", "EQ", [80, 0], "#0a74e0"],
+  ["ir-loader", "IR Loader", [160, 82], "#6954ff"],
+  ["wah", "Wah", [320, 82], "#959595"],
+  ["fx-loop", "FX Loop", [0, 0], "#959595"],
+  ["looper", "Looper", [320, 0], "#ff2727"],
+  ["utility", "Utility", [400, 82], "#959595"]
+];
+
+test("vendored block sprite remains byte-identical to the verified Neural DSP SVG", () => {
+  const bytes = readFileSync("apps/windows/public/qc-block-samples.svg");
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea");
+});
+
+test("category registry matches the complete CorOS manual order, icon, color, and meaning", () => {
+  assert.equal(OFFICIAL_BLOCK_CATEGORIES.length, 19);
+  assert.deepEqual(
+    OFFICIAL_BLOCK_CATEGORIES.map(({ key, label, tile, color }) => [key, label, tile, color]),
+    expectedCategories
+  );
+  for (const category of OFFICIAL_BLOCK_CATEGORIES) assert.ok(category.meaning.length > 12, `${category.label} needs a meaning`);
 });
 
 test("official category mapping covers every Quad Cortex virtual-device family", () => {
-  const cases: Array<[string, string, OfficialBlockVisualKey]> = [
-    ["Plugin Device", "Plugins", "plugin"], ["US DLX", "Amplifier", "amp"], ["Capture", "Neural Capture", "capture"],
-    ["112 US DLX", "Cab", "cab"], ["Rodent Drive", "Guitar Overdrive", "overdrive"],
-    ["Analog Delay", "Delay", "delay"], ["Mind Hall", "Reverb", "reverb"],
-    ["Jewel", "Compressor", "compressor"], ["Poly Octaver", "Pitch", "pitch"],
-    ["Phaser", "Modulation", "modulation"], ["Freeze", "Morph", "morph"],
-    ["Synth", "Synth", "synth"], ["Envelope", "Filter", "filter"],
-    ["Parametric-8", "Equalizer", "equalizer"], ["IR", "IR Loader", "ir-loader"],
-    ["Crying Wah", "Wah", "wah"], ["FX Loop 2", "FX Loop", "fx-loop"],
-    ["Looper X", "Looper", "looper"], ["Gain", "Utility", "utility"]
+  const names = [
+    "Plugin Device", "US DLX", "Capture", "112 US DLX", "Rodent Drive", "Analog Delay", "Mind Hall",
+    "Jewel", "Poly Octaver", "Phaser", "Freeze", "Synth", "Envelope", "Parametric-8", "IR",
+    "Crying Wah", "FX Loop 2", "Looper X", "Gain"
   ];
-  for (const [name, category, expected] of cases) assert.equal(officialBlockVisual(block(name, category)).key, expected, `${name} should use ${expected}`);
+  expectedCategories.forEach(([expected, category], index) => {
+    assert.equal(officialBlockVisual(block(names[index], category)).key, expected, `${category} should use ${expected}`);
+  });
 });
 
-test("Adaptive Gate uses the yellow Grid color shown in the official Brit 2203 reference", () => {
+test("category aliases keep device-list terminology attached to the correct family", () => {
+  const cases: Array<[string, string, OfficialBlockVisualKey]> = [
+    ["Chief Fuzz", "Fuzz pedals", "overdrive"],
+    ["Graphic-9", "Equalizer", "equalizer"],
+    ["Vintage Tremolo", "Mod", "modulation"],
+    ["Dual Octaver", "", "pitch"],
+    ["Plugin Device", "Plugins", "plugin"],
+    ["Looper X", "Looper", "looper"]
+  ];
+  for (const [name, category, expected] of cases) assert.equal(officialBlockVisual(block(name, category)).key, expected);
+});
+
+test("Adaptive Gate uses the yellow gate artwork shown in the official Brit 2203 reference", () => {
   const visual = officialBlockVisual(block("Adaptive Gate", "Utility"));
   assert.equal(visual.key, "gate");
-  assert.deepEqual(visual.tile, [400, 82]);
+  assert.deepEqual(visual.tile, [0, 82]);
   assert.equal(visual.color, "#ffd236");
 });
 
-test("compact runtime kinds resolve to their QC category colors", () => {
-  assert.equal(officialBlockVisual(block("Vintage Chorus", "", "mod")).key, "modulation");
-  assert.equal(officialBlockVisual(block("Vintage Chorus", "", "mod")).color, "#3500f1");
-  assert.equal(officialBlockVisual(block("Looper X", "Looper", "cab")).key, "looper");
-  assert.equal(officialBlockVisual(block("Looper X", "Looper", "cab")).color, "#ff2727");
-});
-
-test("demo snapshot displays every QC color family used by its blocks", () => {
-  const colors = new Set(demoSnapshot.blocks
+test("demo presents all 19 official categories in order and all 11 Grid colors", () => {
+  const visuals = demoSnapshot.blocks
     .filter((item) => item.kind !== "input" && item.kind !== "output")
-    .map((item) => officialBlockVisual(item).color));
-
-  assert.deepEqual(colors, new Set(["#ffd236", "#959595", "#3500f1", "#6954ff", "#ff2727", "#00ffdd"]));
-});
-
-test("every family resolves to its named official glyph and device color", () => {
-  const cases: Array<[string, string, [number, number], string, string | undefined]> = [
-    ["Plugin Device", "Plugins", [560, 0], "#ff7000", undefined],
-    ["US DLX 65 Reissue", "Amplifier", [480, 0], "#ff2727", undefined],
-    ["Capture", "Neural Capture", [640, 0], "#959595", undefined],
-    ["112 US DLX Black C12K 00s (ST)", "Cab", [80, 82], "#6954ff", undefined],
-    ["Rodent Drive", "Guitar Overdrive", [400, 0], "#ffd236", undefined],
-    ["Analog Delay", "Delay", [160, 0], "#00ffdd", "delay"],
-    ["Mind Hall", "Reverb", [240, 82], "#00ffdd", undefined],
-    ["Jewel", "Compressor", [400, 82], "#45f862", "compressor"],
-    ["Poly Octaver", "Pitch", [0, 82], "#ffd236", undefined],
-    ["Phaser", "Modulation", [160, 0], "#3500f1", undefined],
-    ["Freeze", "Morph", [640, 82], "#959595", undefined],
-    ["Synth", "Synth", [480, 82], "#e44a5d", undefined],
-    ["Envelope", "Filter", [240, 0], "#87daff", undefined],
-    ["Parametric-8", "Equalizer", [80, 0], "#0a74e0", undefined],
-    ["IR", "IR Loader", [160, 82], "#6954ff", undefined],
-    ["Crying Wah", "Wah", [320, 82], "#959595", undefined],
-    ["FX Loop 2", "FX Loop", [0, 0], "#959595", undefined],
-    ["Looper X", "Looper", [320, 0], "#ff2727", undefined],
-    ["Gain", "Utility", [400, 82], "#959595", undefined]
-  ];
-  for (const [name, category, tile, color, glyph] of cases) {
-    const visual = officialBlockVisual(block(name, category));
-    assert.deepEqual(visual.tile, tile, `${name} tile`);
-    assert.equal(visual.color, color, `${name} color`);
-    assert.equal(visual.referenceAsset, glyph, `${name} reference asset`);
-  }
+    .map((item) => officialBlockVisual(item));
+  assert.deepEqual(visuals.map(({ key }) => key), expectedCategories.map(([key]) => key));
+  assert.deepEqual(new Set(visuals.map(({ color }) => color)), new Set([
+    "#ff7000", "#ff2727", "#959595", "#6954ff", "#ffd236", "#00ffdd",
+    "#45f862", "#3500f1", "#e44a5d", "#87daff", "#0a74e0"
+  ]));
+  assert.ok(demoSnapshot.blocks.every((item) => !item.bypassed), "reference colors must be shown at full intensity");
 });
