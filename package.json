@@ -14,7 +14,7 @@
     "tauri:dev": "npm run tauri:dev --workspace @ndsp-qc/windows",
     "tauri:build": "npm run tauri:build --workspace @ndsp-qc/windows",
     "test:assistant": "npm run test:frontend",
-    "test:frontend": "node --experimental-strip-types --test tests/assistant.test.ts tests/footswitch-leds.test.ts tests/voice.test.ts",
+    "test:frontend": "node --experimental-strip-types --test tests/assistant.test.ts tests/block-visuals.test.ts tests/footswitch-leds.test.ts tests/voice.test.ts",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {

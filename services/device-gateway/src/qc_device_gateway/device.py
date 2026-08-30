@@ -100,16 +100,22 @@ def _block_color(category: str, name: str) -> str:
         return "#ffd236"
     if "equalizer" in value:
         return "#0a74e0"
-    if "pitch" in value or "modulation" in value:
+    if "pitch" in value:
+        return "#e44a5d"
+    if "modulation" in value:
         return "#3500f1"
+    if "compressor" in value:
+        return "#45f862"
     if "overdrive" in value or "capture" in value:
         return "#ff7000"
     if "amplifier" in value:
         return "#ff2727"
+    if "cab" in value or "impulse" in value:
+        return "#6954ff"
     if "fx loop" in value:
         return "#00ffdd"
     if "delay" in value or "reverb" in value:
-        return "#6954ff"
+        return "#00ffdd"
     return "#959595"
 
 
@@ -137,7 +143,7 @@ def _stomp_color(targets: list[dict[str, Any]]) -> str:
     if "fx loop" in category:
         return "#00ffdd"
     if "delay" in category or "reverb" in category:
-        return "#6954ff"
+        return "#00ffdd"
     if "wah" in category or "filter" in category:
         return "#ffd236"
     return "#f4f4f4"

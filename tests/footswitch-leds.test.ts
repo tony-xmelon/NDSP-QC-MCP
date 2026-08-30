@@ -17,7 +17,7 @@ test("STOMP LEDs follow assignments and bypass state", () => {
     { id: "delay", name: "Analog Delay", kind: "delay", category: "Delay", row: 3, column: 6, footswitch: 7, bypassed: true }
   ] }));
   assert.deepEqual(leds[0], { active: true, assigned: true, color: "#f4f4f4" });
-  assert.deepEqual(leds[7], { active: false, assigned: true, color: "#6954ff" });
+  assert.deepEqual(leds[7], { active: false, assigned: true, color: "#00ffdd" });
   assert.deepEqual(leds[1], { active: false, assigned: false, color: "#626367" });
 });
 

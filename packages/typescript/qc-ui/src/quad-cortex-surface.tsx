@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerE
 import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
 import { footswitchLeds } from "./footswitch-leds";
+import { officialBlockVisual } from "./block-visuals";
 import "./live-surface.css";
 
 export type HardwareAction =
@@ -26,37 +27,12 @@ interface QuadCortexSurfaceProps {
 }
 
 const officialBlockSprite = "/qc-block-samples.svg";
-const officialBlockTiles: Record<string, [number, number]> = {
-  utility: [0, 0], equalizer: [80, 0], modulation: [160, 0], splitter: [240, 0],
-  amp: [320, 0], drive: [400, 0], cab: [480, 0], gate: [0, 82],
-  compressor: [80, 82], delay: [160, 82], loop: [240, 82], level: [320, 82],
-  wah: [400, 82], pitch: [480, 82], reverb: [560, 82]
-};
-
-function deviceBlockTile(block: GridBlock): [number, number] {
-  if (block.glyph && officialBlockTiles[block.glyph]) return officialBlockTiles[block.glyph];
-  const category = (block.category ?? block.kind).toLowerCase();
-  const name = block.name.toLowerCase();
-  if (name.includes("gate")) return officialBlockTiles.gate;
-  if (category.includes("equalizer")) return officialBlockTiles.equalizer;
-  if (category.includes("compressor")) return officialBlockTiles.compressor;
-  if (category.includes("pitch")) return officialBlockTiles.pitch;
-  if (category.includes("modulation")) return officialBlockTiles.modulation;
-  if (category.includes("overdrive") || category.includes("capture")) return officialBlockTiles.drive;
-  if (category.includes("amplifier")) return officialBlockTiles.amp;
-  if (category.includes("cab") || category.includes("impulse")) return officialBlockTiles.cab;
-  if (category.includes("delay")) return officialBlockTiles.delay;
-  if (category.includes("reverb")) return officialBlockTiles.reverb;
-  if (category.includes("fx loop")) return officialBlockTiles.loop;
-  if (category.includes("wah") || category.includes("filter")) return officialBlockTiles.wah;
-  if (name === "gain" || name.includes("level")) return officialBlockTiles.level;
-  return officialBlockTiles.utility;
-}
-
 function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
-  const [tileX, tileY] = deviceBlockTile(block);
+  const visual = officialBlockVisual(block);
+  const [tileX, tileY] = visual.tile;
   return <svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
     <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
+    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={visual.color} strokeWidth="2.4" />
   </svg>;
 }
 
