@@ -44,6 +44,16 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
   role: string; label: string; active?: boolean; accent?: string; compact?: boolean; onAction: (action: HardwareAction) => void;
 }) {
   const drag = useRef<{ pointerId: number; lastY: number; rotated: boolean } | null>(null);
+  const hideValueTimer = useRef<number | undefined>(undefined);
+  const [encoderValue, setEncoderValue] = useState(50);
+  const [showValue, setShowValue] = useState(false);
+  const rotate = (delta: number) => {
+    setEncoderValue((current) => Math.max(0, Math.min(100, current + delta)));
+    setShowValue(true);
+    if (hideValueTimer.current !== undefined) window.clearTimeout(hideValueTimer.current);
+    hideValueTimer.current = window.setTimeout(() => setShowValue(false), 900);
+    onAction({ kind: "rotate", role, delta });
+  };
   const release = (event: PointerEvent<HTMLButtonElement>, cancelled = false) => {
     const gesture = drag.current;
     drag.current = null;
@@ -56,7 +66,7 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
   const keyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(event.key)) {
       event.preventDefault();
-      onAction({ kind: "rotate", role, delta: event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1 });
+      rotate(event.key === "ArrowUp" || event.key === "ArrowRight" ? 1 : -1);
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onAction({ kind: "switch", role, phase: "press" });
@@ -65,12 +75,12 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
   };
   const wheel = (event: WheelEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    onAction({ kind: "rotate", role, delta: event.deltaY < 0 ? 1 : -1 });
+    rotate(event.deltaY < 0 ? 1 : -1);
   };
   return <button
     className={`hardware-switch${active ? " is-active" : ""}${compact ? " is-compact" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)" } as CSSProperties}
-    aria-label={`${label} encoder footswitch`} aria-pressed={active}
+    aria-label={`${label} encoder footswitch`} aria-pressed={active} aria-valuetext={`${encoderValue} percent`}
     title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
     onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; }}
     onPointerMove={(event) => {
@@ -80,26 +90,32 @@ function HardwareSwitch({ role, label, active, accent, compact = false, onAction
       if (!steps) return;
       gesture.rotated = true;
       gesture.lastY -= steps * 12;
-      onAction({ kind: "rotate", role, delta: steps });
+      rotate(steps);
     }}
     onPointerUp={(event) => release(event)} onPointerCancel={(event) => release(event, true)} onKeyDown={keyboard} onWheel={wheel}
   >
     <span className="switch-led" aria-hidden="true" />
-    <span className="switch-ring" aria-hidden="true"><span className="switch-cap" /></span>
+    <span className="switch-ring" aria-hidden="true"><span className="switch-cap" /><span className={`rotation-readout${showValue ? " is-visible" : ""}`}>{encoderValue}</span></span>
     <span className="switch-label">{label}</span>
   </button>;
 }
 
 function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void }) {
   const drag = useRef<{ pointerId: number; lastY: number } | null>(null);
-  const [angle, setAngle] = useState(-28);
+  const hideValueTimer = useRef<number | undefined>(undefined);
+  const [value, setValue] = useState(40);
+  const [showValue, setShowValue] = useState(false);
   const rotate = (delta: number) => {
-    setAngle((current) => Math.max(-135, Math.min(135, current + delta * 5)));
+    setValue((current) => Math.max(0, Math.min(100, current + delta)));
+    setShowValue(true);
+    if (hideValueTimer.current !== undefined) window.clearTimeout(hideValueTimer.current);
+    hideValueTimer.current = window.setTimeout(() => setShowValue(false), 900);
     onAction({ kind: "rotate", role: "master-volume", delta });
   };
+  const angle = -135 + value * 2.7;
   return <div className="master-volume">
     <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
-    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" title="Drag vertically for a preview; hardware Master Volume remains safety locked" onPointerDown={(event) => {
+    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" aria-valuetext={`${value} percent`} title="Drag vertically for a preview; hardware Master Volume remains safety locked" onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       drag.current = { pointerId: event.pointerId, lastY: event.clientY };
     }} onPointerMove={(event) => {
@@ -119,7 +135,7 @@ function MasterVolume({ onAction }: { onAction: (action: HardwareAction) => void
     }} onWheel={(event) => {
       event.preventDefault();
       rotate(event.deltaY < 0 ? 1 : -1);
-    }}><span /></button>
+    }}><span className="volume-pointer" /><span className={`rotation-readout${showValue ? " is-visible" : ""}`}>{value}</span></button>
     <strong>VOLUME</strong>
   </div>;
 }
