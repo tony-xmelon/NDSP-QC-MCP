@@ -1246,6 +1246,7 @@ export function App() {
         setNotice("Voice transcript is ready. Review it, then press Send.");
       } else {
         void reportVoiceEvent("ended-without-transcript");
+        setNotice("No speech was detected. Check the active Windows microphone and try again.");
       }
     };
     speechRecognition.current = recognition;
