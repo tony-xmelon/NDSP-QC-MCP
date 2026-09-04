@@ -79,3 +79,63 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  android-package:
+    name: Android APK and native Rust libraries
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install Rust Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Restore Rust build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/rust/*/target
+          key: ${{ runner.os }}-android-rust-${{ hashFiles('packages/rust/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-android-rust-
+
+      - name: Install pinned Android build tools
+        shell: pwsh
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+          cargo install cargo-ndk --version 4.1.2 --locked
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Build Android APK with shared Rust runtime
+        run: npm run android:build:debug
+
+      - name: Preserve APK and release provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: qc-control-android-${{ github.sha }}
+          path: |
+            apps/android/android/app/build/outputs/apk/debug/app-debug.apk
+            artifacts/release-manifest.json
+            artifacts/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14

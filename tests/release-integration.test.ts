@@ -53,6 +53,18 @@ test("software parity compile-checks the Windows shell without release sidecars"
   assert.match(readFileSync(new URL("../packages/rust/qc-windows-midi/Cargo.lock", import.meta.url), "utf8"), /name = "qc-windows-midi"/);
 });
 
+test("CI packages the Android app with pinned native prerequisites and provenance", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  assert.match(workflow, /android-package:/);
+  assert.match(workflow, /java-version: 21/);
+  assert.match(workflow, /ndk;27\.2\.12479018/);
+  assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
+  assert.match(workflow, /npm run android:build:debug/);
+  assert.match(workflow, /app-debug\.apk/);
+  assert.match(workflow, /artifacts\/release-manifest\.json/);
+  assert.match(workflow, /artifacts\/sbom\.cdx\.json/);
+});
+
 test("Android package, Gradle, and lockfile share one release version", () => {
   const appPackage = JSON.parse(readFileSync(new URL("../apps/android/package.json", import.meta.url), "utf8"));
   const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
