@@ -51,8 +51,21 @@ test("evidence redacts identities and binary payloads", () => {
 
 test("release gate requires complete Windows and Android evidence for the current contract", () => {
   const results = ["system.status", ...contract.actions.map((action: { name: string }) => action.name)].map((name) => ({ name, status: "passed" }));
+  const manifest = {
+    source: { commit: "abc123", dirty: false },
+    artifacts: [
+      { path: "artifacts/windows/QC-Control-Windows.exe", size: 10, sha256: "win" },
+      { path: "artifacts/android/QC-Control-Android.apk", size: 20, sha256: "android" }
+    ]
+  };
   const base = { contractSha256: contractDigest(contract), results, restoration: [{ name: "starting-preset", status: "passed" }], summary: { complete: true } };
-  assert.deepEqual(validateReleaseReports(contract, [{ ...base, target: "windows" }, { ...base, target: "android" }]).actionsPerTarget, contract.actions.length);
-  assert.throws(() => validateReleaseReports(contract, [{ ...base, target: "windows" }]), /missing android report/);
-  assert.throws(() => validateReleaseReports(contract, [{ ...base, target: "windows" }, { ...base, target: "android", summary: { complete: false } }]), /android report is incomplete/);
+  const windows = { ...base, target: "windows", releaseCandidate: { platform: "windows", sourceCommit: "abc123", size: 10, sha256: "win" } };
+  const android = { ...base, target: "android", releaseCandidate: { platform: "android", sourceCommit: "abc123", size: 20, sha256: "android" } };
+  const result = validateReleaseReports(contract, [windows, android], manifest);
+  assert.equal(result.actionsPerTarget, contract.actions.length);
+  assert.equal(result.sourceCommit, "abc123");
+  assert.throws(() => validateReleaseReports(contract, [windows], manifest), /missing android report/);
+  assert.throws(() => validateReleaseReports(contract, [windows, { ...android, summary: { complete: false } }], manifest), /android report is incomplete/);
+  assert.throws(() => validateReleaseReports(contract, [windows, { ...android, releaseCandidate: { ...android.releaseCandidate, sha256: "stale" } }], manifest), /android report candidate digest does not match/);
+  assert.throws(() => validateReleaseReports(contract, [windows, android], { ...manifest, source: { commit: "abc123", dirty: true } }), /clean source commit/);
 });

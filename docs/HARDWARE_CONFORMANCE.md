@@ -71,6 +71,15 @@ $env:QC_MCP_BEARER_TOKEN = "<short-lived test token>"
 node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all
 ```
 
+For release evidence, identify the exact staged artifact under test. The full
+suite refuses to run without this argument and verifies the adjacent immutable
+source/SHA-256 metadata before touching the device:
+
+```powershell
+$windowsCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\windows\\' }
+node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate
+```
+
 Repeat with the Android device paired and a separate output target. Evidence is
 written under `artifacts/hardware-conformance/` unless `--output` is supplied.
 Serials, tokens, credentials, and binary payloads are redacted or hashed.
@@ -86,7 +95,8 @@ node tools/verify-hardware-release.mjs artifacts\hardware-conformance\windows.js
 ```
 
 The gate rejects missing platforms, stale action-contract digests, skipped or
-failed actions, and failed restoration checks.
+failed actions, failed restoration checks, and evidence that does not identify
+the exact Windows and Android artifacts in the clean-commit release manifest.
 
 A distributable release requires both reports to show every contract action as
 `passed`, no `failed`, `skipped`, or `not-run` action, and `complete: true`.

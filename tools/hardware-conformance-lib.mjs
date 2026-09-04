@@ -145,14 +145,30 @@ export function contractDigest(contract) {
   return createHash("sha256").update(JSON.stringify(contract)).digest("hex");
 }
 
-export function validateReleaseReports(contract, reports) {
+export function validateReleaseReports(contract, reports, manifest) {
   const expectedNames = validateCoverage(contract);
   const expectedDigest = contractDigest(contract);
   const byTarget = new Map(reports.map((report) => [report.target, report]));
   const errors = [];
+  if (!manifest || manifest.source?.dirty !== false || !manifest.source?.commit) {
+    errors.push("release manifest does not identify a clean source commit");
+  }
   for (const target of ["windows", "android"]) {
     const report = byTarget.get(target);
     if (!report) { errors.push(`missing ${target} report`); continue; }
+    const candidates = manifest?.artifacts?.filter((artifact) => artifact.path?.replaceAll("\\", "/").startsWith(`artifacts/${target}/`)) ?? [];
+    if (candidates.length !== 1) {
+      errors.push(`release manifest must contain exactly one ${target} candidate`);
+    } else {
+      const candidate = report.releaseCandidate;
+      if (!candidate) errors.push(`${target} report has no release candidate identity`);
+      else {
+        if (candidate.platform !== target) errors.push(`${target} report candidate platform does not match`);
+        if (candidate.sourceCommit !== manifest.source.commit) errors.push(`${target} report source commit does not match`);
+        if (candidate.sha256 !== candidates[0].sha256) errors.push(`${target} report candidate digest does not match`);
+        if (candidate.size !== candidates[0].size) errors.push(`${target} report candidate size does not match`);
+      }
+    }
     if (report.contractSha256 !== expectedDigest) errors.push(`${target} contract digest does not match`);
     if (report.summary?.complete !== true) errors.push(`${target} report is incomplete`);
     const passed = new Set(report.results?.filter((result) => result.status === "passed").map((result) => result.name));
@@ -160,7 +176,7 @@ export function validateReleaseReports(contract, reports) {
     if (report.restoration?.some((item) => item.status !== "passed")) errors.push(`${target} restoration failed`);
   }
   if (errors.length) throw new Error(`Hardware release gate failed: ${errors.join("; ")}.`);
-  return { targets: ["windows", "android"], contractSha256: expectedDigest, actionsPerTarget: expectedNames.length };
+  return { targets: ["windows", "android"], sourceCommit: manifest.source.commit, contractSha256: expectedDigest, actionsPerTarget: expectedNames.length };
 }
 
 export function snakeToCamel(value) {

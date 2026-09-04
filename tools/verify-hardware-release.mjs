@@ -11,7 +11,10 @@ if (paths.length !== 2) {
   process.exit(2);
 }
 try {
-  const contract = JSON.parse(await readFile(resolve(root, "contracts/qc-actions.v1.json"), "utf8"));
+  const [contract, manifest] = await Promise.all([
+    readFile(resolve(root, "contracts/qc-actions.v1.json"), "utf8").then(JSON.parse),
+    readFile(resolve(root, "artifacts/release-manifest.json"), "utf8").then(JSON.parse)
+  ]);
   const reports = await Promise.all(paths.map(async (path) => {
     const absolutePath = resolve(path);
     try {
@@ -21,7 +24,7 @@ try {
       throw new Error(`Hardware evidence report ${absolutePath} ${detail}.`);
     }
   }));
-  const result = validateReleaseReports(contract, reports);
+  const result = validateReleaseReports(contract, reports, manifest);
   console.log(JSON.stringify({ hardwareReleaseGate: "passed", ...result }, null, 2));
 } catch (error) {
   console.error(`Hardware release gate failed: ${error?.message ?? error}`);

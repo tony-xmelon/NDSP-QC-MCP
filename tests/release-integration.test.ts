@@ -28,6 +28,11 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   assert.ok(publish.indexOf("verify-hardware-release.mjs") < publish.indexOf("appdistribution:distribute"));
   const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(rootPackage.scripts["android:prepare:firebase"], /-PrepareOnly/);
+  const hardwareRunner = readFileSync(new URL("../tools/hardware-conformance.mjs", import.meta.url), "utf8");
+  assert.match(hardwareRunner, /--release-candidate/);
+  assert.match(hardwareRunner, /\.source\.json/);
+  const hardwareGate = readFileSync(new URL("../tools/verify-hardware-release.mjs", import.meta.url), "utf8");
+  assert.match(hardwareGate, /artifacts\/release-manifest\.json/);
 });
 
 test("release provenance fingerprints the executable app parity contract", () => {
@@ -110,7 +115,8 @@ test("CI packages the Android app with pinned native prerequisites and provenanc
   assert.match(workflow, /ndk;27\.2\.12479018/);
   assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
   assert.match(workflow, /npm run android:build:debug/);
-  assert.match(workflow, /app-debug\.apk/);
+  assert.match(workflow, /artifacts\/android\/QC-Control-Android-\*\.apk/);
+  assert.match(workflow, /QC-Control-Android-\*\.apk\.source\.json/);
   assert.match(workflow, /artifacts\/release-manifest\.json/);
   assert.match(workflow, /artifacts\/sbom\.cdx\.json/);
 });

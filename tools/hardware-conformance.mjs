@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import process from "node:process";
 import {
   CASES,
@@ -31,6 +32,7 @@ const execute = has("--execute");
 const discover = has("--discover");
 const prepare = has("--prepare");
 const requireAll = has("--require-all");
+const releaseCandidatePath = option("--release-candidate");
 const enabledHazards = new Set(["read"]);
 if (has("--live")) enabledHazards.add("live");
 if (has("--persistent")) enabledHazards.add("persistent");
@@ -189,6 +191,27 @@ function evidenceFor(name, value) {
   return redactEvidence(value);
 }
 
+async function readReleaseCandidate(path, platform) {
+  const absolutePath = resolve(path);
+  let bytes;
+  let metadata;
+  try {
+    [bytes, metadata] = await Promise.all([
+      readFile(absolutePath),
+      readFile(`${absolutePath}.source.json`, "utf8").then(JSON.parse)
+    ]);
+  } catch (error) {
+    throw new Error(`Release candidate or its .source.json metadata could not be read: ${error?.message ?? error}`);
+  }
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  assert(metadata.schemaVersion === 1, "Release candidate metadata schema is unsupported.");
+  assert(metadata.platform === platform, `Release candidate metadata is for ${metadata.platform}, not ${platform}.`);
+  assert(metadata.sourceDirty === false, "Release candidate metadata records a dirty source tree.");
+  assert(metadata.size === bytes.length, "Release candidate size no longer matches its staged metadata.");
+  assert(metadata.sha256 === digest, "Release candidate SHA-256 no longer matches its staged metadata.");
+  return { platform, fileName: basename(absolutePath), sourceCommit: metadata.sourceCommit, size: bytes.length, sha256: digest };
+}
+
 async function main() {
   validateCoverage(contract);
   const config = JSON.parse(await readFile(configPath, "utf8"));
@@ -205,7 +228,9 @@ async function main() {
   if (requireAll) {
     assert(enabledHazards.size === 5, "--require-all must be combined with --all.");
     assert(missingFixtures.length === 0, "Full execution requires every fixture.");
+    assert(releaseCandidatePath, "Full release evidence requires --release-candidate with a staged app artifact.");
   }
+  const releaseCandidate = releaseCandidatePath ? await readReleaseCandidate(releaseCandidatePath, config.target) : undefined;
   if (enabledHazards.has("persistent")) assertDisposableSlots(config, [config.persistent.slotA, config.persistent.slotB]);
 
   const transport = config.transport.kind === "gateway-stdio"
@@ -358,6 +383,7 @@ async function main() {
     contractVersion: contract.version,
     contractSha256: contractDigest(contract),
     contractActions: contract.actions.length,
+    ...(releaseCandidate ? { releaseCandidate } : {}),
     enabledHazards: [...enabledHazards],
     results: []
   };

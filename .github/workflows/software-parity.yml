@@ -133,7 +133,8 @@ jobs:
         with:
           name: qc-control-android-${{ github.sha }}
           path: |
-            apps/android/android/app/build/outputs/apk/debug/app-debug.apk
+            artifacts/android/QC-Control-Android-*.apk
+            artifacts/android/QC-Control-Android-*.apk.source.json
             artifacts/release-manifest.json
             artifacts/sbom.cdx.json
           if-no-files-found: error
