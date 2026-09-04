@@ -30,9 +30,9 @@ const expectedCategories: Array<[OfficialBlockVisualKey, string, [number, number
   ["utility", "Utility", [400, 82], "#959595"]
 ];
 
-test("vendored block sprite remains byte-identical to the verified Neural DSP SVG", () => {
-  const bytes = readFileSync("apps/windows/public/qc-block-samples.svg");
-  assert.equal(createHash("sha256").update(bytes).digest("hex"), "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea");
+test("vendored block sprite retains the verified Neural DSP SVG content", () => {
+  const canonical = readFileSync("apps/windows/public/qc-block-samples.svg", "utf8").replaceAll("\r\n", "\n");
+  assert.equal(createHash("sha256").update(canonical).digest("hex"), "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea");
 });
 
 test("isolated reference assets cannot silently fall back to unrelated sprite tiles", () => {

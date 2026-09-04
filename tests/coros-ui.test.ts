@@ -457,7 +457,8 @@ test("each chat tool validates against the latest device snapshot", () => {
   assert.match(appSource, /const liveSnapshot = snapshotRef\.current/);
   assert.match(appSource, /const commitToolSnapshot = \(next: PresetSnapshot\)/);
   assert.match(appSource, /snapshot: liveSnapshot/);
-  assert.match(appSource, /else if \(result\.snapshot\) commitToolSnapshot\(result\.snapshot\)/);
+  assert.match(appSource, /reconcileQcActionOutcome\(result,/);
+  assert.match(appSource, /commitSnapshot: commitToolSnapshot/);
   assert.match(executorSource, /assertExpectedString\(call, "expected_preset_name", snapshot\.presetName\)/);
 });
 
@@ -528,7 +529,7 @@ test("open parameter editor consumes device knob events and chat write readback"
   assert.match(liveStateSource, /state\.kind === "parameter"/);
   assert.match(liveStateSource, /editor\.updateParameters\(changes\)/);
   assert.match(parameterWorkflow, /detailsRef\.current = result\.block/);
-  assert.match(appSource, /parameterWorkflow\.updateDetails\(result\.block\)/);
+  assert.match(appSource, /updateBlock: parameterWorkflow\.updateDetails/);
   assert.match(runtimeSource, /GatewayVerification::Parameter/);
   assert.match(runtimeSource, /assert_expected_parameter/);
   assert.match(brokerSource, /runtime_request::assert_expected_parameter/);

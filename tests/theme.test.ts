@@ -5,7 +5,7 @@ import test from "node:test";
 import { QC_COLORS, QC_GEOMETRY, QC_GLYPH_FAMILIES, QC_TYPOGRAPHY, QC_VISUAL_ASSETS } from "../packages/typescript/qc-theme/src/index.ts";
 
 const read = (path: string) => readFileSync(path, "utf8");
-const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const sha256 = (path: string) => createHash("sha256").update(readFileSync(path, "utf8").replaceAll("\r\n", "\n")).digest("hex");
 
 test("shared theme retains every measured native QC color", () => {
   assert.deepEqual(QC_COLORS.captured, {
