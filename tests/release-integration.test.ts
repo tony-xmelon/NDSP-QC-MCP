@@ -18,7 +18,8 @@ test("Android preparation emits provenance and Firebase publishes the verified s
   assert.doesNotMatch(publish, /release-provenance\.mjs/);
   assert.match(publish, /\[string\]\$Testers = "prezimir@gmail\.com"/);
   assert.match(publish, /google-services\.json/);
-  assert.match(publish, /capacitor\.config\.ts/);
+  assert.match(publish, /qc-theme\\src\\brand\.json/);
+  assert.match(publish, /\$brandContract\.androidPackage/);
   assert.match(publish, /package_name -eq \$androidAppId/);
   assert.match(publish, /client_info\.mobilesdk_app_id/);
   assert.doesNotMatch(publish, /\$firebaseAppId = "1:/);

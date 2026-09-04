@@ -8,11 +8,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$capacitorConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\capacitor.config.ts") -Raw
-if ($capacitorConfig -notmatch 'appId\s*:\s*["'']([^"'']+)["'']') {
-    throw "Could not read the Android application ID from capacitor.config.ts."
+$brandContract = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\brand.json") -Raw | ConvertFrom-Json
+$androidAppId = $brandContract.androidPackage
+if ([string]::IsNullOrWhiteSpace($androidAppId)) {
+    throw "The shared branding contract does not define an Android package ID."
 }
-$androidAppId = $Matches[1]
 $firebaseConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\android\app\google-services.json") -Raw | ConvertFrom-Json
 $firebaseClients = @($firebaseConfig.client | Where-Object { $_.client_info.android_client_info.package_name -eq $androidAppId })
 if ($firebaseClients.Count -ne 1 -or [string]::IsNullOrWhiteSpace($firebaseClients[0].client_info.mobilesdk_app_id)) {
