@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Windows and Android software parity
+  software-parity:
+    name: Shared contracts, apps, and native runtimes
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -47,8 +47,35 @@ jobs:
       - name: Verify shared contracts, apps, and native runtimes
         run: npm run test:parity:software
 
+  ui-conformance:
+    name: Responsive and accessible app surfaces
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
       - name: Install browser for responsive and accessibility checks
         run: npx playwright install chromium
 
       - name: Verify responsive layouts and accessibility
         run: npm run test:ui
+
+      - name: Preserve failed UI screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-conformance-failure-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
