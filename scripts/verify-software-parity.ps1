@@ -36,6 +36,7 @@ $rustManifests = @(
 Push-Location $repositoryRoot
 try {
     Invoke-Checked "Package architecture boundaries" { npm run architecture:check }
+    Invoke-Checked "Windows and Android capability parity" { npm run app-parity:check }
     Invoke-Checked "Dependency security policy" { npm run security:audit }
     Invoke-Checked "TypeScript typecheck" { npm run typecheck }
     Invoke-Checked "TypeScript and UI tests" { npm test }

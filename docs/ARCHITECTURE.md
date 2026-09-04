@@ -75,7 +75,7 @@ Provides a Python implementation of the versioned gateway contract. It is used b
 
 Contains versioned, language-neutral schemas for commands, results, snapshots, events, errors, capabilities, confirmation requests, and protocol negotiation. JSON Schema is the initial interchange definition. Generated Python/TypeScript/Kotlin/Swift models are build artifacts and are never hand-edited.
 
-Five manifests currently prevent platform drift:
+Five protocol manifests currently prevent platform drift:
 
 - `qc-usb-profile.v1.json` owns USB identity, handshake/sync timing, subscriptions, frame limits, keepalive policy, and performance MIDI mappings.
 - `qc-domain.v1.json` owns Grid/scene/tempo limits, scene colors, route IDs/labels/groups, and IPC frame limits.
@@ -85,6 +85,13 @@ Five manifests currently prevent platform drift:
   device identity/history and screenshot/remote-screen behavior to pyquadcortex.
 - `qc-actions.v1.json` owns the cross-surface assistant/MCP action names, RPC mapping, descriptions, schemas, and read/live/persistent safety class.
 - `qc-payloads.v1.schema.json` owns snapshots, native state events, Grid/editor structures, and action results generated for TypeScript, Rust, and Python.
+
+`app-parity.v1.json` is the executable product-capability inventory. It records
+which Windows/Android features must remain equivalent, whether their owner is a
+shared package or a thin native adapter, and the evidence that each composition
+root still exposes them. Platform-only delivery and desktop-shell features need
+an explicit rationale. `npm run app-parity:check` validates the inventory and is
+part of the software parity gate.
 
 `npm run protocol:generate` materializes the required Rust, Java, Python, TypeScript, JSON Schema, and Tauri binding files. `npm run protocol:check` fails when a checked-in generated file drifts from its manifest.
 

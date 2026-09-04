@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "statuses": ["implemented", "not-applicable"],
+  "features": [
+    {
+      "id": "device-surface",
+      "label": "Live QC screen and controls",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/quad-cortex-surface.tsx", "contains": "export function QuadCortexSurface" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "<QuadCortexSurface" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "<QuadCortexSurface" }] }
+    },
+    {
+      "id": "device-workflows",
+      "label": "Preset, Grid, routing, scene, parameter, and performance workflows",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-qc-workflows.ts", "contains": "export function useQcWorkflows" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useQcWorkflows({" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "useQcWorkflows({" }] }
+    },
+    {
+      "id": "realtime-state",
+      "label": "Batched live state and optimistic reconciliation",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-qc-live-state.ts", "contains": "export function useQcLiveState" }, { "path": "packages/typescript/qc-core/src/command-coordinator.ts", "contains": "export class QcCommandCoordinator" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useWindowsDeviceFrames" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "addListener(\"qcStateBatch\"" }] }
+    },
+    {
+      "id": "usb-session",
+      "label": "Persistent direct USB session",
+      "parity": "required",
+      "owner": "native-equivalent",
+      "sharedEvidence": [{ "path": "packages/rust/qc-protocol/src/session.rs", "contains": "pub struct SessionMachine" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "services/device-broker/src/usb.rs", "contains": "pub struct QcUsb" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java", "contains": "class QcUsbPlugin" }, { "path": "packages/rust/qc-android/src/lib.rs", "contains": "StateDecoder" }] }
+    },
+    {
+      "id": "gateway-transport",
+      "label": "Typed gateway transport surface",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-core/src/gateway-transport.ts", "contains": "export function createQcGatewayTransport" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/qc-transport.ts", "contains": "createWindowsQcTransport" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/native-services.ts", "contains": "createAndroidQcTransport" }] }
+    },
+    {
+      "id": "offline-assistant",
+      "label": "Deterministic offline assistant commands",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-core/src/assistant-intent-resolution.ts", "contains": "resolveOfflineAssistantIntent" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "resolveOfflineAssistantIntent(intent" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "resolveOfflineAssistantIntent(intent" }] }
+    },
+    {
+      "id": "conversational-tools",
+      "label": "Provider-neutral conversational QC tool loop",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-core/src/chat-session.ts", "contains": "export async function runToolConversation" }, { "path": "packages/typescript/qc-ui/src/qc-action-executor.ts", "contains": "export async function executeQcAction" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "runToolConversation<ChatToolCall" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "runToolConversation<AssistantToolCall" }] }
+    },
+    {
+      "id": "assistant-ui-lifecycle",
+      "label": "Conversation, access policy, result rendering, and auto-scroll",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-assistant-conversation.ts", "contains": "export function useAssistantConversation" }, { "path": "packages/typescript/qc-ui/src/use-assistant-auto-scroll.ts", "contains": "export function useAssistantAutoScroll" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useAssistantAutoScroll(chatOpen, messages)" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "useAssistantAutoScroll(true, messages)" }] }
+    },
+    {
+      "id": "voice-command-path",
+      "label": "Push-to-talk transcript routed through chat",
+      "parity": "required",
+      "owner": "native-equivalent",
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/voice.ts", "contains": "createSpeechRecognition" }, { "path": "apps/windows/src/App.tsx", "contains": "submitVoiceOnEnd" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "await sendInput(transcript)" }] }
+    },
+    {
+      "id": "public-relay",
+      "label": "Outbound authenticated public MCP relay",
+      "parity": "required",
+      "owner": "native-equivalent",
+      "sharedEvidence": [{ "path": "contracts/qc-actions.v1.json", "contains": "accessTiers" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/tauri-transport.ts", "contains": "export const publicRelay" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/native-services.ts", "contains": "QcRelayNative" }] }
+    },
+    {
+      "id": "diagnostics",
+      "label": "Connection and transport diagnostics",
+      "parity": "required",
+      "owner": "native-equivalent",
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/tauri-transport.ts", "contains": "export const diagnosticsFiles" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "QcUsbNative.diagnostics()" }] }
+    },
+    {
+      "id": "local-workspaces",
+      "label": "Desktop local workspace files",
+      "parity": "platform-specific",
+      "owner": "windows-shell",
+      "rationale": "Portable desktop file workflows do not map to the compact direct-control phone experience.",
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/tauri-transport.ts", "contains": "export const workspaceFiles" }] },
+      "android": { "status": "not-applicable", "evidence": [] }
+    },
+    {
+      "id": "provider-configuration-and-attachments",
+      "label": "Desktop multi-provider configuration and rich attachments",
+      "parity": "platform-specific",
+      "owner": "windows-shell",
+      "rationale": "Android uses Firebase AI Logic and native Google identity; Windows supports multiple local/BYOK providers and desktop file attachments.",
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/model-chat.ts", "contains": "chatProviderDefaults" }, { "path": "apps/windows/src/App.tsx", "contains": "addChatAttachmentFiles" }] },
+      "android": { "status": "not-applicable", "evidence": [] }
+    },
+    {
+      "id": "firebase-mobile-distribution",
+      "label": "Firebase AI, App Check, and tester distribution",
+      "parity": "platform-specific",
+      "owner": "android-shell",
+      "rationale": "Firebase App Distribution and Play Integrity are Android delivery concerns.",
+      "windows": { "status": "not-applicable", "evidence": [] },
+      "android": { "status": "implemented", "evidence": [{ "path": "scripts/publish-android-firebase.ps1", "contains": "appdistribution:distribute" }, { "path": "apps/android/src/native-services.ts", "contains": "GeminiNative" }] }
+    },
+    {
+      "id": "desktop-window-chrome",
+      "label": "Desktop menus, shortcuts, fullscreen, and resize behavior",
+      "parity": "platform-specific",
+      "owner": "windows-shell",
+      "rationale": "These controls adapt the shared surface to a resizable desktop window and keyboard/mouse input.",
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/menu-bar.tsx", "contains": "export function MenuBar" }] },
+      "android": { "status": "not-applicable", "evidence": [] }
+    }
+  ]
+}
