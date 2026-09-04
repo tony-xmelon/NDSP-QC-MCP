@@ -56,6 +56,17 @@ def _pyquadcortex_method(qc: Any, name: str):
     return method
 
 
+def _optional_finite_range(value: Any, name: str, minimum: float, maximum: float) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite number or null")
+    result = float(value)
+    if not minimum <= result <= maximum:
+        raise ValueError(f"{name} must be from {minimum:g} through {maximum:g}")
+    return result
+
+
 def _png_response(image: bytes) -> dict[str, Any]:
     """Project pyquadcortex image bytes to the shared Rust gateway shape."""
     payload = bytes(image)
@@ -836,6 +847,118 @@ class PyQuadCortexDevice:
             assignment = message.master_volume_assignment
             result["masterVolumeAssignment"] = {name: bool(getattr(assignment, name)) for name in ("out12", "out34", "send12", "headphones")}
         return result
+
+    def io_settings(self) -> dict[str, Any]:
+        """Compatibility projection of the native Rust IoSettings payload."""
+        message = _pyquadcortex_method(self._require_session(), "io_settings")()
+
+        def optional_fields(item: Any, fields: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+            return {
+                public: getattr(item, wire)
+                for public, wire in fields
+                if item.HasField(wire)
+            }
+
+        inputs = []
+        for port in message.settings.in_port:
+            projected = {"inputPortId": int(port.input_port_id), **optional_fields(port, (
+                ("level", "level"), ("impedance", "input_zmode"),
+                ("inputType", "input_type"), ("groundLift", "ground_lift"),
+                ("plugged", "plugged"),
+            ))}
+            if "level" in projected:
+                projected["levelDb"] = float(projected["level"]) * 72.0 - 12.0
+            inputs.append(projected)
+        outputs = [
+            {"outputPortId": int(port.output_port_id), **optional_fields(port, (
+                ("level", "level"), ("groundLift", "ground_lift"),
+                ("muted", "mute"), ("plugged", "plugged"),
+            ))}
+            for port in message.settings.out_port
+        ]
+        result: dict[str, Any] = {"inputs": inputs, "outputs": outputs, "expressions": [
+            {"expressionPortId": int(port.exp_port_id), **optional_fields(port, (
+                ("plugged", "plugged"), ("level", "level"),
+                ("calibrating", "calibrating"),
+            ))}
+            for port in message.settings.exp_port
+        ]}
+        if message.settings.HasField("hp_port"):
+            port = message.settings.hp_port
+            result["headphones"] = {**optional_fields(port, (
+                ("level", "level"), ("plugged", "plugged"),
+            )), "feeds": [
+                {"level": float(feed.level), "outputPortId": int(feed.output_port_id)}
+                for feed in port.hp_feed
+            ]}
+        if message.settings.HasField("usb_port"):
+            result["usb"] = optional_fields(message.settings.usb_port, (
+                ("level", "level"), ("headphonesSource", "hp_select"),
+                ("plugged", "plugged"), ("dryWet", "dry_wet"),
+            ))
+        if message.settings.HasField("midi_port"):
+            result["midi"] = optional_fields(message.settings.midi_port, (("thru", "midi_thru"),))
+        if message.HasField("xlr1_2_linked"):
+            result["xlr12Linked"] = bool(message.xlr1_2_linked)
+        if message.HasField("out3_4_linked"):
+            result["out34Linked"] = bool(message.out3_4_linked)
+        return result
+
+    def set_input_port(self, input_port_id: int, level_db: float | None,
+                       impedance: float | None, input_type: float | None,
+                       ground_lift: float | None) -> dict[str, Any]:
+        if isinstance(input_port_id, bool) or not isinstance(input_port_id, int) or not 1 <= input_port_id <= 14:
+            raise ValueError("inputPortId must be an integer from 1 through 14")
+        level_db = _optional_finite_range(level_db, "levelDb", -12.0, 60.0)
+        impedance = _optional_finite_range(impedance, "impedance", 0.0, 1.0)
+        input_type = _optional_finite_range(input_type, "inputType", 0.0, 1.0)
+        ground_lift = _optional_finite_range(ground_lift, "groundLift", 0.0, 1.0)
+        protocol = _protocol_api()
+        level = None if level_db is None else protocol.Db(float(level_db))
+        _pyquadcortex_method(self._require_session(), "set_input_port")(
+            input_port_id, level=level, impedance=impedance,
+            input_type=input_type, ground_lift=ground_lift)
+        return {"detail": f"Input port {input_port_id} settings sent to the Quad Cortex"}
+
+    def set_output_port(self, output_port_id: int, level: float | None,
+                        ground_lift: float | None, mute: bool | None) -> dict[str, Any]:
+        if isinstance(output_port_id, bool) or not isinstance(output_port_id, int) or not 1 <= output_port_id <= 22:
+            raise ValueError("outputPortId must be an integer from 1 through 22")
+        level = _optional_finite_range(level, "level", 0.0, 1.0)
+        ground_lift = _optional_finite_range(ground_lift, "groundLift", 0.0, 1.0)
+        if mute is not None and not isinstance(mute, bool):
+            raise ValueError("mute must be a boolean or null")
+        encoded = None if level is None else _protocol_api().Encoded(level)
+        _pyquadcortex_method(self._require_session(), "set_output_port")(
+            output_port_id, level=encoded, ground_lift=ground_lift, mute=mute)
+        return {"detail": f"Output port {output_port_id} settings sent to the Quad Cortex"}
+
+    def set_usb_port(self, level: float | None, headphones_source: float | None,
+                     dry_wet: float | None) -> dict[str, Any]:
+        level = _optional_finite_range(level, "level", 0.0, 1.0)
+        headphones_source = _optional_finite_range(headphones_source, "headphonesSource", 0.0, 1.0)
+        dry_wet = _optional_finite_range(dry_wet, "dryWet", 0.0, 1.0)
+        encoded = None if level is None else _protocol_api().Encoded(level)
+        _pyquadcortex_method(self._require_session(), "set_usb_port")(
+            level=encoded, hp_select=headphones_source, dry_wet=dry_wet)
+        return {"detail": "USB port settings sent to the Quad Cortex"}
+
+    def set_midi_thru(self, enabled: bool) -> dict[str, Any]:
+        if not isinstance(enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        _pyquadcortex_method(self._require_session(), "set_midi_thru")(enabled)
+        return {"detail": "MIDI Thru setting sent to the Quad Cortex"}
+
+    def set_output_pairing(self, xlr12_linked: bool | None,
+                           out34_linked: bool | None) -> dict[str, Any]:
+        if any(value is not None and not isinstance(value, bool)
+               for value in (xlr12_linked, out34_linked)):
+            raise ValueError("output pairing values must be booleans or null")
+        if xlr12_linked is None and out34_linked is None:
+            raise ValueError("at least one output pairing value must be supplied")
+        _pyquadcortex_method(self._require_session(), "set_output_pairing")(
+            xlr1_2=xlr12_linked, out3_4=out34_linked)
+        return {"detail": "Output pairing settings sent to the Quad Cortex"}
 
     def set_general_integer(self, setting: str, value: int) -> dict[str, Any]:
         fields = {"screenBrightness": ("screen_brightness", 0, 100), "ledBrightness": ("led_brightness", 0, 100),

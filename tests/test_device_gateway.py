@@ -64,6 +64,69 @@ class NativeTransportSafetyTests(unittest.TestCase):
 
 
 class DevicePositionTests(unittest.TestCase):
+    def test_io_settings_project_every_port_family_and_dispatch_sparse_writes(self):
+        class Message(SimpleNamespace):
+            def HasField(self, field):
+                return hasattr(self, field)
+
+        io = Message(
+            settings=Message(
+                in_port=[Message(input_port_id=1, level=0.5, plugged=True)],
+                out_port=[Message(output_port_id=4, level=0.75, mute=False)],
+                exp_port=[Message(exp_port_id=1, plugged=True, level=0.2)],
+                hp_port=Message(level=0.4, plugged=True,
+                                hp_feed=[Message(level=0.6, output_port_id=4)]),
+                usb_port=Message(level=0.3, hp_select=0.5, plugged=True, dry_wet=1.0),
+                midi_port=Message(midi_thru=1.0),
+            ),
+            xlr1_2_linked=True,
+            out3_4_linked=False,
+        )
+
+        class Session:
+            def io_settings(self):
+                return io
+
+            def set_input_port(self, port, **values):
+                self.input = (port, values)
+
+            def set_output_port(self, port, **values):
+                self.output = (port, values)
+
+            def set_usb_port(self, **values):
+                self.usb = values
+
+            def set_midi_thru(self, enabled):
+                self.midi = enabled
+
+            def set_output_pairing(self, **values):
+                self.pairing = values
+
+        session = Session()
+        device = PyQuadCortexDevice()
+        device._qc = session
+        projected = device.io_settings()
+        self.assertEqual(projected["inputs"][0]["levelDb"], 24.0)
+        self.assertTrue(projected["headphones"]["plugged"])
+        self.assertEqual(projected["usb"]["dryWet"], 1.0)
+        self.assertEqual(projected["midi"]["thru"], 1.0)
+        self.assertTrue(projected["xlr12Linked"])
+
+        with patch("qc_device_gateway.device._protocol_api",
+                   return_value=SimpleNamespace(Db=lambda value: ("db", value),
+                                                Encoded=lambda value: ("encoded", value))):
+            device.set_input_port(1, 12.0, None, 1.0, None)
+            device.set_output_port(4, 0.75, None, False)
+            device.set_usb_port(0.25, None, 1.0)
+        device.set_midi_thru(True)
+        device.set_output_pairing(True, None)
+        self.assertEqual(session.input, (1, {"level": ("db", 12.0), "impedance": None,
+                                             "input_type": 1.0, "ground_lift": None}))
+        self.assertEqual(session.output[1]["level"], ("encoded", 0.75))
+        self.assertEqual(session.usb["dry_wet"], 1.0)
+        self.assertTrue(session.midi)
+        self.assertEqual(session.pairing, {"xlr1_2": True, "out3_4": None})
+
     def test_general_settings_project_sparse_state_and_validate_all_writes(self):
         class Message(SimpleNamespace):
             def HasField(self, field):

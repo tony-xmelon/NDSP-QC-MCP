@@ -347,6 +347,9 @@ async function main() {
       let folders = await transport.call("list_preset_folders", { refresh: true });
       const slots = await transport.call("list_preset_slots", {});
       const models = await transport.call("list_models", { query: null });
+      const pinned = await transport.call("list_pinned_models", {});
+      const captures = await transport.call("list_captures", {});
+      const irs = await transport.call("list_irs", { folder: null });
       let presets = await transport.call("list_presets", { refresh: false, setlist_key: snapshot.setlistKey });
       const screen = await transport.call("capture_screen", {});
       const libraryDeadline = Date.now() + 10000;
@@ -370,7 +373,12 @@ async function main() {
         folders: redactEvidence(folders.folders ?? []),
         scratchPresetCandidates: redactEvidence((presets.presets ?? []).filter((preset) => preset.name && !/^Unsaved$/i.test(preset.name)).slice(0, 30)),
         candidateDisposableSlots: redactEvidence(emptySlots),
-        modelCount: models.models?.length ?? 0
+        modelCount: models.models?.length ?? 0,
+        suggestedLibraryFixtures: {
+          pinnedModelId: pinned.models?.[0] ?? models.models?.[0]?.id,
+          capture: redactEvidence(captures.entries?.[0]),
+          ir: redactEvidence(irs.entries?.[0])
+        }
       }, null, 2));
     } finally {
       await transport.close().catch(() => {});
@@ -395,6 +403,11 @@ async function main() {
   let parameter;
   let originalMasterVolume;
   let originalGeneralSettings;
+  let originalIoSettings;
+  let originalGlobalEq;
+  let originalModeCycle;
+  let originalFavorites;
+  let originalPinnedModels;
   let transportStarted = false;
   let deviceAuthorized = false;
   let firstScreenTapSent = false;
@@ -459,6 +472,76 @@ async function main() {
       value = await transport.call("get_general_settings", {});
       if (predicate(value)) return value;
       await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForIoSettings = async (predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_io_settings", {});
+      if (predicate(value)) return value;
+      await sleep(1000);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForGlobalEq = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_global_eq", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForModeCycle = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_mode_cycle", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForFavorites = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_favorites", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPinnedModels = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_pinned_models", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPresetFolders = async (predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_preset_folders", { refresh: true });
+      if (predicate(value)) return value;
+      await sleep(1000);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPresets = async (setlistKey, predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_presets", { refresh: true, setlist_key: setlistKey });
+      if (predicate(value)) return value;
+      await sleep(1000);
     } while (Date.now() < deadline);
     return value;
   };
@@ -556,6 +639,26 @@ async function main() {
       Number.isInteger(value.sceneBypassBehavior === "alwaysOverwrite" ? 0 : value.sceneBypassBehavior === "nonstompOverwrite" ? 1 : value.sceneBypassBehavior === "neverOverwrite" ? 2 : NaN),
       "General settings did not include a valid scene bypass behavior."
     ));
+    originalIoSettings = await call("get_io_settings", {}, (value) => assert(
+      Array.isArray(value.inputs) && value.inputs.length > 0 && Array.isArray(value.outputs),
+      "I/O settings did not include input and output port arrays."
+    ));
+    originalGlobalEq = await call("get_global_eq", {}, (value) => assert(
+      Array.isArray(value.parameters) && value.parameters.length > 0,
+      "Global EQ did not include its parameter array."
+    ));
+    originalModeCycle = await call("get_mode_cycle", {}, (value) => assert(
+      Array.isArray(value.slots) && value.slots.length >= 1 && value.slots.length <= 3,
+      "Mode cycle did not include one through three slots."
+    ));
+    await call("get_looper_status", {}, (value) => assert(value && typeof value === "object", "Looper status is invalid."));
+    await call("list_recents", {}, (value) => assert(Array.isArray(value.entries), "Recent preset list is invalid."));
+    originalFavorites = await call("list_favorites", {}, (value) => assert(Array.isArray(value.entries), "Favorite preset list is invalid."));
+    originalPinnedModels = await call("list_pinned_models", {}, (value) => assert(
+      Array.isArray(value.models) && Array.isArray(value.captures), "Pinned model list is invalid."
+    ));
+    await call("list_captures", {}, (value) => assert(Array.isArray(value.entries), "Capture library list is invalid."));
+    await call("list_irs", { folder: null }, (value) => assert(Array.isArray(value.entries), "IR library list is invalid."));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
       const screenPath = resolve(root, config.discoveryScreenPath);
@@ -650,6 +753,9 @@ async function main() {
       await transport.call("select_mode_slot", { slot: config.performance.restoreModeSlot, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => value.mode === modeBySlot[config.performance.restoreModeSlot]);
       assert(currentSnapshot.mode === modeBySlot[config.performance.restoreModeSlot], "Mode-slot restoration did not reach authoritative device state.");
+
+      await call("control_looper", { command: "open", value: null });
+      await transport.call("control_looper", { command: "close", value: null });
 
       const originalVolume = originalMasterVolume;
       await call("set_master_volume", { value: config.performance.masterVolume, expected_value: originalVolume, confirm_risky_operation: true });
@@ -816,6 +922,34 @@ async function main() {
       await call("remove_block", { row: temp.row, column: temp.moveColumn, expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => !value.blocks.some((block) => block.row === temp.row && block.column === temp.moveColumn));
 
+      const capture = config.library.capture;
+      await call("load_capture", {
+        row: temp.row, column: temp.addColumn, key: capture.key, name: capture.name,
+        model_id: capture.modelId, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === capture.modelId));
+      await transport.call("remove_block", {
+        row: temp.row, column: temp.addColumn, expected_model_id: capture.modelId,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn));
+
+      const ir = config.library.ir;
+      await call("load_ir", {
+        row: temp.row, column: temp.addColumn, key: ir.key, name: ir.name,
+        slot: ir.slot, model_id: ir.modelId, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === ir.modelId));
+      await transport.call("remove_block", {
+        row: temp.row, column: temp.addColumn, expected_model_id: ir.modelId,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn));
+
       const route = currentSnapshot.routes.find((candidate) => candidate.row === config.routing.row);
       assert(route && Number.isInteger(route.inputId) && Number.isInteger(route.outputId), "Configured route has no restorable input/output IDs.");
       await call("set_chain_input", { row: route.row, input_id: config.routing.testInputId, expected_input_id: route.inputId, expected_preset_name: currentSnapshot.presetName });
@@ -905,6 +1039,190 @@ async function main() {
       assert(settings.globalBypassCab?.row1 === testCab[0], "Global Cab bypass did not read back.");
       await transport.call("set_global_bypass", { cab, ir, confirm_persistent_write: true });
 
+      const input = originalIoSettings.inputs.find((port) => Number.isFinite(port.levelDb));
+      assert(input, "A restorable input gain is required for I/O conformance.");
+      const testInputDb = input.levelDb > 58 ? input.levelDb - 1 : input.levelDb + 1;
+      await call("set_input_port", {
+        input_port_id: input.inputPortId, level_db: testInputDb,
+        impedance: null, input_type: null, ground_lift: null,
+        confirm_persistent_write: true
+      });
+      let io = await waitForIoSettings((value) => value.inputs?.some(
+        (port) => port.inputPortId === input.inputPortId && Math.abs(port.levelDb - testInputDb) < .002));
+      assert(io.inputs.some((port) => port.inputPortId === input.inputPortId && Math.abs(port.levelDb - testInputDb) < .002), "Input gain did not read back.");
+      await transport.call("set_input_port", {
+        input_port_id: input.inputPortId, level_db: input.levelDb,
+        impedance: null, input_type: null, ground_lift: null,
+        confirm_persistent_write: true
+      });
+
+      const output = originalIoSettings.outputs.find((port) => typeof port.muted === "boolean");
+      assert(output, "A restorable output mute is required for I/O conformance.");
+      await call("set_output_port", {
+        output_port_id: output.outputPortId, level: null, ground_lift: null,
+        mute: !output.muted, confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => value.outputs?.some(
+        (port) => port.outputPortId === output.outputPortId && port.muted === !output.muted));
+      assert(io.outputs.some((port) => port.outputPortId === output.outputPortId && port.muted === !output.muted), "Output mute did not read back.");
+      await transport.call("set_output_port", {
+        output_port_id: output.outputPortId, level: null, ground_lift: null,
+        mute: output.muted, confirm_persistent_write: true
+      });
+
+      assert(Number.isFinite(originalIoSettings.usb?.level), "A restorable USB level is required for I/O conformance.");
+      const testUsbLevel = originalIoSettings.usb.level > .98 ? .97 : originalIoSettings.usb.level + .01;
+      await call("set_usb_port", {
+        level: testUsbLevel, headphones_source: null, dry_wet: null,
+        confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => Math.abs(value.usb?.level - testUsbLevel) < .002);
+      assert(Math.abs(io.usb?.level - testUsbLevel) < .002, "USB level did not read back.");
+      await transport.call("set_usb_port", {
+        level: originalIoSettings.usb.level, headphones_source: null, dry_wet: null,
+        confirm_persistent_write: true
+      });
+
+      const originalMidiThru = Number(originalIoSettings.midi?.thru) >= .5;
+      await call("set_midi_thru", { enabled: !originalMidiThru, confirm_persistent_write: true });
+      io = await waitForIoSettings((value) => (Number(value.midi?.thru) >= .5) === !originalMidiThru);
+      assert((Number(io.midi?.thru) >= .5) === !originalMidiThru, "MIDI Thru did not read back.");
+      await transport.call("set_midi_thru", { enabled: originalMidiThru, confirm_persistent_write: true });
+
+      assert(typeof originalIoSettings.xlr12Linked === "boolean", "A restorable output-pairing value is required.");
+      await call("set_output_pairing", {
+        xlr12_linked: !originalIoSettings.xlr12Linked, out34_linked: null,
+        confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => value.xlr12Linked === !originalIoSettings.xlr12Linked);
+      assert(io.xlr12Linked === !originalIoSettings.xlr12Linked, "Output pairing did not read back.");
+      await transport.call("set_output_pairing", {
+        xlr12_linked: originalIoSettings.xlr12Linked, out34_linked: null,
+        confirm_persistent_write: true
+      });
+
+      assert(typeof originalGlobalEq.bypassed === "boolean", "A restorable Global EQ bypass state is required.");
+      await call("set_global_eq_bypassed", {
+        bypassed: !originalGlobalEq.bypassed, confirm_persistent_write: true
+      });
+      let globalEq = await waitForGlobalEq((value) => value.bypassed === !originalGlobalEq.bypassed);
+      assert(globalEq.bypassed === !originalGlobalEq.bypassed, "Global EQ bypass did not read back.");
+      await transport.call("set_global_eq_bypassed", {
+        bypassed: originalGlobalEq.bypassed, confirm_persistent_write: true
+      });
+
+      const eqValue = (index) => originalGlobalEq.parameters.find((parameter) => parameter.parameterIndex === index)?.value;
+      const originalBandGain = eqValue(0);
+      assert(Number.isFinite(originalBandGain), "A restorable Global EQ band gain is required.");
+      const testBandGain = originalBandGain > .98 ? .97 : originalBandGain + .01;
+      await call("set_global_eq_band", {
+        band: 1, gain: testBandGain, frequency: null, q: null, filter_type: null, enabled: null,
+        confirm_persistent_write: true
+      });
+      globalEq = await waitForGlobalEq((value) => Math.abs(value.parameters?.find((item) => item.parameterIndex === 0)?.value - testBandGain) < .002);
+      assert(Math.abs(globalEq.parameters.find((item) => item.parameterIndex === 0).value - testBandGain) < .002, "Global EQ band did not read back.");
+      await transport.call("set_global_eq_band", {
+        band: 1, gain: originalBandGain, frequency: null, q: null, filter_type: null, enabled: null,
+        confirm_persistent_write: true
+      });
+
+      const originalOutputLevel = eqValue(25);
+      assert(Number.isFinite(originalOutputLevel), "A restorable Global EQ output level is required.");
+      const testOutputLevel = originalOutputLevel > .98 ? .97 : originalOutputLevel + .01;
+      await call("set_global_eq_output", {
+        level: testOutputLevel, out12: null, out34: null, confirm_persistent_write: true
+      });
+      globalEq = await waitForGlobalEq((value) => Math.abs(value.parameters?.find((item) => item.parameterIndex === 25)?.value - testOutputLevel) < .002);
+      assert(Math.abs(globalEq.parameters.find((item) => item.parameterIndex === 25).value - testOutputLevel) < .002, "Global EQ output did not read back.");
+      await transport.call("set_global_eq_output", {
+        level: originalOutputLevel, out12: null, out34: null, confirm_persistent_write: true
+      });
+
+      const testCycle = originalModeCycle.slots.length > 1
+        ? [...originalModeCycle.slots].reverse()
+        : [originalModeCycle.slots[0], originalModeCycle.slots[0] === 0 ? 1 : 0];
+      await call("set_mode_cycle", { slots: testCycle, confirm_persistent_write: true });
+      const modeCycle = await waitForModeCycle((value) => JSON.stringify(value.slots) === JSON.stringify(testCycle));
+      assert(JSON.stringify(modeCycle.slots) === JSON.stringify(testCycle), "Mode cycle did not read back.");
+      await transport.call("set_mode_cycle", { slots: originalModeCycle.slots, confirm_persistent_write: true });
+
+      const scratchFolder = folders.folders.find(
+        (folder) => folder.key?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, ""));
+      assert(scratchFolder, "Scratch preset setlist metadata is unavailable for Favorites conformance.");
+      const originallyFavorite = originalFavorites.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, ""));
+      await call("set_favorite", {
+        name: currentSnapshot.presetName, folder_key: config.scratchPreset.setlistKey,
+        folder_name: scratchFolder.name, is_factory: Boolean(scratchFolder.isFactory),
+        favorite: !originallyFavorite, confirm_persistent_write: true
+      });
+      let favorites = await waitForFavorites((value) => value.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === !originallyFavorite);
+      assert(favorites.entries.some((entry) => entry.name === currentSnapshot.presetName
+        && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === !originallyFavorite,
+      "Favorite mutation did not read back.");
+      await transport.call("set_favorite", {
+        name: currentSnapshot.presetName, folder_key: config.scratchPreset.setlistKey,
+        folder_name: scratchFolder.name, is_factory: Boolean(scratchFolder.isFactory),
+        favorite: originallyFavorite, confirm_persistent_write: true
+      });
+      favorites = await waitForFavorites((value) => value.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === originallyFavorite);
+      assert(favorites.entries.some((entry) => entry.name === currentSnapshot.presetName
+        && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === originallyFavorite,
+      "Favorite restoration did not read back.");
+
+      const pinnedModelId = config.library.pinnedModelId;
+      const originallyPinned = originalPinnedModels.models.includes(pinnedModelId);
+      await call("set_model_pinned", {
+        model_id: pinnedModelId, pinned: !originallyPinned, confirm_persistent_write: true
+      });
+      let pinned = await waitForPinnedModels((value) => value.models.includes(pinnedModelId) === !originallyPinned);
+      assert(pinned.models.includes(pinnedModelId) === !originallyPinned, "Pinned-model mutation did not read back.");
+      await transport.call("set_model_pinned", {
+        model_id: pinnedModelId, pinned: originallyPinned, confirm_persistent_write: true
+      });
+      pinned = await waitForPinnedModels((value) => value.models.includes(pinnedModelId) === originallyPinned);
+      assert(pinned.models.includes(pinnedModelId) === originallyPinned, "Pinned-model restoration did not read back.");
+
+      const emptySetlistName = uniqueName(config.persistent.namePrefix, "empty");
+      await call("create_setlist", { name: emptySetlistName, confirm_persistent_write: true });
+      let setlists = await waitForPresetFolders((value) => value.folders.some((folder) => folder.name === emptySetlistName));
+      assert(setlists.folders.some((folder) => folder.name === emptySetlistName), "Created setlist did not appear in the device library.");
+      await call("delete_setlist", { name: emptySetlistName, confirm_persistent_write: true });
+      setlists = await waitForPresetFolders((value) => !value.folders.some((folder) => folder.name === emptySetlistName));
+      assert(!setlists.folders.some((folder) => folder.name === emptySetlistName), "Deleted setlist remained in the device library.");
+
+      const duplicateName = uniqueName(config.persistent.namePrefix, "copy");
+      const duplicated = await call("duplicate_setlist", {
+        source_setlist_key: config.scratchPreset.setlistKey,
+        destination_name: duplicateName,
+        limit: 1,
+        expected_preset_name: currentSnapshot.presetName,
+        expected_position: currentSnapshot.presetPosition,
+        confirm_persistent_write: true
+      });
+      currentSnapshot = resultSnapshot(duplicated) ?? await snapshot();
+      const duplicateKey = `/media/p4/Presets/${duplicateName}`;
+      const duplicatePresets = await waitForPresets(duplicateKey, (value) => value.presets.some(
+        (preset) => preset.position === 0 && preset.name === currentSnapshot.presetName));
+      assert(duplicatePresets.presets.some((preset) => preset.position === 0), "Duplicated setlist did not contain its copied preset.");
+      await transport.call("recall_preset", {
+        setlist_key: config.scratchPreset.setlistKey,
+        position: config.scratchPreset.position,
+        expected_preset_name: currentSnapshot.presetName,
+        expected_position: currentSnapshot.presetPosition
+      });
+      currentSnapshot = await waitForSnapshot((value) =>
+        value.setlistKey === config.scratchPreset.setlistKey
+          && value.presetPosition === config.scratchPreset.position);
+      await transport.call("delete_setlist", { name: duplicateName, confirm_persistent_write: true });
+      setlists = await waitForPresetFolders((value) => !value.folders.some((folder) => folder.name === duplicateName));
+      assert(!setlists.folders.some((folder) => folder.name === duplicateName), "Duplicated setlist was not deleted during restoration.");
+
       const nameA = uniqueName(config.persistent.namePrefix, "A");
       const nameRenamed = uniqueName(config.persistent.namePrefix, "R");
       report.disposableSlotsModified = [config.persistent.slotA, config.persistent.slotB];
@@ -945,6 +1263,32 @@ async function main() {
       currentSnapshot = resultSnapshot(copied) ?? await snapshot();
       await sleep(500);
       currentSnapshot = await snapshot();
+      await call("delete_preset", {
+        setlist_key: config.persistent.slotA.setlistKey,
+        name: nameRenamed,
+        confirm_persistent_write: true
+      });
+      let destinationPresets = await waitForPresets(config.persistent.slotA.setlistKey,
+        (value) => !value.presets.some((preset) => preset.name === nameRenamed));
+      assert(!destinationPresets.presets.some((preset) => preset.name === nameRenamed), "Deleted preset remained in its setlist.");
+      await call("move_preset", {
+        setlist_key: config.persistent.slotB.setlistKey,
+        name: copySource.name,
+        position: config.persistent.slotA.position,
+        confirm_persistent_write: true
+      });
+      destinationPresets = await waitForPresets(config.persistent.slotB.setlistKey,
+        (value) => value.presets.some((preset) => preset.name === copySource.name && preset.position === config.persistent.slotA.position));
+      assert(destinationPresets.presets.some((preset) => preset.name === copySource.name
+        && preset.position === config.persistent.slotA.position), "Moved preset did not read back at its destination.");
+      await call("delete_preset", {
+        setlist_key: config.persistent.slotB.setlistKey,
+        name: copySource.name,
+        confirm_persistent_write: true
+      });
+      destinationPresets = await waitForPresets(config.persistent.slotB.setlistKey,
+        (value) => !value.presets.some((preset) => preset.name === copySource.name));
+      assert(!destinationPresets.presets.some((preset) => preset.name === copySource.name), "Moved preset was not deleted during restoration.");
     }
 
     if (enabledHazards.has("system")) {
@@ -968,7 +1312,7 @@ async function main() {
     }
 
     // Backup is intentionally last: it is the longest operation and a bulk
-    // transport failure must not hide evidence for the other 44 actions.
+    // transport failure must not hide evidence for the other actions.
     if (enabledHazards.has("persistent")) {
       await call("create_device_backup", { name: uniqueName(config.persistent.namePrefix, "backup"), confirm_persistent_write: true });
     }
@@ -1013,6 +1357,69 @@ async function main() {
             await transport.call("set_global_bypass", { cab: rows(settings.globalBypassCab), ir: rows(settings.globalBypassIr), confirm_persistent_write: true });
           }
         });
+      }
+      if (enabledHazards.has("persistent") && originalIoSettings) {
+        await restoreAttempt("io-settings", async () => {
+          for (const input of originalIoSettings.inputs ?? []) {
+            if (!Number.isFinite(input.levelDb)) continue;
+            await transport.call("set_input_port", {
+              input_port_id: input.inputPortId, level_db: input.levelDb,
+              impedance: null, input_type: null, ground_lift: null,
+              confirm_persistent_write: true
+            });
+          }
+          for (const output of originalIoSettings.outputs ?? []) {
+            if (typeof output.muted !== "boolean") continue;
+            await transport.call("set_output_port", {
+              output_port_id: output.outputPortId, level: null, ground_lift: null,
+              mute: output.muted, confirm_persistent_write: true
+            });
+          }
+          if (Number.isFinite(originalIoSettings.usb?.level)) await transport.call("set_usb_port", {
+            level: originalIoSettings.usb.level, headphones_source: null, dry_wet: null,
+            confirm_persistent_write: true
+          });
+          if (originalIoSettings.midi?.thru !== undefined) await transport.call("set_midi_thru", {
+            enabled: Number(originalIoSettings.midi.thru) >= .5, confirm_persistent_write: true
+          });
+          if (typeof originalIoSettings.xlr12Linked === "boolean" || typeof originalIoSettings.out34Linked === "boolean") {
+            await transport.call("set_output_pairing", {
+              xlr12_linked: originalIoSettings.xlr12Linked ?? null,
+              out34_linked: originalIoSettings.out34Linked ?? null,
+              confirm_persistent_write: true
+            });
+          }
+        });
+      }
+      if (enabledHazards.has("persistent") && originalGlobalEq) {
+        await restoreAttempt("global-eq", async () => {
+          if (typeof originalGlobalEq.bypassed === "boolean") {
+            await transport.call("set_global_eq_bypassed", {
+              bypassed: originalGlobalEq.bypassed, confirm_persistent_write: true
+            });
+          }
+          for (let band = 1; band <= 5; band += 1) {
+            const base = (band - 1) * 5;
+            const value = (index) => originalGlobalEq.parameters?.find((item) => item.parameterIndex === index)?.value;
+            await transport.call("set_global_eq_band", {
+              band, gain: value(base), frequency: value(base + 1), q: value(base + 2),
+              filter_type: Number.isFinite(value(base + 3)) ? Math.round(value(base + 3) * 4) : null,
+              enabled: Number.isFinite(value(base + 4)) ? value(base + 4) >= .5 : null,
+              confirm_persistent_write: true
+            });
+          }
+          await transport.call("set_global_eq_output", {
+            level: originalGlobalEq.parameters?.find((item) => item.parameterIndex === 25)?.value ?? null,
+            out12: Number(originalGlobalEq.parameters?.find((item) => item.parameterIndex === 26)?.value) >= .5,
+            out34: Number(originalGlobalEq.parameters?.find((item) => item.parameterIndex === 27)?.value) >= .5,
+            confirm_persistent_write: true
+          });
+        });
+      }
+      if (enabledHazards.has("persistent") && originalModeCycle?.slots) {
+        await restoreAttempt("mode-cycle", () => transport.call("set_mode_cycle", {
+          slots: originalModeCycle.slots, confirm_persistent_write: true
+        }));
       }
       await restoreAttempt("starting-preset", async () => {
         let current = await transport.call("get_current_preset", {});

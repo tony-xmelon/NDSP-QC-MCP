@@ -20,6 +20,34 @@ final class GeneratedGatewayMethods {
         "device.inhibitedModules",
         "device.tunerSettings",
         "device.generalSettings",
+        "device.ioSettings",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
+        "device.globalEq",
+        "device.setGlobalEqBypassed",
+        "device.setGlobalEqBand",
+        "device.setGlobalEqOutput",
+        "device.modeCycle",
+        "device.setModeCycle",
+        "device.looperStatus",
+        "device.controlLooper",
+        "device.recents",
+        "device.favorites",
+        "device.setFavorite",
+        "device.pinnedModels",
+        "device.setModelPinned",
+        "device.captures",
+        "device.loadCapture",
+        "device.irs",
+        "device.loadIr",
+        "device.createSetlist",
+        "device.deleteSetlist",
+        "device.duplicateSetlist",
+        "device.deletePreset",
+        "device.movePreset",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -96,6 +124,34 @@ final class GeneratedGatewayMethods {
             case "device.inhibitedModules": return "CORRELATED_READ";
             case "device.tunerSettings": return "CORRELATED_READ";
             case "device.generalSettings": return "CORRELATED_READ";
+            case "device.ioSettings": return "CORRELATED_READ";
+            case "device.setInputPort": return "PLANNED_WRITE";
+            case "device.setOutputPort": return "PLANNED_WRITE";
+            case "device.setUsbPort": return "PLANNED_WRITE";
+            case "device.setMidiThru": return "PLANNED_WRITE";
+            case "device.setOutputPairing": return "PLANNED_WRITE";
+            case "device.globalEq": return "CORRELATED_READ";
+            case "device.setGlobalEqBypassed": return "PLANNED_WRITE";
+            case "device.setGlobalEqBand": return "PLANNED_WRITE";
+            case "device.setGlobalEqOutput": return "PLANNED_WRITE";
+            case "device.modeCycle": return "CORRELATED_READ";
+            case "device.setModeCycle": return "PLANNED_WRITE";
+            case "device.looperStatus": return "CORRELATED_READ";
+            case "device.controlLooper": return "PLANNED_WRITE";
+            case "device.recents": return "CORRELATED_READ";
+            case "device.favorites": return "CORRELATED_READ";
+            case "device.setFavorite": return "PLANNED_WRITE";
+            case "device.pinnedModels": return "CORRELATED_READ";
+            case "device.setModelPinned": return "PLANNED_WRITE";
+            case "device.captures": return "CORRELATED_READ";
+            case "device.loadCapture": return "PLANNED_WRITE";
+            case "device.irs": return "CORRELATED_READ";
+            case "device.loadIr": return "PLANNED_WRITE";
+            case "device.createSetlist": return "PLANNED_WRITE";
+            case "device.deleteSetlist": return "PLANNED_WRITE";
+            case "device.duplicateSetlist": return "PERSISTENT_WRITE";
+            case "device.deletePreset": return "PLANNED_WRITE";
+            case "device.movePreset": return "PLANNED_WRITE";
             case "device.setGeneralInteger": return "PLANNED_WRITE";
             case "device.setGeneralToggle": return "PLANNED_WRITE";
             case "device.setSceneBypassBehavior": return "PLANNED_WRITE";

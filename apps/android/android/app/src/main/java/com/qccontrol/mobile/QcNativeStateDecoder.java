@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Narrow JNI facade over the shared Rust protocol/state engine. */
@@ -56,11 +57,13 @@ final class QcNativeStateDecoder implements AutoCloseable {
 
     static final class PlannedGatewayStage {
         final long timeoutMs;
+        final long settleMs;
         final String verificationJson;
         final List<EncodedMessage> messages;
 
-        PlannedGatewayStage(long timeoutMs, String verificationJson, List<EncodedMessage> messages) {
+        PlannedGatewayStage(long timeoutMs, long settleMs, String verificationJson, List<EncodedMessage> messages) {
             this.timeoutMs = timeoutMs;
+            this.settleMs = settleMs;
             this.verificationJson = verificationJson;
             this.messages = messages;
         }
@@ -72,17 +75,19 @@ final class QcNativeStateDecoder implements AutoCloseable {
         final String setlistKey;
         final int position;
         final int instrument;
+        final JSONArray savedPresets;
         final List<PlannedGatewayStage> stages;
 
         PlannedGatewayWorkflow(
             String detail, String savedName, String setlistKey, int position, int instrument,
-            List<PlannedGatewayStage> stages
+            JSONArray savedPresets, List<PlannedGatewayStage> stages
         ) {
             this.detail = detail;
             this.savedName = savedName;
             this.setlistKey = setlistKey;
             this.position = position;
             this.instrument = instrument;
+            this.savedPresets = savedPresets;
             this.stages = stages;
         }
     }
@@ -240,8 +245,10 @@ final class QcNativeStateDecoder implements AutoCloseable {
         if (count < 0) throw new IllegalStateException("Native QC gateway workflow stage count is invalid.");
         List<PlannedGatewayStage> stages = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            if (offset + 12 > encoded.length) throw new IllegalStateException("Native QC gateway workflow stage is truncated.");
+            if (offset + 20 > encoded.length) throw new IllegalStateException("Native QC gateway workflow stage is truncated.");
             long timeoutMs = littleEndianLong(encoded, offset);
+            offset += 8;
+            long settleMs = littleEndianLong(encoded, offset);
             offset += 8;
             int verificationLength = littleEndianInt(encoded, offset);
             offset += 4;
@@ -251,17 +258,24 @@ final class QcNativeStateDecoder implements AutoCloseable {
             offset += verificationLength;
             DecodedEnvelope messages = decodeCommandEnvelopeAt(encoded, offset);
             offset = messages.nextOffset;
-            stages.add(new PlannedGatewayStage(timeoutMs, verificationJson, messages.messages));
+            stages.add(new PlannedGatewayStage(timeoutMs, settleMs, verificationJson, messages.messages));
         }
         if (offset != encoded.length) throw new IllegalStateException("Native QC gateway workflow has trailing data.");
         return new PlannedGatewayWorkflow(
             detail, completion.getString("savedName"), completion.getString("setlistKey"),
-            completion.getInteger("position"), completion.getInteger("instrument"), stages);
+            completion.getInteger("position"), completion.getInteger("instrument"),
+            completion.optJSONArray("savedPresets") == null ? new JSONArray() : completion.optJSONArray("savedPresets"), stages);
     }
 
     void recordSavedPreset(PlannedGatewayWorkflow workflow) {
-        nativeRecordSavedPreset(
-            requireHandle(), workflow.setlistKey, workflow.position, workflow.savedName, workflow.instrument);
+        if (workflow.savedPresets.length() == 0) return;
+        for (int index = 0; index < workflow.savedPresets.length(); index++) {
+            JSONObject preset = workflow.savedPresets.optJSONObject(index);
+            if (preset == null) continue;
+            nativeRecordSavedPreset(
+                requireHandle(), preset.optString("setlistKey"), preset.optInt("position"),
+                preset.optString("name"), preset.optInt("instrument"));
+        }
     }
 
     PlannedGatewayRead gatewayRead(String method, JSObject args, long requestId) throws Exception {

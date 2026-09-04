@@ -8,8 +8,10 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
-    decode_captured_screen, decode_device_identity, decode_general_settings,
-    decode_inhibited_modules, decode_preset_screenshot, decode_tuner_settings, PngImage,
+    decode_captured_screen, decode_device_identity, decode_general_settings, decode_global_eq,
+    decode_inhibited_modules, decode_io_settings, decode_library_files, decode_looper_status,
+    decode_mode_cycle, decode_pinned_models, decode_preset_screenshot, decode_recents_favorites,
+    decode_tuner_settings, PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -76,6 +78,45 @@ pub fn plan_host_midi(method: &str, params: &Value) -> Result<HostMidiPlan, Stri
                 controller: profile::MODE_SLOT_CONTROLLER,
                 value: slot,
                 detail: format!("Mode slot {} sent", slot + 1),
+            })
+        }
+        "device.controlLooper" => {
+            let command = required_text(params, "command")?;
+            let supplied = params.get("value").filter(|value| !value.is_null());
+            let (controller, value, needs_value, maximum) = match command.as_str() {
+                "open" => (48, 0, false, 0),
+                "close" => (48, 127, false, 0),
+                "duplicate" => (49, 127, false, 0),
+                "oneShot" => (50, 127, false, 0),
+                "halfSpeed" => (51, 127, false, 0),
+                "punch" => (52, 127, false, 0),
+                "record" => (53, 127, false, 0),
+                "play" => (54, 127, false, 0),
+                "reverse" => (55, 127, false, 0),
+                "undoRedo" => (56, 127, false, 0),
+                "duplicateMode" => (57, 0, true, 1),
+                "quantize" => (58, 0, true, 9),
+                "midiClockStart" => (59, 0, true, 1),
+                "performMode" => (60, 0, true, 1),
+                "routingMode" => (61, 0, true, 13),
+                _ => return Err("unsupported Looper X command".into()),
+            };
+            if !needs_value && supplied.is_some() {
+                return Err(format!("{command} does not accept value"));
+            }
+            let value = if needs_value {
+                supplied
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u8::try_from(value).ok())
+                    .filter(|value| *value <= maximum)
+                    .ok_or_else(|| format!("{command} requires value 0 through {maximum}"))?
+            } else {
+                value
+            };
+            Ok(HostMidiPlan {
+                controller,
+                value,
+                detail: format!("Looper X {command} sent"),
             })
         }
         _ => Err(format!("Gateway method does not use host MIDI: {method}")),
@@ -515,6 +556,16 @@ pub struct PresetMutationStage {
     pub write: PlannedWrite,
     pub verification: GatewayVerification,
     pub timeout_ms: u64,
+    pub settle_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetMutationRecord {
+    pub setlist_key: String,
+    pub position: u32,
+    pub name: String,
+    pub instrument: i32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -525,6 +576,7 @@ pub struct PresetMutationPlan {
     pub setlist_key: String,
     pub position: u32,
     pub instrument: i32,
+    pub saved_presets: Vec<PresetMutationRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -533,6 +585,18 @@ pub enum GatewayResponseProjection {
     DeviceIdentity,
     TunerSettings,
     GeneralSettings,
+    IoSettings,
+    GlobalEq,
+    ModeCycle,
+    LooperStatus,
+    RecentsFavorites {
+        request_id: u64,
+    },
+    PinnedModels,
+    LibraryFiles {
+        request_id: u64,
+        folder_key: String,
+    },
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -567,6 +631,39 @@ impl GatewayResponseProjection {
             .map_err(|error| error.to_string()),
             Self::GeneralSettings => serde_json::to_value(
                 decode_general_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::IoSettings => serde_json::to_value(
+                decode_io_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::GlobalEq => {
+                serde_json::to_value(decode_global_eq(payload).map_err(|error| error.to_string())?)
+                    .map_err(|error| error.to_string())
+            }
+            Self::ModeCycle => {
+                serde_json::to_value(decode_mode_cycle(payload).map_err(|error| error.to_string())?)
+                    .map_err(|error| error.to_string())
+            }
+            Self::LooperStatus => serde_json::to_value(
+                decode_looper_status(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::RecentsFavorites { request_id } => serde_json::to_value(
+                decode_recents_favorites(payload, *request_id)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::PinnedModels => serde_json::to_value(
+                decode_pinned_models(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::LibraryFiles {
+                request_id,
+                folder_key,
+            } => serde_json::to_value(
+                decode_library_files(payload, *request_id, folder_key)
+                    .map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -651,6 +748,74 @@ pub fn plan_gateway_read(
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::GeneralSettings,
         }),
+        "device.ioSettings" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadIoSettings,
+            response_type: 3,
+            timeout_ms: 10_000,
+            projection: GatewayResponseProjection::IoSettings,
+        }),
+        "device.globalEq" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadGlobalEq,
+            response_type: 38,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::GlobalEq,
+        }),
+        "device.modeCycle" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadModeCycle,
+            response_type: 14,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::ModeCycle,
+        }),
+        "device.looperStatus" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadLooperStatus,
+            response_type: 28,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::LooperStatus,
+        }),
+        "device.recents" | "device.favorites" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadRecentsFavorites {
+                favorites: method == "device.favorites",
+                request_id,
+            },
+            response_type: 20,
+            timeout_ms: if method == "device.favorites" {
+                20_000
+            } else {
+                10_000
+            },
+            projection: GatewayResponseProjection::RecentsFavorites { request_id },
+        }),
+        "device.pinnedModels" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadPinnedModels,
+            response_type: 54,
+            timeout_ms: 8_000,
+            projection: GatewayResponseProjection::PinnedModels,
+        }),
+        "device.captures" | "device.irs" => {
+            let folder_key = if method == "device.captures" {
+                "local_nc_root".to_string()
+            } else {
+                params
+                    .get("folder")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or("local_ir_root")
+                    .to_string()
+            };
+            Ok(GatewayReadPlan {
+                operation: DeviceOperation::ReadLibraryFiles {
+                    folder_key: folder_key.clone(),
+                    file_type: if method == "device.captures" { 2 } else { 1 },
+                    request_id,
+                },
+                response_type: 4,
+                timeout_ms: 30_000,
+                projection: GatewayResponseProjection::LibraryFiles {
+                    request_id,
+                    folder_key,
+                },
+            })
+        }
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
             response_type: 42,
@@ -729,6 +894,7 @@ fn save_stage(
         verification: verification_for_operation(&operation, &Value::Null, None),
         write: PlannedWrite::HidOperation(operation),
         timeout_ms: 15_000,
+        settle_ms: 0,
     }
 }
 
@@ -780,6 +946,12 @@ pub fn plan_preset_mutation(
                 .entry(&setlist_key, before.preset_position)
                 .map(|entry| entry.instrument)
                 .unwrap_or(0);
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: setlist_key.clone(),
+                position,
+                name: name.clone(),
+                instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![save_stage(&setlist_key, position, &name, instrument)],
                 detail: format!("Saved and verified {name}"),
@@ -787,6 +959,7 @@ pub fn plan_preset_mutation(
                 setlist_key,
                 position,
                 instrument,
+                saved_presets,
             })
         }
         "device.renameCurrentPreset" => {
@@ -806,6 +979,12 @@ pub fn plan_preset_mutation(
                 .entry(&before.setlist_key, before.preset_position)
                 .map(|entry| entry.instrument)
                 .unwrap_or(0);
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: before.setlist_key.clone(),
+                position: before.preset_position,
+                name: name.clone(),
+                instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![save_stage(
                     &before.setlist_key,
@@ -818,6 +997,7 @@ pub fn plan_preset_mutation(
                 setlist_key: before.setlist_key.clone(),
                 position: before.preset_position,
                 instrument,
+                saved_presets,
             })
         }
         "device.copyPreset" => {
@@ -868,6 +1048,12 @@ pub fn plan_preset_mutation(
                 name: Some(source.name.clone()),
                 require_clean: false,
             };
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: destination_key.clone(),
+                position: destination_position,
+                name: source.name.clone(),
+                instrument: source.instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![
                     PresetMutationStage {
@@ -878,6 +1064,7 @@ pub fn plan_preset_mutation(
                         }),
                         verification: source_verification,
                         timeout_ms: 40_000,
+                        settle_ms: 0,
                     },
                     save_stage(
                         &destination_key,
@@ -891,6 +1078,99 @@ pub fn plan_preset_mutation(
                 setlist_key: destination_key,
                 position: destination_position,
                 instrument: source.instrument,
+                saved_presets,
+            })
+        }
+        "device.duplicateSetlist" => {
+            let source_key = required_text(params, "sourceSetlistKey")?
+                .trim_end_matches('/')
+                .to_string();
+            let destination_name =
+                validate_setlist_name(required_text(params, "destinationName")?)?;
+            let destination_key = format!("/media/p4/Presets/{destination_name}");
+            if source_key == destination_key {
+                return Err("The source and destination setlists are identical.".into());
+            }
+            if library.folders().iter().any(|folder| {
+                folder.key.trim_end_matches('/') == destination_key
+                    || folder.name.eq_ignore_ascii_case(&destination_name)
+            }) {
+                return Err("The destination setlist already exists.".into());
+            }
+            let mut entries = library
+                .list(&source_key, before)
+                .ok_or_else(|| {
+                    "The source setlist has not been loaded from the Quad Cortex.".to_string()
+                })?
+                .presets
+                .into_iter()
+                .filter(|entry| entry.name != "Unsaved")
+                .collect::<Vec<_>>();
+            entries.sort_by_key(|entry| entry.position);
+            let limit = match params.get("limit") {
+                None | Some(Value::Null) => entries.len(),
+                Some(value) => value
+                    .as_u64()
+                    .and_then(|value| usize::try_from(value).ok())
+                    .filter(|value| *value <= 256)
+                    .ok_or_else(|| {
+                        "limit must be null or an integer from 0 through 256".to_string()
+                    })?,
+            };
+            entries.truncate(limit);
+
+            let mut stages = vec![PresetMutationStage {
+                write: PlannedWrite::HidOperation(DeviceOperation::CreateSetlist {
+                    name: destination_name.clone(),
+                }),
+                verification: GatewayVerification::None,
+                timeout_ms: 0,
+                settle_ms: 3_000,
+            }];
+            let mut saved_presets = Vec::with_capacity(entries.len());
+            for (destination_position, entry) in entries.into_iter().enumerate() {
+                let destination_position = u32::try_from(destination_position)
+                    .map_err(|_| "The source setlist contains too many presets".to_string())?;
+                stages.push(PresetMutationStage {
+                    write: PlannedWrite::HidCommand(DeviceCommand::SetlistPosition {
+                        is_factory: source_key.starts_with("/opt/"),
+                        setlist_key: source_key.clone(),
+                        position: entry.position,
+                    }),
+                    verification: GatewayVerification::Preset {
+                        setlist_key: source_key.clone(),
+                        position: entry.position,
+                        name: Some(entry.name.clone()),
+                        require_clean: false,
+                    },
+                    timeout_ms: 40_000,
+                    settle_ms: 0,
+                });
+                stages.push(save_stage(
+                    &destination_key,
+                    destination_position,
+                    &entry.name,
+                    entry.instrument,
+                ));
+                saved_presets.push(PresetMutationRecord {
+                    setlist_key: destination_key.clone(),
+                    position: destination_position,
+                    name: entry.name,
+                    instrument: entry.instrument,
+                });
+            }
+            let copied = saved_presets.len();
+            Ok(PresetMutationPlan {
+                stages,
+                detail: format!(
+                    "Created {destination_name} and copied {copied} preset{}",
+                    if copied == 1 { "" } else { "s" }
+                ),
+                saved_name: destination_name,
+                setlist_key: destination_key,
+                position: copied.saturating_sub(1) as u32,
+                instrument: saved_presets.last().map_or(0, |entry| entry.instrument),
+                saved_presets,
             })
         }
         _ => Err(format!(
@@ -926,6 +1206,38 @@ pub fn optional_i32(params: &Value, field: &str) -> Result<Option<i32>, String> 
             .map(Some)
             .ok_or_else(|| format!("{field} must be null or an integer")),
     }
+}
+
+fn optional_positive_u32(params: &Value, field: &str) -> Result<Option<u32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .and_then(|value| u32::try_from(value).ok())
+            .filter(|value| *value > 0)
+            .map(Some)
+            .ok_or_else(|| format!("{field} must be null or a positive integer")),
+    }
+}
+
+fn writable_setlist_key(params: &Value, field: &str) -> Result<String, String> {
+    let key = required_text(params, field)?;
+    if !key.starts_with("/media/p4/Presets/") || key.contains("..") {
+        return Err(format!("{field} must identify a writable user setlist"));
+    }
+    Ok(key.trim_end_matches('/').to_string())
+}
+
+fn validate_setlist_name(name: String) -> Result<String, String> {
+    if name.trim() != name
+        || name.chars().count() > 64
+        || name.chars().any(char::is_control)
+        || name.contains(['/', '\\'])
+        || matches!(name.as_str(), "." | ".." | "My Presets")
+    {
+        return Err("setlist name must be 1-64 visible characters without slashes and cannot name a built-in setlist".into());
+    }
+    Ok(name)
 }
 
 pub fn expected_position(params: &Value) -> Result<u32, String> {
@@ -1231,6 +1543,31 @@ fn normalized(params: &Value, field: &str) -> Result<f32, String> {
         .ok_or_else(|| format!("{field} must be a number from zero through one"))
 }
 
+fn optional_normalized(params: &Value, field: &str) -> Result<Option<f32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(_) => normalized(params, field).map(Some),
+    }
+}
+
+fn optional_boolean(params: &Value, field: &str) -> Result<Option<bool>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(_) => boolean(params, field).map(Some),
+    }
+}
+
+fn optional_input_gain(params: &Value, field: &str) -> Result<Option<f32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_f64()
+            .filter(|value| (-12.0..=60.0).contains(value))
+            .map(|value| Some(((value + 12.0) / 72.0) as f32))
+            .ok_or_else(|| format!("{field} must be an input gain from -12 through +60 dB")),
+    }
+}
+
 fn midi_out_messages(params: &Value) -> Result<Vec<MidiOutMessage>, String> {
     let values = params
         .get("messages")
@@ -1347,6 +1684,205 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
                 ir: rows("ir")?,
             })
         }
+        "setInputPort" => {
+            let input_port_id = bounded_u32(params, "inputPortId", 14)?;
+            if input_port_id == 0 {
+                return Err("inputPortId must identify a real input port (1 through 14)".into());
+            }
+            let level = optional_input_gain(params, "levelDb")?;
+            let impedance = optional_normalized(params, "impedance")?;
+            let input_type = optional_normalized(params, "inputType")?;
+            let ground_lift = optional_normalized(params, "groundLift")?;
+            if level.is_none()
+                && impedance.is_none()
+                && input_type.is_none()
+                && ground_lift.is_none()
+            {
+                return Err("setInputPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetInputPort {
+                input_port_id,
+                level,
+                impedance,
+                input_type,
+                ground_lift,
+            })
+        }
+        "setOutputPort" => {
+            let output_port_id = bounded_u32(params, "outputPortId", 22)?;
+            if output_port_id == 0 {
+                return Err("outputPortId must identify a real output port (1 through 22)".into());
+            }
+            let level = optional_normalized(params, "level")?;
+            let ground_lift = optional_normalized(params, "groundLift")?;
+            let mute = optional_boolean(params, "mute")?;
+            if level.is_none() && ground_lift.is_none() && mute.is_none() {
+                return Err("setOutputPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetOutputPort {
+                output_port_id,
+                level,
+                ground_lift,
+                mute,
+            })
+        }
+        "setUsbPort" => {
+            let level = optional_normalized(params, "level")?;
+            let headphones_source = optional_normalized(params, "headphonesSource")?;
+            let dry_wet = optional_normalized(params, "dryWet")?;
+            if level.is_none() && headphones_source.is_none() && dry_wet.is_none() {
+                return Err("setUsbPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetUsbPort {
+                level,
+                headphones_source,
+                dry_wet,
+            })
+        }
+        "setMidiThru" => Ok(DeviceOperation::SetMidiThru(boolean(params, "enabled")?)),
+        "setOutputPairing" => {
+            let xlr12_linked = optional_boolean(params, "xlr12Linked")?;
+            let out34_linked = optional_boolean(params, "out34Linked")?;
+            if xlr12_linked.is_none() && out34_linked.is_none() {
+                return Err("setOutputPairing needs xlr12Linked or out34Linked".into());
+            }
+            Ok(DeviceOperation::SetOutputPairing {
+                xlr12_linked,
+                out34_linked,
+            })
+        }
+        "setGlobalEqBypassed" => Ok(DeviceOperation::SetGlobalEqBypassed(boolean(
+            params, "bypassed",
+        )?)),
+        "setGlobalEqBand" => {
+            let band = bounded_u32(params, "band", 5)?;
+            if band == 0 {
+                return Err("band must be 1 through 5".into());
+            }
+            let mut controls = Vec::new();
+            let base = ((band - 1) * 5) as i32;
+            for (field, offset) in [("gain", 0), ("frequency", 1), ("q", 2)] {
+                if let Some(value) = optional_normalized(params, field)? {
+                    controls.push((base + offset, value));
+                }
+            }
+            if let Some(value) = params.get("filterType").filter(|value| !value.is_null()) {
+                let filter_type = value
+                    .as_u64()
+                    .filter(|value| *value <= 4)
+                    .ok_or_else(|| "filterType must be null or 0 through 4".to_string())?;
+                controls.push((base + 3, filter_type as f32 / 4.0));
+            }
+            if let Some(enabled) = optional_boolean(params, "enabled")? {
+                controls.push((base + 4, if enabled { 1.0 } else { 0.0 }));
+            }
+            if controls.is_empty() {
+                return Err("setGlobalEqBand needs at least one control".into());
+            }
+            Ok(DeviceOperation::SetGlobalEqParameters(controls))
+        }
+        "setGlobalEqOutput" => {
+            let mut controls = Vec::new();
+            if let Some(level) = optional_normalized(params, "level")? {
+                controls.push((25, level));
+            }
+            if let Some(out12) = optional_boolean(params, "out12")? {
+                controls.push((26, if out12 { 1.0 } else { 0.0 }));
+            }
+            if let Some(out34) = optional_boolean(params, "out34")? {
+                controls.push((27, if out34 { 1.0 } else { 0.0 }));
+            }
+            if controls.is_empty() {
+                return Err("setGlobalEqOutput needs level, out12, or out34".into());
+            }
+            Ok(DeviceOperation::SetGlobalEqParameters(controls))
+        }
+        "setModeCycle" => {
+            let values = params
+                .get("slots")
+                .and_then(Value::as_array)
+                .filter(|values| !values.is_empty() && values.len() <= 3)
+                .ok_or_else(|| "slots must contain one through three mode values".to_string())?;
+            let mut slots = Vec::with_capacity(values.len());
+            for value in values {
+                let slot = value
+                    .as_u64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .filter(|value| *value <= 8)
+                    .ok_or_else(|| "mode-cycle values must be 0 through 8".to_string())?;
+                if slots.contains(&slot) {
+                    return Err("mode-cycle values must be unique".into());
+                }
+                slots.push(slot);
+            }
+            Ok(DeviceOperation::SetModeCycle(slots))
+        }
+        "setFavorite" => {
+            let name = required_text(params, "name")?;
+            let folder_key = required_text(params, "folderKey")?;
+            let folder_name = params
+                .get("folderName")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    folder_key
+                        .trim_end_matches('/')
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or_default()
+                        .to_string()
+                });
+            Ok(DeviceOperation::SetFavorite {
+                name,
+                folder_key,
+                folder_name,
+                is_factory: boolean(params, "isFactory")?,
+                favorite: boolean(params, "favorite")?,
+            })
+        }
+        "setModelPinned" => {
+            let model_id = bounded_u32(params, "modelId", u32::MAX)?;
+            if model_id == 0 {
+                return Err("modelId must be a positive integer".into());
+            }
+            Ok(DeviceOperation::SetModelPinned {
+                model_id,
+                pinned: boolean(params, "pinned")?,
+            })
+        }
+        "createSetlist" | "deleteSetlist" => {
+            let name = validate_setlist_name(required_text(params, "name")?)?;
+            if operation == "createSetlist" {
+                Ok(DeviceOperation::CreateSetlist { name })
+            } else {
+                Ok(DeviceOperation::DeleteSetlist { name })
+            }
+        }
+        "deletePreset" => Ok(DeviceOperation::DeletePreset {
+            setlist_key: writable_setlist_key(params, "setlistKey")?,
+            name: required_text(params, "name")?,
+        }),
+        "movePreset" => Ok(DeviceOperation::MovePreset {
+            setlist_key: writable_setlist_key(params, "setlistKey")?,
+            name: required_text(params, "name")?,
+            position: bounded_u32(params, "position", 255)?,
+        }),
+        "loadCapture" => Ok(DeviceOperation::LoadCapture {
+            row: row()?,
+            column: column("column")?,
+            key: required_text(params, "key")?,
+            name: required_text(params, "name")?,
+            model_id: optional_positive_u32(params, "modelId")?,
+        }),
+        "loadIr" => Ok(DeviceOperation::LoadIr {
+            row: row()?,
+            column: column("column")?,
+            key: required_text(params, "key")?,
+            name: required_text(params, "name")?,
+            slot: bounded_u32(params, "slot", 1)?,
+            model_id: optional_positive_u32(params, "modelId")?,
+        }),
         "addBlock" => Ok(DeviceOperation::AddBlock {
             row: row()?,
             column: column("column")?,
@@ -1717,6 +2253,29 @@ fn verification_for_operation(
         | DeviceOperation::SetSceneBypassBehavior(_)
         | DeviceOperation::SetMasterVolumeAssignment { .. }
         | DeviceOperation::SetGlobalBypass { .. }
+        | DeviceOperation::ReadIoSettings
+        | DeviceOperation::SetInputPort { .. }
+        | DeviceOperation::SetOutputPort { .. }
+        | DeviceOperation::SetUsbPort { .. }
+        | DeviceOperation::SetMidiThru(_)
+        | DeviceOperation::SetOutputPairing { .. }
+        | DeviceOperation::ReadGlobalEq
+        | DeviceOperation::SetGlobalEqBypassed(_)
+        | DeviceOperation::SetGlobalEqParameters(_)
+        | DeviceOperation::ReadModeCycle
+        | DeviceOperation::SetModeCycle(_)
+        | DeviceOperation::ReadLooperStatus
+        | DeviceOperation::ReadRecentsFavorites { .. }
+        | DeviceOperation::SetFavorite { .. }
+        | DeviceOperation::ReadPinnedModels
+        | DeviceOperation::SetModelPinned { .. }
+        | DeviceOperation::ReadLibraryFiles { .. }
+        | DeviceOperation::CreateSetlist { .. }
+        | DeviceOperation::DeleteSetlist { .. }
+        | DeviceOperation::DeletePreset { .. }
+        | DeviceOperation::MovePreset { .. }
+        | DeviceOperation::LoadCapture { .. }
+        | DeviceOperation::LoadIr { .. }
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -1748,6 +2307,69 @@ pub fn plan_gateway_write(
             GatewayWritePlan {
                 write: PlannedWrite::HidOperation(operation(operation_name, params)?),
                 detail: "Global device setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setInputPort"
+        | "device.setOutputPort"
+        | "device.setUsbPort"
+        | "device.setMidiThru"
+        | "device.setOutputPairing" => {
+            let operation_name = match method {
+                "device.setInputPort" => "setInputPort",
+                "device.setOutputPort" => "setOutputPort",
+                "device.setUsbPort" => "setUsbPort",
+                "device.setMidiThru" => "setMidiThru",
+                _ => "setOutputPairing",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: "Global I/O setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setGlobalEqBypassed"
+        | "device.setGlobalEqBand"
+        | "device.setGlobalEqOutput"
+        | "device.setModeCycle" => {
+            let operation_name = match method {
+                "device.setGlobalEqBypassed" => "setGlobalEqBypassed",
+                "device.setGlobalEqBand" => "setGlobalEqBand",
+                "device.setGlobalEqOutput" => "setGlobalEqOutput",
+                _ => "setModeCycle",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: if method == "device.setModeCycle" {
+                    "Mode cycle sent to the Quad Cortex"
+                } else {
+                    "Global EQ setting sent to the Quad Cortex"
+                }
+                .into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setFavorite"
+        | "device.setModelPinned"
+        | "device.createSetlist"
+        | "device.deleteSetlist"
+        | "device.deletePreset"
+        | "device.movePreset"
+        | "device.loadCapture"
+        | "device.loadIr" => {
+            let operation_name = match method {
+                "device.setFavorite" => "setFavorite",
+                "device.setModelPinned" => "setModelPinned",
+                "device.createSetlist" => "createSetlist",
+                "device.deleteSetlist" => "deleteSetlist",
+                "device.deletePreset" => "deletePreset",
+                "device.movePreset" => "movePreset",
+                "device.loadCapture" => "loadCapture",
+                _ => "loadIr",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: format!("{operation_name} sent to the Quad Cortex"),
                 verification: GatewayVerification::None,
             }
         }
@@ -2057,7 +2679,10 @@ pub fn plan_gateway_write(
                 detail: format!("{name} accepted"),
             }
         }
-        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
+        "device.pressFootswitch"
+        | "device.tapTempo"
+        | "device.selectModeSlot"
+        | "device.controlLooper" => {
             let midi = plan_host_midi(method, params)?;
             GatewayWritePlan {
                 write: PlannedWrite::MidiControlChange {
@@ -2879,6 +3504,116 @@ mod tests {
         assert_eq!(copy.stages.len(), 2);
         assert_eq!(copy.saved_name, "Source");
         assert_eq!(copy.instrument, 3);
+
+        let duplicate = plan_preset_mutation(
+            "device.duplicateSetlist",
+            &json!({
+                "sourceSetlistKey": "/media/p4/Presets/Live",
+                "destinationName": "Live Copy",
+                "limit": null,
+                "expectedPresetName": "Current",
+                "expectedPosition": 8
+            }),
+            Some(&snapshot),
+            &library,
+        )
+        .unwrap();
+        assert_eq!(duplicate.stages.len(), 5);
+        assert_eq!(duplicate.stages[0].settle_ms, 3_000);
+        assert!(matches!(
+            duplicate.stages[0].write,
+            PlannedWrite::HidOperation(DeviceOperation::CreateSetlist { ref name })
+                if name == "Live Copy"
+        ));
+        assert_eq!(duplicate.saved_presets.len(), 2);
+        assert_eq!(duplicate.saved_presets[0].name, "Current");
+        assert_eq!(duplicate.saved_presets[0].position, 0);
+        assert_eq!(duplicate.saved_presets[1].name, "Source");
+        assert_eq!(duplicate.saved_presets[1].position, 1);
+        assert!(plan_preset_mutation(
+            "device.duplicateSetlist",
+            &json!({
+                "sourceSetlistKey": "/media/p4/Presets/Live",
+                "destinationName": "My Presets",
+                "limit": 1,
+                "expectedPresetName": "Current",
+                "expectedPosition": 8
+            }),
+            Some(&snapshot),
+            &library,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn native_library_reads_and_writes_are_planned_with_strict_guards() {
+        let recents = plan_gateway_read("device.recents", &Value::Null, 81).unwrap();
+        assert_eq!(recents.response_type, 20);
+        assert!(matches!(
+            recents.operation,
+            DeviceOperation::ReadRecentsFavorites {
+                favorites: false,
+                request_id: 81
+            }
+        ));
+        let favorites = plan_gateway_read("device.favorites", &Value::Null, 82).unwrap();
+        assert!(matches!(
+            favorites.operation,
+            DeviceOperation::ReadRecentsFavorites {
+                favorites: true,
+                request_id: 82
+            }
+        ));
+        let captures = plan_gateway_read("device.captures", &Value::Null, 83).unwrap();
+        assert!(matches!(
+            captures.operation,
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 2, request_id: 83 }
+                if folder_key == "local_nc_root"
+        ));
+        let irs =
+            plan_gateway_read("device.irs", &json!({"folder": "factory_ir_root"}), 84).unwrap();
+        assert!(matches!(
+            irs.operation,
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 1, request_id: 84 }
+                if folder_key == "factory_ir_root"
+        ));
+
+        assert!(plan_gateway_write(
+            "device.deletePreset",
+            &json!({"setlistKey": "/opt/Presets/Factory", "name": "Factory"}),
+            None,
+        )
+        .is_err());
+        let capture = plan_gateway_write(
+            "device.loadCapture",
+            &json!({
+                "row": 1, "column": 2, "key": "capture/", "name": "Crunch",
+                "modelId": null, "expectedPresetName": "Current"
+            }),
+            Some(&GatewaySnapshot {
+                preset_name: "Current".into(),
+                ..GatewaySnapshot::default()
+            }),
+        )
+        .unwrap();
+        assert!(matches!(
+            capture.write,
+            PlannedWrite::HidOperation(DeviceOperation::LoadCapture {
+                row: 1, column: 2, ref key, ref name, model_id: None
+            }) if key == "capture/" && name == "Crunch"
+        ));
+        assert!(plan_gateway_write(
+            "device.loadIr",
+            &json!({
+                "row": 1, "column": 2, "key": "ir/key", "name": "Room",
+                "slot": 2, "modelId": null, "expectedPresetName": "Current"
+            }),
+            Some(&GatewaySnapshot {
+                preset_name: "Current".into(),
+                ..GatewaySnapshot::default()
+            }),
+        )
+        .is_err());
     }
 
     #[test]
@@ -2921,6 +3656,79 @@ mod tests {
             plan_gateway_write("device.setDeviceName", &json!({"name": "bad\nname"}), None)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn global_eq_mode_cycle_and_looper_are_planned_and_bounded() {
+        let global_eq = plan_gateway_read("device.globalEq", &Value::Null, 0).unwrap();
+        assert_eq!(global_eq.response_type, 38);
+        assert!(matches!(global_eq.operation, DeviceOperation::ReadGlobalEq));
+        assert!(matches!(
+            global_eq.projection,
+            GatewayResponseProjection::GlobalEq
+        ));
+
+        let mode_cycle = plan_gateway_read("device.modeCycle", &Value::Null, 0).unwrap();
+        assert_eq!(mode_cycle.response_type, 14);
+        assert!(matches!(
+            mode_cycle.operation,
+            DeviceOperation::ReadModeCycle
+        ));
+
+        let looper = plan_gateway_read("device.looperStatus", &Value::Null, 0).unwrap();
+        assert_eq!(looper.response_type, 28);
+        assert!(matches!(
+            looper.operation,
+            DeviceOperation::ReadLooperStatus
+        ));
+
+        let band = plan_gateway_write(
+            "device.setGlobalEqBand",
+            &json!({"band": 2, "gain": 0.25, "filterType": 4, "enabled": false}),
+            None,
+        )
+        .unwrap();
+        assert!(matches!(
+            band.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetGlobalEqParameters(ref controls))
+                if controls == &vec![(5, 0.25), (8, 1.0), (9, 0.0)]
+        ));
+        assert!(plan_gateway_write(
+            "device.setGlobalEqBand",
+            &json!({"band": 0, "gain": 0.5}),
+            None,
+        )
+        .is_err());
+
+        let modes =
+            plan_gateway_write("device.setModeCycle", &json!({"slots": [2, 0, 1]}), None).unwrap();
+        assert!(matches!(
+            modes.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetModeCycle(ref slots))
+                if slots == &vec![2, 0, 1]
+        ));
+        assert!(
+            plan_gateway_write("device.setModeCycle", &json!({"slots": [1, 1]}), None,).is_err()
+        );
+
+        let record = plan_host_midi("device.controlLooper", &json!({"command": "record"})).unwrap();
+        assert_eq!((record.controller, record.value), (53, 127));
+        let routing = plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "routingMode", "value": 13}),
+        )
+        .unwrap();
+        assert_eq!((routing.controller, routing.value), (61, 13));
+        assert!(plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "routingMode", "value": 14}),
+        )
+        .is_err());
+        assert!(plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "record", "value": 1}),
+        )
+        .is_err());
     }
 
     #[test]

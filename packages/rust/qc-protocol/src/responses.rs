@@ -3,7 +3,10 @@
 
 use crate::{
     generated_payloads::{
-        GeneralSettings, GlobalBypassRows, MasterVolumeAssignment, TunerSettings,
+        ExpressionPortSettings, GeneralSettings, GlobalBypassRows, GlobalEqParameter,
+        GlobalEqSettings, HeadphonesFeed, HeadphonesSettings, InputPortSettings, IoSettings,
+        LooperStatus, MasterVolumeAssignment, MidiPortSettings, ModeCycle, OutputPortSettings,
+        TunerSettings, UsbPortSettings,
     },
     profile,
     proto::cortex_protobuf_v2 as pa,
@@ -42,6 +45,32 @@ pub struct DeviceIdentity {
 pub struct InhibitedModules {
     pub global_gate: bool,
     pub global_eq: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryEntry {
+    pub name: String,
+    pub key: String,
+    pub folder_key: Option<String>,
+    pub folder_name: Option<String>,
+    pub position: Option<u32>,
+    pub instrument: Option<i32>,
+    pub is_factory: bool,
+    pub is_plugin: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryEntries {
+    pub entries: Vec<LibraryEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedModels {
+    pub models: Vec<u32>,
+    pub captures: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -189,6 +218,129 @@ pub fn decode_device_identity(payload: &[u8]) -> Result<DeviceIdentity, Response
         app_fw_version,
         custom_name,
         device_type,
+    })
+}
+
+pub fn decode_recents_favorites(
+    payload: &[u8],
+    request_id: u64,
+) -> Result<LibraryEntries, ResponseDecodeError> {
+    let message = pa::RecentsFavoritesMessage::decode(payload)?;
+    let actual_id = message
+        .request_id
+        .map(|pa::recents_favorites_message::RequestId::RequestId(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete(
+            "recents/favorites request_id",
+        ))?;
+    if actual_id != request_id {
+        return Err(ResponseDecodeError::Mismatch(
+            "recents/favorites request_id does not match",
+        ));
+    }
+    Ok(LibraryEntries {
+        entries: message
+            .items
+            .into_iter()
+            .map(|item| LibraryEntry {
+                key: item.folder_key.clone(),
+                name: item.name,
+                folder_key: Some(item.folder_key),
+                folder_name: Some(item.folder_name),
+                position: None,
+                instrument: None,
+                is_factory: item.is_factory,
+                is_plugin: item.is_plugin,
+            })
+            .collect(),
+    })
+}
+
+pub fn decode_pinned_models(payload: &[u8]) -> Result<PinnedModels, ResponseDecodeError> {
+    let message = pa::PinnedModelsMessage::decode(payload)?;
+    Ok(PinnedModels {
+        models: message.models,
+        captures: message.captures,
+    })
+}
+
+pub fn decode_library_files(
+    payload: &[u8],
+    request_id: u64,
+    folder_key: &str,
+) -> Result<LibraryEntries, ResponseDecodeError> {
+    let message = pa::FileMessage::decode(payload)?;
+    let actual_id = message
+        .request_id
+        .map(|pa::file_message::RequestId::RequestId(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing request_id"))?;
+    if actual_id != request_id {
+        return Err(ResponseDecodeError::Mismatch(
+            "file listing request_id does not match",
+        ));
+    }
+    let folder = message
+        .folder
+        .map(|pa::file_message::Folder::Folder(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing folder"))?;
+    let actual_key = folder
+        .key
+        .map(|pa::folder_info::Key::Key(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing folder key"))?;
+    if actual_key.trim_end_matches('/') != folder_key.trim_end_matches('/') {
+        return Err(ResponseDecodeError::Mismatch(
+            "file listing folder does not match",
+        ));
+    }
+    let is_factory = folder
+        .is_factory
+        .map(|pa::folder_info::IsFactory::IsFactory(value)| value)
+        .unwrap_or(false);
+    let folder_name = folder
+        .name
+        .map(|pa::folder_info::Name::Name(value)| value)
+        .unwrap_or_else(|| {
+            actual_key
+                .trim_end_matches('/')
+                .rsplit('/')
+                .next()
+                .unwrap_or_default()
+                .to_string()
+        });
+    Ok(LibraryEntries {
+        entries: folder
+            .files
+            .into_iter()
+            .filter_map(|file| {
+                let key = file
+                    .key
+                    .map(|pa::product_data::Key::Key(value)| value)
+                    .unwrap_or_default();
+                let name = file
+                    .name
+                    .map(|pa::product_data::Name::Name(value)| value)
+                    .unwrap_or_default();
+                if key.is_empty() && name.is_empty() {
+                    return None;
+                }
+                let position = file
+                    .index
+                    .map(|pa::product_data::Index::Index(value)| value)
+                    .and_then(|value| u32::try_from(value).ok());
+                let instrument = file
+                    .instrument
+                    .map(|pa::product_data::Instrument::Instrument(value)| value);
+                Some(LibraryEntry {
+                    name,
+                    key,
+                    folder_key: Some(actual_key.clone()),
+                    folder_name: Some(folder_name.clone()),
+                    position,
+                    instrument,
+                    is_factory,
+                    is_plugin: false,
+                })
+            })
+            .collect(),
     })
 }
 
@@ -340,6 +492,227 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
     })
 }
 
+pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeError> {
+    let message = pa::IoSettingsMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "I/O settings action is not UPDATE",
+        ));
+    }
+    let settings = message
+        .settings
+        .map(|pa::io_settings_message::Settings::Settings(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("I/O settings"))?;
+    if settings.in_port.is_empty() {
+        return Err(ResponseDecodeError::Incomplete("input ports"));
+    }
+
+    let inputs = settings
+        .in_port
+        .into_iter()
+        .map(|port| {
+            let level = port
+                .level
+                .map(|pa::input_port_settings::Level::Level(value)| value);
+            InputPortSettings {
+                input_port_id: port.input_port_id,
+                level,
+                level_db: level.map(|value| -12.0 + 72.0 * value),
+                impedance: port
+                    .input_zmode
+                    .map(|pa::input_port_settings::InputZmode::InputZmode(value)| value),
+                input_type: port
+                    .input_type
+                    .map(|pa::input_port_settings::InputType::InputType(value)| value),
+                ground_lift: port
+                    .ground_lift
+                    .map(|pa::input_port_settings::GroundLift::GroundLift(value)| value),
+                plugged: port
+                    .plugged
+                    .map(|pa::input_port_settings::Plugged::Plugged(value)| value),
+            }
+        })
+        .collect();
+    let outputs = settings
+        .out_port
+        .into_iter()
+        .map(|port| OutputPortSettings {
+            output_port_id: port.output_port_id,
+            level: port
+                .level
+                .map(|pa::output_port_settings::Level::Level(value)| value),
+            ground_lift: port
+                .ground_lift
+                .map(|pa::output_port_settings::GroundLift::GroundLift(value)| value),
+            muted: port
+                .mute
+                .map(|pa::output_port_settings::Mute::Mute(value)| value),
+            plugged: port
+                .plugged
+                .map(|pa::output_port_settings::Plugged::Plugged(value)| value),
+        })
+        .collect();
+    let expression_ports = settings
+        .exp_port
+        .into_iter()
+        .map(|port| ExpressionPortSettings {
+            expression_port_id: port.exp_port_id,
+            plugged: port
+                .plugged
+                .map(|pa::exp_port_settings::Plugged::Plugged(value)| value),
+            level: port
+                .level
+                .map(|pa::exp_port_settings::Level::Level(value)| value),
+            calibrating: port
+                .calibrating
+                .map(|pa::exp_port_settings::Calibrating::Calibrating(value)| value),
+        })
+        .collect();
+    let headphones =
+        settings.hp_port.map(
+            |pa::port_settings::HpPort::HpPort(port)| HeadphonesSettings {
+                feeds: port
+                    .hp_feed
+                    .into_iter()
+                    .map(|feed| HeadphonesFeed {
+                        output_port_id: feed.output_port_id,
+                        level: feed.level,
+                    })
+                    .collect(),
+                level: port
+                    .level
+                    .map(|pa::headphones_settings::Level::Level(value)| value),
+                plugged: port
+                    .plugged
+                    .map(|pa::headphones_settings::Plugged::Plugged(value)| value),
+            },
+        );
+    let usb = settings.usb_port.map(
+        |pa::port_settings::UsbPort::UsbPort(port)| UsbPortSettings {
+            level: port
+                .level
+                .map(|pa::usb_port_settings::Level::Level(value)| value),
+            headphones_source: port
+                .hp_select
+                .map(|pa::usb_port_settings::HpSelect::HpSelect(value)| value),
+            plugged: port
+                .plugged
+                .map(|pa::usb_port_settings::Plugged::Plugged(value)| value),
+            dry_wet: port
+                .dry_wet
+                .map(|pa::usb_port_settings::DryWet::DryWet(value)| value),
+        },
+    );
+    let midi =
+        settings.midi_port.map(
+            |pa::port_settings::MidiPort::MidiPort(port)| MidiPortSettings {
+                thru: port
+                    .midi_thru
+                    .map(|pa::midi_port_settings::MidiThru::MidiThru(value)| value),
+            },
+        );
+
+    Ok(IoSettings {
+        inputs,
+        outputs,
+        expression_ports,
+        headphones,
+        usb,
+        midi,
+        xlr12_linked: message
+            .xlr1_2_linked
+            .map(|pa::io_settings_message::Xlr12Linked::Xlr12Linked(value)| value),
+        out34_linked: message
+            .out3_4_linked
+            .map(|pa::io_settings_message::Out34Linked::Out34Linked(value)| value),
+    })
+}
+
+pub fn decode_global_eq(payload: &[u8]) -> Result<GlobalEqSettings, ResponseDecodeError> {
+    let message = pa::GlobalEqMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "Global EQ action is not UPDATE",
+        ));
+    }
+    Ok(GlobalEqSettings {
+        parameters: message
+            .parameters
+            .into_iter()
+            .map(|parameter| GlobalEqParameter {
+                parameter_index: parameter.parameter_index,
+                value: parameter.value,
+            })
+            .collect(),
+        bypassed: message
+            .bypassed
+            .map(|pa::global_eq_message::Bypassed::Bypassed(value)| value),
+        has_user_defaults: message
+            .has_user_defaults
+            .map(|pa::global_eq_message::HasUserDefaults::HasUserDefaults(value)| value),
+    })
+}
+
+pub fn decode_mode_cycle(payload: &[u8]) -> Result<ModeCycle, ResponseDecodeError> {
+    let message = pa::ModeMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch("mode action is not UPDATE"));
+    }
+    let slots = message
+        .available_modes
+        .map(|pa::mode_message::AvailableModes::AvailableModes(value)| value.modes)
+        .filter(|values| !values.is_empty())
+        .ok_or(ResponseDecodeError::Incomplete("mode cycle"))?;
+    Ok(ModeCycle { slots })
+}
+
+pub fn decode_looper_status(payload: &[u8]) -> Result<LooperStatus, ResponseDecodeError> {
+    let message = pa::LooperMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch("looper action is not UPDATE"));
+    }
+    let status = message
+        .status
+        .map(|pa::looper_message::Status::Status(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("looper status"))?;
+    Ok(LooperStatus {
+        state: Some(status.state),
+        progress: Some(status.progress),
+        undo_progress: Some(status.undo_progress),
+        duplicate_cycle: Some(status.duplicate_cycle),
+        num_duplicate_cycles: Some(status.num_duplicate_cycles),
+        one_shot_stopped: Some(status.one_shot_stopped),
+        redo_available: Some(status.redo_available),
+        loop_length: Some(status.loop_length),
+        free_samples: Some(status.free_samples),
+        in_reverse: Some(status.in_reverse),
+        one_shot: Some(status.one_shot),
+        half_speed: Some(status.half_speed),
+        fixed_duplicate_cycles: Some(status.fixed_duplicate_cycles),
+        armed: Some(status.armed),
+        waiting_for_cycle: Some(status.waiting_for_cycle),
+        undo_count: Some(status.undo_count),
+        max_write_displacement: Some(status.max_write_displacement),
+        min_write_displacement: Some(status.min_write_displacement),
+        events_waiting_for_quantize: Some(status.events_waiting_for_quantize),
+        current_clock: Some(status.current_clock),
+        transition: Some(status.transition),
+        action: Some(status.action),
+        one_shot_play: message
+            .one_shot_play
+            .map(|pa::looper_message::OneShotPlay::OneShotPlay(value)| value),
+        sync_start_waiting: message
+            .sync_start_waiting
+            .map(|pa::looper_message::SyncStartWaiting::SyncStartWaiting(value)| value),
+        quantize_enabled: message
+            .quantize_enabled
+            .map(|pa::looper_message::QuantizeEnabled::QuantizeEnabled(value)| value),
+        update_type: message
+            .update_type
+            .map(|pa::looper_message::UpdateType::UpdateType(value)| value),
+    })
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -477,6 +850,86 @@ mod tests {
         assert_eq!(settings.hold_timing_index, Some(3));
         assert_eq!(settings.hold_timing_ms, Some(800));
         assert!(settings.master_volume_assignment.unwrap().send12);
+    }
+
+    #[test]
+    fn io_settings_preserve_every_sparse_port_field() {
+        let payload = pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(
+                pa::PortSettings {
+                    in_port: vec![pa::InputPortSettings {
+                        input_port_id: 1,
+                        level: Some(pa::input_port_settings::Level::Level(0.5)),
+                        input_zmode: Some(pa::input_port_settings::InputZmode::InputZmode(0.75)),
+                        plugged: Some(pa::input_port_settings::Plugged::Plugged(true)),
+                        ..Default::default()
+                    }],
+                    out_port: vec![pa::OutputPortSettings {
+                        output_port_id: 4,
+                        mute: Some(pa::output_port_settings::Mute::Mute(true)),
+                        ..Default::default()
+                    }],
+                    hp_port: Some(pa::port_settings::HpPort::HpPort(pa::HeadphonesSettings {
+                        hp_feed: vec![pa::HeadphonesFeedLevel {
+                            level: 0.25,
+                            output_port_id: 4,
+                        }],
+                        level: Some(pa::headphones_settings::Level::Level(0.6)),
+                        plugged: Some(pa::headphones_settings::Plugged::Plugged(true)),
+                    })),
+                    usb_port: Some(pa::port_settings::UsbPort::UsbPort(pa::UsbPortSettings {
+                        hp_select: Some(pa::usb_port_settings::HpSelect::HpSelect(0.5)),
+                        dry_wet: Some(pa::usb_port_settings::DryWet::DryWet(1.0)),
+                        ..Default::default()
+                    })),
+                    midi_port: Some(pa::port_settings::MidiPort::MidiPort(
+                        pa::MidiPortSettings {
+                            midi_thru: Some(pa::midi_port_settings::MidiThru::MidiThru(1.0)),
+                        },
+                    )),
+                    exp_port: vec![pa::ExpPortSettings {
+                        exp_port_id: 0,
+                        level: Some(pa::exp_port_settings::Level::Level(0.33)),
+                        calibrating: Some(pa::exp_port_settings::Calibrating::Calibrating(false)),
+                        ..Default::default()
+                    }],
+                },
+            )),
+            xlr1_2_linked: Some(pa::io_settings_message::Xlr12Linked::Xlr12Linked(true)),
+            out3_4_linked: Some(pa::io_settings_message::Out34Linked::Out34Linked(false)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+
+        let settings = decode_io_settings(&payload).unwrap();
+        assert_eq!(settings.inputs[0].input_port_id, 1);
+        assert_eq!(settings.inputs[0].level, Some(0.5));
+        assert_eq!(settings.inputs[0].impedance, Some(0.75));
+        assert_eq!(settings.inputs[0].plugged, Some(true));
+        assert_eq!(settings.outputs[0].muted, Some(true));
+        assert_eq!(
+            settings.headphones.as_ref().unwrap().feeds[0].output_port_id,
+            4
+        );
+        assert_eq!(settings.usb.as_ref().unwrap().dry_wet, Some(1.0));
+        assert_eq!(settings.midi.as_ref().unwrap().thru, Some(1.0));
+        assert_eq!(settings.expression_ports[0].level, Some(0.33));
+        assert_eq!(settings.xlr12_linked, Some(true));
+        assert_eq!(settings.out34_linked, Some(false));
+
+        let incomplete = pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(
+                pa::PortSettings::default(),
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_io_settings(&incomplete),
+            Err(ResponseDecodeError::Incomplete("input ports"))
+        ));
     }
 
     #[test]
@@ -622,5 +1075,123 @@ mod tests {
             "the QC backup stream ended with an incomplete or unsupported document"
         );
         assert!(!backup.started());
+    }
+
+    #[test]
+    fn global_eq_mode_cycle_and_looper_reads_preserve_device_state() {
+        let eq = pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            parameters: vec![pa::GlobalEqParameter {
+                parameter_index: 6,
+                value: 0.75,
+            }],
+            bypassed: Some(pa::global_eq_message::Bypassed::Bypassed(false)),
+            has_user_defaults: Some(pa::global_eq_message::HasUserDefaults::HasUserDefaults(
+                true,
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let eq = decode_global_eq(&eq).unwrap();
+        assert_eq!(eq.parameters[0].parameter_index, 6);
+        assert_eq!(eq.parameters[0].value, 0.75);
+        assert_eq!(eq.bypassed, Some(false));
+
+        let modes = pa::ModeMessage {
+            action: pa::message_action::Enum::Update as i32,
+            available_modes: Some(pa::mode_message::AvailableModes::AvailableModes(
+                pa::AvailableModes {
+                    modes: vec![7, 1, 2],
+                },
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert_eq!(decode_mode_cycle(&modes).unwrap().slots, vec![7, 1, 2]);
+
+        let looper = pa::LooperMessage {
+            action: pa::message_action::Enum::Update as i32,
+            status: Some(pa::looper_message::Status::Status(pa::LooperStatus {
+                state: 3,
+                progress: 0.5,
+                in_reverse: 1,
+                undo_count: 2,
+                ..Default::default()
+            })),
+            one_shot_play: Some(pa::looper_message::OneShotPlay::OneShotPlay(true)),
+            quantize_enabled: Some(pa::looper_message::QuantizeEnabled::QuantizeEnabled(false)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let looper = decode_looper_status(&looper).unwrap();
+        assert_eq!(looper.state, Some(3));
+        assert_eq!(looper.progress, Some(0.5));
+        assert_eq!(looper.in_reverse, Some(1));
+        assert_eq!(looper.one_shot_play, Some(true));
+    }
+
+    #[test]
+    fn library_replies_are_correlated_and_preserve_device_metadata() {
+        let recents = pa::RecentsFavoritesMessage {
+            action: pa::message_action::Enum::Update as i32,
+            request_id: Some(pa::recents_favorites_message::RequestId::RequestId(71)),
+            // Favorites replies observed on-device can omit the flag, leaving
+            // its protobuf default false. Request correlation is authoritative.
+            is_favorites: false,
+            items: vec![pa::RecentsFavoritesItem {
+                name: "Stage".into(),
+                folder_key: "/media/p4/Presets/Live".into(),
+                folder_name: "Live".into(),
+                is_factory: false,
+                is_plugin: true,
+            }],
+        }
+        .encode_to_vec();
+        let entries = decode_recents_favorites(&recents, 71).unwrap();
+        assert_eq!(entries.entries.len(), 1);
+        assert_eq!(entries.entries[0].name, "Stage");
+        assert!(entries.entries[0].is_plugin);
+        assert!(matches!(
+            decode_recents_favorites(&recents, 72),
+            Err(ResponseDecodeError::Mismatch(_))
+        ));
+
+        let pinned = pa::PinnedModelsMessage {
+            models: vec![42, 84],
+            captures: vec!["capture-a".into()],
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let pinned = decode_pinned_models(&pinned).unwrap();
+        assert_eq!(pinned.models, vec![42, 84]);
+        assert_eq!(pinned.captures, vec!["capture-a"]);
+
+        let files = pa::FileMessage {
+            action: pa::message_action::Enum::Update as i32,
+            request_id: Some(pa::file_message::RequestId::RequestId(73)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key("local_ir_root".into())),
+                name: Some(pa::folder_info::Name::Name("Impulse Responses".into())),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key("ir/key".into())),
+                    name: Some(pa::product_data::Name::Name("Room".into())),
+                    index: Some(pa::product_data::Index::Index(4)),
+                    instrument: Some(pa::product_data::Instrument::Instrument(2)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let entries = decode_library_files(&files, 73, "local_ir_root").unwrap();
+        assert_eq!(entries.entries[0].key, "ir/key");
+        assert_eq!(entries.entries[0].position, Some(4));
+        assert_eq!(entries.entries[0].instrument, Some(2));
+        assert!(matches!(
+            decode_library_files(&files, 73, "another-folder"),
+            Err(ResponseDecodeError::Mismatch(_))
+        ));
     }
 }

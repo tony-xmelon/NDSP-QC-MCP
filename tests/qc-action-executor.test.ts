@@ -124,6 +124,74 @@ test("persistent shared actions require the generated confirmation field", async
   assert.equal(called, false);
 });
 
+test("library actions share exact read, guarded load, and persistent workflow arguments", async () => {
+  const calls: unknown[][] = [];
+  const gateway = {
+    recents: async () => ({ entries: [{ name: "Recent" }] }),
+    favorites: async () => ({ entries: [{ name: "Favorite" }] }),
+    pinnedModels: async () => ({ models: [42], captures: [] }),
+    captures: async () => ({ folderKey: "captures", entries: [{ key: "capture/", name: "Crunch" }] }),
+    irs: async (...args: unknown[]) => { calls.push(["irs", ...args]); return { folderKey: "irs", entries: [] }; },
+    setFavorite: async (...args: unknown[]) => { calls.push(["favorite", ...args]); return { detail: "favorite sent" }; },
+    setModelPinned: async (...args: unknown[]) => { calls.push(["pin", ...args]); return { detail: "pin sent" }; },
+    duplicateSetlist: async (...args: unknown[]) => { calls.push(["duplicate", ...args]); return { detail: "duplicated" }; },
+    loadCapture: async (...args: unknown[]) => { calls.push(["capture", ...args]); return { detail: "capture loaded" }; },
+    loadIr: async (...args: unknown[]) => { calls.push(["ir", ...args]); return { detail: "ir loaded" }; }
+  } as unknown as GatewayTransport;
+  const context = { gateway, snapshot: demoSnapshot, connected: true };
+
+  assert.ok((await executeQcAction({ name: "list_recents", arguments: {} }, context)).data);
+  assert.ok((await executeQcAction({ name: "list_favorites", arguments: {} }, context)).data);
+  assert.ok((await executeQcAction({ name: "list_pinned_models", arguments: {} }, context)).data);
+  assert.ok((await executeQcAction({ name: "list_captures", arguments: {} }, context)).data);
+  await executeQcAction({ name: "list_irs", arguments: { folder: null } }, context);
+  await executeQcAction({
+    name: "set_favorite",
+    arguments: { name: "Stage", folder_key: "/media/p4/Presets/Live", folder_name: "Live", is_factory: false, favorite: true, confirm_persistent_write: true }
+  }, context);
+  await executeQcAction({
+    name: "set_model_pinned", arguments: { model_id: 42, pinned: true, confirm_persistent_write: true }
+  }, context);
+  await executeQcAction({
+    name: "duplicate_setlist",
+    arguments: {
+      source_setlist_key: "/media/p4/Presets/Live", destination_name: "Live Copy", limit: null,
+      expected_preset_name: demoSnapshot.presetName, expected_position: demoSnapshot.presetPosition,
+      confirm_persistent_write: true
+    }
+  }, context);
+  await executeQcAction({
+    name: "load_capture",
+    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_preset_name: demoSnapshot.presetName }
+  }, context);
+  await executeQcAction({
+    name: "load_ir",
+    arguments: { row: 2, column: 3, key: "ir/key", name: "Room", slot: 1, model_id: 29_001, expected_preset_name: demoSnapshot.presetName }
+  }, context);
+
+  assert.deepEqual(calls, [
+    ["irs", null],
+    ["favorite", "Stage", "/media/p4/Presets/Live", "Live", false, true],
+    ["pin", 42, true],
+    ["duplicate", "/media/p4/Presets/Live", "Live Copy", null, demoSnapshot.presetName, demoSnapshot.presetPosition],
+    ["capture", 1, 2, "capture/", "Crunch", null],
+    ["ir", 2, 3, "ir/key", "Room", 1, 29_001]
+  ]);
+
+  await assert.rejects(() => executeQcAction({
+    name: "duplicate_setlist",
+    arguments: {
+      source_setlist_key: "/media/p4/Presets/Live", destination_name: "Nope", limit: 1,
+      expected_preset_name: demoSnapshot.presetName, expected_position: demoSnapshot.presetPosition,
+      confirm_persistent_write: false
+    }
+  }, context), /explicit user confirmation/);
+  await assert.rejects(() => executeQcAction({
+    name: "load_capture",
+    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_preset_name: "stale" }
+  }, context), /prepared for.*stale/);
+});
+
 test("general settings actions share one confirmed app execution path", async () => {
   const calls: unknown[][] = [];
   const gateway = {
@@ -155,6 +223,35 @@ test("general settings actions share one confirmed app execution path", async ()
   await assert.rejects(() => executeQcAction({
     name: "set_general_integer", arguments: { setting: "holdTiming", value: 4, confirm_persistent_write: false }
   }, context), /explicit user confirmation/);
+});
+
+test("I/O settings actions preserve sparse nulls through one confirmed app path", async () => {
+  const calls: unknown[][] = [];
+  const state = { inputs: [{ inputPortId: 1, level: .5, levelDb: 24 }], outputs: [], expressions: [] };
+  const gateway = {
+    ioSettings: async () => state,
+    setInputPort: async (...args: unknown[]) => { calls.push(["input", ...args]); return { detail: "sent" }; },
+    setOutputPort: async (...args: unknown[]) => { calls.push(["output", ...args]); return { detail: "sent" }; },
+    setUsbPort: async (...args: unknown[]) => { calls.push(["usb", ...args]); return { detail: "sent" }; },
+    setMidiThru: async (...args: unknown[]) => { calls.push(["midi", ...args]); return { detail: "sent" }; },
+    setOutputPairing: async (...args: unknown[]) => { calls.push(["pairing", ...args]); return { detail: "sent" }; }
+  } as unknown as GatewayTransport;
+  const context = { gateway, snapshot: demoSnapshot, connected: true };
+  const read = await executeQcAction({ name: "get_io_settings", arguments: {} }, context);
+  assert.equal(read.data, state);
+  const confirmed = { confirm_persistent_write: true };
+  await executeQcAction({ name: "set_input_port", arguments: { input_port_id: 1, level_db: 12, impedance: null, input_type: 1, ground_lift: null, ...confirmed } }, context);
+  await executeQcAction({ name: "set_output_port", arguments: { output_port_id: 4, level: null, ground_lift: null, mute: false, ...confirmed } }, context);
+  await executeQcAction({ name: "set_usb_port", arguments: { level: .25, headphones_source: null, dry_wet: 1, ...confirmed } }, context);
+  await executeQcAction({ name: "set_midi_thru", arguments: { enabled: true, ...confirmed } }, context);
+  await executeQcAction({ name: "set_output_pairing", arguments: { xlr12_linked: true, out34_linked: null, ...confirmed } }, context);
+  assert.deepEqual(calls, [
+    ["input", 1, 12, null, 1, null],
+    ["output", 4, null, null, false],
+    ["usb", .25, null, 1],
+    ["midi", true],
+    ["pairing", true, null]
+  ]);
 });
 
 test("device-global actions do not require an unrelated preset guard", async () => {

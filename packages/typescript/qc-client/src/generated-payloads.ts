@@ -50,6 +50,108 @@ export interface GeneralSettings {
   holdTimingMs?: number;
 }
 
+export interface InputPortSettings {
+  inputPortId: number;
+  level?: number;
+  levelDb?: number;
+  impedance?: number;
+  inputType?: number;
+  groundLift?: number;
+  plugged?: boolean;
+}
+
+export interface OutputPortSettings {
+  outputPortId: number;
+  level?: number;
+  groundLift?: number;
+  muted?: boolean;
+  plugged?: boolean;
+}
+
+export interface HeadphonesFeed {
+  outputPortId: number;
+  level: number;
+}
+
+export interface HeadphonesSettings {
+  feeds: HeadphonesFeed[];
+  level?: number;
+  plugged?: boolean;
+}
+
+export interface UsbPortSettings {
+  level?: number;
+  headphonesSource?: number;
+  plugged?: boolean;
+  dryWet?: number;
+}
+
+export interface ExpressionPortSettings {
+  expressionPortId: number;
+  plugged?: boolean;
+  level?: number;
+  calibrating?: boolean;
+}
+
+export interface MidiPortSettings {
+  thru?: number;
+}
+
+export interface IoSettings {
+  inputs: InputPortSettings[];
+  outputs: OutputPortSettings[];
+  expressionPorts: ExpressionPortSettings[];
+  headphones?: HeadphonesSettings;
+  usb?: UsbPortSettings;
+  midi?: MidiPortSettings;
+  xlr12Linked?: boolean;
+  out34Linked?: boolean;
+}
+
+export interface GlobalEqParameter {
+  parameterIndex: number;
+  value: number;
+}
+
+export interface GlobalEqSettings {
+  parameters: GlobalEqParameter[];
+  bypassed?: boolean;
+  hasUserDefaults?: boolean;
+}
+
+export interface ModeCycle {
+  slots: number[];
+}
+
+export interface LooperStatus {
+  state?: number;
+  progress?: number;
+  undoProgress?: number;
+  duplicateCycle?: number;
+  numDuplicateCycles?: number;
+  oneShotStopped?: number;
+  redoAvailable?: number;
+  loopLength?: number;
+  freeSamples?: number;
+  inReverse?: number;
+  oneShot?: number;
+  halfSpeed?: number;
+  fixedDuplicateCycles?: number;
+  armed?: number;
+  waitingForCycle?: number;
+  undoCount?: number;
+  maxWriteDisplacement?: number;
+  minWriteDisplacement?: number;
+  eventsWaitingForQuantize?: number;
+  currentClock?: number;
+  transition?: number;
+  action?: number;
+  oneShotPlay?: boolean;
+  syncStartWaiting?: boolean;
+  quantizeEnabled?: boolean;
+  updateType?: number;
+}
+
 export interface BypassExpression {
   pedal: number;
   minimum: number;

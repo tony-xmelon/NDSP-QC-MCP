@@ -22,10 +22,12 @@ that device-wide transfer during the handshake would queue hundreds of File
 messages ahead of live command readback, so it is deliberately kept out of the
 startup and real-time paths.
 
-The broker implements gateway API v2 directly, including snapshots, native
+The broker implements the manifest-defined gateway API directly, including snapshots, native
 state frames, ModelRepo-backed block editors, scene/bypass/parameter/tempo and
 Master Volume control, grid/routing writes, preset directory/slot listing,
-recall/navigation/reload, save/rename/copy, and chunked native device backup.
+recall/navigation/reload, save/rename/copy, favorites and recent presets,
+pinned models, capture/IR browsing and loading, setlist create/delete/duplicate,
+preset move/delete, and chunked native device backup.
 It also owns device identity and naming, device undo/redo, compiler-inhibited
 module state, stored-preset screenshots, CorOS 4.1 live screen capture, and
 screen-coordinate tap sequences. Live tap sends the verified wire-value 1 then

@@ -66,12 +66,34 @@ const nullableIntegerArgument = (call: AssistantToolCall, name: string): number 
   return value;
 };
 
+const nullableNumberArgument = (call: AssistantToolCall, name: string): number | null => {
+  const value = call.arguments[name];
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${call.name} returned an invalid ${name}.`);
+  return value;
+};
+
+const nullableBooleanArgument = (call: AssistantToolCall, name: string): boolean | null => {
+  const value = call.arguments[name];
+  if (value === null) return null;
+  if (typeof value !== "boolean") throw new Error(`${call.name} returned an invalid ${name}.`);
+  return value;
+};
+
 const booleanRowsArgument = (call: AssistantToolCall, name: string): [boolean, boolean, boolean, boolean] => {
   const value = call.arguments[name];
   if (!Array.isArray(value) || value.length !== 4 || value.some((entry) => typeof entry !== "boolean")) {
     throw new Error(`${call.name} requires exactly four boolean ${name} row values.`);
   }
   return value as [boolean, boolean, boolean, boolean];
+};
+
+const integerArrayArgument = (call: AssistantToolCall, name: string): number[] => {
+  const value = call.arguments[name];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "number" || !Number.isInteger(entry))) {
+    throw new Error(`${call.name} returned an invalid ${name}.`);
+  }
+  return value;
 };
 
 const midiMessagesArgument = (call: AssistantToolCall): MidiOutMessage[] => {
@@ -223,6 +245,31 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (call.name === "get_general_settings") {
     return { detail: "Read the current Quad Cortex Device Settings.", data: await gateway.generalSettings() };
   }
+  if (call.name === "get_io_settings") {
+    return { detail: "Read all current Quad Cortex I/O settings and physical connection flags.", data: await gateway.ioSettings() };
+  }
+  if (call.name === "get_global_eq") {
+    return { detail: "Read Global EQ state and all normalized controls.", data: await gateway.globalEq() };
+  }
+  if (call.name === "get_mode_cycle") {
+    return { detail: "Read the configured footswitch mode cycle.", data: await gateway.modeCycle() };
+  }
+  if (call.name === "get_looper_status") {
+    return { detail: "Read the current Looper X transport state.", data: await gateway.looperStatus() };
+  }
+  if (call.name === "list_recents" || call.name === "list_favorites" || call.name === "list_pinned_models" || call.name === "list_captures" || call.name === "list_irs") {
+    let data: unknown;
+    if (call.name === "list_recents") data = await gateway.recents();
+    else if (call.name === "list_favorites") data = await gateway.favorites();
+    else if (call.name === "list_pinned_models") data = await gateway.pinnedModels();
+    else if (call.name === "list_captures") data = await gateway.captures();
+    else {
+      const folder = call.arguments.folder;
+      if (folder !== null && typeof folder !== "string") throw new Error("list_irs returned an invalid folder.");
+      data = await gateway.irs(folder as string | null);
+    }
+    return { detail: `Read ${call.name.replaceAll("_", " ")} from the Quad Cortex.`, data };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -310,6 +357,89 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
       booleanRowsArgument(call, "cab"), booleanRowsArgument(call, "ir")
     ));
   }
+  if (call.name === "set_input_port" || call.name === "set_output_port"
+    || call.name === "set_usb_port" || call.name === "set_midi_thru"
+    || call.name === "set_output_pairing") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_input_port") {
+      return actionResult(await gateway.setInputPort(
+        integerArgument(call, "input_port_id"), nullableNumberArgument(call, "level_db"),
+        nullableNumberArgument(call, "impedance"), nullableNumberArgument(call, "input_type"),
+        nullableNumberArgument(call, "ground_lift")
+      ));
+    }
+    if (call.name === "set_output_port") {
+      return actionResult(await gateway.setOutputPort(
+        integerArgument(call, "output_port_id"), nullableNumberArgument(call, "level"),
+        nullableNumberArgument(call, "ground_lift"), nullableBooleanArgument(call, "mute")
+      ));
+    }
+    if (call.name === "set_usb_port") {
+      return actionResult(await gateway.setUsbPort(
+        nullableNumberArgument(call, "level"), nullableNumberArgument(call, "headphones_source"),
+        nullableNumberArgument(call, "dry_wet")
+      ));
+    }
+    if (call.name === "set_midi_thru") {
+      return actionResult(await gateway.setMidiThru(booleanArgument(call, "enabled")));
+    }
+    return actionResult(await gateway.setOutputPairing(
+      nullableBooleanArgument(call, "xlr12_linked"), nullableBooleanArgument(call, "out34_linked")
+    ));
+  }
+  if (call.name === "set_global_eq_bypassed" || call.name === "set_global_eq_band"
+    || call.name === "set_global_eq_output" || call.name === "set_mode_cycle") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_global_eq_bypassed") {
+      return actionResult(await gateway.setGlobalEqBypassed(booleanArgument(call, "bypassed")));
+    }
+    if (call.name === "set_global_eq_band") {
+      return actionResult(await gateway.setGlobalEqBand(
+        integerArgument(call, "band"), nullableNumberArgument(call, "gain"),
+        nullableNumberArgument(call, "frequency"), nullableNumberArgument(call, "q"),
+        nullableIntegerArgument(call, "filter_type"), nullableBooleanArgument(call, "enabled")
+      ));
+    }
+    if (call.name === "set_global_eq_output") {
+      return actionResult(await gateway.setGlobalEqOutput(
+        nullableNumberArgument(call, "level"), nullableBooleanArgument(call, "out12"),
+        nullableBooleanArgument(call, "out34")
+      ));
+    }
+    return actionResult(await gateway.setModeCycle(integerArrayArgument(call, "slots")));
+  }
+  if (call.name === "control_looper") {
+    return actionResult(await gateway.controlLooper(
+      stringArgument(call, "command"), nullableIntegerArgument(call, "value")
+    ));
+  }
+  if (call.name === "set_favorite" || call.name === "set_model_pinned"
+    || call.name === "create_setlist" || call.name === "delete_setlist"
+    || call.name === "duplicate_setlist"
+    || call.name === "delete_preset" || call.name === "move_preset") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_favorite") return actionResult(await gateway.setFavorite(
+      stringArgument(call, "name"), stringArgument(call, "folder_key"),
+      stringArgument(call, "folder_name"), booleanArgument(call, "is_factory"),
+      booleanArgument(call, "favorite")
+    ));
+    if (call.name === "set_model_pinned") return actionResult(await gateway.setModelPinned(
+      integerArgument(call, "model_id"), booleanArgument(call, "pinned")
+    ));
+    if (call.name === "create_setlist") return actionResult(await gateway.createSetlist(stringArgument(call, "name")));
+    if (call.name === "delete_setlist") return actionResult(await gateway.deleteSetlist(stringArgument(call, "name")));
+    if (call.name === "duplicate_setlist") return actionResult(await gateway.duplicateSetlist(
+      stringArgument(call, "source_setlist_key"), stringArgument(call, "destination_name"),
+      nullableIntegerArgument(call, "limit"), stringArgument(call, "expected_preset_name"),
+      integerArgument(call, "expected_position")
+    ));
+    if (call.name === "delete_preset") return actionResult(await gateway.deletePreset(
+      stringArgument(call, "setlist_key"), stringArgument(call, "name")
+    ));
+    return actionResult(await gateway.movePreset(
+      stringArgument(call, "setlist_key"), stringArgument(call, "name"), integerArgument(call, "position")
+    ));
+  }
   if (call.name === "undo_device" || call.name === "redo_device") {
     confirmation(call, "confirm_risky_operation");
     return actionResult(call.name === "undo_device" ? await gateway.undo() : await gateway.redo());
@@ -329,6 +459,17 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   }
 
   assertExpectedString(call, "expected_preset_name", snapshot.presetName);
+
+  if (call.name === "load_capture") return actionResult(await gateway.loadCapture(
+    integerArgument(call, "row"), integerArgument(call, "column"),
+    stringArgument(call, "key"), stringArgument(call, "name"),
+    nullableIntegerArgument(call, "model_id")
+  ));
+  if (call.name === "load_ir") return actionResult(await gateway.loadIr(
+    integerArgument(call, "row"), integerArgument(call, "column"),
+    stringArgument(call, "key"), stringArgument(call, "name"),
+    integerArgument(call, "slot"), nullableIntegerArgument(call, "model_id")
+  ));
 
   if (call.name === "select_scene") return actionResult(await gateway.selectScene(integerArgument(call, "scene"), snapshot.presetName));
   if (call.name === "copy_scene") return actionResult(await gateway.copyScene(integerArgument(call, "from_scene"), integerArgument(call, "to_scene"), booleanArgument(call, "swap"), snapshot.presetName));

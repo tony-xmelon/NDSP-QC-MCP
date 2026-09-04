@@ -28,7 +28,11 @@ struct TraceFrame {
 }
 
 fn decode_hex(value: &str) -> Vec<u8> {
-    assert_eq!(value.len() % 2, 0, "hex fixtures must contain complete bytes");
+    assert_eq!(
+        value.len() % 2,
+        0,
+        "hex fixtures must contain complete bytes"
+    );
     value
         .as_bytes()
         .chunks_exact(2)
@@ -43,9 +47,15 @@ fn replay(trace: &Trace) -> Vec<(u16, Vec<u8>)> {
     let mut frames = Vec::new();
     let mut assembler = FrameAssembler::new();
     for expected in &trace.frames {
-        assert!(matches!(expected.direction.as_str(), "inbound" | "outbound"));
+        assert!(matches!(
+            expected.direction.as_str(),
+            "inbound" | "outbound"
+        ));
         for report in &expected.reports_hex {
-            if let Some(frame) = assembler.push(decode_hex(report)).expect("valid sanitized report") {
+            if let Some(frame) = assembler
+                .push(decode_hex(report))
+                .expect("valid sanitized report")
+            {
                 frames.push(frame);
             }
         }
@@ -80,6 +90,9 @@ fn sanitized_trace_replays_identically_for_every_native_host() {
 fn replay_fixture_cannot_silently_acquire_private_fields() {
     let source = include_str!("fixtures/sanitized-session-v1.json").to_ascii_lowercase();
     for forbidden in ["serial", "token", "credential", "presetname", "devicename"] {
-        assert!(!source.contains(forbidden), "fixture contains private field {forbidden}");
+        assert!(
+            !source.contains(forbidden),
+            "fixture contains private field {forbidden}"
+        );
     }
 }

@@ -1049,6 +1049,337 @@ async fn general_settings(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn io_settings(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::IO_SETTINGS).await
+}
+
+#[tauri::command]
+async fn set_input_port(
+    app: AppHandle,
+    input_port_id: u32,
+    level_db: Option<f64>,
+    impedance: Option<f64>,
+    input_type: Option<f64>,
+    ground_lift: Option<f64>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_INPUT_PORT,
+        json!({
+            "inputPortId": input_port_id,
+            "levelDb": level_db,
+            "impedance": impedance,
+            "inputType": input_type,
+            "groundLift": ground_lift,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_output_port(
+    app: AppHandle,
+    output_port_id: u32,
+    level: Option<f64>,
+    ground_lift: Option<f64>,
+    mute: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_OUTPUT_PORT,
+        json!({
+            "outputPortId": output_port_id,
+            "level": level,
+            "groundLift": ground_lift,
+            "mute": mute,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_usb_port(
+    app: AppHandle,
+    level: Option<f64>,
+    headphones_source: Option<f64>,
+    dry_wet: Option<f64>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_USB_PORT,
+        json!({
+            "level": level,
+            "headphonesSource": headphones_source,
+            "dryWet": dry_wet,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_midi_thru(app: AppHandle, enabled: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_MIDI_THRU, json!({ "enabled": enabled })).await
+}
+
+#[tauri::command]
+async fn set_output_pairing(
+    app: AppHandle,
+    xlr12_linked: Option<bool>,
+    out34_linked: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_OUTPUT_PAIRING,
+        json!({
+            "xlr12Linked": xlr12_linked,
+            "out34Linked": out34_linked,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn global_eq(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::GLOBAL_EQ).await
+}
+
+#[tauri::command]
+async fn set_global_eq_bypassed(app: AppHandle, bypassed: bool) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_BYPASSED,
+        json!({
+            "bypassed": bypassed,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_global_eq_band(
+    app: AppHandle,
+    band: u32,
+    gain: Option<f64>,
+    frequency: Option<f64>,
+    q: Option<f64>,
+    filter_type: Option<u32>,
+    enabled: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_BAND,
+        json!({
+            "band": band, "gain": gain, "frequency": frequency, "q": q,
+            "filterType": filter_type, "enabled": enabled,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_global_eq_output(
+    app: AppHandle,
+    level: Option<f64>,
+    out12: Option<bool>,
+    out34: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_OUTPUT,
+        json!({
+            "level": level, "out12": out12, "out34": out34,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn mode_cycle(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::MODE_CYCLE).await
+}
+
+#[tauri::command]
+async fn set_mode_cycle(app: AppHandle, slots: Vec<u32>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_MODE_CYCLE, json!({ "slots": slots })).await
+}
+
+#[tauri::command]
+async fn looper_status(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::LOOPER_STATUS).await
+}
+
+#[tauri::command]
+async fn control_looper(
+    app: AppHandle,
+    command: String,
+    value: Option<u32>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::CONTROL_LOOPER,
+        json!({
+            "command": command, "value": value,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn recents(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::RECENTS).await
+}
+
+#[tauri::command]
+async fn favorites(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::FAVORITES).await
+}
+
+#[tauri::command]
+async fn set_favorite(
+    app: AppHandle,
+    name: String,
+    folder_key: String,
+    folder_name: String,
+    is_factory: bool,
+    favorite: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_FAVORITE,
+        json!({
+            "name": name, "folderKey": folder_key, "folderName": folder_name,
+            "isFactory": is_factory, "favorite": favorite,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn pinned_models(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::PINNED_MODELS).await
+}
+
+#[tauri::command]
+async fn set_model_pinned(app: AppHandle, model_id: u32, pinned: bool) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_MODEL_PINNED,
+        json!({ "modelId": model_id, "pinned": pinned }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn captures(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::CAPTURES).await
+}
+
+#[tauri::command]
+async fn load_capture(
+    app: AppHandle,
+    row: u32,
+    column: u32,
+    key: String,
+    name: String,
+    model_id: Option<u32>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::LOAD_CAPTURE,
+        json!({
+            "row": row, "column": column, "key": key, "name": name, "modelId": model_id,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn irs(app: AppHandle, folder: Option<String>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::IRS, json!({ "folder": folder })).await
+}
+
+#[tauri::command]
+async fn load_ir(
+    app: AppHandle,
+    row: u32,
+    column: u32,
+    key: String,
+    name: String,
+    slot: u32,
+    model_id: Option<u32>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::LOAD_IR,
+        json!({
+            "row": row, "column": column, "key": key, "name": name,
+            "slot": slot, "modelId": model_id,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn create_setlist(app: AppHandle, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::CREATE_SETLIST, json!({ "name": name })).await
+}
+
+#[tauri::command]
+async fn delete_setlist(app: AppHandle, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::DELETE_SETLIST, json!({ "name": name })).await
+}
+
+#[tauri::command]
+async fn duplicate_setlist(
+    app: AppHandle,
+    source_setlist_key: String,
+    destination_name: String,
+    limit: Option<u32>,
+    expected_preset_name: String,
+    expected_position: u32,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::DUPLICATE_SETLIST,
+        json!({
+            "sourceSetlistKey": source_setlist_key,
+            "destinationName": destination_name,
+            "limit": limit,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn delete_preset(app: AppHandle, setlist_key: String, name: String) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::DELETE_PRESET,
+        json!({ "setlistKey": setlist_key, "name": name }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn move_preset(
+    app: AppHandle,
+    setlist_key: String,
+    name: String,
+    position: u32,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::MOVE_PRESET,
+        json!({
+            "setlistKey": setlist_key, "name": name, "position": position,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn set_general_integer(app: AppHandle, setting: String, value: i32) -> Result<Value, String> {
     background_gateway_request_params(
         app,
@@ -2463,6 +2794,34 @@ pub fn run() {
             inhibited_modules,
             tuner_settings,
             general_settings,
+            io_settings,
+            set_input_port,
+            set_output_port,
+            set_usb_port,
+            set_midi_thru,
+            set_output_pairing,
+            global_eq,
+            set_global_eq_bypassed,
+            set_global_eq_band,
+            set_global_eq_output,
+            mode_cycle,
+            set_mode_cycle,
+            looper_status,
+            control_looper,
+            recents,
+            favorites,
+            set_favorite,
+            pinned_models,
+            set_model_pinned,
+            captures,
+            load_capture,
+            irs,
+            load_ir,
+            create_setlist,
+            delete_setlist,
+            duplicate_setlist,
+            delete_preset,
+            move_preset,
             set_general_integer,
             set_general_toggle,
             set_scene_bypass_behavior,

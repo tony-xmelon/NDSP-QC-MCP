@@ -67,6 +67,34 @@ final class GeneratedRemoteActions {
         "device.renameCurrentPreset",
         "device.copyPreset",
         "device.generalSettings",
+        "device.ioSettings",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
+        "device.globalEq",
+        "device.setGlobalEqBypassed",
+        "device.setGlobalEqBand",
+        "device.setGlobalEqOutput",
+        "device.modeCycle",
+        "device.setModeCycle",
+        "device.looperStatus",
+        "device.controlLooper",
+        "device.recents",
+        "device.favorites",
+        "device.setFavorite",
+        "device.pinnedModels",
+        "device.setModelPinned",
+        "device.captures",
+        "device.loadCapture",
+        "device.irs",
+        "device.loadIr",
+        "device.createSetlist",
+        "device.deleteSetlist",
+        "device.duplicateSetlist",
+        "device.deletePreset",
+        "device.movePreset",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -91,7 +119,16 @@ final class GeneratedRemoteActions {
         "device.tunerSettings",
         "device.presetScreenshot",
         "device.captureScreen",
-        "device.generalSettings"
+        "device.generalSettings",
+        "device.ioSettings",
+        "device.globalEq",
+        "device.modeCycle",
+        "device.looperStatus",
+        "device.recents",
+        "device.favorites",
+        "device.pinnedModels",
+        "device.captures",
+        "device.irs"
     };
 
     private static final String[] PERFORMANCE = {
@@ -102,7 +139,8 @@ final class GeneratedRemoteActions {
         "device.showGigView",
         "device.selectModeSlot",
         "device.setMasterVolume",
-        "device.setTempo"
+        "device.setTempo",
+        "device.controlLooper"
     };
 
     private static final String[] MODIFY = {
@@ -136,7 +174,9 @@ final class GeneratedRemoteActions {
         "device.setChainSplit",
         "device.savePresetAs",
         "device.renameCurrentPreset",
-        "device.copyPreset"
+        "device.copyPreset",
+        "device.loadCapture",
+        "device.loadIr"
     };
 
     private static final String[] REQUIRES_CONFIRMATION = {
@@ -153,6 +193,22 @@ final class GeneratedRemoteActions {
         "device.savePresetAs",
         "device.renameCurrentPreset",
         "device.copyPreset",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
+        "device.setGlobalEqBypassed",
+        "device.setGlobalEqBand",
+        "device.setGlobalEqOutput",
+        "device.setModeCycle",
+        "device.setFavorite",
+        "device.setModelPinned",
+        "device.createSetlist",
+        "device.deleteSetlist",
+        "device.duplicateSetlist",
+        "device.deletePreset",
+        "device.movePreset",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",

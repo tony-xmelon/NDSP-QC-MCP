@@ -148,6 +148,7 @@ fn gateway_workflow_envelope(plan: PresetMutationPlan) -> Result<Vec<u8>, String
         "setlistKey": plan.setlist_key,
         "position": plan.position,
         "instrument": plan.instrument,
+        "savedPresets": plan.saved_presets,
     }))
     .map_err(|error| error.to_string())?;
     let mut result = Vec::new();
@@ -170,6 +171,7 @@ fn gateway_workflow_envelope(plan: PresetMutationPlan) -> Result<Vec<u8>, String
     );
     for stage in plan.stages {
         result.extend_from_slice(&stage.timeout_ms.to_le_bytes());
+        result.extend_from_slice(&stage.settle_ms.to_le_bytes());
         let verification =
             serde_json::to_vec(&stage.verification).map_err(|error| error.to_string())?;
         result.extend_from_slice(

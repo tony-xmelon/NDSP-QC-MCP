@@ -20,6 +20,15 @@ export const CASES = Object.freeze({
   get_inhibited_modules: { phase: "read", hazard: "read" },
   get_tuner_settings: { phase: "read", hazard: "read" },
   get_general_settings: { phase: "read", hazard: "read" },
+  get_io_settings: { phase: "read", hazard: "read" },
+  get_global_eq: { phase: "read", hazard: "read" },
+  get_mode_cycle: { phase: "read", hazard: "read" },
+  get_looper_status: { phase: "read", hazard: "read" },
+  list_recents: { phase: "read", hazard: "read" },
+  list_favorites: { phase: "read", hazard: "read" },
+  list_pinned_models: { phase: "read", hazard: "read" },
+  list_captures: { phase: "read", hazard: "read" },
+  list_irs: { phase: "read", hazard: "read" },
   get_preset_screenshot: { phase: "read", hazard: "read" },
   capture_screen: { phase: "read", hazard: "read" },
   preview_parameter: { phase: "modify", hazard: "live" },
@@ -39,6 +48,7 @@ export const CASES = Object.freeze({
   show_tuner: { phase: "performance", hazard: "live" },
   show_gig_view: { phase: "performance", hazard: "live" },
   select_mode_slot: { phase: "performance", hazard: "live" },
+  control_looper: { phase: "performance", hazard: "live" },
   set_master_volume: { phase: "performance", hazard: "live" },
   recall_preset: { phase: "modify", hazard: "live" },
   reload_preset: { phase: "modify", hazard: "live" },
@@ -53,6 +63,8 @@ export const CASES = Object.freeze({
   move_block: { phase: "modify", hazard: "live" },
   add_block: { phase: "modify", hazard: "live" },
   remove_block: { phase: "modify", hazard: "live" },
+  load_capture: { phase: "modify", hazard: "live" },
+  load_ir: { phase: "modify", hazard: "live" },
   set_block_footswitch: { phase: "modify", hazard: "live" },
   set_stomp_momentary: { phase: "modify", hazard: "live" },
   set_stomp_label: { phase: "modify", hazard: "live" },
@@ -68,7 +80,23 @@ export const CASES = Object.freeze({
   set_general_toggle: { phase: "persistent", hazard: "persistent" },
   set_scene_bypass_behavior: { phase: "persistent", hazard: "persistent" },
   set_master_volume_assignment: { phase: "persistent", hazard: "persistent" },
-  set_global_bypass: { phase: "persistent", hazard: "persistent" }
+  set_global_bypass: { phase: "persistent", hazard: "persistent" },
+  set_input_port: { phase: "persistent", hazard: "persistent" },
+  set_output_port: { phase: "persistent", hazard: "persistent" },
+  set_usb_port: { phase: "persistent", hazard: "persistent" },
+  set_midi_thru: { phase: "persistent", hazard: "persistent" },
+  set_output_pairing: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_bypassed: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_band: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_output: { phase: "persistent", hazard: "persistent" },
+  set_mode_cycle: { phase: "persistent", hazard: "persistent" },
+  set_favorite: { phase: "persistent", hazard: "persistent" },
+  set_model_pinned: { phase: "persistent", hazard: "persistent" },
+  create_setlist: { phase: "persistent", hazard: "persistent" },
+  delete_setlist: { phase: "persistent", hazard: "persistent" },
+  duplicate_setlist: { phase: "persistent", hazard: "persistent" },
+  delete_preset: { phase: "persistent", hazard: "persistent" },
+  move_preset: { phase: "persistent", hazard: "persistent" }
 });
 
 const requiredFixturePaths = [
@@ -88,6 +116,14 @@ const requiredFixturePaths = [
   "temporaryBlock.addColumn",
   "temporaryBlock.moveColumn",
   "temporaryBlock.footswitch",
+  "library.pinnedModelId",
+  "library.capture.key",
+  "library.capture.name",
+  "library.capture.modelId",
+  "library.ir.key",
+  "library.ir.name",
+  "library.ir.modelId",
+  "library.ir.slot",
   "routing.row",
   "routing.testInputId",
   "routing.testOutputId",
@@ -138,6 +174,20 @@ export function validateConfig(config, { requireAll = false } = {}) {
   if (config.transport.kind === "mcp-http" && !config.transport.endpoint) throw new Error("mcp-http requires transport.endpoint.");
   const missing = requiredFixturePaths.filter((path) => atPath(config, path) === undefined || atPath(config, path) === "");
   if (requireAll && missing.length) throw new Error(`Full physical coverage requires config values: ${missing.join(", ")}`);
+  if (requireAll) {
+    if (!Number.isInteger(config.library.pinnedModelId) || config.library.pinnedModelId < 0) {
+      throw new Error("library.pinnedModelId must be a non-negative integer.");
+    }
+    if (!Number.isInteger(config.library.capture.modelId) || config.library.capture.modelId < 0) {
+      throw new Error("library.capture.modelId must be a non-negative integer.");
+    }
+    if (!Number.isInteger(config.library.ir.modelId) || config.library.ir.modelId < 0) {
+      throw new Error("library.ir.modelId must be a non-negative integer.");
+    }
+    if (![0, 1].includes(config.library.ir.slot)) {
+      throw new Error("library.ir.slot must be 0 or 1.");
+    }
+  }
   return missing;
 }
 

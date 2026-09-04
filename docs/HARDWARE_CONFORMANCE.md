@@ -143,7 +143,7 @@ hide stale or queued commands.
 
 ### Acceptance gates
 
-- Every one of the 66 public device actions has an authoritative response from
+- Every one of the 72 public device actions has an authoritative response from
   the QC, not merely a successful send from the app.
 - UI feedback is immediate and the later device event agrees with it. A stale
   event may never move a control back during a drag or rapid double press.

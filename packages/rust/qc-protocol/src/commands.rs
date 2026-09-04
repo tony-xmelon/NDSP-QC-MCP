@@ -155,6 +155,87 @@ pub enum DeviceOperation {
         cab: [bool; 4],
         ir: [bool; 4],
     },
+    ReadIoSettings,
+    ReadGlobalEq,
+    SetGlobalEqBypassed(bool),
+    SetGlobalEqParameters(Vec<(i32, f32)>),
+    ReadModeCycle,
+    SetModeCycle(Vec<u32>),
+    ReadLooperStatus,
+    ReadRecentsFavorites {
+        favorites: bool,
+        request_id: u64,
+    },
+    SetFavorite {
+        name: String,
+        folder_key: String,
+        folder_name: String,
+        is_factory: bool,
+        favorite: bool,
+    },
+    ReadPinnedModels,
+    SetModelPinned {
+        model_id: u32,
+        pinned: bool,
+    },
+    ReadLibraryFiles {
+        folder_key: String,
+        file_type: i32,
+        request_id: u64,
+    },
+    CreateSetlist {
+        name: String,
+    },
+    DeleteSetlist {
+        name: String,
+    },
+    DeletePreset {
+        setlist_key: String,
+        name: String,
+    },
+    MovePreset {
+        setlist_key: String,
+        name: String,
+        position: u32,
+    },
+    LoadCapture {
+        row: u32,
+        column: u32,
+        key: String,
+        name: String,
+        model_id: Option<u32>,
+    },
+    LoadIr {
+        row: u32,
+        column: u32,
+        key: String,
+        name: String,
+        slot: u32,
+        model_id: Option<u32>,
+    },
+    SetInputPort {
+        input_port_id: u32,
+        level: Option<f32>,
+        impedance: Option<f32>,
+        input_type: Option<f32>,
+        ground_lift: Option<f32>,
+    },
+    SetOutputPort {
+        output_port_id: u32,
+        level: Option<f32>,
+        ground_lift: Option<f32>,
+        mute: Option<bool>,
+    },
+    SetUsbPort {
+        level: Option<f32>,
+        headphones_source: Option<f32>,
+        dry_wet: Option<f32>,
+    },
+    SetMidiThru(bool),
+    SetOutputPairing {
+        xlr12_linked: Option<bool>,
+        out34_linked: Option<bool>,
+    },
     SetDeviceName(String),
     Undo,
     Redo,
@@ -314,6 +395,101 @@ impl DeviceOperation {
             }
             Self::ReadVersion => vec![read_version()],
             Self::ReadTuner => vec![read_tuner()],
+            Self::ReadIoSettings => vec![read(3)],
+            Self::ReadGlobalEq => vec![read_global_eq()],
+            Self::SetGlobalEqBypassed(bypassed) => vec![set_global_eq_bypassed(bypassed)],
+            Self::SetGlobalEqParameters(parameters) => vec![set_global_eq_parameters(&parameters)],
+            Self::ReadModeCycle => vec![read_mode_cycle()],
+            Self::SetModeCycle(slots) => vec![set_mode_cycle(&slots)],
+            Self::ReadLooperStatus => vec![read_looper_status()],
+            Self::ReadRecentsFavorites {
+                favorites,
+                request_id,
+            } => vec![read_recents_favorites(favorites, request_id)],
+            Self::SetFavorite {
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                favorite,
+            } => vec![set_favorite(
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                favorite,
+            )],
+            Self::ReadPinnedModels => vec![read_pinned_models()],
+            Self::SetModelPinned { model_id, pinned } => {
+                vec![set_model_pinned(model_id, pinned)]
+            }
+            Self::ReadLibraryFiles {
+                folder_key,
+                file_type,
+                request_id,
+            } => vec![read_library_files(folder_key, file_type, request_id)],
+            Self::CreateSetlist { name } => vec![create_setlist(name)],
+            Self::DeleteSetlist { name } => vec![delete_setlist(name)],
+            Self::DeletePreset { setlist_key, name } => vec![delete_preset(setlist_key, name)],
+            Self::MovePreset {
+                setlist_key,
+                name,
+                position,
+            } => vec![move_preset(setlist_key, name, position)],
+            Self::LoadCapture {
+                row,
+                column,
+                key,
+                name,
+                model_id,
+            } => {
+                let mut messages = Vec::new();
+                if let Some(model_id) = model_id {
+                    messages.push(set_block(row, column, model_id));
+                }
+                messages.push(set_parameter_text(row, column, 5, format!("{key}{name}")));
+                messages
+            }
+            Self::LoadIr {
+                row,
+                column,
+                key,
+                name,
+                slot,
+                model_id,
+            } => {
+                let mut messages = Vec::new();
+                if let Some(model_id) = model_id {
+                    messages.push(set_block(row, column, model_id));
+                }
+                let (path_index, name_index) = if slot == 0 { (2, 22) } else { (10, 23) };
+                messages.push(set_parameter_text(row, column, path_index, key));
+                messages.push(set_parameter_text(row, column, name_index, name));
+                messages
+            }
+            Self::SetInputPort {
+                input_port_id,
+                level,
+                impedance,
+                input_type,
+                ground_lift,
+            } => set_input_port(input_port_id, level, impedance, input_type, ground_lift),
+            Self::SetOutputPort {
+                output_port_id,
+                level,
+                ground_lift,
+                mute,
+            } => set_output_port(output_port_id, level, ground_lift, mute),
+            Self::SetUsbPort {
+                level,
+                headphones_source,
+                dry_wet,
+            } => set_usb_port(level, headphones_source, dry_wet),
+            Self::SetMidiThru(enabled) => vec![set_midi_thru(enabled)],
+            Self::SetOutputPairing {
+                xlr12_linked,
+                out34_linked,
+            } => vec![set_output_pairing(xlr12_linked, out34_linked)],
             Self::SetDeviceName(name) => vec![set_device_name(name)],
             Self::Undo => vec![undo()],
             Self::Redo => vec![redo()],
@@ -466,6 +642,223 @@ pub fn version_hello() -> OutboundMessage {
 
 pub fn read(message_type: u16) -> OutboundMessage {
     OutboundMessage::action(message_type, pa::message_action::Enum::Read)
+}
+
+pub fn read_global_eq() -> OutboundMessage {
+    read(38)
+}
+
+pub fn set_global_eq_bypassed(bypassed: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        38,
+        pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            bypassed: Some(pa::global_eq_message::Bypassed::Bypassed(bypassed)),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_global_eq_parameters(parameters: &[(i32, f32)]) -> OutboundMessage {
+    OutboundMessage::encoded(
+        38,
+        pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            parameters: parameters
+                .iter()
+                .map(|(parameter_index, value)| pa::GlobalEqParameter {
+                    parameter_index: *parameter_index,
+                    value: *value,
+                })
+                .collect(),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_mode_cycle() -> OutboundMessage {
+    read(14)
+}
+
+pub fn set_mode_cycle(slots: &[u32]) -> OutboundMessage {
+    OutboundMessage::encoded(
+        14,
+        pa::ModeMessage {
+            action: pa::message_action::Enum::Update as i32,
+            available_modes: Some(pa::mode_message::AvailableModes::AvailableModes(
+                pa::AvailableModes {
+                    modes: slots.to_vec(),
+                },
+            )),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_looper_status() -> OutboundMessage {
+    read(28)
+}
+
+pub fn read_recents_favorites(favorites: bool, request_id: u64) -> OutboundMessage {
+    OutboundMessage::encoded(
+        20,
+        pa::RecentsFavoritesMessage {
+            action: pa::message_action::Enum::Read as i32,
+            request_id: Some(pa::recents_favorites_message::RequestId::RequestId(
+                request_id,
+            )),
+            is_favorites: favorites,
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_favorite(
+    name: String,
+    folder_key: String,
+    folder_name: String,
+    is_factory: bool,
+    favorite: bool,
+) -> OutboundMessage {
+    OutboundMessage::encoded(
+        20,
+        pa::RecentsFavoritesMessage {
+            action: if favorite {
+                pa::message_action::Enum::Create as i32
+            } else {
+                pa::message_action::Enum::Delete as i32
+            },
+            is_favorites: true,
+            items: vec![pa::RecentsFavoritesItem {
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                is_plugin: false,
+            }],
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_pinned_models() -> OutboundMessage {
+    read(54)
+}
+
+pub fn set_model_pinned(model_id: u32, pinned: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        54,
+        pa::PinnedModelsMessage {
+            action: if pinned {
+                pa::message_action::Enum::Create as i32
+            } else {
+                pa::message_action::Enum::Delete as i32
+            },
+            models: vec![model_id],
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_library_files(folder_key: String, file_type: i32, request_id: u64) -> OutboundMessage {
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Read as i32,
+            request_id: Some(pa::file_message::RequestId::RequestId(request_id)),
+            r#type: Some(pa::file_message::Type::Type(file_type)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(folder_key)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn create_setlist(name: String) -> OutboundMessage {
+    let key = format!("/media/p4/Presets/{name}");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Create as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(key)),
+                name: Some(pa::folder_info::Name::Name(name)),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn delete_setlist(name: String) -> OutboundMessage {
+    let key = format!("/media/p4/Presets/{name}");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Delete as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(key)),
+                name: Some(pa::folder_info::Name::Name(name)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn delete_preset(setlist_key: String, name: String) -> OutboundMessage {
+    let file_key = format!("{setlist_key}/{name}.pb");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Delete as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key)),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key(file_key)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn move_preset(setlist_key: String, name: String, position: u32) -> OutboundMessage {
+    let source_key = format!("{setlist_key}/{name}.pb");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Move as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key.clone())),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key(source_key)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            to_folder: Some(pa::file_message::ToFolder::ToFolder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key)),
+                files: vec![pa::ProductData {
+                    index: Some(pa::product_data::Index::Index(position as i32)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
 }
 
 pub fn connection(connected: bool) -> OutboundMessage {
@@ -1181,6 +1574,17 @@ pub fn set_scene_bypass_behavior(behavior: i32) -> OutboundMessage {
     )
 }
 
+fn io_update(settings: pa::PortSettings) -> OutboundMessage {
+    OutboundMessage::encoded(
+        3,
+        pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(settings)),
+            ..Default::default()
+        },
+    )
+}
+
 pub fn set_master_volume_assignment(
     out12: bool,
     out34: bool,
@@ -1223,6 +1627,149 @@ pub fn set_global_bypass(cab: [bool; 4], ir: [bool; 4]) -> OutboundMessage {
             global_bypass_ir: Some(
                 pa::general_settings_message::GlobalBypassIr::GlobalBypassIr(rows(ir)),
             ),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_input_port(
+    input_port_id: u32,
+    level: Option<f32>,
+    impedance: Option<f32>,
+    input_type: Option<f32>,
+    ground_lift: Option<f32>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    for field in [
+        level.map(|value| ("level", value)),
+        impedance.map(|value| ("impedance", value)),
+        input_type.map(|value| ("inputType", value)),
+        ground_lift.map(|value| ("groundLift", value)),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let mut port = pa::InputPortSettings {
+            input_port_id,
+            ..Default::default()
+        };
+        match field {
+            ("level", value) => port.level = Some(pa::input_port_settings::Level::Level(value)),
+            ("impedance", value) => {
+                port.input_zmode = Some(pa::input_port_settings::InputZmode::InputZmode(value))
+            }
+            ("inputType", value) => {
+                port.input_type = Some(pa::input_port_settings::InputType::InputType(value))
+            }
+            ("groundLift", value) => {
+                port.ground_lift = Some(pa::input_port_settings::GroundLift::GroundLift(value))
+            }
+            _ => unreachable!(),
+        }
+        messages.push(io_update(pa::PortSettings {
+            in_port: vec![port],
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_output_port(
+    output_port_id: u32,
+    level: Option<f32>,
+    ground_lift: Option<f32>,
+    mute: Option<bool>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    if let Some(value) = level {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                level: Some(pa::output_port_settings::Level::Level(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    if let Some(value) = ground_lift {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                ground_lift: Some(pa::output_port_settings::GroundLift::GroundLift(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    if let Some(value) = mute {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                mute: Some(pa::output_port_settings::Mute::Mute(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_usb_port(
+    level: Option<f32>,
+    headphones_source: Option<f32>,
+    dry_wet: Option<f32>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    for field in [
+        level.map(|value| ("level", value)),
+        headphones_source.map(|value| ("headphonesSource", value)),
+        dry_wet.map(|value| ("dryWet", value)),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let mut port = pa::UsbPortSettings::default();
+        match field {
+            ("level", value) => port.level = Some(pa::usb_port_settings::Level::Level(value)),
+            ("headphonesSource", value) => {
+                port.hp_select = Some(pa::usb_port_settings::HpSelect::HpSelect(value))
+            }
+            ("dryWet", value) => port.dry_wet = Some(pa::usb_port_settings::DryWet::DryWet(value)),
+            _ => unreachable!(),
+        }
+        messages.push(io_update(pa::PortSettings {
+            usb_port: Some(pa::port_settings::UsbPort::UsbPort(port)),
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_midi_thru(enabled: bool) -> OutboundMessage {
+    io_update(pa::PortSettings {
+        midi_port: Some(pa::port_settings::MidiPort::MidiPort(
+            pa::MidiPortSettings {
+                midi_thru: Some(pa::midi_port_settings::MidiThru::MidiThru(if enabled {
+                    1.0
+                } else {
+                    0.0
+                })),
+            },
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn set_output_pairing(
+    xlr12_linked: Option<bool>,
+    out34_linked: Option<bool>,
+) -> OutboundMessage {
+    OutboundMessage::encoded(
+        3,
+        pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            xlr1_2_linked: xlr12_linked.map(pa::io_settings_message::Xlr12Linked::Xlr12Linked),
+            out3_4_linked: out34_linked.map(pa::io_settings_message::Out34Linked::Out34Linked),
             ..Default::default()
         },
     )
@@ -1492,6 +2039,84 @@ mod tests {
         let grid = pa::GridMessage::decode(bypass.payload.as_slice()).unwrap();
         let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
         assert!(preset.bypass[0].col_bypass[0].scene_bypass[0].bypass);
+    }
+
+    #[test]
+    fn io_port_updates_send_exactly_one_field_per_message() {
+        let messages = set_input_port(2, Some(0.4), Some(0.875), Some(0.5), Some(0.0));
+        assert_eq!(messages.len(), 4);
+        for message in messages {
+            assert_eq!(message.message_type, 3);
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            assert_eq!(settings.in_port.len(), 1);
+            let port = &settings.in_port[0];
+            assert_eq!(port.input_port_id, 2);
+            let populated = [
+                port.level.is_some(),
+                port.input_zmode.is_some(),
+                port.input_type.is_some(),
+                port.ground_lift.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1);
+        }
+
+        let messages = set_output_port(1, Some(0.25), Some(1.0), Some(true));
+        assert_eq!(messages.len(), 3);
+        for message in messages {
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            let port = &settings.out_port[0];
+            let populated = [
+                port.level.is_some(),
+                port.ground_lift.is_some(),
+                port.mute.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1, "QC drops some coalesced I/O fields");
+        }
+
+        let messages = set_usb_port(Some(0.2), Some(0.5), Some(1.0));
+        assert_eq!(messages.len(), 3);
+        for message in messages {
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            let pa::port_settings::UsbPort::UsbPort(port) = settings.usb_port.unwrap();
+            let populated = [
+                port.level.is_some(),
+                port.hp_select.is_some(),
+                port.dry_wet.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1);
+        }
+    }
+
+    #[test]
+    fn io_midi_and_pairing_shapes_match_hardware_verified_upstream() {
+        let midi = set_midi_thru(true);
+        let decoded = pa::IoSettingsMessage::decode(midi.payload.as_slice()).unwrap();
+        let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+        let pa::port_settings::MidiPort::MidiPort(midi) = settings.midi_port.unwrap();
+        assert!(matches!(
+            midi.midi_thru,
+            Some(pa::midi_port_settings::MidiThru::MidiThru(1.0))
+        ));
+
+        let pairing = set_output_pairing(None, Some(false));
+        let decoded = pa::IoSettingsMessage::decode(pairing.payload.as_slice()).unwrap();
+        assert!(decoded.xlr1_2_linked.is_none());
+        assert!(matches!(
+            decoded.out3_4_linked,
+            Some(pa::io_settings_message::Out34Linked::Out34Linked(false))
+        ));
     }
 
     #[test]
@@ -1873,5 +2498,185 @@ mod tests {
         assert!(!value.out34);
         assert!(value.send12);
         assert!(!value.headphones);
+    }
+
+    #[test]
+    fn global_eq_and_mode_cycle_writes_are_typed_and_sparse() {
+        let bypass = set_global_eq_bypassed(true);
+        assert_eq!(bypass.message_type, 38);
+        let decoded = pa::GlobalEqMessage::decode(bypass.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Update as i32);
+        assert!(matches!(
+            decoded.bypassed,
+            Some(pa::global_eq_message::Bypassed::Bypassed(true))
+        ));
+        assert!(decoded.parameters.is_empty());
+
+        let controls = set_global_eq_parameters(&[(0, 0.75), (4, 1.0)]);
+        let decoded = pa::GlobalEqMessage::decode(controls.payload.as_slice()).unwrap();
+        assert!(decoded.bypassed.is_none());
+        assert_eq!(decoded.parameters.len(), 2);
+        assert_eq!(decoded.parameters[0].parameter_index, 0);
+        assert_eq!(decoded.parameters[1].value, 1.0);
+
+        let cycle = set_mode_cycle(&[7, 1, 2]);
+        assert_eq!(cycle.message_type, 14);
+        let decoded = pa::ModeMessage::decode(cycle.payload.as_slice()).unwrap();
+        let pa::mode_message::AvailableModes::AvailableModes(available) =
+            decoded.available_modes.unwrap();
+        assert_eq!(available.modes, vec![7, 1, 2]);
+
+        assert_eq!(read_global_eq().message_type, 38);
+        assert_eq!(read_mode_cycle().message_type, 14);
+        assert_eq!(read_looper_status().message_type, 28);
+    }
+
+    #[test]
+    fn library_reads_and_mutations_use_the_verified_file_protocol() {
+        let recents = read_recents_favorites(false, 91);
+        assert_eq!(recents.message_type, 20);
+        let decoded = pa::RecentsFavoritesMessage::decode(recents.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
+        assert!(!decoded.is_favorites);
+        assert!(matches!(
+            decoded.request_id,
+            Some(pa::recents_favorites_message::RequestId::RequestId(91))
+        ));
+
+        let favorite = set_favorite(
+            "Stage".into(),
+            "/media/p4/Presets/Live".into(),
+            "Live".into(),
+            false,
+            true,
+        );
+        let decoded = pa::RecentsFavoritesMessage::decode(favorite.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Create as i32);
+        assert!(decoded.is_favorites);
+        assert_eq!(decoded.items[0].name, "Stage");
+
+        let unfavorite = set_favorite(
+            "Stage".into(),
+            "/media/p4/Presets/Live".into(),
+            "Live".into(),
+            false,
+            false,
+        );
+        let decoded = pa::RecentsFavoritesMessage::decode(unfavorite.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Delete as i32);
+
+        let pinned = set_model_pinned(12_345, true);
+        let decoded = pa::PinnedModelsMessage::decode(pinned.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Create as i32);
+        assert_eq!(decoded.models, vec![12_345]);
+        let pinned = set_model_pinned(12_345, false);
+        let decoded = pa::PinnedModelsMessage::decode(pinned.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Delete as i32);
+        assert_eq!(decoded.models, vec![12_345]);
+
+        let listing = read_library_files("local_ir_root".into(), 1, 92);
+        let decoded = pa::FileMessage::decode(listing.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
+        assert!(matches!(
+            decoded.request_id,
+            Some(pa::file_message::RequestId::RequestId(92))
+        ));
+        assert!(matches!(
+            decoded.r#type,
+            Some(pa::file_message::Type::Type(1))
+        ));
+
+        for (message, action) in [
+            (
+                create_setlist("Tour".into()),
+                pa::message_action::Enum::Create,
+            ),
+            (
+                delete_setlist("Tour".into()),
+                pa::message_action::Enum::Delete,
+            ),
+        ] {
+            let decoded = pa::FileMessage::decode(message.payload.as_slice()).unwrap();
+            assert_eq!(decoded.action, action as i32);
+            let pa::file_message::Folder::Folder(folder) = decoded.folder.unwrap();
+            assert_eq!(
+                folder.key,
+                Some(pa::folder_info::Key::Key("/media/p4/Presets/Tour".into()))
+            );
+        }
+
+        let moved = move_preset("/media/p4/Presets/Live".into(), "Stage".into(), 17);
+        let decoded = pa::FileMessage::decode(moved.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Move as i32);
+        let pa::file_message::Folder::Folder(source) = decoded.folder.unwrap();
+        assert_eq!(
+            source.files[0].key,
+            Some(pa::product_data::Key::Key(
+                "/media/p4/Presets/Live/Stage.pb".into()
+            ))
+        );
+        let pa::file_message::ToFolder::ToFolder(destination) = decoded.to_folder.unwrap();
+        assert_eq!(
+            destination.files[0].index,
+            Some(pa::product_data::Index::Index(17))
+        );
+
+        let deleted = delete_preset("/media/p4/Presets/Live".into(), "Stage".into());
+        let decoded = pa::FileMessage::decode(deleted.payload.as_slice()).unwrap();
+        let pa::file_message::Folder::Folder(folder) = decoded.folder.unwrap();
+        assert_eq!(
+            folder.files[0].key,
+            Some(pa::product_data::Key::Key(
+                "/media/p4/Presets/Live/Stage.pb".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn capture_and_ir_loads_compose_model_and_text_updates_in_order() {
+        fn text_update(message: &OutboundMessage) -> (u32, String) {
+            assert_eq!(message.message_type, 1);
+            let grid = pa::GridMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+            let parameter = &preset.chains[0].models[0].params[0];
+            let value = parameter.param_values[0].value.as_ref().unwrap();
+            let param_value::Value::StringValue(value) = value else {
+                panic!("expected text parameter update")
+            };
+            let Some(param::Index::Index(index)) = parameter.index else {
+                panic!("expected parameter index")
+            };
+            (index, value.clone())
+        }
+
+        let capture = DeviceOperation::LoadCapture {
+            row: 1,
+            column: 2,
+            key: "capture/".into(),
+            name: "Crunch".into(),
+            model_id: Some(14_000),
+        }
+        .encode();
+        assert_eq!(capture.len(), 2);
+        let grid = pa::GridMessage::decode(capture[0].payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(model) = grid.preset.unwrap();
+        assert_eq!(
+            model.chains[0].models[0].hash,
+            Some(model::Hash::Hash(14_000))
+        );
+        assert_eq!(text_update(&capture[1]), (5, "capture/Crunch".into()));
+
+        let ir = DeviceOperation::LoadIr {
+            row: 2,
+            column: 3,
+            key: "ir/key".into(),
+            name: "Room".into(),
+            slot: 1,
+            model_id: None,
+        }
+        .encode();
+        assert_eq!(ir.len(), 2);
+        assert_eq!(text_update(&ir[0]), (10, "ir/key".into()));
+        assert_eq!(text_update(&ir[1]), (23, "Room".into()));
     }
 }

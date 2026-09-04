@@ -237,6 +237,13 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
                         .as_i64()
                         .is_some_and(|n| n >= min && max.is_none_or(|m| n <= m))
             }
+            Kind::NullableBoolean => value.is_null() || value.is_boolean(),
+            Kind::NullableNumber { min, max } => {
+                value.is_null()
+                    || value
+                        .as_f64()
+                        .is_some_and(|n| n >= min && max.is_none_or(|m| n <= m))
+            }
             Kind::Boolean => value.is_boolean(),
             Kind::Integer { min, max } => value
                 .as_i64()
@@ -251,6 +258,24 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
             Kind::BooleanRows => value
                 .as_array()
                 .is_some_and(|rows| rows.len() == 4 && rows.iter().all(Value::is_boolean)),
+            Kind::IntegerArray {
+                min,
+                max,
+                min_items,
+                max_items,
+                unique,
+            } => value.as_array().is_some_and(|items| {
+                items.len() >= min_items
+                    && items.len() <= max_items
+                    && items
+                        .iter()
+                        .all(|item| item.as_i64().is_some_and(|n| n >= min && n <= max))
+                    && (!unique
+                        || items
+                            .iter()
+                            .enumerate()
+                            .all(|(index, item)| !items[..index].contains(item)))
+            }),
         };
         if !valid {
             return Err(format!("invalid {}", p.name));
@@ -327,6 +352,8 @@ fn gateway_params(spec: &ActionSpec, args: Map<String, Value>) -> Map<String, Va
                         property.kind,
                         crate::actions::Kind::NullableInteger { .. }
                             | crate::actions::Kind::NullableString
+                            | crate::actions::Kind::NullableBoolean
+                            | crate::actions::Kind::NullableNumber { .. }
                     )
             });
             if value.is_null() && !nullable {

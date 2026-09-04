@@ -2445,6 +2445,1110 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "get_io_settings",
+    "rpc": "device.ioSettings",
+    "classification": "read",
+    "description": "Read complete input, output, headphone, USB, MIDI, expression-pedal, connection, and output-pairing settings.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_input_port",
+    "rpc": "device.setInputPort",
+    "classification": "persistent-write",
+    "description": "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB.",
+    "properties": {
+      "input_port_id": "io-input-port",
+      "level_db": "nullable-input-gain",
+      "impedance": "nullable-normalized",
+      "input_type": "nullable-normalized",
+      "ground_lift": "nullable-normalized",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "input_port_id",
+      "level_db",
+      "impedance",
+      "input_type",
+      "ground_lift",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "input_port_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 14
+        },
+        "level_db": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -12,
+          "maximum": 60
+        },
+        "impedance": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "input_type": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ground_lift": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input_port_id",
+        "level_db",
+        "impedance",
+        "input_type",
+        "ground_lift",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_output_port",
+    "rpc": "device.setOutputPort",
+    "classification": "persistent-write",
+    "description": "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update.",
+    "properties": {
+      "output_port_id": "io-output-port",
+      "level": "nullable-normalized",
+      "ground_lift": "nullable-normalized",
+      "mute": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "output_port_id",
+      "level",
+      "ground_lift",
+      "mute",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "output_port_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 22
+        },
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ground_lift": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mute": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "output_port_id",
+        "level",
+        "ground_lift",
+        "mute",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_usb_port",
+    "rpc": "device.setUsbPort",
+    "classification": "persistent-write",
+    "description": "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates.",
+    "properties": {
+      "level": "nullable-normalized",
+      "headphones_source": "nullable-normalized",
+      "dry_wet": "nullable-normalized",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "level",
+      "headphones_source",
+      "dry_wet",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "headphones_source": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dry_wet": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "level",
+        "headphones_source",
+        "dry_wet",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_midi_thru",
+    "rpc": "device.setMidiThru",
+    "classification": "persistent-write",
+    "description": "Enable or disable the QC MIDI Thru setting after explicit confirmation.",
+    "properties": {
+      "enabled": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "enabled",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_output_pairing",
+    "rpc": "device.setOutputPairing",
+    "classification": "persistent-write",
+    "description": "Pair or unpair output couples. Null leaves that output couple unchanged.",
+    "properties": {
+      "xlr12_linked": "nullable-boolean",
+      "out34_linked": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "xlr12_linked",
+      "out34_linked",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "xlr12_linked": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "out34_linked": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "xlr12_linked",
+        "out34_linked",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_global_eq",
+    "rpc": "device.globalEq",
+    "classification": "read",
+    "description": "Read Global EQ bypass state and all 28 normalized parameters.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_bypassed",
+    "rpc": "device.setGlobalEqBypassed",
+    "classification": "persistent-write",
+    "description": "Enable or bypass the global EQ after explicit confirmation.",
+    "properties": {
+      "bypassed": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "bypassed",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "bypassed": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "bypassed",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_band",
+    "rpc": "device.setGlobalEqBand",
+    "classification": "persistent-write",
+    "description": "Update one Global EQ band with sparse normalized controls after explicit confirmation.",
+    "properties": {
+      "band": "integer",
+      "gain": "nullable-normalized",
+      "frequency": "nullable-normalized",
+      "q": "nullable-normalized",
+      "filter_type": "global-eq-filter",
+      "enabled": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "band",
+      "gain",
+      "frequency",
+      "q",
+      "filter_type",
+      "enabled",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "band": {
+          "type": "integer"
+        },
+        "gain": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "frequency": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "q": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "filter_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4
+        },
+        "enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "band",
+        "gain",
+        "frequency",
+        "q",
+        "filter_type",
+        "enabled",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_output",
+    "rpc": "device.setGlobalEqOutput",
+    "classification": "persistent-write",
+    "description": "Update Global EQ output level and output-pair assignments after explicit confirmation.",
+    "properties": {
+      "level": "nullable-normalized",
+      "out12": "nullable-boolean",
+      "out34": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "level",
+      "out12",
+      "out34",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "out12": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "out34": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "level",
+        "out12",
+        "out34",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_mode_cycle",
+    "rpc": "device.modeCycle",
+    "classification": "read",
+    "description": "Read the configured footswitch modes in cycle order.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_mode_cycle",
+    "rpc": "device.setModeCycle",
+    "classification": "persistent-write",
+    "description": "Replace the ordered footswitch mode cycle after explicit confirmation.",
+    "properties": {
+      "slots": "mode-cycle",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "slots",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "slots",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_looper_status",
+    "rpc": "device.looperStatus",
+    "classification": "read",
+    "description": "Read the complete Looper X transport and progress state when a looper is present.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "control_looper",
+    "rpc": "device.controlLooper",
+    "classification": "live-write",
+    "description": "Control Looper X through its documented MIDI CC interface.",
+    "properties": {
+      "command": "looper-command",
+      "value": "nullable-looper-value"
+    },
+    "required": [
+      "command",
+      "value"
+    ],
+    "access": "performance",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "open",
+            "close",
+            "duplicate",
+            "oneShot",
+            "halfSpeed",
+            "punch",
+            "record",
+            "play",
+            "reverse",
+            "undoRedo",
+            "duplicateMode",
+            "quantize",
+            "midiClockStart",
+            "performMode",
+            "routingMode"
+          ]
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 13
+        }
+      },
+      "required": [
+        "command",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_recents",
+    "rpc": "device.recents",
+    "classification": "read",
+    "description": "List recently used presets with authoritative folder metadata.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_favorites",
+    "rpc": "device.favorites",
+    "classification": "read",
+    "description": "List favorite presets using request correlation even when the reply omits its favorites flag.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_favorite",
+    "rpc": "device.setFavorite",
+    "classification": "persistent-write",
+    "description": "Add or remove one exact device library entry from Favorites after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "folder_key": "string",
+      "folder_name": "string",
+      "is_factory": "boolean",
+      "favorite": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "folder_key",
+      "folder_name",
+      "is_factory",
+      "favorite",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "folder_key": {
+          "type": "string"
+        },
+        "folder_name": {
+          "type": "string"
+        },
+        "is_factory": {
+          "type": "boolean"
+        },
+        "favorite": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "folder_key",
+        "folder_name",
+        "is_factory",
+        "favorite",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_pinned_models",
+    "rpc": "device.pinnedModels",
+    "classification": "read",
+    "description": "List model IDs and capture keys pinned in the device model browser.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_model_pinned",
+    "rpc": "device.setModelPinned",
+    "classification": "persistent-write",
+    "description": "Pin or unpin one model ID after explicit confirmation.",
+    "properties": {
+      "model_id": "integer",
+      "pinned": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "model_id",
+      "pinned",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "integer"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_id",
+        "pinned",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_captures",
+    "rpc": "device.captures",
+    "classification": "read",
+    "description": "List loadable Neural Captures with their content keys and names.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_capture",
+    "rpc": "device.loadCapture",
+    "classification": "live-write",
+    "description": "Place or retarget a Neural Capture block using a device library key and name.",
+    "properties": {
+      "row": "grid-row",
+      "column": "grid-column",
+      "key": "string",
+      "name": "string",
+      "model_id": "nullable-integer",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "key",
+      "name",
+      "model_id",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "key",
+        "name",
+        "model_id",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_irs",
+    "rpc": "device.irs",
+    "classification": "read",
+    "description": "List loadable Impulse Responses from the whole library or a selected device folder.",
+    "properties": {
+      "folder": "nullable-string"
+    },
+    "required": [
+      "folder"
+    ],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_ir",
+    "rpc": "device.loadIr",
+    "classification": "live-write",
+    "description": "Place or retarget an IR Loader and set one of its two IR slots by key and name.",
+    "properties": {
+      "row": "grid-row",
+      "column": "grid-column",
+      "key": "string",
+      "name": "string",
+      "slot": "integer",
+      "model_id": "nullable-integer",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "key",
+      "name",
+      "slot",
+      "model_id",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "key",
+        "name",
+        "slot",
+        "model_id",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_setlist",
+    "rpc": "device.createSetlist",
+    "classification": "persistent-write",
+    "description": "Create a user setlist after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_setlist",
+    "rpc": "device.deleteSetlist",
+    "classification": "persistent-write",
+    "description": "Delete a named user setlist and its contents after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "duplicate_setlist",
+    "rpc": "device.duplicateSetlist",
+    "classification": "persistent-write",
+    "description": "Create a user setlist and copy its source presets through the shared recall-and-save workflow after explicit confirmation.",
+    "properties": {
+      "source_setlist_key": "string",
+      "destination_name": "string",
+      "limit": "nullable-integer",
+      "expected_preset_name": "string",
+      "expected_position": "integer",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "source_setlist_key",
+      "destination_name",
+      "limit",
+      "expected_preset_name",
+      "expected_position",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source_setlist_key": {
+          "type": "string"
+        },
+        "destination_name": {
+          "type": "string"
+        },
+        "limit": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        },
+        "expected_position": {
+          "type": "integer"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_setlist_key",
+        "destination_name",
+        "limit",
+        "expected_preset_name",
+        "expected_position",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_preset",
+    "rpc": "device.deletePreset",
+    "classification": "persistent-write",
+    "description": "Delete a named preset from a writable user setlist after explicit confirmation.",
+    "properties": {
+      "setlist_key": "string",
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setlist_key",
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setlist_key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setlist_key",
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "move_preset",
+    "rpc": "device.movePreset",
+    "classification": "persistent-write",
+    "description": "Move a named preset to another slot in its user setlist after explicit confirmation.",
+    "properties": {
+      "setlist_key": "string",
+      "name": "string",
+      "position": "integer",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setlist_key",
+      "name",
+      "position",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setlist_key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setlist_key",
+        "name",
+        "position",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "set_general_integer",
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

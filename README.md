@@ -75,9 +75,9 @@ Explicit disconnect/reconnect, a privacy-safe connection
 log, current-device details, and an allowlisted redacted diagnostics export are
 available from the application menus. State-changing commands use expected-state guards,
 value readback, and dirty-state verification. Local `.qcw` workspace snapshots
-can be saved and reopened without touching the hardware. Persistent device
-Save As is available only through a separate destination review and final
-confirmation; global-setting writes remain locked. The chat dock now supports a
+can be saved and reopened without touching the hardware. Persistent preset,
+library, and global-setting writes require explicit review and confirmation.
+The chat dock now supports a
 configurable OpenAI Responses-compatible conversational model, supplies current
 QC context as untrusted data, and exposes an allowlisted set of typed device
 tools. Read tools can be followed by a natural answer; performance actions
@@ -97,7 +97,8 @@ through the same guarded typed-command path.
 
 The public MCP and remote-control services are implemented in Rust, with the
 legacy Python server retained only as a compatibility oracle. Neither deployed
-path exposes raw HID, protobuf, arbitrary JSON-RPC, or global-setting access.
+path exposes raw HID, protobuf, or arbitrary JSON-RPC; global-setting mutations
+remain typed, allowlisted, and confirmation-gated.
 See [Chat and MCP setup](docs/CHAT_AND_MCP.md).
 
 The Android client is available as a branded Firebase App Distribution build.
@@ -109,7 +110,10 @@ Android speech-recognition transcripts through the same chat/action path. The
 mobile shell composes the same preset, Grid, routing, scene, parameter,
 footswitch, history, save, and performance workflows as Windows, including the
 same guarded assistant action executor and offline intent resolver. Live USB
-messages populate the preset grid, routes, scene metadata, setlist position,
+same guarded assistant action executor, generated hardware-safe action
+allowlist, and offline intent resolver. That shared allowlist covers the
+contracted read, performance, edit, library, and confirmed system surface. Live
+USB messages populate the preset grid, routes, scene metadata, setlist position,
 dirty state, tempo, mode/footswitch state, and master volume through the shared
 Rust state engine.
 Firebase App Check uses Play Integrity, with

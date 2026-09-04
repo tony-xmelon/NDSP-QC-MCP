@@ -124,6 +124,36 @@ fn handle(
         "device.generalSettings" => {
             execute_gateway_read(controller, "device.generalSettings", &request.params)
         }
+        "device.ioSettings" => {
+            execute_gateway_read(controller, "device.ioSettings", &request.params)
+        }
+        "device.globalEq"
+        | "device.modeCycle"
+        | "device.looperStatus"
+        | "device.recents"
+        | "device.favorites"
+        | "device.pinnedModels"
+        | "device.captures"
+        | "device.irs" => execute_gateway_read(controller, &request.method, &request.params),
+        "device.setInputPort"
+        | "device.setOutputPort"
+        | "device.setUsbPort"
+        | "device.setMidiThru"
+        | "device.setOutputPairing" => {
+            gateway_operation(controller, &request.params, &request.method)
+        }
+        "device.setGlobalEqBypassed"
+        | "device.setGlobalEqBand"
+        | "device.setGlobalEqOutput"
+        | "device.setModeCycle" => gateway_operation(controller, &request.params, &request.method),
+        "device.setFavorite"
+        | "device.setModelPinned"
+        | "device.createSetlist"
+        | "device.deleteSetlist"
+        | "device.deletePreset"
+        | "device.movePreset"
+        | "device.loadCapture"
+        | "device.loadIr" => gateway_operation(controller, &request.params, &request.method),
         "device.setGeneralInteger"
         | "device.setGeneralToggle"
         | "device.setSceneBypassBehavior"
@@ -169,14 +199,15 @@ fn handle(
         "device.setTempo" => gateway_set_tempo(controller, &request.params),
         "device.setMasterVolume" => gateway_set_master_volume(controller, &request.params),
         "device.masterVolume" => gateway_master_volume(controller),
-        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
-            gateway_performance_midi(
-                controller,
-                performance_midi,
-                &request.method,
-                &request.params,
-            )
-        }
+        "device.pressFootswitch"
+        | "device.tapTempo"
+        | "device.selectModeSlot"
+        | "device.controlLooper" => gateway_performance_midi(
+            controller,
+            performance_midi,
+            &request.method,
+            &request.params,
+        ),
         "device.addBlock" => gateway_operation(controller, &request.params, "device.addBlock"),
         "device.removeBlock" => {
             gateway_operation(controller, &request.params, "device.removeBlock")
@@ -204,6 +235,7 @@ fn handle(
         "device.renameCurrentPreset" => gateway_rename_current_preset(controller, &request.params),
         "device.createBackup" => gateway_create_backup(controller, &request.params),
         "device.copyPreset" => gateway_copy_preset(controller, &request.params),
+        "device.duplicateSetlist" => gateway_duplicate_setlist(controller, &request.params),
         "device.showTuner" => gateway_visibility(controller, &request.params, true),
         "device.showGigView" => gateway_visibility(controller, &request.params, false),
         "device.raw.latest" => raw_latest(controller, &request.params),
@@ -1074,30 +1106,39 @@ fn execute_preset_mutation(
         let before_observed_at_ms = u128::from(unix_ms());
         execute_planned_write(controller, &stage.write)?;
         let verification = stage.verification;
-        let after = wait_for_transaction_event(
-            controller,
-            &events,
-            verification.clone(),
-            before_observed_at_ms,
-            Duration::from_millis(stage.timeout_ms),
-        )
-        .ok_or_else(|| {
-            "The preset operation did not produce a verified device snapshot".to_string()
-        })?;
-        if !verification.matches(&after, None) {
-            return Err(
-                "The preset operation completed, but live-state verification failed.".into(),
-            );
+        if !matches!(verification, GatewayVerification::None) {
+            let after = wait_for_transaction_event(
+                controller,
+                &events,
+                verification.clone(),
+                before_observed_at_ms,
+                Duration::from_millis(stage.timeout_ms),
+            )
+            .ok_or_else(|| {
+                "The preset operation did not produce a verified device snapshot".to_string()
+            })?;
+            if !verification.matches(&after, None) {
+                return Err(
+                    "The preset operation completed, but live-state verification failed.".into(),
+                );
+            }
+            observed = Some(after);
         }
-        observed = Some(after);
+        if stage.settle_ms > 0 {
+            thread::sleep(Duration::from_millis(stage.settle_ms));
+        }
     }
-    let after = observed.ok_or_else(|| "The preset operation contained no stages".to_string())?;
-    controller.record_saved_preset(
-        &plan.setlist_key,
-        plan.position,
-        &plan.saved_name,
-        plan.instrument,
-    );
+    let after = observed
+        .or_else(|| controller.gateway_snapshot())
+        .ok_or_else(|| "The preset operation produced no synchronized snapshot".to_string())?;
+    for preset in &plan.saved_presets {
+        controller.record_saved_preset(
+            &preset.setlist_key,
+            preset.position,
+            &preset.name,
+            preset.instrument,
+        );
+    }
     Ok(json!({
         "detail": plan.detail,
         "savedName": plan.saved_name,
@@ -1132,6 +1173,16 @@ fn gateway_copy_preset(controller: &DeviceController, params: &Value) -> Result<
     execute_preset_mutation(
         controller,
         controller.plan_preset_mutation("device.copyPreset", params)?,
+    )
+}
+
+fn gateway_duplicate_setlist(
+    controller: &DeviceController,
+    params: &Value,
+) -> Result<Value, String> {
+    execute_preset_mutation(
+        controller,
+        controller.plan_preset_mutation("device.duplicateSetlist", params)?,
     )
 }
 

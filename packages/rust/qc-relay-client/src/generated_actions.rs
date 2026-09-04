@@ -62,6 +62,34 @@ const ALLOWED: &[&str] = &[
     "device.renameCurrentPreset",
     "device.copyPreset",
     "device.generalSettings",
+    "device.ioSettings",
+    "device.setInputPort",
+    "device.setOutputPort",
+    "device.setUsbPort",
+    "device.setMidiThru",
+    "device.setOutputPairing",
+    "device.globalEq",
+    "device.setGlobalEqBypassed",
+    "device.setGlobalEqBand",
+    "device.setGlobalEqOutput",
+    "device.modeCycle",
+    "device.setModeCycle",
+    "device.looperStatus",
+    "device.controlLooper",
+    "device.recents",
+    "device.favorites",
+    "device.setFavorite",
+    "device.pinnedModels",
+    "device.setModelPinned",
+    "device.captures",
+    "device.loadCapture",
+    "device.irs",
+    "device.loadIr",
+    "device.createSetlist",
+    "device.deleteSetlist",
+    "device.duplicateSetlist",
+    "device.deletePreset",
+    "device.movePreset",
     "device.setGeneralInteger",
     "device.setGeneralToggle",
     "device.setSceneBypassBehavior",
@@ -87,6 +115,15 @@ const READ_ONLY: &[&str] = &[
     "device.presetScreenshot",
     "device.captureScreen",
     "device.generalSettings",
+    "device.ioSettings",
+    "device.globalEq",
+    "device.modeCycle",
+    "device.looperStatus",
+    "device.recents",
+    "device.favorites",
+    "device.pinnedModels",
+    "device.captures",
+    "device.irs",
 ];
 
 const PERFORMANCE: &[&str] = &[
@@ -98,6 +135,7 @@ const PERFORMANCE: &[&str] = &[
     "device.selectModeSlot",
     "device.setMasterVolume",
     "device.setTempo",
+    "device.controlLooper",
 ];
 
 const MODIFY: &[&str] = &[
@@ -132,6 +170,8 @@ const MODIFY: &[&str] = &[
     "device.savePresetAs",
     "device.renameCurrentPreset",
     "device.copyPreset",
+    "device.loadCapture",
+    "device.loadIr",
 ];
 
 pub(crate) fn contains(method: &str) -> bool {

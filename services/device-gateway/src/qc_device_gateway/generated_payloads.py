@@ -49,6 +49,96 @@ class GeneralSettings(TypedDict):
     holdTimingIndex: NotRequired[int]
     holdTimingMs: NotRequired[int]
 
+class InputPortSettings(TypedDict):
+    inputPortId: int
+    level: NotRequired[float]
+    levelDb: NotRequired[float]
+    impedance: NotRequired[float]
+    inputType: NotRequired[float]
+    groundLift: NotRequired[float]
+    plugged: NotRequired[bool]
+
+class OutputPortSettings(TypedDict):
+    outputPortId: int
+    level: NotRequired[float]
+    groundLift: NotRequired[float]
+    muted: NotRequired[bool]
+    plugged: NotRequired[bool]
+
+class HeadphonesFeed(TypedDict):
+    outputPortId: int
+    level: float
+
+class HeadphonesSettings(TypedDict):
+    feeds: list[HeadphonesFeed]
+    level: NotRequired[float]
+    plugged: NotRequired[bool]
+
+class UsbPortSettings(TypedDict):
+    level: NotRequired[float]
+    headphonesSource: NotRequired[float]
+    plugged: NotRequired[bool]
+    dryWet: NotRequired[float]
+
+class ExpressionPortSettings(TypedDict):
+    expressionPortId: int
+    plugged: NotRequired[bool]
+    level: NotRequired[float]
+    calibrating: NotRequired[bool]
+
+class MidiPortSettings(TypedDict):
+    thru: NotRequired[float]
+
+class IoSettings(TypedDict):
+    inputs: list[InputPortSettings]
+    outputs: list[OutputPortSettings]
+    expressionPorts: list[ExpressionPortSettings]
+    headphones: NotRequired[HeadphonesSettings]
+    usb: NotRequired[UsbPortSettings]
+    midi: NotRequired[MidiPortSettings]
+    xlr12Linked: NotRequired[bool]
+    out34Linked: NotRequired[bool]
+
+class GlobalEqParameter(TypedDict):
+    parameterIndex: int
+    value: float
+
+class GlobalEqSettings(TypedDict):
+    parameters: list[GlobalEqParameter]
+    bypassed: NotRequired[bool]
+    hasUserDefaults: NotRequired[bool]
+
+class ModeCycle(TypedDict):
+    slots: list[int]
+
+class LooperStatus(TypedDict):
+    state: NotRequired[int]
+    progress: NotRequired[float]
+    undoProgress: NotRequired[float]
+    duplicateCycle: NotRequired[int]
+    numDuplicateCycles: NotRequired[int]
+    oneShotStopped: NotRequired[int]
+    redoAvailable: NotRequired[int]
+    loopLength: NotRequired[int]
+    freeSamples: NotRequired[int]
+    inReverse: NotRequired[int]
+    oneShot: NotRequired[int]
+    halfSpeed: NotRequired[int]
+    fixedDuplicateCycles: NotRequired[int]
+    armed: NotRequired[int]
+    waitingForCycle: NotRequired[int]
+    undoCount: NotRequired[int]
+    maxWriteDisplacement: NotRequired[float]
+    minWriteDisplacement: NotRequired[float]
+    eventsWaitingForQuantize: NotRequired[int]
+    currentClock: NotRequired[int]
+    transition: NotRequired[int]
+    action: NotRequired[int]
+    oneShotPlay: NotRequired[bool]
+    syncStartWaiting: NotRequired[bool]
+    quantizeEnabled: NotRequired[bool]
+    updateType: NotRequired[int]
+
 class BypassExpression(TypedDict):
     pedal: int
     minimum: float

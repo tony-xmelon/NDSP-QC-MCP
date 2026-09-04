@@ -13,15 +13,38 @@ pub enum Classification {
 #[derive(Clone, Copy, Debug)]
 pub enum Kind {
     String,
-    VisibleString { max_chars: usize },
+    VisibleString {
+        max_chars: usize,
+    },
     NullableString,
-    NullableInteger { min: i64, max: Option<i64> },
+    NullableInteger {
+        min: i64,
+        max: Option<i64>,
+    },
+    NullableBoolean,
+    NullableNumber {
+        min: f64,
+        max: Option<f64>,
+    },
     Boolean,
-    Integer { min: i64, max: Option<i64> },
-    Number { min: f64, max: Option<f64> },
+    Integer {
+        min: i64,
+        max: Option<i64>,
+    },
+    Number {
+        min: f64,
+        max: Option<f64>,
+    },
     MidiMessages,
     StringEnum(&'static [&'static str]),
     BooleanRows,
+    IntegerArray {
+        min: i64,
+        max: i64,
+        min_items: usize,
+        max_items: usize,
+        unique: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -822,6 +845,451 @@ pub static ACTIONS: &[ActionSpec] = &[
         properties: &[],
     },
     ActionSpec {
+        name: "get_io_settings",
+        rpc: "device.ioSettings",
+        classification: Classification::Read,
+        description: "Read complete input, output, headphone, USB, MIDI, expression-pedal, connection, and output-pairing settings.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_input_port",
+        rpc: "device.setInputPort",
+        classification: Classification::PersistentWrite,
+        description: "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB.",
+        properties: &[
+            p!(
+                "input_port_id",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(14)
+                }
+            ),
+            p!(
+                "level_db",
+                Kind::NullableNumber {
+                    min: -12.0,
+                    max: Some(60.0)
+                }
+            ),
+            p!(
+                "impedance",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "input_type",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "ground_lift",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_output_port",
+        rpc: "device.setOutputPort",
+        classification: Classification::PersistentWrite,
+        description: "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update.",
+        properties: &[
+            p!(
+                "output_port_id",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(22)
+                }
+            ),
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "ground_lift",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!("mute", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_usb_port",
+        rpc: "device.setUsbPort",
+        classification: Classification::PersistentWrite,
+        description: "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates.",
+        properties: &[
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "headphones_source",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "dry_wet",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_midi_thru",
+        rpc: "device.setMidiThru",
+        classification: Classification::PersistentWrite,
+        description: "Enable or disable the QC MIDI Thru setting after explicit confirmation.",
+        properties: &[p!("enabled", BOOL), p!("confirm_persistent_write", BOOL)],
+    },
+    ActionSpec {
+        name: "set_output_pairing",
+        rpc: "device.setOutputPairing",
+        classification: Classification::PersistentWrite,
+        description: "Pair or unpair output couples. Null leaves that output couple unchanged.",
+        properties: &[
+            p!("xlr12_linked", Kind::NullableBoolean),
+            p!("out34_linked", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_global_eq",
+        rpc: "device.globalEq",
+        classification: Classification::Read,
+        description: "Read Global EQ bypass state and all 28 normalized parameters.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_global_eq_bypassed",
+        rpc: "device.setGlobalEqBypassed",
+        classification: Classification::PersistentWrite,
+        description: "Enable or bypass the global EQ after explicit confirmation.",
+        properties: &[p!("bypassed", BOOL), p!("confirm_persistent_write", BOOL)],
+    },
+    ActionSpec {
+        name: "set_global_eq_band",
+        rpc: "device.setGlobalEqBand",
+        classification: Classification::PersistentWrite,
+        description: "Update one Global EQ band with sparse normalized controls after explicit confirmation.",
+        properties: &[
+            p!(
+                "band",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(5)
+                }
+            ),
+            p!(
+                "gain",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "frequency",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "q",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "filter_type",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(4)
+                }
+            ),
+            p!("enabled", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_global_eq_output",
+        rpc: "device.setGlobalEqOutput",
+        classification: Classification::PersistentWrite,
+        description: "Update Global EQ output level and output-pair assignments after explicit confirmation.",
+        properties: &[
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!("out12", Kind::NullableBoolean),
+            p!("out34", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_mode_cycle",
+        rpc: "device.modeCycle",
+        classification: Classification::Read,
+        description: "Read the configured footswitch modes in cycle order.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_mode_cycle",
+        rpc: "device.setModeCycle",
+        classification: Classification::PersistentWrite,
+        description: "Replace the ordered footswitch mode cycle after explicit confirmation.",
+        properties: &[
+            p!(
+                "slots",
+                Kind::IntegerArray {
+                    min: 0,
+                    max: 8,
+                    min_items: 1,
+                    max_items: 3,
+                    unique: true
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_looper_status",
+        rpc: "device.looperStatus",
+        classification: Classification::Read,
+        description: "Read the complete Looper X transport and progress state when a looper is present.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "control_looper",
+        rpc: "device.controlLooper",
+        classification: Classification::LiveWrite,
+        description: "Control Looper X through its documented MIDI CC interface.",
+        properties: &[
+            p!(
+                "command",
+                Kind::StringEnum(&[
+                    "open",
+                    "close",
+                    "duplicate",
+                    "oneShot",
+                    "halfSpeed",
+                    "punch",
+                    "record",
+                    "play",
+                    "reverse",
+                    "undoRedo",
+                    "duplicateMode",
+                    "quantize",
+                    "midiClockStart",
+                    "performMode",
+                    "routingMode"
+                ])
+            ),
+            p!(
+                "value",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(13)
+                }
+            ),
+        ],
+    },
+    ActionSpec {
+        name: "list_recents",
+        rpc: "device.recents",
+        classification: Classification::Read,
+        description: "List recently used presets with authoritative folder metadata.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "list_favorites",
+        rpc: "device.favorites",
+        classification: Classification::Read,
+        description: "List favorite presets using correlated replies.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_favorite",
+        rpc: "device.setFavorite",
+        classification: Classification::PersistentWrite,
+        description: "Add or remove one exact device library entry from Favorites after explicit confirmation.",
+        properties: &[
+            p!("name", TEXT),
+            p!("folder_key", TEXT),
+            p!("folder_name", TEXT),
+            p!("is_factory", BOOL),
+            p!("favorite", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "list_pinned_models",
+        rpc: "device.pinnedModels",
+        classification: Classification::Read,
+        description: "List models and captures pinned in the device browser.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_model_pinned",
+        rpc: "device.setModelPinned",
+        classification: Classification::PersistentWrite,
+        description: "Pin or unpin one model ID after explicit confirmation.",
+        properties: &[
+            p!("model_id", Kind::Integer { min: 1, max: None }),
+            p!("pinned", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "list_captures",
+        rpc: "device.captures",
+        classification: Classification::Read,
+        description: "List loadable Neural Captures.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "load_capture",
+        rpc: "device.loadCapture",
+        classification: Classification::LiveWrite,
+        description: "Place or retarget a Neural Capture block by library key and name.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", GRID_COLUMN),
+            p!("key", TEXT),
+            p!("name", TEXT),
+            p!("model_id", Kind::NullableInteger { min: 1, max: None }),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "list_irs",
+        rpc: "device.irs",
+        classification: Classification::Read,
+        description: "List loadable Impulse Responses.",
+        properties: &[p!("folder", Kind::NullableString)],
+    },
+    ActionSpec {
+        name: "load_ir",
+        rpc: "device.loadIr",
+        classification: Classification::LiveWrite,
+        description: "Place or retarget an IR Loader slot by library key and name.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", GRID_COLUMN),
+            p!("key", TEXT),
+            p!("name", TEXT),
+            p!(
+                "slot",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(1)
+                }
+            ),
+            p!("model_id", Kind::NullableInteger { min: 1, max: None }),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "create_setlist",
+        rpc: "device.createSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Create a user setlist after explicit confirmation.",
+        properties: &[
+            p!("name", Kind::VisibleString { max_chars: 64 }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "delete_setlist",
+        rpc: "device.deleteSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Delete a user setlist and its contents after explicit confirmation.",
+        properties: &[
+            p!("name", Kind::VisibleString { max_chars: 64 }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "duplicate_setlist",
+        rpc: "device.duplicateSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Create a user setlist and copy source presets through the verified recall-and-save workflow.",
+        properties: &[
+            p!("source_setlist_key", TEXT),
+            p!("destination_name", Kind::VisibleString { max_chars: 64 }),
+            p!(
+                "limit",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(256)
+                }
+            ),
+            p!("expected_preset_name", TEXT),
+            p!(
+                "expected_position",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(255)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "delete_preset",
+        rpc: "device.deletePreset",
+        classification: Classification::PersistentWrite,
+        description: "Delete a named preset from a user setlist after explicit confirmation.",
+        properties: &[
+            p!("setlist_key", TEXT),
+            p!("name", TEXT),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "move_preset",
+        rpc: "device.movePreset",
+        classification: Classification::PersistentWrite,
+        description: "Move a named preset to another slot after explicit confirmation.",
+        properties: &[
+            p!("setlist_key", TEXT),
+            p!("name", TEXT),
+            p!(
+                "position",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(255)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "set_general_integer",
         rpc: "device.setGeneralInteger",
         classification: Classification::PersistentWrite,
@@ -952,6 +1420,14 @@ fn schema_for(kind: Kind) -> Value {
             }
             s
         }
+        Kind::NullableBoolean => json!({"type":["boolean","null"]}),
+        Kind::NullableNumber { min, max } => {
+            let mut s = json!({"type":["number","null"],"minimum":min});
+            if let Some(max) = max {
+                s["maximum"] = json!(max);
+            }
+            s
+        }
         Kind::Boolean => json!({"type":"boolean"}),
         Kind::Integer { min, max } => {
             let mut s = json!({"type":"integer","minimum":min});
@@ -985,5 +1461,15 @@ fn schema_for(kind: Kind) -> Value {
         Kind::BooleanRows => {
             json!({"type":"array", "minItems":4, "maxItems":4, "items":{"type":"boolean"}})
         }
+        Kind::IntegerArray {
+            min,
+            max,
+            min_items,
+            max_items,
+            unique,
+        } => json!({
+            "type":"array", "minItems":min_items, "maxItems":max_items,
+            "uniqueItems":unique, "items":{"type":"integer","minimum":min,"maximum":max}
+        }),
     }
 }
