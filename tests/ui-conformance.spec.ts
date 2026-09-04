@@ -83,4 +83,19 @@ for (const surface of surfaces) {
     await scene.click();
     await expect(scene).toHaveAttribute("aria-pressed", "true");
   });
+
+  test(`${surface.name} reconciles tap tempo`, async ({ page }) => {
+    await page.setViewportSize({ width: surface.width, height: surface.height });
+    await page.goto(surface.url);
+    const tempo = surface.touchTargets
+      ? page.getByRole("button", { name: /^Tap tempo,/ })
+      : page.getByRole("button", { name: /^TEMPO encoder footswitch;/ });
+    await expect(tempo).toBeVisible();
+    const before = surface.touchTargets ? await tempo.getAttribute("aria-label") : await tempo.getAttribute("style");
+    await tempo.click();
+    await page.waitForTimeout(620);
+    await tempo.click();
+    await expect.poll(async () => surface.touchTargets ? tempo.getAttribute("aria-label") : tempo.getAttribute("style"))
+      .not.toBe(before);
+  });
 }
