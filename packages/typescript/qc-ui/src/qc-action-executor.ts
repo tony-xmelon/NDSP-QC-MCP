@@ -1,5 +1,5 @@
 import type {
-  BlockDetails, ConnectionState, DeviceImage, GatewayTransport, PresetSnapshot,
+  BlockDetails, ConnectionState, DeviceImage, GatewayTransport, LaneControl, MidiOutMessage, PresetSnapshot,
   SavePresetResult
 } from "@ndsp-qc/client";
 import {
@@ -51,11 +51,40 @@ const stringArgument = (call: AssistantToolCall, name: string): string => {
   return value;
 };
 
+const laneControlArgument = (call: AssistantToolCall): LaneControl => {
+  const control = stringArgument(call, "control");
+  if (control !== "inputGate" && control !== "laneOutput") {
+    throw new Error(`${call.name} returned an invalid control.`);
+  }
+  return control;
+};
+
 const nullableIntegerArgument = (call: AssistantToolCall, name: string): number | null => {
   const value = call.arguments[name];
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isInteger(value)) throw new Error(`${call.name} returned an invalid ${name}.`);
   return value;
+};
+
+const midiMessagesArgument = (call: AssistantToolCall): MidiOutMessage[] => {
+  const value = call.arguments.messages;
+  if (!Array.isArray(value) || value.length > 12) throw new Error(`${call.name} requires an array of no more than 12 MIDI messages.`);
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new Error(`${call.name} message ${index + 1} is invalid.`);
+    const record = entry as Record<string, unknown>;
+    const integer = (field: string, minimum: number, maximum: number) => {
+      const candidate = record[field];
+      if (typeof candidate !== "number" || !Number.isInteger(candidate) || candidate < minimum || candidate > maximum) {
+        throw new Error(`${call.name} message ${index + 1} has an invalid ${field}.`);
+      }
+      return candidate;
+    };
+    return {
+      type: integer("type", 1, 3), channel: integer("channel", 1, 16),
+      param1: integer("param1", 0, 127), param2: integer("param2", 0, 127),
+      param3: integer("param3", 0, 127)
+    };
+  });
 };
 
 const confirmation = (call: AssistantToolCall, name: "confirm_risky_operation" | "confirm_persistent_write") => {
@@ -136,6 +165,14 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     const values = block.parameters.map((parameter) => `${parameter.name}: ${parameter.displayValue}${parameter.units && !parameter.displayValue.includes(parameter.units) ? ` ${parameter.units}` : ""}${parameter.scaleKnown === false ? " (normalized only; exact display scale unavailable)" : ""}`).join(", ");
     return { detail: `${block.name} at row ${row}, column ${column}${values ? ` — ${values}` : " exposes no readable parameters"}.`, block, data: block };
   }
+  if (call.name === "get_lane_control_details") {
+    assertExpectedString(call, "expected_preset_name", snapshot.presetName);
+    const row = integerArgument(call, "row");
+    const control = laneControlArgument(call);
+    const details = await gateway.laneControlDetails(row, control, snapshot.presetName);
+    const values = details.parameters.map((parameter) => `${parameter.name}: ${parameter.displayValue}${parameter.units && !parameter.displayValue.includes(parameter.units) ? ` ${parameter.units}` : ""}${parameter.scaleKnown === false ? " (normalized only; exact display scale unavailable)" : ""}`).join(", ");
+    return { detail: `${details.name} on row ${row}${values ? ` — ${values}` : " exposes no readable parameters"}.`, block: details, data: details };
+  }
   if (call.name === "list_models") {
     const catalog = await gateway.listModels();
     const rawQuery = call.arguments.query;
@@ -172,6 +209,9 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     const modules = await gateway.inhibitedModules();
     return { detail: `Global Gate is ${modules.globalGate ? "inhibited" : "available"}; Global EQ is ${modules.globalEq ? "inhibited" : "available"}.`, data: modules };
   }
+  if (call.name === "get_tuner_settings") {
+    return { detail: "Read the current tuner input, reference pitch, and mute preference.", data: await gateway.tunerSettings() };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -196,6 +236,27 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     }
     if (parameter.scaleKnown === false) throw new Error(`${parameter.name} does not yet have a verified Quad Cortex display scale. It was not changed.`);
     const result = await gateway.setParameter(row, column, parameterIndex, value, parameter.normalizedValue, snapshot.activeScene, snapshot.presetName);
+    return { detail: result.detail, snapshot: result.snapshot, block: result.block, data: result };
+  }
+  if (call.name === "preview_lane_control_parameter" || call.name === "set_lane_control_parameter") {
+    assertExpectedString(call, "expected_preset_name", snapshot.presetName);
+    const row = integerArgument(call, "row");
+    const control = laneControlArgument(call);
+    const parameterIndex = integerArgument(call, "parameter_index");
+    const details = await gateway.laneControlDetails(row, control, snapshot.presetName);
+    const parameter = details.parameters.find((candidate) => candidate.index === parameterIndex);
+    if (!parameter?.writable || parameter.normalizedValue === null) throw new Error("That lane-control parameter is not currently writable with verified state.");
+    assertExpectedNumber(call, "expected_value", parameter.normalizedValue);
+    const requested = numberArgument(call, "value");
+    const value = call.name === "preview_lane_control_parameter" || parameter.options.length > 1
+      ? requested
+      : parameterNormalizedValue(parameter, requested);
+    if (call.name === "preview_lane_control_parameter") {
+      const preview = await gateway.previewLaneControlParameter(row, control, parameterIndex, value, snapshot.presetName);
+      return { detail: preview.detail, data: preview };
+    }
+    if (parameter.scaleKnown === false) throw new Error(`${parameter.name} does not yet have a verified Quad Cortex display scale. It was not changed.`);
+    const result = await gateway.setLaneControlParameter(row, control, parameterIndex, value, parameter.normalizedValue, snapshot.presetName);
     return { detail: result.detail, snapshot: result.snapshot, block: result.block, data: result };
   }
   if (call.name === "create_device_backup") {
@@ -314,6 +375,81 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     if (expected !== (block.footswitch ?? null)) throw new Error("set_block_footswitch was based on a stale assignment; refresh and try again.");
     const footswitch = nullableIntegerArgument(call, "footswitch");
     return actionResult(await gateway.setBlockFootswitch(row, column, footswitch, expected, block.modelId, snapshot.presetName));
+  }
+  if (call.name === "set_parameter_scene_mode" || call.name === "set_parameter_expression") {
+    const row = integerArgument(call, "row");
+    const column = integerArgument(call, "column");
+    const parameterIndex = integerArgument(call, "parameter_index");
+    const details = await gateway.blockDetails(row, column, snapshot.presetName);
+    const parameter = details.parameters.find((candidate) => candidate.index === parameterIndex);
+    if (!parameter?.writable) throw new Error("That block parameter is not currently writable.");
+    if (call.name === "set_parameter_scene_mode") {
+      return actionResult(await gateway.setParameterSceneMode(
+        row, column, parameterIndex, booleanArgument(call, "enabled"), snapshot.presetName
+      ));
+    }
+    if (!parameter.expressionAssignable) throw new Error("That block parameter cannot be assigned to an expression pedal.");
+    const pedal = integerArgument(call, "pedal");
+    if (pedal < 0 || pedal > 2) throw new Error("Expression pedal must be 0 (clear), 1, or 2.");
+    const minimum = numberArgument(call, "minimum");
+    const maximum = numberArgument(call, "maximum");
+    if (minimum < 0 || minimum > 1 || maximum < 0 || maximum > 1) {
+      throw new Error("Expression heel and toe values must be normalized numbers from 0 through 1.");
+    }
+    return actionResult(await gateway.setParameterExpression(
+      row, column, parameterIndex, pedal as 0 | 1 | 2, minimum, maximum, snapshot.presetName
+    ));
+  }
+  if (call.name === "set_lane_control_scene_mode") {
+    assertExpectedString(call, "expected_preset_name", snapshot.presetName);
+    const row = integerArgument(call, "row");
+    const control = laneControlArgument(call);
+    const parameterIndex = integerArgument(call, "parameter_index");
+    const details = await gateway.laneControlDetails(row, control, snapshot.presetName);
+    const parameter = details.parameters.find((candidate) => candidate.index === parameterIndex);
+    if (!parameter?.writable) throw new Error("That lane-control parameter is not currently writable.");
+    return actionResult(await gateway.setLaneControlSceneMode(
+      row, control, parameterIndex, booleanArgument(call, "enabled"), snapshot.presetName
+    ));
+  }
+  if (call.name === "set_expression_bypass") {
+    const row = integerArgument(call, "row");
+    const column = integerArgument(call, "column");
+    const block = snapshot.blocks.find((candidate) => candidate.row === row && candidate.column === column);
+    if (!block || block.modelId === undefined) throw new Error("The requested Grid cell does not contain a block.");
+    const pedal = integerArgument(call, "pedal");
+    const mode = integerArgument(call, "mode");
+    const delayMs = integerArgument(call, "delay_ms");
+    if (pedal < 1 || pedal > 2) throw new Error("Expression pedal must be 1 or 2.");
+    if (mode < 0 || mode > 2) throw new Error("Expression bypass mode must be STOP (0), SWITCH (1), or HEEL/TOE (2).");
+    if (delayMs < 0 || delayMs > 5000) throw new Error("Expression bypass delay must be 0 through 5000 ms.");
+    return actionResult(await gateway.setExpressionBypass(
+      row, column, pedal as 1 | 2, mode as 0 | 1 | 2,
+      booleanArgument(call, "invert"), delayMs, booleanArgument(call, "latch_emulation"), snapshot.presetName
+    ));
+  }
+  if (call.name === "set_stomp_momentary" || call.name === "set_stomp_label") {
+    const footswitch = integerArgument(call, "footswitch");
+    if (footswitch < 0 || footswitch > 7) throw new Error("STOMP footswitch must be numbered 0 through 7.");
+    if (call.name === "set_stomp_momentary") {
+      return actionResult(await gateway.setStompMomentary(
+        footswitch, booleanArgument(call, "momentary"), snapshot.presetName
+      ));
+    }
+    const label = stringArgument(call, "label");
+    if ([...label].length > 32 || /[\u0000-\u001f\u007f]/.test(label)) {
+      throw new Error("STOMP labels may contain at most 32 printable characters.");
+    }
+    return actionResult(await gateway.setStompLabel(footswitch, label, snapshot.presetName));
+  }
+  if (call.name === "set_midi_out" || call.name === "set_preset_load_midi_out") {
+    const messages = midiMessagesArgument(call);
+    if (call.name === "set_midi_out") {
+      const source = integerArgument(call, "source");
+      if (source < 0 || source > 9) throw new Error("MIDI Out source must be 0 through 9 (A-H, EXP 1, EXP 2).");
+      return actionResult(await gateway.setMidiOut(source, messages, snapshot.presetName));
+    }
+    return actionResult(await gateway.setPresetLoadMidiOut(messages, snapshot.presetName));
   }
   if (call.name === "set_chain_input" || call.name === "set_chain_output" || call.name === "set_chain_split") {
     const row = integerArgument(call, "row");

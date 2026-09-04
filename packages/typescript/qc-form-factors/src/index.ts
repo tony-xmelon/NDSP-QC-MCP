@@ -54,13 +54,14 @@ export const skins: SkinManifest[] = [
     displayName: "Official SVG Overlay",
     className: "skin-official-svg",
     svgAsset: {
-      url: "/qc-overview-001.svg",
-      sourceWidth: 1202,
-      sourceHeight: 2292,
-      crop: { x: 0, y: 14, width: 1096.94, height: 719.079 },
-      sourceLabel: "Neural DSP Quad Cortex overview illustration"
+      url: QC_VISUAL_ASSETS.chassisOverlay.url,
+      sourceWidth: QC_VISUAL_ASSETS.chassisOverlay.sourceWidth,
+      sourceHeight: QC_VISUAL_ASSETS.chassisOverlay.sourceHeight,
+      crop: QC_VISUAL_ASSETS.chassisOverlay.crop,
+      sourceLabel: QC_VISUAL_ASSETS.chassisOverlay.source
     }
   },
   { id: "obsidian", displayName: "Graphite Hardware", className: "skin-obsidian" },
   { id: "high-contrast", displayName: "High Contrast", className: "skin-high-contrast" }
 ];
+import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";

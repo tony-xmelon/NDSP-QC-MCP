@@ -1,6 +1,7 @@
 //! Platform-neutral decoding for correlated device replies that are not part
 //! of the continuous preset-state stream.
 
+use crate::generated_payloads::TunerSettings;
 use crate::proto::cortex_protobuf_v2 as pa;
 use prost::Message;
 use serde::Serialize;
@@ -186,6 +187,31 @@ pub fn decode_device_identity(payload: &[u8]) -> Result<DeviceIdentity, Response
     })
 }
 
+pub fn decode_tuner_settings(payload: &[u8]) -> Result<TunerSettings, ResponseDecodeError> {
+    let message = pa::TunerMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch("tuner action is not UPDATE"));
+    }
+    let input_port_id = message
+        .input_port_id
+        .map(|pa::tuner_message::InputPortId::InputPortId(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("tuner input_port_id"))?;
+    let reference_offset_hz = message
+        .frequency
+        .map(|pa::tuner_message::Frequency::Frequency(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("tuner frequency"))?;
+    let muted = message
+        .mute
+        .map(|pa::tuner_message::Mute::Mute(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("tuner mute"))?;
+    Ok(TunerSettings {
+        input_port_id,
+        reference_offset_hz,
+        reference_hz: 440.0 + reference_offset_hz,
+        muted,
+    })
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -260,6 +286,34 @@ pub fn decode_captured_screen(payload: &[u8]) -> Result<PngImage, ResponseDecode
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tuner_settings_are_complete_and_expose_absolute_reference() {
+        let payload = pa::TunerMessage {
+            action: pa::message_action::Enum::Update as i32,
+            input_port_id: Some(pa::tuner_message::InputPortId::InputPortId(5)),
+            frequency: Some(pa::tuner_message::Frequency::Frequency(2.0)),
+            mute: Some(pa::tuner_message::Mute::Mute(true)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let settings = decode_tuner_settings(&payload).unwrap();
+        assert_eq!(settings.input_port_id, 5);
+        assert_eq!(settings.reference_offset_hz, 2.0);
+        assert_eq!(settings.reference_hz, 442.0);
+        assert!(settings.muted);
+
+        let incomplete = pa::TunerMessage {
+            action: pa::message_action::Enum::Update as i32,
+            input_port_id: Some(pa::tuner_message::InputPortId::InputPortId(5)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_tuner_settings(&incomplete),
+            Err(ResponseDecodeError::Incomplete(_))
+        ));
+    }
 
     #[test]
     fn rejects_non_png_screen_payloads() {

@@ -20,9 +20,9 @@
   grid-template-rows: 21.2% 1fr;
   overflow: hidden;
   container-type: inline-size;
-  background: #000;
-  color: #eee;
-  font-family: "Arial Narrow", "Roboto Condensed", Arial, Helvetica, sans-serif;
+  background: var(--qc-screen);
+  color: var(--qc-route-text);
+  font-family: var(--qc-font-device);
 }
 
 .coros-parameter-editor.has-tabs { grid-template-rows: 21.2% 15% 1fr; }
@@ -37,12 +37,12 @@
   align-items: stretch;
   gap: 1%;
   padding: 1% 1%;
-  background: #121212;
+  background: var(--qc-device-panel);
 }
 
-.parameter-editor-header button { min-width: 0; padding: 0; border: 0; border-radius: 1cqw; color: #eee; background: #1e1e1e; }
+.parameter-editor-header button { min-width: 0; padding: 0; border: 0; border-radius: 1cqw; color: var(--qc-route-text); background: var(--qc-device-panel-raised); }
 .parameter-more { display: grid; place-content: center; gap: .65cqw; }
-.parameter-more i { width: .5cqw; aspect-ratio: 1; border-radius: 50%; background: #fff; }
+.parameter-more i { width: .5cqw; aspect-ratio: 1; border-radius: 50%; background: var(--qc-primary-text); }
 .parameter-device-name { display: grid; align-content: center; justify-items: start; padding: 0 3%; text-align: left; background: transparent !important; }
 .parameter-device-name small { color: #8d8d8f; font-size: 1.75cqw; line-height: 1.15; letter-spacing: .07em; }
 .parameter-device-name strong { max-width: 100%; overflow: hidden; font-size: 2.35cqw; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }
@@ -56,7 +56,7 @@
 .parameter-scene button svg { width: 56%; height: 56%; fill: #57575a; }
 .parameter-scene button:nth-child(2) { display: grid; place-items: center; }
 .parameter-scene span { display: grid; width: 3cqw; aspect-ratio: 1; place-items: center; border-radius: .5cqw; background: #ffd236; color: #151515; font-weight: 900; font-size: 2cqw; }
-.parameter-header-divider { align-self: center; width: 100%; height: 50%; background: #1e1e1e; }
+.parameter-header-divider { align-self: center; width: 100%; height: 50%; background: var(--qc-device-panel-raised); }
 .parameter-bypass { color: #f2f2f2 !important; }
 .parameter-bypass svg, .parameter-close svg { width: 48%; height: 48%; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .parameter-bypass.is-bypassed { color: #777 !important; }
@@ -73,13 +73,13 @@
   background: #232426;
   box-shadow: 0 1.2cqw 3cqw rgb(0 0 0 / .65);
 }
-.parameter-context-menu { left: 1%; width: 38cqw; max-height: 42cqw; overflow-y: auto; padding: .7cqw 0; border-radius: .25cqw; background: #292a2c; scrollbar-width: thin; scrollbar-color: #777 transparent; }
+.parameter-context-menu { left: 1%; width: 38cqw; max-height: 42cqw; overflow-y: auto; padding: .7cqw 0; border-radius: .25cqw; background: var(--qc-device-context-menu); scrollbar-width: thin; scrollbar-color: var(--qc-device-disabled) transparent; }
 .parameter-context-menu button { min-height: 4.4cqw; padding: 0 1.3cqw; border-radius: 0; background: transparent; color: #ececec; font: 600 1.65cqw "Arial Narrow", Arial, sans-serif; text-align: left; }
 .parameter-context-menu button { display: grid; grid-template-columns: 3cqw minmax(0, 1fr); align-items: center; gap: .8cqw; }
 .parameter-context-menu button svg { width: 2.25cqw; height: 2.25cqw; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .parameter-context-menu button.has-separator { border-top: 1px solid #444548; }
 .parameter-context-menu button:disabled { color: #68696b; cursor: default; }
-.parameter-context-menu button:hover, .parameter-context-menu button:focus-visible { background: #3a3b3e; }
+.parameter-context-menu button:hover, .parameter-context-menu button:focus-visible { background: var(--qc-device-context-menu-hover); }
 .parameter-context-menu button.is-danger { color: #ff7e79; }
 
 .parameter-tabs {
@@ -104,7 +104,7 @@
   margin: 0 1% 1%;
   overflow: hidden;
   border-radius: 1cqw;
-  background: #2e2e2e;
+  background: var(--qc-device-control-surface);
 }
 
 .coros-parameter {
@@ -112,14 +112,14 @@
   min-width: 0;
   min-height: 0;
   padding: 0;
-  border-right: 1px solid #1a1a1b;
-  border-bottom: 1px solid #1a1a1b;
-  background: #2e2e2e;
+  border-right: 1px solid var(--qc-device-divider);
+  border-bottom: 1px solid var(--qc-device-divider);
+  background: var(--qc-device-control-surface);
 }
 
 .coros-parameter:nth-child(5n), .parameter-empty-slot:nth-child(5n) { border-right: 0; }
 .coros-parameter:nth-child(n+6), .parameter-empty-slot:nth-child(n+6) { border-bottom: 0; }
-.parameter-empty-slot { min-width: 0; min-height: 0; border-right: 1px solid #1a1a1b; border-bottom: 1px solid #1a1a1b; background: #2e2e2e; }
+.parameter-empty-slot { min-width: 0; min-height: 0; border-right: 1px solid var(--qc-device-divider); border-bottom: 1px solid var(--qc-device-divider); background: var(--qc-device-control-surface); }
 
 .parameter-name { position: absolute; top: 5%; left: 5.2%; width: 90%; overflow: hidden; color: #f2f2f2; font-weight: 700; font-size: 1.95cqw; line-height: 1.1; letter-spacing: .035em; text-overflow: ellipsis; white-space: nowrap; }
 .parameter-expression { position: absolute; z-index: 3; top: 30%; left: 5.5%; display: flex; align-items: center; gap: .35cqw; color: #7cff9a; font-size: 1.05cqw; line-height: 1; }
@@ -147,7 +147,7 @@
 .parameter-knob:disabled { opacity: 1; }
 .is-rotary-switch .parameter-knob { background: transparent; }
 .parameter-step-dots { position: absolute; z-index: 2; inset: 0; border-radius: 50%; }
-.parameter-step-dot { position: absolute; top: 50%; left: 50%; width: .52cqw; aspect-ratio: 1; margin: -.26cqw; border-radius: 50%; transform: rotate(var(--parameter-dot-angle)) translateY(-3.7cqw); transform-origin: center; background: #77797c; }
+.parameter-step-dot { position: absolute; top: 50%; left: 50%; width: .52cqw; aspect-ratio: 1; margin: -.26cqw; border-radius: 50%; transform: rotate(var(--parameter-dot-angle)) translateY(-3.7cqw); transform-origin: center; background: var(--qc-device-disabled); }
 .parameter-step-dot.is-filled { background: var(--parameter-accent); }
 .parameter-step-dot.is-current { width: .66cqw; margin: -.33cqw; box-shadow: 0 0 .45cqw color-mix(in srgb, var(--parameter-accent) 68%, transparent); }
 

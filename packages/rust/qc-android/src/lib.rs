@@ -932,6 +932,34 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeBloc
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeLaneControlDetails(
+    mut env: JNIEnv,
+    _class: JClass,
+    value: jlong,
+    row: i32,
+    control: JString,
+) -> jstring {
+    let result = (|| {
+        let control = String::from(
+            env.get_string(&control)
+                .map_err(|error| error.to_string())?,
+        );
+        let decoder = handle(value)
+            .state
+            .lock()
+            .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
+        let details = decoder
+            .lane_control_details(
+                u32::try_from(row).map_err(|_| "invalid row".to_string())?,
+                &control,
+            )
+            .ok_or_else(|| "There is no matching lane control on that row.".to_string())?;
+        serde_json::to_string(&details).map_err(|error| error.to_string())
+    })();
+    json_result(&mut env, result)
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeModelCount(
     mut env: JNIEnv,
     _class: JClass,

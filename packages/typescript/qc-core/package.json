@@ -13,7 +13,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@ndsp-qc/client": "0.1.0"
+    "@ndsp-qc/client": "0.1.0",
+    "@ndsp-qc/theme": "0.1.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2"

@@ -91,7 +91,18 @@ class FramedStdioTransport {
     if (!action) throw new Error(`Unknown action ${name}.`);
     return this.request(action.rpc, gatewayArguments(name, args));
   }
-  async close() { this.child?.stdin.end(); }
+  async close() {
+    const child = this.child;
+    if (!child || child.exitCode !== null) return;
+    const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
+    child.stdin.end();
+    await Promise.race([exited, new Promise((resolveWait) => setTimeout(resolveWait, 2000))]);
+    if (child.exitCode === null) {
+      child.kill();
+      await Promise.race([exited, new Promise((resolveWait) => setTimeout(resolveWait, 2000))]);
+    }
+    if (child.exitCode === null) throw new Error("Gateway process did not exit after transport close.");
+  }
 }
 
 class McpHttpTransport {
@@ -427,6 +438,22 @@ async function main() {
     } while (Date.now() < deadline);
     return value;
   };
+  const waitForLaneControlDetails = async (row, control, predicate, timeoutMs = 5000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    let consecutiveMatches = 0;
+    do {
+      value = await transport.call("get_lane_control_details", {
+        row,
+        control,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      consecutiveMatches = predicate(value) ? consecutiveMatches + 1 : 0;
+      if (consecutiveMatches >= 2) return value;
+      await sleep(100);
+    } while (Date.now() < deadline);
+    return value;
+  };
   const recall = async (preset, expected = currentSnapshot) => {
     const result = await call("recall_preset", {
       setlist_key: preset.setlistKey,
@@ -477,6 +504,11 @@ async function main() {
     await call("get_state_events", { after_sequence: 0, limit: 256 }, (value) => assert(Array.isArray(value.frames), "State event result has no frames array."));
     await call("get_tempo_clock", {}, (value) => assert(typeof value.available === "boolean", "Tempo clock availability is missing."));
     await call("get_inhibited_modules", {}, (value) => assert(typeof value.globalGate === "boolean" && typeof value.globalEq === "boolean", "Inhibited module state is invalid."));
+    await call("get_tuner_settings", {}, (value) => assert(
+      Number.isInteger(value.inputPortId) && Number.isFinite(value.referenceHz)
+        && Number.isFinite(value.referenceOffsetHz) && typeof value.muted === "boolean",
+      "Tuner settings are invalid."
+    ));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
       const screenPath = resolve(root, config.discoveryScreenPath);
@@ -503,10 +535,15 @@ async function main() {
       const details = await call("get_block_details", { row: block.row, column: block.column, expected_preset_name: currentSnapshot.presetName });
       parameter = details.parameters?.find((candidate) => candidate.index === config.parameter.index);
       assert(parameter?.writable && Number.isFinite(parameter.normalizedValue), "Configured test parameter is not writable or has no normalized value.");
+      const laneDetails = await call("get_lane_control_details", { row: config.parameter.row, control: "inputGate", expected_preset_name: currentSnapshot.presetName });
+      const laneParameter = laneDetails.parameters?.find((candidate) => candidate.writable && Number.isFinite(candidate.normalizedValue));
+      assert(laneParameter, "Scratch preset Input Gate has no writable normalized parameter.");
+      config.runtimeLaneParameter = { row: config.parameter.row, control: "inputGate", parameter: laneParameter };
     } else {
       const block = originalSnapshot.blocks.find((candidate) => candidate.modelId !== undefined);
       if (block) await call("get_block_details", { row: block.row, column: block.column, expected_preset_name: originalSnapshot.presetName }, (value) => assert(Array.isArray(value.parameters), "Block details are invalid."));
       else report.results.push({ name: "get_block_details", phase: "read", hazard: "read", status: "skipped", reason: "Active preset has no occupied model block." });
+      await call("get_lane_control_details", { row: 0, control: "inputGate", expected_preset_name: originalSnapshot.presetName }, (value) => assert(Array.isArray(value.parameters), "Input Gate details are invalid."));
     }
 
     if (enabledHazards.has("live")) {
@@ -593,6 +630,84 @@ async function main() {
       });
       await waitForBlockDetails(config.parameter.row, config.parameter.column, (value) => Math.abs(value.parameters?.find((candidate) => candidate.index === parameter.index)?.normalizedValue - originalValue) < 0.002);
 
+      const lane = config.runtimeLaneParameter;
+      const laneOriginalValue = lane.parameter.normalizedValue;
+      const laneTestValue = Math.abs(laneOriginalValue - 0.55) >= 0.1 ? 0.55 : 0.35;
+      await call("preview_lane_control_parameter", {
+        row: lane.row, control: lane.control, parameter_index: lane.parameter.index,
+        value: laneTestValue, expected_value: laneOriginalValue, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForLaneControlDetails(lane.row, lane.control, (value) => Math.abs(value.parameters?.find((candidate) => candidate.index === lane.parameter.index)?.normalizedValue - laneTestValue) < 0.002);
+      await call("set_lane_control_parameter", {
+        row: lane.row, control: lane.control, parameter_index: lane.parameter.index,
+        value: laneOriginalValue, expected_value: laneTestValue, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForLaneControlDetails(lane.row, lane.control, (value) => Math.abs(value.parameters?.find((candidate) => candidate.index === lane.parameter.index)?.normalizedValue - laneOriginalValue) < 0.002);
+
+      const laneOriginalSceneMode = Boolean(lane.parameter.sceneMode);
+      await call("set_lane_control_scene_mode", {
+        row: lane.row, control: lane.control, parameter_index: lane.parameter.index,
+        enabled: !laneOriginalSceneMode, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForLaneControlDetails(lane.row, lane.control, (value) => value.parameters?.find((candidate) => candidate.index === lane.parameter.index)?.sceneMode === !laneOriginalSceneMode);
+      await transport.call("set_lane_control_scene_mode", {
+        row: lane.row, control: lane.control, parameter_index: lane.parameter.index,
+        enabled: laneOriginalSceneMode, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForLaneControlDetails(lane.row, lane.control, (value) => value.parameters?.find((candidate) => candidate.index === lane.parameter.index)?.sceneMode === laneOriginalSceneMode);
+
+      const originalSceneMode = Boolean(parameter.sceneMode);
+      await call("set_parameter_scene_mode", {
+        row: config.parameter.row, column: config.parameter.column, parameter_index: parameter.index,
+        enabled: !originalSceneMode, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForBlockDetails(config.parameter.row, config.parameter.column, (value) => value.parameters?.find((candidate) => candidate.index === parameter.index)?.sceneMode === !originalSceneMode);
+      await transport.call("set_parameter_scene_mode", {
+        row: config.parameter.row, column: config.parameter.column, parameter_index: parameter.index,
+        enabled: originalSceneMode, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForBlockDetails(config.parameter.row, config.parameter.column, (value) => value.parameters?.find((candidate) => candidate.index === parameter.index)?.sceneMode === originalSceneMode);
+
+      assert(parameter.expressionAssignable, "Configured hardware-test parameter must support expression assignment.");
+      const originalPedal = Number(parameter.expression ?? 0);
+      const originalMinimum = Number(parameter.expressionMinimum ?? 0);
+      const originalMaximum = Number(parameter.expressionMaximum ?? 1);
+      await call("set_parameter_expression", {
+        row: config.parameter.row, column: config.parameter.column, parameter_index: parameter.index,
+        pedal: 1, minimum: 0.1, maximum: 0.9, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForBlockDetails(config.parameter.row, config.parameter.column, (value) => {
+        const item = value.parameters?.find((candidate) => candidate.index === parameter.index);
+        return item?.expression === 1 && Math.abs(item.expressionMinimum - 0.1) < 0.002 && Math.abs(item.expressionMaximum - 0.9) < 0.002;
+      });
+      await transport.call("set_parameter_expression", {
+        row: config.parameter.row, column: config.parameter.column, parameter_index: parameter.index,
+        pedal: originalPedal, minimum: originalMinimum, maximum: originalMaximum, expected_preset_name: currentSnapshot.presetName
+      });
+      await waitForBlockDetails(config.parameter.row, config.parameter.column, (value) => Number(value.parameters?.find((candidate) => candidate.index === parameter.index)?.expression ?? 0) === originalPedal);
+
+      const midiSource = config.performance.footswitchIndex;
+      const originalMidiOut = currentSnapshot.midiOut?.find((group) => group.source === midiSource)?.messages ?? [];
+      const testMidiOut = [{ type: 1, channel: 16, param1: 119, param2: 1, param3: 0 }];
+      await call("set_midi_out", {
+        source: midiSource, messages: testMidiOut, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.midiOut?.find((group) => group.source === midiSource)?.messages?.[0]?.param1 === 119);
+      await transport.call("set_midi_out", {
+        source: midiSource, messages: originalMidiOut, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => JSON.stringify(value.midiOut?.find((group) => group.source === midiSource)?.messages ?? []) === JSON.stringify(originalMidiOut));
+
+      const originalPresetLoadMidiOut = currentSnapshot.presetLoadMidiOut ?? [];
+      await call("set_preset_load_midi_out", {
+        messages: testMidiOut, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.presetLoadMidiOut?.[0]?.param1 === 119);
+      await transport.call("set_preset_load_midi_out", {
+        messages: originalPresetLoadMidiOut, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => JSON.stringify(value.presetLoadMidiOut ?? []) === JSON.stringify(originalPresetLoadMidiOut));
+
       const temp = config.temporaryBlock;
       assert(!currentSnapshot.blocks.some((block) => block.row === temp.row && (block.column === temp.addColumn || block.column === temp.moveColumn)), "Temporary block cells are not empty.");
       await call("add_block", { row: temp.row, column: temp.addColumn, model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName });
@@ -600,6 +715,15 @@ async function main() {
       await sleep(1000);
       currentSnapshot = await snapshot();
       assert(currentSnapshot.blocks.some((block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === temp.modelId), "Configured temporary block model was rejected by the QC after its initial echo.");
+      await call("set_expression_bypass", {
+        row: temp.row, column: temp.addColumn, pedal: 1, mode: 1, invert: false,
+        delay_ms: 250, latch_emulation: true, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => {
+        const block = value.blocks.find((candidate) => candidate.row === temp.row && candidate.column === temp.addColumn);
+        return block?.bypassExpression?.pedal === 1 && block.bypassExpression.mode === 1
+          && block.bypassExpression.delayMs === 250 && block.bypassExpression.latchEmulation === true;
+      });
       await call("move_block", { row: temp.row, from_column: temp.addColumn, to_column: temp.moveColumn, expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => value.blocks.some((block) => block.row === temp.row && block.column === temp.moveColumn && block.modelId === temp.modelId));
       await sleep(1000);
@@ -610,6 +734,18 @@ async function main() {
         expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName
       });
       currentSnapshot = await waitForSnapshot((value) => value.blocks.some((block) => block.row === temp.row && block.column === temp.moveColumn && block.footswitch === temp.footswitch));
+      await call("set_stomp_momentary", {
+        footswitch: temp.footswitch, momentary: true, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.footswitchStates?.some((state) => state.index === temp.footswitch && state.momentary === true));
+      await transport.call("set_stomp_momentary", {
+        footswitch: temp.footswitch, momentary: false, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.footswitchStates?.some((state) => state.index === temp.footswitch && state.momentary === false));
+      await call("set_stomp_label", {
+        footswitch: temp.footswitch, label: "QC TEST", expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.footswitchStates?.some((state) => state.index === temp.footswitch && state.label === "QC TEST"));
       await transport.call("set_block_footswitch", {
         row: temp.row, column: temp.moveColumn, footswitch: null, expected_footswitch: temp.footswitch,
         expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName

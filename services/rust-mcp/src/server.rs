@@ -225,6 +225,7 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
             Kind::Number { min, max } => value
                 .as_f64()
                 .is_some_and(|n| n >= min && max.is_none_or(|m| n <= m)),
+            Kind::MidiMessages => valid_midi_messages(value),
         };
         if !valid {
             return Err(format!("invalid {}", p.name));
@@ -250,6 +251,30 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
         return Err("label must contain at most 32 non-control characters".into());
     }
     Ok(())
+}
+
+fn valid_midi_messages(value: &Value) -> bool {
+    const FIELDS: [(&str, i64, i64); 5] = [
+        ("type", 1, 3),
+        ("channel", 1, 16),
+        ("param1", 0, 127),
+        ("param2", 0, 127),
+        ("param3", 0, 127),
+    ];
+    value.as_array().is_some_and(|messages| {
+        messages.len() <= 12
+            && messages.iter().all(|message| {
+                message.as_object().is_some_and(|object| {
+                    object.len() == FIELDS.len()
+                        && FIELDS.iter().all(|(name, minimum, maximum)| {
+                            object
+                                .get(*name)
+                                .and_then(Value::as_i64)
+                                .is_some_and(|number| (*minimum..=*maximum).contains(&number))
+                        })
+                })
+            })
+    })
 }
 
 fn apply_confirmation_gate(spec: &ActionSpec, args: &mut Map<String, Value>) -> Result<(), String> {
@@ -285,7 +310,9 @@ fn gateway_params(spec: &ActionSpec, args: Map<String, Value>) -> Map<String, Va
             // These are MCP-side validation/discovery fields. Their gateway
             // methods intentionally do not accept them.
             if (spec.name == "list_models" && key == "query")
-                || (spec.name == "preview_parameter" && key == "expected_value")
+                || ((spec.name == "preview_parameter"
+                    || spec.name == "preview_lane_control_parameter")
+                    && key == "expected_value")
             {
                 return None;
             }

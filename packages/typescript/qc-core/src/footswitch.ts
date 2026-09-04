@@ -1,4 +1,5 @@
 import { QC_SCENE_COLORS, QC_SCENE_COUNT, type GridBlock, type PresetSnapshot } from "@ndsp-qc/client";
+import { QC_COLORS } from "@ndsp-qc/theme";
 import { sceneLetter } from "./state.ts";
 
 export interface FootswitchLed {
@@ -14,25 +15,27 @@ export type FootswitchIntent =
   | { kind: "none" };
 
 function stompLedColor(blocks: GridBlock[]): string {
-  if (blocks.length > 1) return "#f4f4f4";
+  if (blocks.length > 1) return QC_COLORS.hardware.whiteLed;
   const block = blocks[0];
   const category = `${block.category ?? ""} ${block.kind ?? ""}`.toLowerCase();
   const name = block.name.toLowerCase();
-  if (category.includes("plugin")) return "#ff7000";
-  if (category.includes("capture")) return "#f4f4f4";
-  if (category.includes("amplifier") || /(^|\s)amp(\s|$)/.test(category)) return "#ff2727";
-  if (category.includes("looper")) return "#ff2727";
-  if (category.includes("ir loader") || category.includes("irloader")) return "#6954ff";
-  if (category.includes("cab") || category.includes("impulse response")) return "#6954ff";
-  if (["overdrive", "distortion", "drive", "boost", "fuzz"].some((term) => category.includes(term))) return "#ffd236";
-  if (category.includes("delay") || category.includes("reverb")) return "#00ffdd";
-  if (category.includes("compressor")) return "#45f862";
-  if (category.includes("pitch") || name.includes("octav")) return "#ffd236";
-  if (category.includes("modulation") || /(^|\s)mod(\s|$)/.test(category)) return "#3500f1";
-  if (category.includes("morph") || category.includes("filter")) return "#87daff";
-  if (category.includes("synth")) return "#e44a5d";
-  if (category.includes("equalizer") || /(^|\s)eq(\s|$)/.test(category)) return "#0a74e0";
-  return "#f4f4f4";
+  if (category.includes("plugin")) return QC_COLORS.category.plugin;
+  if (category.includes("capture")) return QC_COLORS.hardware.whiteLed;
+  if (category.includes("amplifier") || /(^|\s)amp(\s|$)/.test(category)) return QC_COLORS.category.amp;
+  if (category.includes("looper")) return QC_COLORS.category.looper;
+  if (category.includes("ir loader") || category.includes("irloader")) return QC_COLORS.category.irLoader;
+  if (category.includes("cab") || category.includes("impulse response")) return QC_COLORS.category.cab;
+  if (["overdrive", "distortion", "drive", "boost", "fuzz"].some((term) => category.includes(term))) return QC_COLORS.category.overdrive;
+  if (category.includes("delay")) return QC_COLORS.category.delay;
+  if (category.includes("reverb")) return QC_COLORS.category.reverb;
+  if (category.includes("compressor")) return QC_COLORS.category.compressor;
+  if (category.includes("pitch") || name.includes("octav")) return QC_COLORS.category.pitch;
+  if (category.includes("modulation") || /(^|\s)mod(\s|$)/.test(category)) return QC_COLORS.category.modulation;
+  if (category.includes("morph")) return QC_COLORS.category.morph;
+  if (category.includes("filter")) return QC_COLORS.category.filter;
+  if (category.includes("synth")) return QC_COLORS.category.synth;
+  if (category.includes("equalizer") || /(^|\s)eq(\s|$)/.test(category)) return QC_COLORS.category.equalizer;
+  return QC_COLORS.hardware.whiteLed;
 }
 
 function stompLed(snapshot: PresetSnapshot, index: number): FootswitchLed {
@@ -41,7 +44,7 @@ function stompLed(snapshot: PresetSnapshot, index: number): FootswitchLed {
   const assigned = snapshot.blocks
     .filter((block) => block.footswitch === index)
     .sort((left, right) => (left.footswitchOrder ?? Number.MAX_SAFE_INTEGER) - (right.footswitchOrder ?? Number.MAX_SAFE_INTEGER));
-  if (!assigned.length) return { active: false, assigned: false, color: "#626367" };
+  if (!assigned.length) return { active: false, assigned: false, color: QC_COLORS.hardware.idleLed };
   return { active: !assigned[0].bypassed, assigned: true, color: stompLedColor(assigned) };
 }
 

@@ -1,9 +1,9 @@
 :root {
-  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  font-family: var(--qc-font-app);
   color: #eceef1;
   background: #0c0d0f;
   font-synthesis: none;
-  --accent: #70d6ff;
+  --accent: var(--qc-app-info);
   --panel: #15171b;
   --panel-2: #1b1e23;
   --line: #2a2e35;
@@ -17,7 +17,7 @@
 html, body, #root { margin: 0; min-width: 920px; min-height: 100%; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
-button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #70d6ff; outline-offset: 2px; }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--qc-app-info); outline-offset: 2px; }
 
 body { min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 50% -20%, #282c31 0, #121417 38%, #090a0c 100%); }
 .app-shell { height: 100vh; display: grid; grid-template-rows: 38px minmax(0, 1fr) 36px; overflow: hidden; }

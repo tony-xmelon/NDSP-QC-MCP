@@ -38,6 +38,82 @@ test("shared parameter execution converts display units and returns reconciliati
   assert.equal(result.block?.parameters[0].normalizedValue, .75);
 });
 
+test("shared parameter assignments validate capabilities and preserve reversed EXP ranges", async () => {
+  const calls: unknown[][] = [];
+  const block = {
+    row: 0, column: 1, modelId: 1, name: "Wah", category: "Wah", scene: 0,
+    parameters: [{
+      index: 0, name: "Position", normalizedValue: .5, displayValue: "50", units: "%",
+      type: "float", minimum: 0, maximum: 100, steps: null, sceneMode: false,
+      options: [], writable: true, expressionAssignable: true
+    }]
+  };
+  const gateway = {
+    blockDetails: async () => block,
+    setParameterSceneMode: async (...args: unknown[]) => { calls.push(args); return { detail: "scene verified" }; },
+    setParameterExpression: async (...args: unknown[]) => { calls.push(args); return { detail: "expression verified" }; }
+  } as unknown as GatewayTransport;
+  await executeQcAction({
+    name: "set_parameter_scene_mode",
+    arguments: { row: 0, column: 1, parameter_index: 0, enabled: true, expected_preset_name: demoSnapshot.presetName }
+  }, { gateway, snapshot: demoSnapshot, connected: true });
+  await executeQcAction({
+    name: "set_parameter_expression",
+    arguments: { row: 0, column: 1, parameter_index: 0, pedal: 2, minimum: .8, maximum: .2, expected_preset_name: demoSnapshot.presetName }
+  }, { gateway, snapshot: demoSnapshot, connected: true });
+  assert.deepEqual(calls, [
+    [0, 1, 0, true, demoSnapshot.presetName],
+    [0, 1, 0, 2, .8, .2, demoSnapshot.presetName]
+  ]);
+});
+
+test("shared lane-control actions use the same guarded read, preview, write, and scene-mode path", async () => {
+  const calls: unknown[][] = [];
+  const details = {
+    row: 1, column: -1, modelId: 28_000, name: "Input Gate", category: "Utility", scene: 0,
+    parameters: [{
+      index: 2, name: "Threshold", normalizedValue: .5, displayValue: "-40", units: "dB",
+      type: "float", minimum: -80, maximum: 0, steps: null, sceneMode: false,
+      options: [], writable: true, scaleKnown: true
+    }]
+  };
+  const gateway = {
+    laneControlDetails: async (...args: unknown[]) => { calls.push(["read", ...args]); return details; },
+    previewLaneControlParameter: async (...args: unknown[]) => { calls.push(["preview", ...args]); return { detail: "previewed", acceptedValue: .25 }; },
+    setLaneControlParameter: async (...args: unknown[]) => { calls.push(["write", ...args]); return { detail: "verified", block: details, snapshot: demoSnapshot }; },
+    setLaneControlSceneMode: async (...args: unknown[]) => { calls.push(["scene", ...args]); return { detail: "scene verified" }; }
+  } as unknown as GatewayTransport;
+  const context = { gateway, snapshot: demoSnapshot, connected: true };
+
+  const read = await executeQcAction({
+    name: "get_lane_control_details",
+    arguments: { row: 1, control: "inputGate", expected_preset_name: demoSnapshot.presetName }
+  }, context);
+  assert.equal(read.block?.name, "Input Gate");
+  await executeQcAction({
+    name: "preview_lane_control_parameter",
+    arguments: { row: 1, control: "inputGate", parameter_index: 2, value: .25, expected_value: .5, expected_preset_name: demoSnapshot.presetName }
+  }, context);
+  await executeQcAction({
+    name: "set_lane_control_parameter",
+    arguments: { row: 1, control: "inputGate", parameter_index: 2, value: -20, expected_value: .5, expected_preset_name: demoSnapshot.presetName }
+  }, context);
+  await executeQcAction({
+    name: "set_lane_control_scene_mode",
+    arguments: { row: 1, control: "inputGate", parameter_index: 2, enabled: true, expected_preset_name: demoSnapshot.presetName }
+  }, context);
+
+  assert.deepEqual(calls, [
+    ["read", 1, "inputGate", demoSnapshot.presetName],
+    ["read", 1, "inputGate", demoSnapshot.presetName],
+    ["preview", 1, "inputGate", 2, .25, demoSnapshot.presetName],
+    ["read", 1, "inputGate", demoSnapshot.presetName],
+    ["write", 1, "inputGate", 2, .75, .5, demoSnapshot.presetName],
+    ["read", 1, "inputGate", demoSnapshot.presetName],
+    ["scene", 1, "inputGate", 2, true, demoSnapshot.presetName]
+  ]);
+});
+
 test("persistent shared actions require the generated confirmation field", async () => {
   let called = false;
   const gateway = { renameCurrentPreset: async () => { called = true; return { detail: "renamed", savedName: "New" }; } } as unknown as GatewayTransport;

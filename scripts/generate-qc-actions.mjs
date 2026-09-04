@@ -10,10 +10,28 @@ const schemaType = (kind) => {
   if (kind === "nullable-integer") return { type: ["integer", "null"] };
   if (kind === "grid-row") return { type: "integer", minimum: 0, maximum: gridRows - 1 };
   if (kind === "grid-column") return { type: "integer", minimum: 0, maximum: gridColumns - 1 };
+  if (kind === "parameter-column") return { type: "integer", minimum: 0, maximum: gridColumns + 1 };
+  if (kind === "lane-control") return { type: "string", enum: ["inputGate", "laneOutput"] };
   if (kind === "scene-index") return { type: "integer", minimum: 0, maximum: scenes - 1 };
   if (kind === "tempo") return { type: "integer", minimum: minimumTempoBpm, maximum: maximumTempoBpm };
   if (kind === "screen-x") return { type: "integer", minimum: 0, maximum: 799 };
   if (kind === "screen-y") return { type: "integer", minimum: 0, maximum: 479 };
+  if (kind === "midi-message-array") return {
+    type: "array", maxItems: 12, items: {
+      type: "object", additionalProperties: false,
+      properties: {
+        type: { type: "integer", minimum: 1, maximum: 3 },
+        channel: { type: "integer", minimum: 1, maximum: 16 },
+        param1: { type: "integer", minimum: 0, maximum: 127 },
+        param2: { type: "integer", minimum: 0, maximum: 127 },
+        param3: { type: "integer", minimum: 0, maximum: 127 }
+      },
+      required: ["type", "channel", "param1", "param2", "param3"]
+    }
+  };
+  if (kind === "pedal") return { type: "integer", minimum: 1, maximum: 2 };
+  if (kind === "expression-switch-mode") return { type: "integer", minimum: 0, maximum: 2 };
+  if (kind === "bypass-delay") return { type: "integer", minimum: 0, maximum: 5000 };
   return { type: kind };
 };
 const description = (value) => value

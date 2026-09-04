@@ -140,10 +140,10 @@ export const SHARED_QC_ACTIONS = [
     "name": "get_block_details",
     "rpc": "device.blockDetails",
     "classification": "read",
-    "description": "Read live parameters for one occupied Grid block.",
+    "description": "Read live parameters for one occupied Grid block, splitter, or mixer.",
     "properties": {
       "row": "grid-row",
-      "column": "grid-column",
+      "column": "parameter-column",
       "expected_preset_name": "string"
     },
     "required": [
@@ -163,7 +163,7 @@ export const SHARED_QC_ACTIONS = [
         "column": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 7
+          "maximum": 9
         },
         "expected_preset_name": {
           "type": "string"
@@ -172,6 +172,49 @@ export const SHARED_QC_ACTIONS = [
       "required": [
         "row",
         "column",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_lane_control_details",
+    "rpc": "device.laneControlDetails",
+    "classification": "read",
+    "description": "Read the Input Gate or Lane Output parameters attached to a signal row.",
+    "properties": {
+      "row": "grid-row",
+      "control": "lane-control",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "control",
+      "expected_preset_name"
+    ],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "control": {
+          "type": "string",
+          "enum": [
+            "inputGate",
+            "laneOutput"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "control",
         "expected_preset_name"
       ],
       "additionalProperties": false
@@ -325,6 +368,21 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "get_tuner_settings",
+    "rpc": "device.tunerSettings",
+    "classification": "read",
+    "description": "Read the tuner input, mute preference, and reference pitch without changing or engaging the tuner.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get_preset_screenshot",
     "rpc": "device.presetScreenshot",
     "classification": "read",
@@ -380,10 +438,10 @@ export const SHARED_QC_ACTIONS = [
     "name": "preview_parameter",
     "rpc": "device.previewParameter",
     "classification": "live-write",
-    "description": "Preview a block parameter value without waiting for device verification.",
+    "description": "Preview a block, splitter, or mixer parameter value without waiting for device verification.",
     "properties": {
       "row": "grid-row",
-      "column": "grid-column",
+      "column": "parameter-column",
       "parameter_index": "integer",
       "value": "number",
       "expected_value": "number",
@@ -411,7 +469,7 @@ export const SHARED_QC_ACTIONS = [
         "column": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 7
+          "maximum": 9
         },
         "parameter_index": {
           "type": "integer"
@@ -438,6 +496,67 @@ export const SHARED_QC_ACTIONS = [
         "value",
         "expected_value",
         "expected_scene",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "preview_lane_control_parameter",
+    "rpc": "device.previewLaneControlParameter",
+    "classification": "live-write",
+    "description": "Preview an Input Gate or Lane Output parameter without waiting for device verification.",
+    "properties": {
+      "row": "grid-row",
+      "control": "lane-control",
+      "parameter_index": "integer",
+      "value": "number",
+      "expected_value": "number",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "control",
+      "parameter_index",
+      "value",
+      "expected_value",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "control": {
+          "type": "string",
+          "enum": [
+            "inputGate",
+            "laneOutput"
+          ]
+        },
+        "parameter_index": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "number"
+        },
+        "expected_value": {
+          "type": "number"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "control",
+        "parameter_index",
+        "value",
+        "expected_value",
         "expected_preset_name"
       ],
       "additionalProperties": false
@@ -1166,10 +1285,10 @@ export const SHARED_QC_ACTIONS = [
     "name": "set_parameter",
     "rpc": "device.setParameter",
     "classification": "live-write",
-    "description": "Immediately set a writable block parameter to an exact display-unit value; QC Control converts and verifies it.",
+    "description": "Immediately set a writable block, splitter, or mixer parameter and verify it.",
     "properties": {
       "row": "grid-row",
-      "column": "grid-column",
+      "column": "parameter-column",
       "parameter_index": "integer",
       "value": "number",
       "expected_value": "number",
@@ -1197,7 +1316,7 @@ export const SHARED_QC_ACTIONS = [
         "column": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 7
+          "maximum": 9
         },
         "parameter_index": {
           "type": "integer"
@@ -1224,6 +1343,317 @@ export const SHARED_QC_ACTIONS = [
         "value",
         "expected_value",
         "expected_scene",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_parameter_scene_mode",
+    "rpc": "device.setParameterSceneMode",
+    "classification": "live-write",
+    "description": "Enable or disable per-scene storage for a block, splitter, or mixer parameter and verify device readback.",
+    "properties": {
+      "row": "grid-row",
+      "column": "parameter-column",
+      "parameter_index": "integer",
+      "enabled": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "parameter_index",
+      "enabled",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "parameter_index": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "parameter_index",
+        "enabled",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_parameter_expression",
+    "rpc": "device.setParameterExpression",
+    "classification": "live-write",
+    "description": "Assign EXP 1 or EXP 2 to a block, splitter, or mixer parameter, or clear it with pedal 0, preserving the requested heel and toe range.",
+    "properties": {
+      "row": "grid-row",
+      "column": "parameter-column",
+      "parameter_index": "integer",
+      "pedal": "integer",
+      "minimum": "number",
+      "maximum": "number",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "parameter_index",
+      "pedal",
+      "minimum",
+      "maximum",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "parameter_index": {
+          "type": "integer"
+        },
+        "pedal": {
+          "type": "integer"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "parameter_index",
+        "pedal",
+        "minimum",
+        "maximum",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_lane_control_parameter",
+    "rpc": "device.setLaneControlParameter",
+    "classification": "live-write",
+    "description": "Set an Input Gate or Lane Output parameter with stale-value and preset guards.",
+    "properties": {
+      "row": "grid-row",
+      "control": "lane-control",
+      "parameter_index": "integer",
+      "value": "number",
+      "expected_value": "number",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "control",
+      "parameter_index",
+      "value",
+      "expected_value",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "control": {
+          "type": "string",
+          "enum": [
+            "inputGate",
+            "laneOutput"
+          ]
+        },
+        "parameter_index": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "number"
+        },
+        "expected_value": {
+          "type": "number"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "control",
+        "parameter_index",
+        "value",
+        "expected_value",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_lane_control_scene_mode",
+    "rpc": "device.setLaneControlSceneMode",
+    "classification": "live-write",
+    "description": "Enable or disable per-scene storage for an Input Gate or Lane Output parameter and verify readback.",
+    "properties": {
+      "row": "grid-row",
+      "control": "lane-control",
+      "parameter_index": "integer",
+      "enabled": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "control",
+      "parameter_index",
+      "enabled",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "control": {
+          "type": "string",
+          "enum": [
+            "inputGate",
+            "laneOutput"
+          ]
+        },
+        "parameter_index": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "control",
+        "parameter_index",
+        "enabled",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_expression_bypass",
+    "rpc": "device.setExpressionBypass",
+    "classification": "live-write",
+    "description": "Assign EXP 1 or EXP 2 to a block bypass with the QC switch mode, inversion, delay and latch-emulation settings.",
+    "properties": {
+      "row": "grid-row",
+      "column": "grid-column",
+      "pedal": "pedal",
+      "mode": "expression-switch-mode",
+      "invert": "boolean",
+      "delay_ms": "bypass-delay",
+      "latch_emulation": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "pedal",
+      "mode",
+      "invert",
+      "delay_ms",
+      "latch_emulation",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "pedal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "invert": {
+          "type": "boolean"
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "latch_emulation": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "pedal",
+        "mode",
+        "invert",
+        "delay_ms",
+        "latch_emulation",
         "expected_preset_name"
       ],
       "additionalProperties": false
@@ -1438,6 +1868,226 @@ export const SHARED_QC_ACTIONS = [
         "footswitch",
         "expected_footswitch",
         "expected_model_id",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_stomp_momentary",
+    "rpc": "device.setStompMomentary",
+    "classification": "live-write",
+    "description": "Set a single-block STOMP footswitch to momentary or latching behavior and verify device readback.",
+    "properties": {
+      "footswitch": "integer",
+      "momentary": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "footswitch",
+      "momentary",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "footswitch": {
+          "type": "integer"
+        },
+        "momentary": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "footswitch",
+        "momentary",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_stomp_label",
+    "rpc": "device.setStompLabel",
+    "classification": "live-write",
+    "description": "Set the visible label of a STOMP footswitch using the device's correct single- or multi-assignment storage.",
+    "properties": {
+      "footswitch": "integer",
+      "label": "string",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "footswitch",
+      "label",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "footswitch": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "footswitch",
+        "label",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_midi_out",
+    "rpc": "device.setMidiOut",
+    "classification": "live-write",
+    "description": "Replace up to 12 MIDI Out messages for a footswitch or expression-pedal source in the current preset.",
+    "properties": {
+      "source": "integer",
+      "messages": "midi-message-array",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "source",
+      "messages",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "integer"
+        },
+        "messages": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "channel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "param1": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "param2": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "param3": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              }
+            },
+            "required": [
+              "type",
+              "channel",
+              "param1",
+              "param2",
+              "param3"
+            ]
+          }
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "messages",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_preset_load_midi_out",
+    "rpc": "device.setPresetLoadMidiOut",
+    "classification": "live-write",
+    "description": "Replace the MIDI Out messages sent when the current preset loads.",
+    "properties": {
+      "messages": "midi-message-array",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "messages",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "channel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "param1": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "param2": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "param3": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              }
+            },
+            "required": [
+              "type",
+              "channel",
+              "param1",
+              "param2",
+              "param3"
+            ]
+          }
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "messages",
         "expected_preset_name"
       ],
       "additionalProperties": false

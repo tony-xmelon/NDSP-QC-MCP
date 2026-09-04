@@ -30,7 +30,11 @@ test("all nine ModelRepo parameter types retain the measured Cortex Control geom
   const editorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/parameter-editor.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../packages/typescript/qc-ui/src/live-surface.css", import.meta.url), "utf8");
 
-  assert.match(css, /\.coros-parameter \{[^}]*background: #2e2e2e;/s, "parameter cells use Cortex N40");
+  assert.match(
+    css,
+    /\.coros-parameter \{[^}]*background: var\(--qc-device-control-surface\);/s,
+    "parameter cells use the shared Cortex N40 theme token",
+  );
   assert.match(css, /\.parameter-knob::before \{[^}]*background: #1e1e1e;/s, "float and floatWithLed knobs use Cortex N30");
   assert.match(css, /\.coros-parameter select \{[^}]*bottom: 10%;[^}]*width: 87\.5%;[^}]*background-color: #121212;[^}]*text-align: left;/s, "comboBox and string selectors match the 140x32 official control");
   assert.match(css, /\.parameter-switch \{[^}]*left: 6%;[^}]*top: 40%;[^}]*width: 13\.5%;[^}]*height: 48%;/s, "two-way switch uses the embedded parameterView bounds");

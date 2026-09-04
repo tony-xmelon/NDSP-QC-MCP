@@ -14,6 +14,7 @@ pub mod rpc {
     pub const UNDO: &str = "device.undo";
     pub const REDO: &str = "device.redo";
     pub const INHIBITED_MODULES: &str = "device.inhibitedModules";
+    pub const TUNER_SETTINGS: &str = "device.tunerSettings";
     pub const PRESET_SCREENSHOT: &str = "device.presetScreenshot";
     pub const CAPTURE_SCREEN: &str = "device.captureScreen";
     pub const TAP_SCREEN: &str = "device.tapScreen";
@@ -26,6 +27,11 @@ pub mod rpc {
     pub const ADD_BLOCK: &str = "device.addBlock";
     pub const REMOVE_BLOCK: &str = "device.removeBlock";
     pub const SET_BLOCK_FOOTSWITCH: &str = "device.setBlockFootswitch";
+    pub const SET_STOMP_MOMENTARY: &str = "device.setStompMomentary";
+    pub const SET_STOMP_LABEL: &str = "device.setStompLabel";
+    pub const SET_MIDI_OUT: &str = "device.setMidiOut";
+    pub const SET_PRESET_LOAD_MIDI_OUT: &str = "device.setPresetLoadMidiOut";
+    pub const SET_EXPRESSION_BYPASS: &str = "device.setExpressionBypass";
     pub const SET_CHAIN_INPUT: &str = "device.setChainInput";
     pub const SET_CHAIN_OUTPUT: &str = "device.setChainOutput";
     pub const SET_CHAIN_SPLIT: &str = "device.setChainSplit";
@@ -35,8 +41,14 @@ pub mod rpc {
     pub const RECALL_PRESET: &str = "device.recallPreset";
     pub const RELOAD_PRESET: &str = "device.reloadPreset";
     pub const BLOCK_DETAILS: &str = "device.blockDetails";
+    pub const LANE_CONTROL_DETAILS: &str = "device.laneControlDetails";
     pub const PREVIEW_PARAMETER: &str = "device.previewParameter";
+    pub const PREVIEW_LANE_CONTROL_PARAMETER: &str = "device.previewLaneControlParameter";
     pub const SET_PARAMETER: &str = "device.setParameter";
+    pub const SET_LANE_CONTROL_PARAMETER: &str = "device.setLaneControlParameter";
+    pub const SET_LANE_CONTROL_SCENE_MODE: &str = "device.setLaneControlSceneMode";
+    pub const SET_PARAMETER_SCENE_MODE: &str = "device.setParameterSceneMode";
+    pub const SET_PARAMETER_EXPRESSION: &str = "device.setParameterExpression";
     pub const SET_TEMPO: &str = "device.setTempo";
     pub const SET_MASTER_VOLUME: &str = "device.setMasterVolume";
     pub const CURRENT_MASTER_VOLUME: &str = "device.masterVolume";

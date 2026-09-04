@@ -10,6 +10,20 @@ test("empty preset titles match the QC clean and dirty Unsaved states", () => {
   assert.deepEqual(presetTitlePresentation("Brit 2203", false), { text: "Brit 2203", dimmed: false, italic: false });
 });
 
+test("neutral Grid colors match the native QC capture", () => {
+  const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
+  const themeSource = readFileSync(new URL("../packages/typescript/qc-theme/src/index.ts", import.meta.url), "utf8");
+  assert.match(surfaceSource, /QC_COLORS/);
+  assert.match(themeSource, /unsaved: "#313031"/);
+  assert.match(themeSource, /routePill: "#101010"/);
+  assert.match(themeSource, /routeText: "#dedfde"/);
+  assert.match(themeSource, /routeRail: "#c6c3c6"/);
+  assert.match(themeSource, /utilityMark: "#949694"/);
+  assert.match(surfaceSource, /fill=\{QC_COLORS\.captured\.routePill\}/);
+  assert.match(surfaceSource, /stroke=\{QC_COLORS\.captured\.utilityMark\}/);
+  assert.doesNotMatch(surfaceSource, /titlePresentation\.dimmed \? "#29292b"/);
+});
+
 test("Grid contextual menu starts with the device Create New command", () => {
   assert.equal(GRID_CONTEXT_MENU[0].label, "Create New");
   assert.deepEqual(GRID_CONTEXT_MENU.map((item) => item.label), [
@@ -152,6 +166,7 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
   const routingSource = readFileSync(new URL("../packages/typescript/qc-core/src/routing.ts", import.meta.url), "utf8");
   const routingWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-routing-workflow.ts", import.meta.url), "utf8");
+  const iconSource = readFileSync(new URL("../packages/typescript/qc-ui/src/theme-icons.tsx", import.meta.url), "utf8");
   const domain = JSON.parse(readFileSync(new URL("../contracts/qc-domain.v1.json", import.meta.url), "utf8"));
   const styles = readFileSync(new URL("../packages/typescript/qc-ui/src/surface-shell.css", import.meta.url), "utf8");
   assert.match(appSource, /onOpenRouting=\{openRoutePicker\}/);
@@ -163,11 +178,12 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   assert.match(surfaceSource, /routePickerLabel\(routingPicker\.side, selectedRoute/);
   assert.match(surfaceSource, /routePickerGroups\.map/);
   assert.match(surfaceSource, /className="coros-route-focus-layer"/);
-  assert.match(surfaceSource, /fill="#f3f3f3" fillOpacity="\.86"/);
-  assert.match(surfaceSource, /label\.startsWith\("Return "\)/, "Return routes need their dedicated curved-return glyph");
-  assert.match(surfaceSource, /label\.startsWith\("Send "\)/, "Send routes need their dedicated outward loop glyph");
-  assert.match(surfaceSource, /label\.startsWith\("Out "\)/, "physical outputs need their dedicated output-jack glyph");
-  assert.match(surfaceSource, /label === "Multi Out"/, "multiple outputs need their dedicated fan-out glyph");
+  assert.match(surfaceSource, /fill=\{QC_COLORS\.device\.focusOverlay\} fillOpacity="\.86"/);
+  assert.match(surfaceSource, /QcRouteGlyph/, "the surface must use the shared route glyph renderer");
+  assert.match(iconSource, /label\.startsWith\("Return "\)/, "Return routes need their dedicated curved-return glyph");
+  assert.match(iconSource, /label\.startsWith\("Send "\)/, "Send routes need their dedicated outward loop glyph");
+  assert.match(iconSource, /label\.startsWith\("Out "\)/, "physical outputs need their dedicated output-jack glyph");
+  assert.match(iconSource, /label === "Multi Out"/, "multiple outputs need their dedicated fan-out glyph");
   assert.match(surfaceSource, /\["MONO", "STEREO", ""\] : \["STEREO", "MONO", "OTHER"\]/);
   assert.deepEqual(domain.inputRoutes.slice(0, 4).map(({ id, label }: { id: number; label: string }) => [id, label]), [[1, "In 1"], [2, "In 2"], [4, "Return 1"], [5, "Return 2"]], "input ports must follow the CorOS mono-first order");
   assert.deepEqual(domain.outputRoutes.slice(0, 4).map(({ id, label }: { id: number; label: string }) => [id, label]), [[19, "Multi Out"], [1, "Out 1/2"], [2, "Out 3/4"], [3, "Send 1/2"]], "output ports must follow the CorOS stereo-first order");
@@ -696,7 +712,7 @@ test("device and chat footers share one readable font size", () => {
 test("the Save action is one normal floppy without a status-dot overlay", () => {
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
   const saveIcon = surfaceSource.slice(surfaceSource.indexOf('d="M712 13H728'), surfaceSource.indexOf('<rect x="654"'));
-  assert.match(saveIcon, /fill="#f0f0f0"/);
+  assert.match(saveIcon, /fill=\{QC_COLORS\.hardware\.whiteLed\}/);
   assert.doesNotMatch(saveIcon, /#45f862|snapshot\.dirty|<circle/);
 });
 

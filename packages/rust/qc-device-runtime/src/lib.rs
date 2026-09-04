@@ -2,7 +2,8 @@
 //! USB/HID ownership and host UI IPC remain in their platform adapters.
 
 use qc_protocol::state::{
-    GridBlock, GridRoute, IoPortState, ModeSlot, PresetFolderListing, StateUpdate,
+    FootswitchState, GridBlock, GridRoute, IoPortState, MidiOutMessage, MidiOutSource, ModeSlot,
+    PresetFolderListing, StateUpdate,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -234,6 +235,12 @@ pub struct GatewaySnapshot {
     pub mode_slots: Option<Vec<ModeSlot>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub footswitch_modes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub footswitch_states: Option<Vec<FootswitchState>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_out: Option<Vec<MidiOutSource>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset_load_midi_out: Option<Vec<MidiOutMessage>>,
     pub active_scene: u32,
     pub scenes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -266,6 +273,9 @@ impl Default for GatewaySnapshot {
             mode: "STOMP".into(),
             mode_slots: None,
             footswitch_modes: None,
+            footswitch_states: None,
+            midi_out: None,
+            preset_load_midi_out: None,
             active_scene: 0,
             scenes: (b'A'..=b'H')
                 .map(|letter| format!("Scene {}", letter as char))
@@ -363,6 +373,15 @@ impl GatewaySnapshot {
                 }
                 if let Some(value) = &state.scene_colors {
                     self.scene_colors = Some(value.clone());
+                }
+                if let Some(value) = &state.footswitch_states {
+                    self.footswitch_states = Some(value.clone());
+                }
+                if let Some(value) = &state.midi_out {
+                    self.midi_out = Some(value.clone());
+                }
+                if let Some(value) = &state.preset_load_midi_out {
+                    self.preset_load_midi_out = Some(value.clone());
                 }
                 if let Some(value) = &state.blocks {
                     self.blocks.clone_from(value);

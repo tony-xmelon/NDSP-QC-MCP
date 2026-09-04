@@ -1041,6 +1041,11 @@ async fn inhibited_modules(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn tuner_settings(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::TUNER_SETTINGS).await
+}
+
+#[tauri::command]
 async fn preset_screenshot(
     app: AppHandle,
     folder_name: String,
@@ -1245,6 +1250,80 @@ async fn set_block_footswitch(
 }
 
 #[tauri::command]
+async fn set_stomp_momentary(
+    app: AppHandle,
+    footswitch: u8,
+    momentary: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_STOMP_MOMENTARY,
+        json!({
+            "footswitch": footswitch,
+            "momentary": momentary,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_stomp_label(
+    app: AppHandle,
+    footswitch: u8,
+    label: String,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_STOMP_LABEL,
+        json!({
+            "footswitch": footswitch,
+            "label": label,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_midi_out(
+    app: AppHandle,
+    source: u8,
+    messages: Vec<Value>,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_MIDI_OUT,
+        json!({
+            "source": source,
+            "messages": messages,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_preset_load_midi_out(
+    app: AppHandle,
+    messages: Vec<Value>,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_PRESET_LOAD_MIDI_OUT,
+        json!({
+            "messages": messages,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn set_chain_input(
     app: AppHandle,
     row: u8,
@@ -1418,6 +1497,21 @@ async fn block_details(
 }
 
 #[tauri::command]
+async fn lane_control_details(
+    app: AppHandle,
+    row: u8,
+    control: String,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::LANE_CONTROL_DETAILS,
+        json!({"row": row, "control": control, "expectedPresetName": expected_preset_name}),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn set_parameter(
     app: AppHandle,
     row: u8,
@@ -1445,6 +1539,118 @@ async fn set_parameter(
 }
 
 #[tauri::command]
+async fn set_parameter_scene_mode(
+    app: AppHandle,
+    row: u8,
+    column: u8,
+    parameter_index: u16,
+    enabled: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_PARAMETER_SCENE_MODE,
+        json!({
+            "row": row,
+            "column": column,
+            "parameterIndex": parameter_index,
+            "enabled": enabled,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_lane_control_parameter(
+    app: AppHandle,
+    row: u8,
+    control: String,
+    parameter_index: u16,
+    value: f64,
+    expected_value: f64,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_LANE_CONTROL_PARAMETER,
+        json!({"row": row, "control": control, "parameterIndex": parameter_index,
+            "value": value, "expectedValue": expected_value,
+            "expectedPresetName": expected_preset_name}),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_lane_control_scene_mode(
+    app: AppHandle,
+    row: u8,
+    control: String,
+    parameter_index: u16,
+    enabled: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_LANE_CONTROL_SCENE_MODE,
+        json!({"row": row, "control": control, "parameterIndex": parameter_index,
+            "enabled": enabled, "expectedPresetName": expected_preset_name}),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_parameter_expression(
+    app: AppHandle,
+    row: u8,
+    column: u8,
+    parameter_index: u16,
+    pedal: u8,
+    minimum: f64,
+    maximum: f64,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_PARAMETER_EXPRESSION,
+        json!({
+            "row": row,
+            "column": column,
+            "parameterIndex": parameter_index,
+            "pedal": pedal,
+            "minimum": minimum,
+            "maximum": maximum,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_expression_bypass(
+    app: AppHandle,
+    row: u8,
+    column: u8,
+    pedal: u8,
+    mode: u8,
+    invert: bool,
+    delay_ms: u16,
+    latch_emulation: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_EXPRESSION_BYPASS,
+        json!({
+            "row": row, "column": column, "pedal": pedal, "mode": mode,
+            "invert": invert, "delayMs": delay_ms, "latchEmulation": latch_emulation,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn preview_parameter(
     app: AppHandle,
     row: u8,
@@ -1465,6 +1671,24 @@ async fn preview_parameter(
             "expectedScene": expected_scene,
             "expectedPresetName": expected_preset_name
         }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn preview_lane_control_parameter(
+    app: AppHandle,
+    row: u8,
+    control: String,
+    parameter_index: u16,
+    value: f64,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::PREVIEW_LANE_CONTROL_PARAMETER,
+        json!({"row": row, "control": control, "parameterIndex": parameter_index,
+            "value": value, "expectedPresetName": expected_preset_name}),
     )
     .await
 }
@@ -2171,6 +2395,7 @@ pub fn run() {
             undo_device,
             redo_device,
             inhibited_modules,
+            tuner_settings,
             preset_screenshot,
             capture_screen,
             tap_screen,
@@ -2183,6 +2408,10 @@ pub fn run() {
             add_block,
             remove_block,
             set_block_footswitch,
+            set_stomp_momentary,
+            set_stomp_label,
+            set_midi_out,
+            set_preset_load_midi_out,
             set_chain_input,
             set_chain_output,
             set_chain_split,
@@ -2192,8 +2421,15 @@ pub fn run() {
             recall_preset,
             reload_preset,
             block_details,
+            lane_control_details,
             preview_parameter,
+            preview_lane_control_parameter,
             set_parameter,
+            set_parameter_scene_mode,
+            set_lane_control_parameter,
+            set_lane_control_scene_mode,
+            set_parameter_expression,
+            set_expression_bypass,
             set_tempo,
             set_master_volume,
             current_master_volume,

@@ -188,8 +188,9 @@ test("Android relay has exact gateway parity with Windows", () => {
   }
   for (const implementation of [
     "relayReconnect", "relayDisconnect", "relayStateEvents", "relayTempoClock",
-    "relayCreateBackup", "device.previewParameter"
+    "relayCreateBackup"
   ]) assert.match(javaSource, new RegExp(implementation.replace(".", "\\.")));
+  assert.match(javaSource, /relayPreviewParameter\(method, params\)/);
   assert.match(nativeDecoderSource, /nativeTempoClock/);
   assert.match(nativeDecoderSource, /nativeConsumeBackupChunk/);
   assert.match(rustAndroidSource, /decode_tempo_clock/);

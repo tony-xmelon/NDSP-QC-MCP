@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { appendConversationMessage, assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
+import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
@@ -37,7 +38,7 @@ function loadQuotaLedger(): GeminiQuotaLedger {
 }
 
 function AppMark() {
-  return <span className="app-mark" aria-hidden="true"><img src="./app-icon.svg" alt="" /></span>;
+  return <span className="app-mark" aria-hidden="true"><img src={QC_VISUAL_ASSETS.appIcon.url} alt="" /></span>;
 }
 
 export function App() {

@@ -16,6 +16,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "services" / "device-gateway" / "src"))
 
 from qc_device_gateway.framing import FramingError, read_frame, write_frame
+from qc_device_gateway.generated_gateway_dispatch import GATEWAY_API_VERSION
 from qc_device_gateway.service import GatewayService
 from qc_device_gateway.device import PyQuadCortexDevice, _block_color, _catalog_audit, _conditional_parameter_hidden, _device_type_name, _editor_parameter_state, _factory_model_metadata, _format_parameter_number, _parameter_enabled, _png_response, _stomp_color
 from qc_device_gateway.native_transport import NativeBrokerTransport, _gunzip_bounded
@@ -63,6 +64,148 @@ class NativeTransportSafetyTests(unittest.TestCase):
 
 
 class DevicePositionTests(unittest.TestCase):
+    def test_parameter_assignment_methods_use_public_api_and_verify_readback(self):
+        parameter = {
+            "index": 4, "writable": True, "sceneMode": False,
+            "expressionAssignable": True, "expression": None,
+            "expressionMinimum": None, "expressionMaximum": None,
+        }
+
+        class Session:
+            def set_param_scene_mode(self, row, column, index, enabled):
+                self.scene_call = (row, column, index, enabled)
+                parameter["sceneMode"] = enabled
+
+            def set_expression(self, row, column, index, pedal, minimum, maximum):
+                self.expression_call = (row, column, index, pedal, minimum, maximum)
+                parameter.update(expression=pedal, expressionMinimum=minimum, expressionMaximum=maximum)
+
+        device = PyQuadCortexDevice()
+        session = Session()
+        device._qc = session
+        device.block_details = lambda row, column, expected="": {"parameters": [parameter]}
+        with patch("qc_device_gateway.device._wait_for_dirty", return_value=True):
+            scene = device.set_parameter_scene_mode(1, 2, 4, True, "Live")
+            expression = device.set_parameter_expression(1, 2, 4, 2, 0.8, 0.2, "Live")
+        self.assertEqual(session.scene_call, (1, 2, 4, True))
+        self.assertEqual(session.expression_call, (1, 2, 4, 2, 0.8, 0.2))
+        self.assertIn("verified", scene["detail"])
+        self.assertIn("verified", expression["detail"])
+
+    def test_parameter_assignment_validation_rejects_unsafe_values(self):
+        device = PyQuadCortexDevice()
+        device.block_details = lambda row, column, expected="": {
+            "parameters": [{"index": 1, "writable": True, "expressionAssignable": False}]
+        }
+        with self.assertRaisesRegex(ValueError, r"0 \(clear\), 1, or 2"):
+            device.set_parameter_expression(0, 0, 1, 3, 0, 1, "Live")
+        with self.assertRaisesRegex(ValueError, "normalized"):
+            device.set_parameter_expression(0, 0, 1, 1, -0.1, 1, "Live")
+        with self.assertRaisesRegex(RuntimeError, "cannot be assigned"):
+            device.set_parameter_expression(0, 0, 1, 1, 0, 1, "Live")
+
+    def test_stomp_metadata_methods_choose_storage_and_verify_readback(self):
+        assignment = SimpleNamespace(footswitch=3)
+        preset = SimpleNamespace(
+            stomp_is_momentary={}, stomp_labels={}, single_stomp_labels={},
+        )
+
+        class Session:
+            def set_stomp_momentary(self, footswitch, momentary):
+                preset.stomp_is_momentary[footswitch] = momentary
+
+            def set_stomp_label(self, footswitch, label, single=False):
+                (preset.single_stomp_labels if single else preset.stomp_labels)[footswitch] = label
+
+            def read_current_preset(self):
+                return preset
+
+        protocol = SimpleNamespace(stomp_assignments=lambda current: [assignment])
+        device = PyQuadCortexDevice()
+        device._qc = Session()
+        device._assert_expected_preset = lambda expected: preset
+        device.snapshot = lambda: {"presetName": "Live"}
+        with patch("qc_device_gateway.device._protocol_api", return_value=protocol), \
+             patch("qc_device_gateway.device._wait_for_dirty", return_value=True):
+            momentary = device.set_stomp_momentary(3, True, "Live")
+            label = device.set_stomp_label(3, "Solo", "Live")
+        self.assertTrue(preset.stomp_is_momentary[3])
+        self.assertEqual(preset.single_stomp_labels[3], "Solo")
+        self.assertIn("verified", momentary["detail"])
+        self.assertIn("verified", label["detail"])
+
+    def test_preset_midi_out_methods_validate_and_verify_replacement(self):
+        state = {"source": [], "load": []}
+        midi = lambda **values: SimpleNamespace(**values)
+        protocol = SimpleNamespace(
+            MidiOut=midi,
+            midi_out=lambda preset, source: state["source"],
+            preset_load_midi_out=lambda preset: state["load"],
+        )
+
+        class Session:
+            def set_midi_out(self, source, messages):
+                self.source = source
+                state["source"] = messages
+
+            def set_preset_load_midi_out(self, messages):
+                state["load"] = messages
+
+            def read_current_preset(self):
+                return object()
+
+        messages = [{"type": 1, "channel": 3, "param1": 10, "param2": 5, "param3": 120}]
+        device = PyQuadCortexDevice()
+        session = Session()
+        device._qc = session
+        device._assert_expected_preset = lambda expected: object()
+        device.snapshot = lambda: {"presetName": "Live"}
+        with patch("qc_device_gateway.device._protocol_api", return_value=protocol), \
+             patch("qc_device_gateway.device._wait_for_dirty", return_value=True):
+            source = device.set_midi_out(8, messages, "Live")
+            preset_load = device.set_preset_load_midi_out(messages, "Live")
+        self.assertEqual(session.source, 8)
+        self.assertIn("verified", source["detail"])
+        self.assertIn("verified", preset_load["detail"])
+        with self.assertRaisesRegex(ValueError, "at most 12"):
+            device.set_midi_out(0, messages * 13, "Live")
+
+    def test_expression_bypass_uses_typed_delay_and_verifies_all_fields(self):
+        assignment = SimpleNamespace(expression=0, expression_min=0.0, expression_max=1.0)
+        info = SimpleNamespace(type=0, invert=False, delay_ms=0, latch_emulation=False)
+
+        class Model:
+            column = 2
+            bypass_expression = [assignment]
+            expression_bypass_info = [info]
+            def HasField(self, field):
+                return field == "column"
+
+        preset = SimpleNamespace(chains=[SimpleNamespace(models=[Model()])])
+        class Milliseconds(float):
+            pass
+        class Session:
+            def set_expression_bypass(self, row, column, pedal, mode, invert, delay, latch):
+                self.delay = delay
+                assignment.expression = pedal
+                info.type, info.invert, info.delay_ms, info.latch_emulation = mode, invert, int(delay), latch
+            def read_current_preset(self):
+                return preset
+            def preset_dirty(self):
+                return True
+
+        session = Session()
+        device = PyQuadCortexDevice()
+        device._qc = session
+        device._assert_expected_preset = lambda expected: preset
+        device.snapshot = lambda: {"presetName": "Live"}
+        with patch("qc_device_gateway.device._protocol_api", return_value=SimpleNamespace(Milliseconds=Milliseconds)):
+            result = device.set_expression_bypass(0, 2, 2, 1, True, 250, True, "Live")
+        self.assertIsInstance(session.delay, Milliseconds)
+        self.assertIn("verified", result["detail"])
+        with self.assertRaisesRegex(ValueError, "1 or 2"):
+            device.set_expression_bypass(0, 2, 0, 1, False, 0, False, "Live")
+
     def test_block_details_prefers_the_shared_native_state_projection(self):
         expected = {
             "row": 1, "column": 2, "modelId": 101, "name": "Shared",
@@ -328,6 +471,7 @@ class FakeDevice:
     def undo(self): return {"detail": "undo"}
     def redo(self): return {"detail": "redo"}
     def inhibited_modules(self): return {"globalGate": False, "globalEq": True}
+    def tuner_settings(self): return {"inputPortId": 1, "referenceOffsetHz": 2.0, "referenceHz": 442.0, "muted": False}
     def preset_screenshot(self, folder_name, position, is_factory=False):
         return {"pngBase64": "preset", "width": 800, "height": 384, "target": f"{folder_name}:{position}:{is_factory}"}
     def capture_screen(self): return {"pngBase64": "screen", "width": 800, "height": 480}
@@ -372,6 +516,20 @@ class FakeDevice:
         return {"detail": f"preview {parameter_index}:{value}", "acceptedValue": value}
     def set_parameter(self, row, column, parameter_index, value, expected_value, expected_scene, expected_preset_name):
         return {"detail": f"parameter {parameter_index}:{value}", "block": self.block_details(row, column), "snapshot": self.snapshot()}
+    def set_parameter_scene_mode(self, row, column, parameter_index, enabled, expected_preset_name):
+        return {"detail": f"scene-mode {parameter_index}:{enabled}"}
+    def set_parameter_expression(self, row, column, parameter_index, pedal, minimum, maximum, expected_preset_name):
+        return {"detail": f"expression {parameter_index}:{pedal}:{minimum}:{maximum}"}
+    def set_expression_bypass(self, row, column, pedal, mode, invert, delay_ms, latch_emulation, expected_preset_name):
+        return {"detail": f"expression-bypass {row}:{column}:{pedal}:{mode}:{invert}:{delay_ms}:{latch_emulation}"}
+    def set_stomp_momentary(self, footswitch, momentary, expected_preset_name):
+        return {"detail": f"stomp-momentary {footswitch}:{momentary}"}
+    def set_stomp_label(self, footswitch, label, expected_preset_name):
+        return {"detail": f"stomp-label {footswitch}:{label}"}
+    def set_midi_out(self, source, messages, expected_preset_name):
+        return {"detail": f"midi-out {source}:{len(messages)}"}
+    def set_preset_load_midi_out(self, messages, expected_preset_name):
+        return {"detail": f"preset-midi-out {len(messages)}"}
     def set_tempo(self, bpm, expected_tempo, expected_preset_name):
         return {"detail": f"tempo {bpm}:{expected_tempo}", "snapshot": self.snapshot()}
     def set_master_volume(self, value, expected_value):
@@ -433,6 +591,19 @@ class PyQuadCortexParityTests(unittest.TestCase):
             "customName": "Stage QC", "deviceType": 0,
         })
         self.assertEqual(device.inhibited_modules(), {"globalGate": False, "globalEq": True})
+
+    def test_tuner_settings_read_projects_offset_and_absolute_reference(self):
+        qc = SimpleNamespace(tuner=lambda: SimpleNamespace(
+            input_port_id=5, frequency=1.99999809, mute=True,
+            HasField=lambda field: field in {"input_port_id", "frequency", "mute"},
+        ))
+        device = PyQuadCortexDevice()
+        device._qc = qc
+        result = device.tuner_settings()
+        self.assertEqual(result["inputPortId"], 5)
+        self.assertAlmostEqual(result["referenceOffsetHz"], 1.99999809)
+        self.assertAlmostEqual(result["referenceHz"], 441.99999809)
+        self.assertTrue(result["muted"])
 
     def test_history_name_and_remote_screen_delegate_to_pyquadcortex(self):
         calls = []
@@ -610,7 +781,7 @@ class ServiceTests(unittest.TestCase):
     def test_status_reports_save_as_and_remaining_write_lock(self):
         result = self.request("system.status")["result"]
         self.assertTrue(result["gatewayAvailable"])
-        self.assertEqual(result["gatewayApiVersion"], 3)
+        self.assertEqual(result["gatewayApiVersion"], GATEWAY_API_VERSION)
         self.assertIn("modelRepoParameterMetadata", result["capabilities"])
         self.assertNotIn("nativeBroker", result["capabilities"])
         self.assertIn("nativeStateEvents", result["capabilities"])

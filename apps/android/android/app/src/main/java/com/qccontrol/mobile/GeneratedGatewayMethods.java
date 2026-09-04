@@ -18,6 +18,7 @@ final class GeneratedGatewayMethods {
         "device.undo",
         "device.redo",
         "device.inhibitedModules",
+        "device.tunerSettings",
         "device.presetScreenshot",
         "device.captureScreen",
         "device.tapScreen",
@@ -30,6 +31,11 @@ final class GeneratedGatewayMethods {
         "device.addBlock",
         "device.removeBlock",
         "device.setBlockFootswitch",
+        "device.setStompMomentary",
+        "device.setStompLabel",
+        "device.setMidiOut",
+        "device.setPresetLoadMidiOut",
+        "device.setExpressionBypass",
         "device.setChainInput",
         "device.setChainOutput",
         "device.setChainSplit",
@@ -39,8 +45,14 @@ final class GeneratedGatewayMethods {
         "device.recallPreset",
         "device.reloadPreset",
         "device.blockDetails",
+        "device.laneControlDetails",
         "device.previewParameter",
+        "device.previewLaneControlParameter",
         "device.setParameter",
+        "device.setLaneControlParameter",
+        "device.setLaneControlSceneMode",
+        "device.setParameterSceneMode",
+        "device.setParameterExpression",
         "device.setTempo",
         "device.setMasterVolume",
         "device.masterVolume",
@@ -76,6 +88,7 @@ final class GeneratedGatewayMethods {
             case "device.undo": return "PLANNED_WRITE";
             case "device.redo": return "PLANNED_WRITE";
             case "device.inhibitedModules": return "CORRELATED_READ";
+            case "device.tunerSettings": return "CORRELATED_READ";
             case "device.presetScreenshot": return "CORRELATED_READ";
             case "device.captureScreen": return "CORRELATED_READ";
             case "device.tapScreen": return "TAP_SCREEN";
@@ -88,6 +101,11 @@ final class GeneratedGatewayMethods {
             case "device.addBlock": return "PLANNED_WRITE";
             case "device.removeBlock": return "PLANNED_WRITE";
             case "device.setBlockFootswitch": return "PLANNED_WRITE";
+            case "device.setStompMomentary": return "PLANNED_WRITE";
+            case "device.setStompLabel": return "PLANNED_WRITE";
+            case "device.setMidiOut": return "PLANNED_WRITE";
+            case "device.setPresetLoadMidiOut": return "PLANNED_WRITE";
+            case "device.setExpressionBypass": return "PLANNED_WRITE";
             case "device.setChainInput": return "PLANNED_WRITE";
             case "device.setChainOutput": return "PLANNED_WRITE";
             case "device.setChainSplit": return "PLANNED_WRITE";
@@ -97,8 +115,14 @@ final class GeneratedGatewayMethods {
             case "device.recallPreset": return "PRESET_WRITE";
             case "device.reloadPreset": return "PRESET_WRITE";
             case "device.blockDetails": return "BLOCK_DETAILS";
+            case "device.laneControlDetails": return "BLOCK_DETAILS";
             case "device.previewParameter": return "PREVIEW_PARAMETER";
+            case "device.previewLaneControlParameter": return "PREVIEW_PARAMETER";
             case "device.setParameter": return "PLANNED_WRITE";
+            case "device.setLaneControlParameter": return "PLANNED_WRITE";
+            case "device.setLaneControlSceneMode": return "PLANNED_WRITE";
+            case "device.setParameterSceneMode": return "PLANNED_WRITE";
+            case "device.setParameterExpression": return "PLANNED_WRITE";
             case "device.setTempo": return "PLANNED_WRITE";
             case "device.setMasterVolume": return "PLANNED_WRITE";
             case "device.masterVolume": return "MASTER_VOLUME";

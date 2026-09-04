@@ -1,0 +1,45 @@
+{
+  "captureSize": { "width": 800, "height": 480 },
+  "screenshots": [
+    "01-navigation-32E.png",
+    "02-volume-62.png",
+    "03-tempo-73.png",
+    "04-buttons-a-through-h.png",
+    "05-final-restored-state.png",
+    "06-navigation-repeated-32D.png",
+    "07-navigation-repeated-down-32F.png",
+    "08-event-driven-navigation-32F.png"
+  ],
+  "commonPalette": [
+    { "name": "screen", "color": "#000000", "minimumPixels": 250000 },
+    { "name": "routePill", "color": "#101010", "minimumPixels": 15000 },
+    { "name": "routeRail", "color": "#C6C3C6", "minimumPixels": 700 },
+    { "name": "utilityMark", "color": "#949694", "minimumPixels": 300 },
+    { "name": "primaryText", "color": "#FFFFFF", "minimumPixels": 300 }
+  ],
+  "unsavedScreenshots": [
+    "01-navigation-32E.png",
+    "02-volume-62.png",
+    "05-final-restored-state.png",
+    "06-navigation-repeated-32D.png",
+    "07-navigation-repeated-down-32F.png",
+    "08-event-driven-navigation-32F.png"
+  ],
+  "variants": [
+    { "file": "01-navigation-32E.png", "name": "presetCyan", "color": "#84DBFF", "minimumPixels": 500 },
+    { "file": "06-navigation-repeated-32D.png", "name": "presetMagenta", "color": "#FF00C6", "minimumPixels": 500 },
+    { "file": "07-navigation-repeated-down-32F.png", "name": "presetViolet", "color": "#6B55FF", "minimumPixels": 400 },
+    { "file": "08-event-driven-navigation-32F.png", "name": "presetViolet", "color": "#6B55FF", "minimumPixels": 400 }
+  ],
+  "regions": [
+    { "name": "undoGlyph", "file": "05-final-restored-state.png", "rect": [600, 2, 46, 46], "color": "#FFFFFF", "minimumPixels": 12 },
+    { "name": "sceneBadge", "file": "05-final-restored-state.png", "rect": [650, 5, 40, 40], "color": "#FFD331", "minimumPixels": 120 },
+    { "name": "saveGlyph", "file": "05-final-restored-state.png", "rect": [698, 4, 42, 42], "color": "#FFFFFF", "minimumPixels": 12 },
+    { "name": "menuGlyph", "file": "05-final-restored-state.png", "rect": [754, 3, 24, 44], "color": "#FFFFFF", "minimumPixels": 3 },
+    { "name": "modeGlyph", "file": "05-final-restored-state.png", "rect": [645, 48, 151, 44], "color": "#FFFFFF", "minimumPixels": 18 },
+    { "name": "inputPill", "file": "05-final-restored-state.png", "rect": [8, 110, 44, 75], "color": "#101010", "minimumPixels": 1500 },
+    { "name": "addBlock", "file": "05-final-restored-state.png", "rect": [68, 110, 64, 74], "color": "#101010", "minimumPixels": 1800 },
+    { "name": "routeRail", "file": "05-final-restored-state.png", "rect": [136, 140, 612, 14], "color": "#C6C3C6", "minimumPixels": 400 },
+    { "name": "unsavedTitle", "file": "05-final-restored-state.png", "rect": [150, 18, 320, 67], "color": "#313031", "minimumPixels": 500 }
+  ]
+}

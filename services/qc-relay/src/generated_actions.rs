@@ -52,6 +52,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "get_lane_control_details",
+        rpc: "device.laneControlDetails",
+        class: ActionClass::Read,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "list_models",
         rpc: "device.listModels",
         class: ActionClass::Read,
@@ -94,6 +100,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "get_tuner_settings",
+        rpc: "device.tunerSettings",
+        class: ActionClass::Read,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "get_preset_screenshot",
         rpc: "device.presetScreenshot",
         class: ActionClass::Read,
@@ -108,6 +120,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
     ActionPolicy {
         name: "preview_parameter",
         rpc: "device.previewParameter",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "preview_lane_control_parameter",
+        rpc: "device.previewLaneControlParameter",
         class: ActionClass::LiveWrite,
         required_argument_confirmations: NONE,
     },
@@ -238,6 +256,36 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "set_parameter_scene_mode",
+        rpc: "device.setParameterSceneMode",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_parameter_expression",
+        rpc: "device.setParameterExpression",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_lane_control_parameter",
+        rpc: "device.setLaneControlParameter",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_lane_control_scene_mode",
+        rpc: "device.setLaneControlSceneMode",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_expression_bypass",
+        rpc: "device.setExpressionBypass",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "move_block",
         rpc: "device.moveBlock",
         class: ActionClass::LiveWrite,
@@ -258,6 +306,30 @@ pub static ACTIONS: &[ActionPolicy] = &[
     ActionPolicy {
         name: "set_block_footswitch",
         rpc: "device.setBlockFootswitch",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_stomp_momentary",
+        rpc: "device.setStompMomentary",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_stomp_label",
+        rpc: "device.setStompLabel",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_midi_out",
+        rpc: "device.setMidiOut",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_preset_load_midi_out",
+        rpc: "device.setPresetLoadMidiOut",
         class: ActionClass::LiveWrite,
         required_argument_confirmations: NONE,
     },

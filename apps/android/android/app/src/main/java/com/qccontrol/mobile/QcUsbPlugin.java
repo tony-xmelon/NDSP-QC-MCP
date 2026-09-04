@@ -411,11 +411,13 @@ public class QcUsbPlugin extends Plugin {
                     if (currentMasterVolume < 0) return failedRelay("STATE_UNAVAILABLE", "The Quad Cortex has not reported master volume yet.");
                     return CompletableFuture.completedFuture(new org.json.JSONObject().put("value", currentMasterVolume).put("observedAt", lastStateAt));
                 case "BLOCK_DETAILS": return CompletableFuture.completedFuture(
-                    stateDecoder.blockDetails(params.getInt("row"), params.getInt("column")));
+                    "device.laneControlDetails".equals(method)
+                        ? stateDecoder.laneControlDetails(params.getInt("row"), params.getString("control"))
+                        : stateDecoder.blockDetails(params.getInt("row"), params.getInt("column")));
                 case "SET_DEVICE_NAME": return relaySetDeviceName(params);
                 case "TAP_SCREEN": return relayTapScreen(params);
                 case "BACKUP": return relayCreateBackup(params);
-                case "PREVIEW_PARAMETER": return relayPreviewParameter(params);
+                case "PREVIEW_PARAMETER": return relayPreviewParameter(method, params);
                 case "PLANNED_WRITE": return relayPlannedGatewayWrite(method, params, 2500);
                 case "PRESET_WRITE": return relayPlannedGatewayWrite(method, params, 15000);
                 case "PERSISTENT_WRITE": return relayGatewayWorkflow(method, params);
@@ -525,9 +527,9 @@ public class QcUsbPlugin extends Plugin {
             });
     }
 
-    private CompletableFuture<org.json.JSONObject> relayPreviewParameter(org.json.JSONObject params) throws Exception {
+    private CompletableFuture<org.json.JSONObject> relayPreviewParameter(String method, org.json.JSONObject params) throws Exception {
         double value = params.optDouble("value", Double.NaN);
-        return relayPlannedGatewayWrite("device.previewParameter", params, 2500)
+        return relayPlannedGatewayWrite(method, params, 2500)
             .thenApply(result -> {
                 try {
                     return result.put("acceptedValue", value);

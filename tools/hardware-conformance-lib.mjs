@@ -10,6 +10,7 @@ export const CASES = Object.freeze({
   get_state_events: { phase: "read", hazard: "read" },
   get_tempo_clock: { phase: "read", hazard: "read" },
   get_block_details: { phase: "read", hazard: "read" },
+  get_lane_control_details: { phase: "read", hazard: "read" },
   list_models: { phase: "read", hazard: "read" },
   list_presets: { phase: "read", hazard: "read" },
   list_preset_folders: { phase: "read", hazard: "read" },
@@ -17,9 +18,11 @@ export const CASES = Object.freeze({
   get_master_volume: { phase: "read", hazard: "read" },
   get_device_identity: { phase: "read", hazard: "read" },
   get_inhibited_modules: { phase: "read", hazard: "read" },
+  get_tuner_settings: { phase: "read", hazard: "read" },
   get_preset_screenshot: { phase: "read", hazard: "read" },
   capture_screen: { phase: "read", hazard: "read" },
   preview_parameter: { phase: "modify", hazard: "live" },
+  preview_lane_control_parameter: { phase: "modify", hazard: "live" },
   create_device_backup: { phase: "persistent", hazard: "persistent" },
   set_device_name: { phase: "system", hazard: "system" },
   undo_device: { phase: "modify", hazard: "live" },
@@ -41,10 +44,19 @@ export const CASES = Object.freeze({
   set_tempo: { phase: "performance", hazard: "live" },
   set_bypass: { phase: "modify", hazard: "live" },
   set_parameter: { phase: "modify", hazard: "live" },
+  set_parameter_scene_mode: { phase: "modify", hazard: "live" },
+  set_parameter_expression: { phase: "modify", hazard: "live" },
+  set_lane_control_parameter: { phase: "modify", hazard: "live" },
+  set_lane_control_scene_mode: { phase: "modify", hazard: "live" },
+  set_expression_bypass: { phase: "modify", hazard: "live" },
   move_block: { phase: "modify", hazard: "live" },
   add_block: { phase: "modify", hazard: "live" },
   remove_block: { phase: "modify", hazard: "live" },
   set_block_footswitch: { phase: "modify", hazard: "live" },
+  set_stomp_momentary: { phase: "modify", hazard: "live" },
+  set_stomp_label: { phase: "modify", hazard: "live" },
+  set_midi_out: { phase: "modify", hazard: "live" },
+  set_preset_load_midi_out: { phase: "modify", hazard: "live" },
   set_chain_input: { phase: "modify", hazard: "live" },
   set_chain_output: { phase: "modify", hazard: "live" },
   set_chain_split: { phase: "modify", hazard: "live" },
@@ -153,7 +165,7 @@ export function gatewayArguments(actionName, args) {
   const output = {};
   for (const [key, value] of Object.entries(args ?? {})) {
     if (key === "confirm_risky_operation" || key === "confirm_persistent_write") continue;
-    if (actionName === "preview_parameter" && key === "expected_value") continue;
+    if ((actionName === "preview_parameter" || actionName === "preview_lane_control_parameter") && key === "expected_value") continue;
     const target = actionName === "rename_current_preset" && key === "new_name" ? "name" : snakeToCamel(key);
     output[target] = value;
   }

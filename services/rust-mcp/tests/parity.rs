@@ -328,6 +328,46 @@ async fn newer_device_actions_enforce_confirmation_and_screen_bounds() {
 }
 
 #[tokio::test]
+async fn midi_out_messages_are_bounded_and_forwarded_without_schema_drift() {
+    let (server, backend) = server();
+    let invalid = json!({
+        "source": 0,
+        "messages": [{"type":1,"channel":17,"param1":0,"param2":0,"param3":0}],
+        "expected_preset_name": "Test"
+    });
+    assert!(
+        server
+            .execute(
+                &route(),
+                "set_midi_out",
+                Some(invalid.as_object().unwrap().clone()),
+            )
+            .await
+            .is_err()
+    );
+    assert!(backend.0.lock().unwrap().is_empty());
+
+    let messages = json!([{"type":1,"channel":16,"param1":119,"param2":1,"param3":0}]);
+    server
+        .execute(
+            &route(),
+            "set_midi_out",
+            Some(
+                json!({"source":0,"messages":messages,"expected_preset_name":"Test"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let calls = backend.0.lock().unwrap();
+    assert_eq!(calls[0].0, "device.setMidiOut");
+    assert_eq!(calls[0].1["messages"], messages);
+    assert_eq!(calls[0].1["expectedPresetName"], "Test");
+}
+
+#[tokio::test]
 async fn read_only_device_introspection_maps_to_new_gateway_rpcs() {
     let (server, backend) = server();
     server
@@ -396,11 +436,12 @@ async fn scene_management_validates_and_preserves_nullable_labels() {
         )
         .await
         .unwrap();
-    let calls = backend.0.lock().unwrap();
-    assert_eq!(calls[0].0, "device.setSceneLabel");
-    assert!(calls[0].1.contains_key("label"));
-    assert!(calls[0].1["label"].is_null());
-    drop(calls);
+    {
+        let calls = backend.0.lock().unwrap();
+        assert_eq!(calls[0].0, "device.setSceneLabel");
+        assert!(calls[0].1.contains_key("label"));
+        assert!(calls[0].1["label"].is_null());
+    }
 
     assert!(
         server

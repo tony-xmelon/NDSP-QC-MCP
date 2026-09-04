@@ -9,8 +9,9 @@ use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
     decode_captured_screen, decode_device_identity, decode_inhibited_modules,
-    decode_preset_screenshot, PngImage,
+    decode_preset_screenshot, decode_tuner_settings, PngImage,
 };
+use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -143,6 +144,27 @@ pub enum GatewayVerification {
         row: u32,
         column: u32,
         footswitch: Option<u32>,
+    },
+    StompMomentary {
+        footswitch: u32,
+        momentary: bool,
+    },
+    StompLabel {
+        footswitch: u32,
+        label: String,
+    },
+    MidiOut {
+        source: Option<u32>,
+        messages: Vec<MidiOutMessage>,
+    },
+    ExpressionBypass {
+        row: u32,
+        column: u32,
+        pedal: u32,
+        mode: u32,
+        invert: bool,
+        delay_ms: u32,
+        latch_emulation: bool,
     },
     RouteInput {
         row: u32,
@@ -304,7 +326,7 @@ impl GatewayVerification {
                         });
                 let swapped_color =
                     !swap || scene_copy_color_matches(snapshot, *from_scene, to_color);
-                snapshot.dirty && copied_label && copied_color && swapped_label && swapped_color
+                copied_label && copied_color && swapped_label && swapped_color
             }
             Self::Tempo { bpm } => snapshot.tempo == *bpm,
             Self::MasterVolume { value } => snapshot.master_volume == *value,
@@ -348,6 +370,62 @@ impl GatewayVerification {
                 .iter()
                 .find(|block| block.row == *row && block.column == *column)
                 .is_some_and(|block| block.footswitch == *footswitch),
+            Self::StompMomentary {
+                footswitch,
+                momentary,
+            } => {
+                snapshot
+                    .footswitch_states
+                    .as_ref()
+                    .and_then(|states| states.iter().find(|state| state.index == *footswitch))
+                    .and_then(|state| state.momentary)
+                    == Some(*momentary)
+            }
+            Self::StompLabel { footswitch, label } => {
+                snapshot
+                    .footswitch_states
+                    .as_ref()
+                    .and_then(|states| states.iter().find(|state| state.index == *footswitch))
+                    .and_then(|state| state.label.as_deref())
+                    == Some(label.as_str())
+            }
+            Self::MidiOut { source, messages } => match source {
+                Some(source) => {
+                    snapshot
+                        .midi_out
+                        .as_ref()
+                        .and_then(|groups| groups.iter().find(|group| group.source == *source))
+                        .map(|group| group.messages.as_slice())
+                        .unwrap_or_default()
+                        == messages.as_slice()
+                }
+                None => {
+                    snapshot.preset_load_midi_out.as_deref().unwrap_or_default()
+                        == messages.as_slice()
+                }
+            },
+            Self::ExpressionBypass {
+                row,
+                column,
+                pedal,
+                mode,
+                invert,
+                delay_ms,
+                latch_emulation,
+            } => snapshot
+                .blocks
+                .iter()
+                .find(|block| block.row == *row && block.column == *column)
+                .and_then(|block| block.bypass_expression.as_ref())
+                .is_some_and(|actual| {
+                    actual.pedal == *pedal
+                        && actual.mode == *mode
+                        && actual.invert == *invert
+                        && actual.delay_ms == *delay_ms
+                        && actual.latch_emulation == *latch_emulation
+                        && (actual.minimum - 0.0).abs() <= 0.001
+                        && (actual.maximum - 1.0).abs() <= 0.001
+                }),
             Self::RouteInput { row, input_id } => {
                 snapshot
                     .routes
@@ -453,6 +531,7 @@ pub struct PresetMutationPlan {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum GatewayResponseProjection {
     DeviceIdentity,
+    TunerSettings,
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -479,6 +558,10 @@ impl GatewayResponseProjection {
         match self {
             Self::DeviceIdentity => serde_json::to_value(
                 decode_device_identity(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::TunerSettings => serde_json::to_value(
+                decode_tuner_settings(payload).map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -550,6 +633,12 @@ pub fn plan_gateway_read(
             response_type: 10,
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::DeviceIdentity,
+        }),
+        "device.tunerSettings" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadTuner,
+            response_type: 6,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::TunerSettings,
         }),
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
@@ -1131,6 +1220,42 @@ fn normalized(params: &Value, field: &str) -> Result<f32, String> {
         .ok_or_else(|| format!("{field} must be a number from zero through one"))
 }
 
+fn midi_out_messages(params: &Value) -> Result<Vec<MidiOutMessage>, String> {
+    let values = params
+        .get("messages")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "messages must be an array".to_string())?;
+    if values.len() > 12 {
+        return Err("A MIDI Out source supports at most 12 messages".into());
+    }
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let object = value
+                .as_object()
+                .ok_or_else(|| format!("messages[{index}] must be an object"))?;
+            let field = |name: &str, minimum: u32, maximum: u32| {
+                object
+                    .get(name)
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u32::try_from(value).ok())
+                    .filter(|value| (minimum..=maximum).contains(value))
+                    .ok_or_else(|| {
+                        format!("messages[{index}].{name} must be {minimum} through {maximum}")
+                    })
+            };
+            Ok(MidiOutMessage {
+                r#type: field("type", 1, 3)?,
+                channel: field("channel", 1, 16)?,
+                param1: field("param1", 0, 127)?,
+                param2: field("param2", 0, 127)?,
+                param3: field("param3", 0, 127)?,
+            })
+        })
+        .collect()
+}
+
 fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String> {
     let row = || bounded_u32(params, "row", domain::GRID_ROWS - 1);
     let column = |field: &str| bounded_u32(params, field, domain::GRID_COLUMNS - 1);
@@ -1210,22 +1335,99 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
                 value: normalized(params, "value")?,
             })
         }
+        "device.setLaneControlParameter" | "setLaneControlParameter" => {
+            let control = required_text(params, "control")?;
+            if !matches!(control.as_str(), "inputGate" | "laneOutput") {
+                return Err("control must be inputGate or laneOutput".into());
+            }
+            Ok(DeviceOperation::SetLaneControlParameter {
+                row: row()?,
+                control,
+                parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
+                value: normalized(params, "value")?,
+            })
+        }
+        "device.setLaneControlSceneMode" | "setLaneControlSceneMode" => {
+            let control = required_text(params, "control")?;
+            if !matches!(control.as_str(), "inputGate" | "laneOutput") {
+                return Err("control must be inputGate or laneOutput".into());
+            }
+            Ok(DeviceOperation::SetLaneControlSceneMode {
+                row: row()?,
+                control,
+                parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
+                enabled: boolean(params, "enabled")?,
+            })
+        }
         "device.setParameterSceneMode" | "setParameterSceneMode" => {
+            let column = bounded_u32(params, "column", domain::GRID_COLUMNS + 1)?;
+            if column >= domain::GRID_COLUMNS && row()? % 2 != 0 {
+                return Err("Splitter and mixer parameters exist only on rows 0 and 2".into());
+            }
             Ok(DeviceOperation::SetParameterSceneMode {
                 row: row()?,
-                column: column("column")?,
+                column,
                 parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
                 enabled: boolean(params, "enabled")?,
             })
         }
         "device.setParameterExpression" | "setParameterExpression" => {
+            let column = bounded_u32(params, "column", domain::GRID_COLUMNS + 1)?;
+            if column >= domain::GRID_COLUMNS && row()? % 2 != 0 {
+                return Err("Splitter and mixer parameters exist only on rows 0 and 2".into());
+            }
             Ok(DeviceOperation::SetParameterExpression {
                 row: row()?,
-                column: column("column")?,
+                column,
                 parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
                 pedal: bounded_u32(params, "pedal", 2)?,
                 minimum: normalized(params, "minimum")?,
                 maximum: normalized(params, "maximum")?,
+            })
+        }
+        "device.setStompMomentary" | "setStompMomentary" => {
+            Ok(DeviceOperation::SetStompMomentary {
+                footswitch: bounded_u32(params, "footswitch", domain::SCENE_COUNT - 1)?,
+                momentary: boolean(params, "momentary")?,
+            })
+        }
+        "device.setStompLabel" | "setStompLabel" => {
+            let label = required_text(params, "label")?;
+            if label.chars().count() > 32 || label.chars().any(char::is_control) {
+                return Err("label must contain at most 32 printable characters".into());
+            }
+            Ok(DeviceOperation::SetStompLabel {
+                footswitch: bounded_u32(params, "footswitch", domain::SCENE_COUNT - 1)?,
+                label,
+                single: params
+                    .get("single")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            })
+        }
+        "device.setMidiOut" | "setMidiOut" => Ok(DeviceOperation::SetMidiOut {
+            source: bounded_u32(params, "source", 9)?,
+            messages: midi_out_messages(params)?,
+        }),
+        "device.setPresetLoadMidiOut" | "setPresetLoadMidiOut" => {
+            Ok(DeviceOperation::SetPresetLoadMidiOut {
+                messages: midi_out_messages(params)?,
+            })
+        }
+        "device.setExpressionBypass" | "setExpressionBypass" => {
+            Ok(DeviceOperation::SetExpressionBypass {
+                row: row()?,
+                column: column("column")?,
+                pedal: params
+                    .get("pedal")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u32::try_from(value).ok())
+                    .filter(|value| (1..=2).contains(value))
+                    .ok_or_else(|| "pedal must be 1 or 2".to_string())?,
+                mode: bounded_u32(params, "mode", 2)?,
+                invert: boolean(params, "invert")?,
+                delay_ms: bounded_u32(params, "delayMs", 5_000)?,
+                latch_emulation: boolean(params, "latchEmulation")?,
             })
         }
         "listPresetFolders" => Ok(DeviceOperation::ListPresetFolders),
@@ -1310,6 +1512,44 @@ fn verification_for_operation(
             column: *column,
             footswitch: *footswitch,
         },
+        DeviceOperation::SetStompMomentary {
+            footswitch,
+            momentary,
+        } => GatewayVerification::StompMomentary {
+            footswitch: *footswitch,
+            momentary: *momentary,
+        },
+        DeviceOperation::SetStompLabel {
+            footswitch, label, ..
+        } => GatewayVerification::StompLabel {
+            footswitch: *footswitch,
+            label: label.clone(),
+        },
+        DeviceOperation::SetMidiOut { source, messages } => GatewayVerification::MidiOut {
+            source: Some(*source),
+            messages: messages.clone(),
+        },
+        DeviceOperation::SetPresetLoadMidiOut { messages } => GatewayVerification::MidiOut {
+            source: None,
+            messages: messages.clone(),
+        },
+        DeviceOperation::SetExpressionBypass {
+            row,
+            column,
+            pedal,
+            mode,
+            invert,
+            delay_ms,
+            latch_emulation,
+        } => GatewayVerification::ExpressionBypass {
+            row: *row,
+            column: *column,
+            pedal: *pedal,
+            mode: *mode,
+            invert: *invert,
+            delay_ms: *delay_ms,
+            latch_emulation: *latch_emulation,
+        },
         DeviceOperation::SetChainInput { row, input_id } => GatewayVerification::RouteInput {
             row: *row,
             input_id: *input_id,
@@ -1373,6 +1613,8 @@ fn verification_for_operation(
             .unwrap_or(GatewayVerification::None),
         DeviceOperation::Command(_)
         | DeviceOperation::SetRoutingParameter { .. }
+        | DeviceOperation::SetLaneControlParameter { .. }
+        | DeviceOperation::SetLaneControlSceneMode { .. }
         | DeviceOperation::SetParameterSceneMode { .. }
         | DeviceOperation::SetParameterExpression { .. }
         | DeviceOperation::ListPresetFolders
@@ -1381,6 +1623,7 @@ fn verification_for_operation(
         | DeviceOperation::Undo
         | DeviceOperation::Redo
         | DeviceOperation::ReadInhibitedModules
+        | DeviceOperation::ReadTuner
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -1427,25 +1670,46 @@ pub fn plan_gateway_write(
         }
         "device.previewParameter" | "device.setParameter" | "device.command.parameter" => {
             let row = bounded_u32(params, "row", domain::GRID_ROWS - 1)?;
-            let column = bounded_u32(params, "column", domain::GRID_COLUMNS - 1)?;
+            let column = bounded_u32(params, "column", domain::GRID_COLUMNS + 1)?;
             let parameter_index = bounded_u32(params, "parameterIndex", u32::MAX)?;
-            let command = if let Some(text) = params.get("text").and_then(Value::as_str) {
-                DeviceCommand::SetParameterText {
+            let numeric_value = params.get("value").and_then(Value::as_f64);
+            let write = if column >= domain::GRID_COLUMNS {
+                if row % 2 != 0 {
+                    return Err("Splitter and mixer parameters exist only on rows 0 and 2".into());
+                }
+                if params.get("text").is_some() {
+                    return Err(
+                        "Splitter and mixer parameters use normalized numeric values".into(),
+                    );
+                }
+                PlannedWrite::HidOperation(DeviceOperation::SetRoutingParameter {
+                    row,
+                    node: if column == domain::GRID_COLUMNS {
+                        "splitter"
+                    } else {
+                        "mixer"
+                    }
+                    .into(),
+                    parameter_index,
+                    value: normalized(params, "value")?,
+                })
+            } else if let Some(text) = params.get("text").and_then(Value::as_str) {
+                PlannedWrite::HidCommand(DeviceCommand::SetParameterText {
                     row,
                     column,
                     parameter_index,
                     value: text.into(),
-                }
+                })
             } else {
-                DeviceCommand::SetParameterNumeric {
+                PlannedWrite::HidCommand(DeviceCommand::SetParameterNumeric {
                     row,
                     column,
                     parameter_index,
                     value: normalized(params, "value")?,
-                }
+                })
             };
             GatewayWritePlan {
-                write: PlannedWrite::HidCommand(command),
+                write,
                 detail: if method == "device.previewParameter" {
                     "Parameter preview sent"
                 } else {
@@ -1459,14 +1723,29 @@ pub fn plan_gateway_write(
                         row,
                         column,
                         parameter_index,
-                        value: params
-                            .get("value")
-                            .and_then(Value::as_f64)
-                            .unwrap_or_default(),
+                        value: numeric_value.unwrap_or_default(),
                     }
                 },
             }
         }
+        "device.previewLaneControlParameter" | "device.setLaneControlParameter" => {
+            let operation = operation("setLaneControlParameter", params)?;
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation),
+                detail: if method == "device.previewLaneControlParameter" {
+                    "Lane control parameter preview sent"
+                } else {
+                    "Lane control parameter update sent to the Quad Cortex"
+                }
+                .into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setLaneControlSceneMode" => GatewayWritePlan {
+            write: PlannedWrite::HidOperation(operation("setLaneControlSceneMode", params)?),
+            detail: "Lane control scene behavior updated".into(),
+            verification: GatewayVerification::None,
+        },
         "device.setTempo" | "device.command.tempo" => {
             let bpm = bounded_u32(params, "bpm", domain::MAXIMUM_TEMPO_BPM)?;
             if bpm < domain::MINIMUM_TEMPO_BPM {
@@ -1590,6 +1869,70 @@ pub fn plan_gateway_write(
                     "Parameter scene behavior sent to the Quad Cortex"
                 } else {
                     "Parameter expression assignment sent to the Quad Cortex"
+                }
+                .into(),
+            }
+        }
+        "device.setStompMomentary" => {
+            let operation = operation(method, params)?;
+            let DeviceOperation::SetStompMomentary { footswitch, .. } = operation else {
+                unreachable!();
+            };
+            let assigned = snapshot
+                .ok_or_else(|| {
+                    "A synchronized preset is required to change stomp behavior".to_string()
+                })?
+                .blocks
+                .iter()
+                .filter(|block| block.footswitch == Some(footswitch))
+                .count();
+            if assigned != 1 {
+                return Err(format!(
+                    "Footswitch {} must drive exactly one block to change latching behavior; it currently drives {assigned}",
+                    (b'A' + footswitch as u8) as char
+                ));
+            }
+            GatewayWritePlan {
+                verification: verification_for_operation(&operation, params, snapshot),
+                write: PlannedWrite::HidOperation(operation),
+                detail: "STOMP latching behavior sent to the Quad Cortex".into(),
+            }
+        }
+        "device.setStompLabel" => {
+            let footswitch = bounded_u32(params, "footswitch", domain::SCENE_COUNT - 1)?;
+            let label = required_text(params, "label")?;
+            if label.chars().count() > 32 || label.chars().any(char::is_control) {
+                return Err("label must contain at most 32 printable characters".into());
+            }
+            let single = snapshot
+                .ok_or_else(|| {
+                    "A synchronized preset is required to label a stomp switch".to_string()
+                })?
+                .blocks
+                .iter()
+                .filter(|block| block.footswitch == Some(footswitch))
+                .count()
+                == 1;
+            let operation = DeviceOperation::SetStompLabel {
+                footswitch,
+                label,
+                single,
+            };
+            GatewayWritePlan {
+                verification: verification_for_operation(&operation, params, snapshot),
+                write: PlannedWrite::HidOperation(operation),
+                detail: "STOMP label sent to the Quad Cortex".into(),
+            }
+        }
+        "device.setMidiOut" | "device.setPresetLoadMidiOut" | "device.setExpressionBypass" => {
+            let operation = operation(method, params)?;
+            GatewayWritePlan {
+                verification: verification_for_operation(&operation, params, snapshot),
+                write: PlannedWrite::HidOperation(operation),
+                detail: match method {
+                    "device.setMidiOut" => "Preset MIDI Out source sent to the Quad Cortex",
+                    "device.setPresetLoadMidiOut" => "Preset-load MIDI Out sent to the Quad Cortex",
+                    _ => "Expression bypass assignment sent to the Quad Cortex",
                 }
                 .into(),
             }
@@ -1811,6 +2154,15 @@ mod tests {
         };
         assert!(copy.verification.matches(&copied, None));
 
+        let restore = plan_gateway_write(
+            "device.copyScene",
+            &json!({"fromScene": 1, "toScene": 3, "swap": true, "expectedPresetName": "Scene Test"}),
+            Some(&copied),
+        )
+        .unwrap();
+        assert!(!snapshot.dirty);
+        assert!(restore.verification.matches(&snapshot, None));
+
         let label = plan_gateway_write(
             "device.setSceneLabel",
             &json!({"scene": 2, "label": "Lead", "expectedPresetName": "Scene Test"}),
@@ -1856,6 +2208,294 @@ mod tests {
     }
 
     #[test]
+    fn parameter_assignments_are_validated_and_planned_in_shared_rust() {
+        let snapshot = GatewaySnapshot {
+            preset_name: "Assignment Test".into(),
+            ..GatewaySnapshot::default()
+        };
+        let scene_mode = plan_gateway_write(
+            "device.setParameterSceneMode",
+            &json!({
+                "row": 1,
+                "column": 4,
+                "parameterIndex": 7,
+                "enabled": true,
+                "expectedPresetName": "Assignment Test"
+            }),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert_eq!(
+            scene_mode.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetParameterSceneMode {
+                row: 1,
+                column: 4,
+                parameter_index: 7,
+                enabled: true,
+            })
+        );
+
+        let expression = plan_gateway_write(
+            "device.setParameterExpression",
+            &json!({
+                "row": 1,
+                "column": 4,
+                "parameterIndex": 7,
+                "pedal": 2,
+                "minimum": 0.9,
+                "maximum": 0.1,
+                "expectedPresetName": "Assignment Test"
+            }),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert_eq!(
+            expression.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetParameterExpression {
+                row: 1,
+                column: 4,
+                parameter_index: 7,
+                pedal: 2,
+                minimum: 0.9,
+                maximum: 0.1,
+            })
+        );
+        let splitter_scene = plan_gateway_write(
+            "device.setParameterSceneMode",
+            &json!({"row": 0, "column": 8, "parameterIndex": 4, "enabled": true,
+                "expectedPresetName": "Assignment Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(
+            splitter_scene.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetParameterSceneMode {
+                row: 0,
+                column: 8,
+                parameter_index: 4,
+                enabled: true
+            })
+        ));
+        let mixer_expression = plan_gateway_write(
+            "device.setParameterExpression",
+            &json!({"row": 2, "column": 9, "parameterIndex": 3, "pedal": 1,
+                "minimum": 0.2, "maximum": 0.9, "expectedPresetName": "Assignment Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(
+            mixer_expression.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetParameterExpression {
+                row: 2,
+                column: 9,
+                parameter_index: 3,
+                pedal: 1,
+                ..
+            })
+        ));
+        assert!(plan_gateway_write(
+            "device.setParameterSceneMode",
+            &json!({"row": 1, "column": 8, "parameterIndex": 4, "enabled": true}),
+            Some(&snapshot),
+        )
+        .is_err());
+        assert!(plan_gateway_write(
+            "device.setParameterExpression",
+            &json!({"row": 1, "column": 4, "parameterIndex": 7, "pedal": 3, "minimum": 0.0, "maximum": 1.0}),
+            Some(&snapshot),
+        )
+        .is_err());
+        assert!(plan_gateway_write(
+            "device.setParameterExpression",
+            &json!({"row": 1, "column": 4, "parameterIndex": 7, "pedal": 1, "minimum": -0.1, "maximum": 1.0}),
+            Some(&snapshot),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn stomp_metadata_uses_assignment_count_and_authoritative_readback() {
+        let snapshot = GatewaySnapshot {
+            preset_name: "Stomp Test".into(),
+            blocks: vec![GridBlock {
+                id: "gate".into(),
+                model_id: Some(1),
+                category_id: None,
+                name: "Gate".into(),
+                kind: "utility".into(),
+                category: Some("Utility".into()),
+                plugin: None,
+                plugin_id: None,
+                row: 0,
+                column: 1,
+                bypassed: Some(false),
+                bypass_expression: None,
+                color: None,
+                glyph: None,
+                footswitch: Some(4),
+                footswitch_order: Some(0),
+            }],
+            footswitch_states: Some(vec![qc_protocol::state::FootswitchState {
+                index: 4,
+                active: true,
+                assigned: true,
+                color: "#f4f4f4".into(),
+                momentary: Some(false),
+                label: Some("Gate".into()),
+            }]),
+            ..GatewaySnapshot::default()
+        };
+        let momentary = plan_gateway_write(
+            "device.setStompMomentary",
+            &json!({"footswitch": 4, "momentary": true, "expectedPresetName": "Stomp Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(
+            momentary.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetStompMomentary {
+                footswitch: 4,
+                momentary: true
+            })
+        ));
+        let readback = GatewaySnapshot {
+            footswitch_states: Some(vec![qc_protocol::state::FootswitchState {
+                momentary: Some(true),
+                ..snapshot.footswitch_states.as_ref().unwrap()[0].clone()
+            }]),
+            ..snapshot.clone()
+        };
+        assert!(momentary.verification.matches(&readback, None));
+
+        let label = plan_gateway_write(
+            "device.setStompLabel",
+            &json!({"footswitch": 4, "label": "Solo", "expectedPresetName": "Stomp Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(
+            label.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetStompLabel {
+                footswitch: 4,
+                ref label,
+                single: true
+            }) if label == "Solo"
+        ));
+
+        let unassigned = GatewaySnapshot {
+            blocks: Vec::new(),
+            ..snapshot
+        };
+        assert!(plan_gateway_write(
+            "device.setStompMomentary",
+            &json!({"footswitch": 4, "momentary": true, "expectedPresetName": "Stomp Test"}),
+            Some(&unassigned),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn preset_midi_out_is_bounded_and_verified_from_preset_readback() {
+        let params = json!({
+            "source": 8,
+            "messages": [{"type": 1, "channel": 3, "param1": 10, "param2": 5, "param3": 120}],
+            "expectedPresetName": "MIDI Test"
+        });
+        let before = GatewaySnapshot {
+            preset_name: "MIDI Test".into(),
+            ..GatewaySnapshot::default()
+        };
+        let plan = plan_gateway_write("device.setMidiOut", &params, Some(&before)).unwrap();
+        assert!(matches!(
+            plan.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetMidiOut { source: 8, ref messages })
+                if messages.len() == 1 && messages[0].channel == 3
+        ));
+        let after = GatewaySnapshot {
+            midi_out: Some(vec![qc_protocol::state::MidiOutSource {
+                source: 8,
+                messages: vec![MidiOutMessage {
+                    r#type: 1,
+                    channel: 3,
+                    param1: 10,
+                    param2: 5,
+                    param3: 120,
+                }],
+            }]),
+            ..before.clone()
+        };
+        assert!(plan.verification.matches(&after, None));
+        assert!(plan_gateway_write(
+            "device.setMidiOut",
+            &json!({"source": 10, "messages": [], "expectedPresetName": "MIDI Test"}),
+            Some(&before)
+        )
+        .is_err());
+        assert!(plan_gateway_write(
+            "device.setPresetLoadMidiOut",
+            &json!({"messages": [{"type": 4, "channel": 1, "param1": 0, "param2": 0, "param3": 0}], "expectedPresetName": "MIDI Test"}),
+            Some(&before)
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn expression_bypass_is_validated_and_verified_from_block_state() {
+        let before = GatewaySnapshot {
+            preset_name: "Expression Test".into(),
+            blocks: vec![GridBlock {
+                id: "amp".into(),
+                model_id: Some(42),
+                category_id: None,
+                name: "Amp".into(),
+                kind: "amp".into(),
+                category: Some("Amp".into()),
+                plugin: None,
+                plugin_id: None,
+                row: 0,
+                column: 2,
+                bypassed: Some(false),
+                bypass_expression: None,
+                color: None,
+                glyph: None,
+                footswitch: None,
+                footswitch_order: None,
+            }],
+            ..GatewaySnapshot::default()
+        };
+        let params = json!({"row":0,"column":2,"pedal":2,"mode":1,"invert":true,
+            "delayMs":250,"latchEmulation":true,"expectedPresetName":"Expression Test"});
+        let plan =
+            plan_gateway_write("device.setExpressionBypass", &params, Some(&before)).unwrap();
+        assert!(matches!(
+            plan.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetExpressionBypass {
+                row: 0,
+                column: 2,
+                pedal: 2,
+                mode: 1,
+                invert: true,
+                delay_ms: 250,
+                latch_emulation: true
+            })
+        ));
+        let mut after = before.clone();
+        after.blocks[0].bypass_expression = Some(qc_protocol::state::BypassExpression {
+            pedal: 2,
+            minimum: 0.0,
+            maximum: 1.0,
+            mode: 1,
+            invert: true,
+            delay_ms: 250,
+            latch_emulation: true,
+        });
+        assert!(plan.verification.matches(&after, None));
+        let bad = json!({"row":0,"column":2,"pedal":0,"mode":1,"invert":false,
+            "delayMs":0,"latchEmulation":false,"expectedPresetName":"Expression Test"});
+        assert!(plan_gateway_write("device.setExpressionBypass", &bad, Some(&before)).is_err());
+    }
+
+    #[test]
     fn optimistic_tokens_guard_blocks_routes_and_global_state() {
         let snapshot = GatewaySnapshot {
             preset_name: "Live".into(),
@@ -1874,6 +2514,7 @@ mod tests {
                 row: 1,
                 column: 2,
                 bypassed: Some(false),
+                bypass_expression: None,
                 color: None,
                 glyph: None,
                 footswitch: Some(5),
@@ -2000,6 +2641,7 @@ mod tests {
                 row: 1,
                 column: 4,
                 bypassed: Some(true),
+                bypass_expression: None,
                 color: None,
                 glyph: None,
                 footswitch: Some(3),
@@ -2031,6 +2673,40 @@ mod tests {
         .unwrap();
         assert!(parameter.verification.matches(&snapshot, Some(0.7504)));
         assert!(!parameter.verification.matches(&snapshot, Some(0.76)));
+
+        let splitter = plan_gateway_write(
+            "device.setParameter",
+            &json!({"row": 0, "column": 8, "parameterIndex": 5, "value": 0.25}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(splitter.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetRoutingParameter {
+                row: 0, ref node, parameter_index: 5, value
+            }) if node == "splitter" && value == 0.25));
+        assert!(plan_gateway_write(
+            "device.setParameter",
+            &json!({"row": 1, "column": 9, "parameterIndex": 1, "value": 0.5}),
+            Some(&snapshot),
+        )
+        .is_err());
+
+        let lane = plan_gateway_write(
+            "device.setLaneControlParameter",
+            &json!({"row": 3, "control": "laneOutput", "parameterIndex": 0, "value": 0.64}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(matches!(lane.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetLaneControlParameter {
+                row: 3, ref control, parameter_index: 0, value
+            }) if control == "laneOutput" && value == 0.64));
+        assert!(plan_gateway_write(
+            "device.setLaneControlParameter",
+            &json!({"row": 0, "control": "models", "parameterIndex": 0, "value": 0.5}),
+            Some(&snapshot),
+        )
+        .is_err());
     }
 
     #[test]
@@ -2096,6 +2772,15 @@ mod tests {
 
     #[test]
     fn correlated_reads_and_remote_screen_writes_are_planned_once() {
+        let tuner = plan_gateway_read("device.tunerSettings", &Value::Null, 0).unwrap();
+        assert_eq!(tuner.response_type, 6);
+        assert_eq!(tuner.timeout_ms, 5_000);
+        assert!(matches!(tuner.operation, DeviceOperation::ReadTuner));
+        assert!(matches!(
+            tuner.projection,
+            GatewayResponseProjection::TunerSettings
+        ));
+
         let screenshot = plan_gateway_read(
             "device.presetScreenshot",
             &json!({"folderName": "Live", "position": 12, "isFactory": false}),

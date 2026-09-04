@@ -226,6 +226,21 @@ class NativeBrokerTransport:
             )
         return self._rpc.call("device.state.blockDetails", {"row": int(row), "column": int(column)})
 
+    def lane_control_details(self, row: int, control: str, expected_preset_name: str = "") -> dict[str, Any]:
+        return self._rpc.call("device.laneControlDetails", {
+            "row": int(row), "control": str(control),
+            "expectedPresetName": str(expected_preset_name),
+        })
+
+    def preview_lane_control_parameter(self, **params: Any) -> dict[str, Any]:
+        return self._rpc.call("device.previewLaneControlParameter", params)
+
+    def set_lane_control_parameter(self, **params: Any) -> dict[str, Any]:
+        return self._rpc.call("device.setLaneControlParameter", params)
+
+    def set_lane_control_scene_mode(self, **params: Any) -> dict[str, Any]:
+        return self._rpc.call("device.setLaneControlSceneMode", params)
+
     def select_scene(self, scene: int) -> None:
         self._rpc.call("device.command.scene", {"scene": int(scene)})
 

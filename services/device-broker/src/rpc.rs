@@ -85,7 +85,7 @@ fn handle(
             "platform": "Rust device gateway",
             "gatewayAvailable": true,
             "gatewayApiVersion": 2,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "hostMidiPerformance"],
+            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "hostMidiPerformance"],
             "message": "Shared Rust QC engine active"
         })),
         "device.status" => {
@@ -110,6 +110,9 @@ fn handle(
             .unwrap_or_else(|| Err("No Quad Cortex preset has been synchronized yet".into())),
         "device.listModels" => gateway_list_models(controller),
         "device.identity" => gateway_identity(controller),
+        "device.tunerSettings" => {
+            execute_gateway_read(controller, "device.tunerSettings", &request.params)
+        }
         "device.setDeviceName" => gateway_set_device_name(controller, &request.params),
         "device.undo" => gateway_history(controller, true),
         "device.redo" => gateway_history(controller, false),
@@ -124,9 +127,25 @@ fn handle(
         }
         "device.toggleBypass" => gateway_toggle_bypass(controller, &request.params),
         "device.blockDetails" => gateway_block_details(controller, &request.params),
+        "device.laneControlDetails" => gateway_lane_control_details(controller, &request.params),
         "device.previewParameter" => gateway_parameter(controller, &request.params, true),
         "device.setParameter" => gateway_parameter(controller, &request.params, false),
+        "device.previewLaneControlParameter" => {
+            gateway_lane_control_parameter(controller, &request.params, true)
+        }
+        "device.setLaneControlParameter" => {
+            gateway_lane_control_parameter(controller, &request.params, false)
+        }
+        "device.setLaneControlSceneMode" => {
+            gateway_lane_control_scene_mode(controller, &request.params)
+        }
         "device.setParameterSceneMode" | "device.setParameterExpression" => {
+            gateway_parameter_assignment(controller, &request.params, &request.method)
+        }
+        "device.setStompMomentary" | "device.setStompLabel" => {
+            gateway_operation(controller, &request.params, &request.method)
+        }
+        "device.setMidiOut" | "device.setPresetLoadMidiOut" | "device.setExpressionBypass" => {
             gateway_operation(controller, &request.params, &request.method)
         }
         "device.setTempo" => gateway_set_tempo(controller, &request.params),
@@ -479,13 +498,124 @@ fn gateway_block_details(controller: &DeviceController, params: &Value) -> Resul
     }
 }
 
+fn lane_control_target(params: &Value) -> Result<(u32, &str), String> {
+    let row = bounded_u32(params, "row", domain::GRID_ROWS - 1)?;
+    let control = params
+        .get("control")
+        .and_then(Value::as_str)
+        .filter(|value| matches!(*value, "inputGate" | "laneOutput"))
+        .ok_or_else(|| "control must be inputGate or laneOutput".to_string())?;
+    Ok((row, control))
+}
+
+fn gateway_lane_control_details(
+    controller: &DeviceController,
+    params: &Value,
+) -> Result<Value, String> {
+    assert_expected_preset(controller, params)?;
+    let (row, control) = lane_control_target(params)?;
+    controller
+        .lane_control_details(row, control)?
+        .map(|details| serde_json::to_value(details).map_err(|error| error.to_string()))
+        .unwrap_or_else(|| {
+            Err(format!(
+                "No {control} control is synchronized for row {}",
+                row + 1
+            ))
+        })
+}
+
+fn gateway_lane_control_parameter(
+    controller: &DeviceController,
+    params: &Value,
+    preview: bool,
+) -> Result<Value, String> {
+    assert_expected_preset(controller, params)?;
+    let (row, control) = lane_control_target(params)?;
+    let parameter_index = bounded_u32(params, "parameterIndex", u32::MAX)?;
+    let before = controller
+        .lane_control_details(row, control)?
+        .ok_or_else(|| format!("No {control} control is synchronized for row {}", row + 1))?;
+    let actual = before
+        .parameters
+        .iter()
+        .find(|parameter| parameter.index == parameter_index)
+        .and_then(|parameter| parameter.normalized_value);
+    runtime_request::assert_expected_parameter(actual, params)?;
+    let method = if preview {
+        "device.previewLaneControlParameter"
+    } else {
+        "device.setLaneControlParameter"
+    };
+    let plan = plan_gateway_write(controller, method, params)?;
+    if preview {
+        execute_gateway_write(controller, &plan)?;
+        return Ok(json!({
+            "detail": plan.detail,
+            "acceptedValue": params.get("value").and_then(Value::as_f64).unwrap_or_default()
+        }));
+    }
+    let mut result = gateway_operation(controller, params, method)?;
+    let details = controller
+        .lane_control_details(row, control)?
+        .ok_or_else(|| {
+            "The write completed, but its lane control is absent from readback".to_string()
+        })?;
+    if let Some(object) = result.as_object_mut() {
+        object.insert(
+            "block".into(),
+            serde_json::to_value(details).map_err(|error| error.to_string())?,
+        );
+    }
+    Ok(result)
+}
+
+fn gateway_lane_control_scene_mode(
+    controller: &DeviceController,
+    params: &Value,
+) -> Result<Value, String> {
+    assert_expected_preset(controller, params)?;
+    let (row, control) = lane_control_target(params)?;
+    let parameter_index = bounded_u32(params, "parameterIndex", u32::MAX)?;
+    let mut result = gateway_operation(controller, params, "device.setLaneControlSceneMode")?;
+    let details = controller
+        .lane_control_details(row, control)?
+        .ok_or_else(|| {
+            "The write completed, but its lane control is absent from readback".to_string()
+        })?;
+    let parameter = details
+        .parameters
+        .iter()
+        .find(|item| item.index == parameter_index)
+        .ok_or_else(|| {
+            "The write completed, but its lane parameter is absent from readback".to_string()
+        })?;
+    let expected = params
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| "enabled must be true or false".to_string())?;
+    if parameter.scene_mode != expected {
+        return Err(format!(
+            "Lane parameter scene behavior readback was {}, expected {expected}",
+            parameter.scene_mode
+        ));
+    }
+    if let Some(object) = result.as_object_mut() {
+        object.insert(
+            "block".into(),
+            serde_json::to_value(details).map_err(|error| error.to_string())?,
+        );
+    }
+    Ok(result)
+}
+
 fn gateway_parameter(
     controller: &DeviceController,
     params: &Value,
     preview: bool,
 ) -> Result<Value, String> {
     let row = bounded_u32(params, "row", domain::GRID_ROWS - 1)?;
-    let column = bounded_u32(params, "column", domain::GRID_COLUMNS - 1)?;
+    let column = bounded_u32(params, "column", domain::GRID_COLUMNS + 1)?;
     let parameter_index = bounded_u32(params, "parameterIndex", u32::MAX)?;
     let before = controller
         .block_details(row, column)?
@@ -527,6 +657,77 @@ fn gateway_parameter(
     }
 }
 
+fn gateway_parameter_assignment(
+    controller: &DeviceController,
+    params: &Value,
+    method: &str,
+) -> Result<Value, String> {
+    let row = bounded_u32(params, "row", domain::GRID_ROWS - 1)?;
+    let column = bounded_u32(params, "column", domain::GRID_COLUMNS + 1)?;
+    let parameter_index = bounded_u32(params, "parameterIndex", u32::MAX)?;
+    let mut result = gateway_operation(controller, params, method)?;
+    let block = controller
+        .block_details(row, column)?
+        .ok_or_else(|| "The write completed, but its block is absent from readback".to_string())?;
+    let parameter = block
+        .parameters
+        .iter()
+        .find(|parameter| parameter.index == parameter_index)
+        .ok_or_else(|| {
+            "The write completed, but its parameter is absent from readback".to_string()
+        })?;
+
+    match method {
+        "device.setParameterSceneMode" => {
+            let expected = params
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| "enabled must be true or false".to_string())?;
+            if parameter.scene_mode != expected {
+                return Err(format!(
+                    "Parameter scene behavior readback was {}, expected {expected}",
+                    parameter.scene_mode
+                ));
+            }
+        }
+        "device.setParameterExpression" => {
+            let expected_pedal = bounded_u32(params, "pedal", 2)? as i32;
+            let actual_pedal = parameter.expression.unwrap_or(0);
+            if actual_pedal != expected_pedal {
+                return Err(format!(
+                    "Parameter expression readback was pedal {actual_pedal}, expected {expected_pedal}"
+                ));
+            }
+            if expected_pedal != 0 {
+                let expected_minimum = normalized_f64(params, "minimum")?;
+                let expected_maximum = normalized_f64(params, "maximum")?;
+                let actual_minimum = parameter.expression_minimum.map(f64::from);
+                let actual_maximum = parameter.expression_maximum.map(f64::from);
+                let close = |actual: Option<f64>, expected: f64| {
+                    actual.is_some_and(|value| (value - expected).abs() <= 0.001)
+                };
+                if !close(actual_minimum, expected_minimum)
+                    || !close(actual_maximum, expected_maximum)
+                {
+                    return Err(format!(
+                        "Parameter expression range readback was {:?}-{:?}, expected {expected_minimum}-{expected_maximum}",
+                        actual_minimum, actual_maximum
+                    ));
+                }
+            }
+        }
+        _ => return Err(format!("Unsupported parameter assignment method: {method}")),
+    }
+
+    if let Some(object) = result.as_object_mut() {
+        object.insert(
+            "block".into(),
+            serde_json::to_value(block).map_err(|error| error.to_string())?,
+        );
+    }
+    Ok(result)
+}
+
 fn gateway_set_tempo(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, "device.setTempo", params)?;
     execute_gateway_write(controller, &plan)?;
@@ -566,6 +767,13 @@ fn gateway_operation(
     let events = controller.subscribe_state_events();
     let after_observed_at_ms = u128::from(unix_ms());
     execute_gateway_write(controller, &plan)?;
+    if method == "device.copyScene" {
+        // CorOS applies a scene copy asynchronously. An immediate preset READ
+        // can return the pre-copy colors and no later snapshot, especially
+        // when a second swap restores the first. Let that one transaction
+        // settle before requesting its authoritative preset readback.
+        thread::sleep(Duration::from_millis(250));
+    }
     let request_id = next_request_id();
     request_command(
         controller,
@@ -994,6 +1202,14 @@ fn state_block_details(controller: &DeviceController, params: &Value) -> Result<
 
 fn bounded_u32(params: &Value, field: &str, maximum: u32) -> Result<u32, String> {
     runtime_request::bounded_u32(params, field, maximum)
+}
+
+fn normalized_f64(params: &Value, field: &str) -> Result<f64, String> {
+    params
+        .get(field)
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite() && (0.0..=1.0).contains(value))
+        .ok_or_else(|| format!("{field} must be a number from 0 through 1"))
 }
 
 fn command_scene(controller: &DeviceController, params: &Value) -> Result<Value, String> {

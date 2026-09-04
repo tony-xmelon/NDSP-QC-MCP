@@ -19,6 +19,7 @@ pub enum Kind {
     Boolean,
     Integer { min: i64, max: Option<i64> },
     Number { min: f64, max: Option<f64> },
+    MidiMessages,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -64,6 +65,10 @@ const GRID_COLUMN: Kind = Kind::Integer {
     min: 0,
     max: Some(7),
 };
+const PARAMETER_COLUMN: Kind = Kind::Integer {
+    min: 0,
+    max: Some(9),
+};
 const SCENE: Kind = Kind::Integer {
     min: 0,
     max: Some(7),
@@ -79,6 +84,18 @@ const PERCENT: Kind = Kind::Integer {
 const NORMALIZED: Kind = Kind::Number {
     min: 0.0,
     max: Some(1.0),
+};
+const PEDAL: Kind = Kind::Integer {
+    min: 1,
+    max: Some(2),
+};
+const EXPRESSION_SWITCH_MODE: Kind = Kind::Integer {
+    min: 0,
+    max: Some(2),
+};
+const BYPASS_DELAY: Kind = Kind::Integer {
+    min: 0,
+    max: Some(5000),
 };
 
 // Static output of contracts/qc-actions.v1.json plus safety fields retained from the
@@ -133,7 +150,18 @@ pub static ACTIONS: &[ActionSpec] = &[
         description: "Read live parameters for one occupied Grid block.",
         properties: &[
             p!("row", GRID_ROW),
-            p!("column", GRID_COLUMN),
+            p!("column", PARAMETER_COLUMN),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "get_lane_control_details",
+        rpc: "device.laneControlDetails",
+        classification: Classification::Read,
+        description: "Read the Input Gate or Lane Output parameters attached to a signal row.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("control", TEXT),
             p!("expected_preset_name", TEXT),
         ],
     },
@@ -187,6 +215,13 @@ pub static ACTIONS: &[ActionSpec] = &[
         properties: &[],
     },
     ActionSpec {
+        name: "get_tuner_settings",
+        rpc: "device.tunerSettings",
+        classification: Classification::Read,
+        description: "Read the tuner input, mute preference, and reference pitch without engaging it.",
+        properties: &[],
+    },
+    ActionSpec {
         name: "get_preset_screenshot",
         rpc: "device.presetScreenshot",
         classification: Classification::Read,
@@ -211,11 +246,25 @@ pub static ACTIONS: &[ActionSpec] = &[
         description: "Preview a block parameter value without waiting for device verification.",
         properties: &[
             p!("row", GRID_ROW),
-            p!("column", GRID_COLUMN),
+            p!("column", PARAMETER_COLUMN),
             p!("parameter_index", UINT),
             p!("value", NORMALIZED),
             p!("expected_value", NORMALIZED),
             p!("expected_scene", SCENE),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "preview_lane_control_parameter",
+        rpc: "device.previewLaneControlParameter",
+        classification: Classification::LiveWrite,
+        description: "Preview an Input Gate or Lane Output parameter without waiting for device verification.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("control", TEXT),
+            p!("parameter_index", UINT),
+            p!("value", NORMALIZED),
+            p!("expected_value", NORMALIZED),
             p!("expected_preset_name", TEXT),
         ],
     },
@@ -460,11 +509,88 @@ pub static ACTIONS: &[ActionSpec] = &[
         description: "Immediately set a writable block parameter to an exact display-unit value; QC Control converts and verifies it.",
         properties: &[
             p!("row", GRID_ROW),
-            p!("column", GRID_COLUMN),
+            p!("column", PARAMETER_COLUMN),
             p!("parameter_index", UINT),
             p!("value", NORMALIZED),
             p!("expected_value", NORMALIZED),
             p!("expected_scene", SCENE),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_parameter_scene_mode",
+        rpc: "device.setParameterSceneMode",
+        classification: Classification::LiveWrite,
+        description: "Enable or disable per-scene storage for a block parameter and verify device readback.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", PARAMETER_COLUMN),
+            p!("parameter_index", UINT),
+            p!("enabled", BOOL),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_parameter_expression",
+        rpc: "device.setParameterExpression",
+        classification: Classification::LiveWrite,
+        description: "Assign EXP 1 or EXP 2 to a block parameter, or clear it with pedal 0, preserving the requested heel and toe range.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", PARAMETER_COLUMN),
+            p!("parameter_index", UINT),
+            p!(
+                "pedal",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(2)
+                }
+            ),
+            p!("minimum", NORMALIZED),
+            p!("maximum", NORMALIZED),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_lane_control_parameter",
+        rpc: "device.setLaneControlParameter",
+        classification: Classification::LiveWrite,
+        description: "Set an Input Gate or Lane Output parameter with stale-value and preset guards.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("control", TEXT),
+            p!("parameter_index", UINT),
+            p!("value", NORMALIZED),
+            p!("expected_value", NORMALIZED),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_lane_control_scene_mode",
+        rpc: "device.setLaneControlSceneMode",
+        classification: Classification::LiveWrite,
+        description: "Enable or disable per-scene storage for an Input Gate or Lane Output parameter and verify readback.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("control", TEXT),
+            p!("parameter_index", UINT),
+            p!("enabled", BOOL),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_expression_bypass",
+        rpc: "device.setExpressionBypass",
+        classification: Classification::LiveWrite,
+        description: "Assign EXP 1 or EXP 2 to a block bypass with switch mode, inversion, delay and latch emulation.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", GRID_COLUMN),
+            p!("pedal", PEDAL),
+            p!("mode", EXPRESSION_SWITCH_MODE),
+            p!("invert", BOOL),
+            p!("delay_ms", BYPASS_DELAY),
+            p!("latch_emulation", BOOL),
             p!("expected_preset_name", TEXT),
         ],
     },
@@ -528,6 +654,55 @@ pub static ACTIONS: &[ActionSpec] = &[
                 }
             ),
             p!("expected_model_id", UINT),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_stomp_momentary",
+        rpc: "device.setStompMomentary",
+        classification: Classification::LiveWrite,
+        description: "Set a single-block STOMP footswitch to momentary or latching behavior and verify device readback.",
+        properties: &[
+            p!("footswitch", SCENE),
+            p!("momentary", BOOL),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_stomp_label",
+        rpc: "device.setStompLabel",
+        classification: Classification::LiveWrite,
+        description: "Set the visible label of a STOMP footswitch using the device's correct single- or multi-assignment storage.",
+        properties: &[
+            p!("footswitch", SCENE),
+            p!("label", Kind::VisibleString { max_chars: 32 }),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_midi_out",
+        rpc: "device.setMidiOut",
+        classification: Classification::LiveWrite,
+        description: "Replace up to 12 MIDI Out messages for a footswitch or expression-pedal source in the current preset.",
+        properties: &[
+            p!(
+                "source",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(9)
+                }
+            ),
+            p!("messages", Kind::MidiMessages),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_preset_load_midi_out",
+        rpc: "device.setPresetLoadMidiOut",
+        classification: Classification::LiveWrite,
+        description: "Replace the MIDI Out messages sent when the current preset loads.",
+        properties: &[
+            p!("messages", Kind::MidiMessages),
             p!("expected_preset_name", TEXT),
         ],
     },
@@ -696,5 +871,19 @@ fn schema_for(kind: Kind) -> Value {
             }
             s
         }
+        Kind::MidiMessages => json!({
+            "type":"array", "maxItems":12,
+            "items": {
+                "type":"object", "additionalProperties":false,
+                "properties": {
+                    "type":{"type":"integer","minimum":1,"maximum":3},
+                    "channel":{"type":"integer","minimum":1,"maximum":16},
+                    "param1":{"type":"integer","minimum":0,"maximum":127},
+                    "param2":{"type":"integer","minimum":0,"maximum":127},
+                    "param3":{"type":"integer","minimum":0,"maximum":127}
+                },
+                "required":["type","channel","param1","param2","param3"]
+            }
+        }),
     }
 }

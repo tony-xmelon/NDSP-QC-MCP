@@ -784,6 +784,19 @@ class PyQuadCortexDevice:
             raise RuntimeError("The Quad Cortex inhibited-modules reply was incomplete.")
         return {"globalGate": bool(message.global_gate), "globalEq": bool(message.global_eq)}
 
+    def tuner_settings(self) -> dict[str, Any]:
+        """Read tuner preferences without engaging or changing the tuner."""
+        message = _pyquadcortex_method(self._require_session(), "tuner")()
+        if not all(message.HasField(field) for field in ("input_port_id", "frequency", "mute")):
+            raise RuntimeError("The Quad Cortex tuner reply was incomplete.")
+        offset = float(message.frequency)
+        return {
+            "inputPortId": int(message.input_port_id),
+            "referenceOffsetHz": offset,
+            "referenceHz": 440.0 + offset,
+            "muted": bool(message.mute),
+        }
+
     def preset_screenshot(
         self,
         folder_name: str,
@@ -1478,6 +1491,125 @@ class PyQuadCortexDevice:
                 return {"detail": f"Block {label} and verified", "snapshot": self.snapshot()}
         raise RuntimeError("The assignment command was sent, but readback did not confirm the requested state.")
 
+    def set_stomp_momentary(
+        self, footswitch: int, momentary: bool, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Set single-target STOMP latch behavior and verify preset readback."""
+        if isinstance(footswitch, bool) or not isinstance(footswitch, int) or not 0 <= footswitch < SCENE_COUNT:
+            raise ValueError(f"Footswitch must be an integer from 0 through {SCENE_COUNT - 1}.")
+        if not isinstance(momentary, bool):
+            raise ValueError("Momentary must be true or false.")
+        pyquadcortex = _protocol_api()
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        targets = [item for item in pyquadcortex.stomp_assignments(preset) if int(item.footswitch) == footswitch]
+        if len(targets) != 1:
+            raise RuntimeError("Momentary mode requires a footswitch assigned to exactly one block.")
+        current = bool(dict(preset.stomp_is_momentary).get(footswitch, False))
+        if current == momentary:
+            return {"detail": "STOMP momentary behavior was already current", "snapshot": self.snapshot()}
+        _pyquadcortex_method(qc, "set_stomp_momentary")(footswitch, momentary)
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            current_preset = qc.read_current_preset()
+            if bool(dict(current_preset.stomp_is_momentary).get(footswitch, False)) == momentary:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("STOMP momentary readback matched, but the device did not mark the preset dirty.")
+                return {"detail": "STOMP momentary behavior applied and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("STOMP momentary command was sent, but readback did not confirm it.")
+
+    def set_stomp_label(
+        self, footswitch: int, label: str, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Set the correct single- or multi-assignment STOMP label and verify it."""
+        if isinstance(footswitch, bool) or not isinstance(footswitch, int) or not 0 <= footswitch < SCENE_COUNT:
+            raise ValueError(f"Footswitch must be an integer from 0 through {SCENE_COUNT - 1}.")
+        if not isinstance(label, str) or len(label) > 32 or any(ord(character) < 32 or ord(character) == 127 for character in label):
+            raise ValueError("STOMP label must contain at most 32 non-control characters.")
+        pyquadcortex = _protocol_api()
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+        targets = [item for item in pyquadcortex.stomp_assignments(preset) if int(item.footswitch) == footswitch]
+        if not targets:
+            raise RuntimeError("The selected footswitch has no STOMP assignment.")
+        single = len(targets) == 1
+        labels = dict(preset.single_stomp_labels if single else preset.stomp_labels)
+        if labels.get(footswitch, "") == label:
+            return {"detail": "STOMP label was already current", "snapshot": self.snapshot()}
+        _pyquadcortex_method(qc, "set_stomp_label")(footswitch, label, single=single)
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            current_preset = qc.read_current_preset()
+            current_labels = dict(current_preset.single_stomp_labels if single else current_preset.stomp_labels)
+            if current_labels.get(footswitch, "") == label:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("STOMP label readback matched, but the device did not mark the preset dirty.")
+                return {"detail": "STOMP label applied and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("STOMP label command was sent, but readback did not confirm it.")
+
+    @staticmethod
+    def _validated_midi_messages(messages: Any) -> list[dict[str, int]]:
+        if not isinstance(messages, list) or len(messages) > 12:
+            raise ValueError("MIDI Out messages must be a list containing at most 12 entries.")
+        normalized = []
+        limits = {"type": (1, 3), "channel": (1, 16), "param1": (0, 127), "param2": (0, 127), "param3": (0, 127)}
+        for message in messages:
+            if not isinstance(message, dict) or set(message) != set(limits):
+                raise ValueError("Each MIDI Out message must contain only type, channel, param1, param2, and param3.")
+            current = {}
+            for field, (minimum, maximum) in limits.items():
+                value = message[field]
+                if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+                    raise ValueError(f"MIDI Out {field} must be an integer from {minimum} through {maximum}.")
+                current[field] = value
+            normalized.append(current)
+        return normalized
+
+    @staticmethod
+    def _midi_message_values(messages: Any) -> list[tuple[int, int, int, int, int]]:
+        return [(int(item.type), int(item.channel), int(item.param1), int(item.param2), int(item.param3)) for item in messages]
+
+    def set_midi_out(
+        self, source: int, messages: Any, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Replace one preset MIDI Out source and verify preset readback."""
+        if isinstance(source, bool) or not isinstance(source, int) or not 0 <= source <= 9:
+            raise ValueError("MIDI Out source must be an integer from 0 through 9.")
+        return self._set_preset_midi_out(source, messages, expected_preset_name)
+
+    def set_preset_load_midi_out(
+        self, messages: Any, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Replace preset-load MIDI Out messages and verify preset readback."""
+        return self._set_preset_midi_out(None, messages, expected_preset_name)
+
+    def _set_preset_midi_out(
+        self, source: int | None, messages: Any, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        normalized = self._validated_midi_messages(messages)
+        pyquadcortex = _protocol_api()
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        encoded = [pyquadcortex.MidiOut(**message) for message in normalized]
+        expected = [tuple(message[field] for field in ("type", "channel", "param1", "param2", "param3")) for message in normalized]
+        if source is None:
+            _pyquadcortex_method(qc, "set_preset_load_midi_out")(encoded)
+        else:
+            _pyquadcortex_method(qc, "set_midi_out")(source, encoded)
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            preset = qc.read_current_preset()
+            actual = pyquadcortex.preset_load_midi_out(preset) if source is None else pyquadcortex.midi_out(preset, source)
+            if self._midi_message_values(actual) == expected:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("MIDI Out readback matched, but the device did not mark the preset dirty.")
+                kind = "Preset-load MIDI Out" if source is None else f"MIDI Out source {source}"
+                return {"detail": f"{kind} applied and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("MIDI Out command was sent, but readback did not confirm it.")
+
     def _set_chain_route(
         self,
         row: int,
@@ -1936,6 +2068,138 @@ class PyQuadCortexDevice:
         }
         return result
 
+    def lane_control_details(
+        self, row: int, control: str, expected_preset_name: str = ""
+    ) -> BlockDetails:
+        if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < 4:
+            raise ValueError("Expected row must be an integer from 0 through 3.")
+        if control not in ("inputGate", "laneOutput"):
+            raise ValueError("Control must be inputGate or laneOutput.")
+        qc = self._require_session()
+        native = getattr(getattr(qc, "_t", None), "lane_control_details", None)
+        if native is not None:
+            return native(row, control, expected_preset_name)
+
+        pyquadcortex = _protocol_api()
+        preset = self._assert_expected_preset(expected_preset_name)
+        scene = int(qc.active_scene())
+        chain = next(
+            (candidate for index, candidate in enumerate(preset.chains)
+             if (candidate.row if pyquadcortex.field_present(candidate, "row") else index) == row),
+            None,
+        )
+        if chain is None:
+            raise RuntimeError(f"Signal row {row + 1} is unavailable in the active preset.")
+        collection = chain.input_control if control == "inputGate" else chain.output_control
+        model_id = 28_000 if control == "inputGate" else 23_000
+        if not collection:
+            raise RuntimeError(f"The Quad Cortex did not report {control} state for row {row + 1}.")
+        catalog_model = self._ensure_catalog().get(model_id)
+        if catalog_model is None:
+            raise RuntimeError(f"Model metadata is unavailable for {control}.")
+        specs = {spec.index: spec for spec in catalog_model.parameters}
+        parameters = []
+        for position, stored in enumerate(collection[0].params):
+            index = int(stored.index) if pyquadcortex.field_present(stored, "index") else position
+            spec = specs.get(index)
+            if spec is None:
+                continue
+            values = [
+                item.string_value if item.HasField("string_value") else
+                item.float_value if item.HasField("float_value") else None
+                for item in stored.param_values
+            ]
+            state = pyquadcortex.ParamState(bool(stored.scene_mode), tuple(values))
+            value = _effective_parameter_value(state, scene)
+            options = list(stored.dynamic_steps)
+            metadata = self._parameter_display_metadata(model_id, index, spec, options)
+            normalized_value, writable = _editor_parameter_state(value, options, spec.type)
+            display_value = (
+                str(pyquadcortex.option_at(options, normalized_value))
+                if options and normalized_value is not None else
+                _format_parameter_number(normalized_value, metadata["displayPrecision"])
+                if normalized_value is not None and metadata["scaleKnown"] else
+                str(value or "")
+            )
+            parameters.append({
+                "index": index, "name": (spec.name or f"Parameter {index}").replace("_", " "),
+                "normalizedValue": normalized_value, "displayValue": display_value,
+                "units": metadata.get("units", spec.units), "type": spec.type,
+                "minimum": metadata["minimum"], "maximum": metadata["maximum"],
+                "valueScale": metadata["valueScale"], "scaleExponent": metadata["scaleExponent"],
+                "scalePoints": metadata.get("scalePoints", []),
+                "displayPrecision": metadata["displayPrecision"], "scaleKnown": metadata["scaleKnown"],
+                "minimumLabel": metadata.get("minimumLabel"), "midpointLabel": metadata.get("midpointLabel"),
+                "maximumLabel": metadata.get("maximumLabel"),
+                "displayPosition": metadata.get("displayPosition", index), "steps": spec.steps,
+                "sceneMode": bool(state.scene_mode), "options": options, "writable": writable,
+                "enabled": True, "expressionAssignable": False, "linkedSceneMode": None,
+                "expression": None, "expressionMinimum": None, "expressionMaximum": None,
+            })
+        return {
+            "row": row, "column": 10 if control == "inputGate" else 11,
+            "modelId": model_id, "name": catalog_model.name,
+            "category": _device_type_name(catalog_model.category), "scene": scene,
+            "parameters": parameters,
+        }
+
+    def preview_lane_control_parameter(
+        self, row: int, control: str, parameter_index: int, value: float,
+        expected_preset_name: str = "",
+    ) -> dict[str, Any]:
+        details = self.lane_control_details(row, control, expected_preset_name)
+        parameter = next((item for item in details["parameters"] if item["index"] == parameter_index), None)
+        if parameter is None or not parameter["writable"]:
+            raise RuntimeError("The selected lane control no longer exposes that writable parameter.")
+        qc = self._require_session()
+        native = getattr(getattr(qc, "_t", None), "preview_lane_control_parameter", None)
+        if native is not None:
+            return native(row=row, control=control, parameterIndex=parameter_index, value=float(value),
+                          expectedPresetName=expected_preset_name)
+        setter = qc.set_input_gate if control == "inputGate" else qc.set_lane_output
+        setter(row, parameter_index, value=float(value))
+        return {"detail": "Lane control parameter preview sent", "acceptedValue": float(value)}
+
+    def set_lane_control_parameter(
+        self, row: int, control: str, parameter_index: int, value: float,
+        expected_value: float, expected_preset_name: str = "",
+    ) -> dict[str, Any]:
+        details = self.lane_control_details(row, control, expected_preset_name)
+        parameter = next((item for item in details["parameters"] if item["index"] == parameter_index), None)
+        if parameter is None or parameter["normalizedValue"] is None:
+            raise RuntimeError("The selected lane control no longer exposes that parameter.")
+        if abs(float(parameter["normalizedValue"]) - float(expected_value)) > 0.001:
+            raise RuntimeError("The lane control changed on the Quad Cortex. Refresh and retry.")
+        qc = self._require_session()
+        native = getattr(getattr(qc, "_t", None), "set_lane_control_parameter", None)
+        if native is not None:
+            return native(row=row, control=control, parameterIndex=parameter_index, value=float(value),
+                          expectedValue=float(expected_value), expectedPresetName=expected_preset_name)
+        setter = qc.set_input_gate if control == "inputGate" else qc.set_lane_output
+        setter(row, parameter_index, value=float(value))
+        return {"detail": "Lane control parameter update sent", "block": self.lane_control_details(row, control, expected_preset_name)}
+
+    def set_lane_control_scene_mode(
+        self, row: int, control: str, parameter_index: int, enabled: bool,
+        expected_preset_name: str = "",
+    ) -> dict[str, Any]:
+        details = self.lane_control_details(row, control, expected_preset_name)
+        if not any(item["index"] == parameter_index for item in details["parameters"]):
+            raise RuntimeError("The selected lane control no longer exposes that parameter.")
+        qc = self._require_session()
+        native = getattr(getattr(qc, "_t", None), "set_lane_control_scene_mode", None)
+        if native is not None:
+            return native(row=row, control=control, parameterIndex=parameter_index, enabled=bool(enabled),
+                          expectedPresetName=expected_preset_name)
+        if control == "laneOutput":
+            qc.set_lane_output_scene_mode(row, parameter_index, bool(enabled))
+        else:
+            current = next(item for item in details["parameters"] if item["index"] == parameter_index)["normalizedValue"]
+            if not enabled:
+                raise RuntimeError("Clearing Input Gate scene mode requires the native Rust runtime.")
+            qc.set_input_gate(row, parameter_index, value=float(current), scene=int(qc.active_scene()), promote=True)
+        return {"detail": "Lane control scene behavior updated", "block": self.lane_control_details(row, control, expected_preset_name)}
+
     def _set_routing_parameter(
         self,
         preset: Any,
@@ -2111,6 +2375,153 @@ class PyQuadCortexDevice:
                     "block": verified_block,
                 }
         raise RuntimeError("The parameter command was sent, but readback did not confirm the requested value.")
+
+    def set_parameter_scene_mode(
+        self,
+        row: int,
+        column: int,
+        parameter_index: int,
+        enabled: bool,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Set per-scene parameter storage and require authoritative readback."""
+        self._validate_parameter_assignment(row, column, parameter_index, expected_preset_name)
+        if not isinstance(enabled, bool):
+            raise ValueError("Enabled must be true or false.")
+        qc = self._require_session()
+        before = self.block_details(row, column, expected_preset_name)
+        parameter = next(item for item in before["parameters"] if item["index"] == parameter_index)
+        if bool(parameter["sceneMode"]) == enabled:
+            return {"detail": "Parameter scene behavior was already current", "block": before}
+        native = _native_transport_method(qc, "set_parameter_scene_mode")
+        if native is not None:
+            native(row, column, parameter_index, enabled)
+        else:
+            _pyquadcortex_method(qc, "set_param_scene_mode")(row, column, parameter_index, enabled)
+        return self._verify_parameter_assignment(
+            row, column, parameter_index, expected_preset_name,
+            lambda item: bool(item["sceneMode"]) == enabled,
+            "Parameter scene behavior",
+        )
+
+    def set_parameter_expression(
+        self,
+        row: int,
+        column: int,
+        parameter_index: int,
+        pedal: int,
+        minimum: float,
+        maximum: float,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Assign or clear EXP control and require authoritative readback."""
+        parameter = self._validate_parameter_assignment(row, column, parameter_index, expected_preset_name)
+        if isinstance(pedal, bool) or not isinstance(pedal, int) or pedal not in (0, 1, 2):
+            raise ValueError("Expression pedal must be 0 (clear), 1, or 2.")
+        for label, value in (("minimum", minimum), ("maximum", maximum)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+                raise ValueError(f"Expression {label} must be a normalized number from 0 through 1.")
+        if parameter.get("expressionAssignable") is False:
+            raise RuntimeError("The selected parameter cannot be assigned to an expression pedal.")
+        qc = self._require_session()
+        native = _native_transport_method(qc, "set_parameter_expression")
+        if native is not None:
+            native(row, column, parameter_index, pedal, float(minimum), float(maximum))
+        else:
+            _pyquadcortex_method(qc, "set_expression")(
+                row, column, parameter_index, pedal, float(minimum), float(maximum)
+            )
+
+        def matches(item: dict[str, Any]) -> bool:
+            actual_pedal = item.get("expression") or 0
+            if actual_pedal != pedal:
+                return False
+            if pedal == 0:
+                return True
+            actual_minimum = item.get("expressionMinimum")
+            actual_maximum = item.get("expressionMaximum")
+            return (
+                isinstance(actual_minimum, (int, float))
+                and isinstance(actual_maximum, (int, float))
+                and abs(float(actual_minimum) - float(minimum)) <= 0.001
+                and abs(float(actual_maximum) - float(maximum)) <= 0.001
+            )
+
+        return self._verify_parameter_assignment(
+            row, column, parameter_index, expected_preset_name, matches,
+            "Parameter expression assignment",
+        )
+
+    def set_expression_bypass(
+        self, row: int, column: int, pedal: int, mode: int, invert: bool,
+        delay_ms: int, latch_emulation: bool, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Assign an expression pedal to block bypass and verify preset readback."""
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if pedal not in (1, 2) or isinstance(pedal, bool):
+            raise ValueError("Expression pedal must be 1 or 2.")
+        if mode not in (0, 1, 2) or isinstance(mode, bool):
+            raise ValueError("Expression bypass mode must be STOP (0), SWITCH (1), or HEEL/TOE (2).")
+        if isinstance(delay_ms, bool) or not isinstance(delay_ms, int) or not 0 <= delay_ms <= 5000:
+            raise ValueError("Expression bypass delay must be 0 through 5000 ms.")
+        if not isinstance(invert, bool) or not isinstance(latch_emulation, bool):
+            raise ValueError("Invert and latch emulation must be booleans.")
+        pyquadcortex = _protocol_api()
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        _pyquadcortex_method(qc, "set_expression_bypass")(
+            row, column, pedal, mode, invert, pyquadcortex.Milliseconds(delay_ms), latch_emulation
+        )
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            preset = qc.read_current_preset()
+            if row >= len(preset.chains):
+                continue
+            model = next((item for index, item in enumerate(preset.chains[row].models)
+                          if int(item.column if item.HasField("column") else index) == column), None)
+            if model is None or not model.bypass_expression or not model.expression_bypass_info:
+                continue
+            assignment, info = model.bypass_expression[0], model.expression_bypass_info[0]
+            if (int(assignment.expression) == pedal and int(info.type) == mode
+                    and bool(info.invert) == invert and int(info.delay_ms) == delay_ms
+                    and bool(info.latch_emulation) == latch_emulation):
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Expression bypass readback matched, but the device did not mark the preset dirty.")
+                return {"detail": "Expression bypass assignment applied and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("Expression bypass command was sent, but readback did not confirm it.")
+
+    def _validate_parameter_assignment(
+        self, row: int, column: int, parameter_index: int, expected_preset_name: str,
+    ) -> dict[str, Any]:
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
+                raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("Parameter index must be a non-negative integer.")
+        details = self.block_details(row, column, expected_preset_name)
+        parameter = next((item for item in details["parameters"] if item["index"] == parameter_index), None)
+        if parameter is None or not parameter.get("writable"):
+            raise RuntimeError("The selected block no longer exposes that writable parameter.")
+        return parameter
+
+    def _verify_parameter_assignment(
+        self, row: int, column: int, parameter_index: int, expected_preset_name: str,
+        matches: Any, label: str,
+    ) -> dict[str, Any]:
+        qc = self._require_session()
+        deadline = time.monotonic() + 4.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            block = self.block_details(row, column, expected_preset_name)
+            parameter = next((item for item in block["parameters"] if item["index"] == parameter_index), None)
+            if parameter is not None and matches(parameter):
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError(f"{label} readback matched, but the device did not mark the preset dirty.")
+                return {"detail": f"{label} applied and verified", "block": block}
+        raise RuntimeError(f"{label} command was sent, but readback did not confirm the requested state.")
 
     def set_tempo(
         self,

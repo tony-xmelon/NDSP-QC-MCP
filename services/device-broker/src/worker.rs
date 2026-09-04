@@ -271,6 +271,27 @@ impl DeviceController {
             .map_err(|error| error.to_string())
     }
 
+    pub fn lane_control_details(
+        &self,
+        row: u32,
+        control: &str,
+    ) -> Result<Option<BlockDetails>, String> {
+        if row > 3 || !matches!(control, "inputGate" | "laneOutput") {
+            return Err("Lane control must be inputGate or laneOutput on rows 0-3".into());
+        }
+        let (sender, receiver) = mpsc::channel();
+        self.state_commands
+            .send(StateDecoderCommand::LaneControlDetails(
+                row,
+                control.to_string(),
+                sender,
+            ))
+            .map_err(|error| error.to_string())?;
+        receiver
+            .recv_timeout(Duration::from_secs(2))
+            .map_err(|error| error.to_string())
+    }
+
     pub fn gateway_snapshot(&self) -> Option<GatewaySnapshot> {
         let snapshot = self
             .gateway_snapshot
@@ -574,6 +595,7 @@ enum StateDecoderCommand {
     Message(u64, IncomingMessage),
     Catalog(u64, ModelCatalog),
     BlockDetails(u32, u32, mpsc::Sender<Option<BlockDetails>>),
+    LaneControlDetails(u32, String, mpsc::Sender<Option<BlockDetails>>),
     ListModels(mpsc::Sender<ModelList>),
     Stop,
 }
@@ -666,6 +688,9 @@ fn run_state_decoder(
             }
             StateDecoderCommand::BlockDetails(row, column, reply) => {
                 let _ = reply.send(decoder.block_details(row, column));
+            }
+            StateDecoderCommand::LaneControlDetails(row, control, reply) => {
+                let _ = reply.send(decoder.lane_control_details(row, &control));
             }
             StateDecoderCommand::ListModels(reply) => {
                 let _ = reply.send(decoder.model_list());

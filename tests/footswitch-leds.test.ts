@@ -165,10 +165,12 @@ test("hardware switches, including BANK UP and BANK DOWN, show momentary LED fee
 
 test("UP and DOWN use the white navigation LEDs shown by the QC reference", () => {
   const surface = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
+  const theme = readFileSync(new URL("../packages/typescript/qc-theme/src/index.ts", import.meta.url), "utf8");
   const reference = readFileSync(new URL("../apps/windows/public/qc-overview-001.svg", import.meta.url), "utf8");
   assert.match(reference, /upper arcs/, "the saved QC reference must continue to identify the navigation lamp geometry");
   assert.match(reference, /stroke: white;/, "the saved QC reference must continue to identify the navigation lamps as white");
-  assert.match(surface, /const navigationLedColor = "#f4f4f4"/);
+  assert.match(theme, /whiteLed: "#f4f4f4"/);
+  assert.match(surface, /const navigationLedColor = QC_COLORS\.hardware\.whiteLed/);
   assert.match(surface, /label="BANK UP" compact active=\{Boolean\(parameterEditor\)\} assigned=\{Boolean\(parameterEditor\)\} accent=\{navigationLedColor\}/);
   assert.match(surface, /bankDownLed = parameterLed\(4, \{ active: false, assigned: false, color: navigationLedColor \}\)/);
   assert.match(surface, /label="BANK DOWN" active=\{bankDownLed\.active\} assigned=\{bankDownLed\.assigned\} accent=\{bankDownLed\.color\}/);

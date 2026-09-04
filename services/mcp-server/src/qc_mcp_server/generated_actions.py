@@ -40,7 +40,13 @@ SHARED_QC_ACTIONS = {
     "rpc": "device.blockDetails",
     "classification": "read",
     "access": "read-only",
-    "description": "Read live parameters for one occupied Grid block."
+    "description": "Read live parameters for one occupied Grid block, splitter, or mixer."
+  },
+  "get_lane_control_details": {
+    "rpc": "device.laneControlDetails",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the Input Gate or Lane Output parameters attached to a signal row."
   },
   "list_models": {
     "rpc": "device.listModels",
@@ -84,6 +90,12 @@ SHARED_QC_ACTIONS = {
     "access": "read-only",
     "description": "Read the authoritative Global Gate and Global EQ inhibition state."
   },
+  "get_tuner_settings": {
+    "rpc": "device.tunerSettings",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the tuner input, mute preference, and reference pitch without changing or engaging the tuner."
+  },
   "get_preset_screenshot": {
     "rpc": "device.presetScreenshot",
     "classification": "read",
@@ -100,7 +112,13 @@ SHARED_QC_ACTIONS = {
     "rpc": "device.previewParameter",
     "classification": "live-write",
     "access": "modify",
-    "description": "Preview a block parameter value without waiting for device verification."
+    "description": "Preview a block, splitter, or mixer parameter value without waiting for device verification."
+  },
+  "preview_lane_control_parameter": {
+    "rpc": "device.previewLaneControlParameter",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Preview an Input Gate or Lane Output parameter without waiting for device verification."
   },
   "create_device_backup": {
     "rpc": "device.createBackup",
@@ -226,7 +244,37 @@ SHARED_QC_ACTIONS = {
     "rpc": "device.setParameter",
     "classification": "live-write",
     "access": "modify",
-    "description": "Immediately set a writable block parameter to an exact display-unit value; QC Control converts and verifies it."
+    "description": "Immediately set a writable block, splitter, or mixer parameter and verify it."
+  },
+  "set_parameter_scene_mode": {
+    "rpc": "device.setParameterSceneMode",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Enable or disable per-scene storage for a block, splitter, or mixer parameter and verify device readback."
+  },
+  "set_parameter_expression": {
+    "rpc": "device.setParameterExpression",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Assign EXP 1 or EXP 2 to a block, splitter, or mixer parameter, or clear it with pedal 0, preserving the requested heel and toe range."
+  },
+  "set_lane_control_parameter": {
+    "rpc": "device.setLaneControlParameter",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Set an Input Gate or Lane Output parameter with stale-value and preset guards."
+  },
+  "set_lane_control_scene_mode": {
+    "rpc": "device.setLaneControlSceneMode",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Enable or disable per-scene storage for an Input Gate or Lane Output parameter and verify readback."
+  },
+  "set_expression_bypass": {
+    "rpc": "device.setExpressionBypass",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Assign EXP 1 or EXP 2 to a block bypass with the QC switch mode, inversion, delay and latch-emulation settings."
   },
   "move_block": {
     "rpc": "device.moveBlock",
@@ -251,6 +299,30 @@ SHARED_QC_ACTIONS = {
     "classification": "live-write",
     "access": "modify",
     "description": "Assign or clear a Grid block footswitch with preset, model and assignment guards."
+  },
+  "set_stomp_momentary": {
+    "rpc": "device.setStompMomentary",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Set a single-block STOMP footswitch to momentary or latching behavior and verify device readback."
+  },
+  "set_stomp_label": {
+    "rpc": "device.setStompLabel",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Set the visible label of a STOMP footswitch using the device's correct single- or multi-assignment storage."
+  },
+  "set_midi_out": {
+    "rpc": "device.setMidiOut",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Replace up to 12 MIDI Out messages for a footswitch or expression-pedal source in the current preset."
+  },
+  "set_preset_load_midi_out": {
+    "rpc": "device.setPresetLoadMidiOut",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Replace the MIDI Out messages sent when the current preset loads."
   },
   "set_chain_input": {
     "rpc": "device.setChainInput",

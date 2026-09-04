@@ -69,9 +69,11 @@ class ToolSafetyTests(unittest.TestCase):
         self.tools.list_preset_folders(True)
         self.tools.list_preset_slots()
         self.tools.get_master_volume()
+        self.tools.get_tuner_settings()
         self.assertEqual([call[0] for call in self.backend.calls], [
             "device.snapshot", "device.blockDetails", "device.listModels", "device.listPresets",
             "device.listPresetFolders", "device.listPresetSlots", "device.masterVolume",
+            "device.tunerSettings",
         ])
 
     def test_temporary_mutation_keeps_all_expected_state_guards(self) -> None:
@@ -84,6 +86,44 @@ class ToolSafetyTests(unittest.TestCase):
             "expectedValue": 0.5,
             "expectedScene": 4,
             "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_parameter_scene_mode(2, 3, 7, True, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setParameterSceneMode", {
+            "row": 2, "column": 3, "parameterIndex": 7, "enabled": True,
+            "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_parameter_expression(2, 3, 7, 2, 0.8, 0.2, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setParameterExpression", {
+            "row": 2, "column": 3, "parameterIndex": 7, "pedal": 2,
+            "minimum": 0.8, "maximum": 0.2, "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_expression_bypass(2, 3, 1, 2, True, 250, False, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setExpressionBypass", {
+            "row": 2, "column": 3, "pedal": 1, "mode": 2, "invert": True,
+            "delayMs": 250, "latchEmulation": False, "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_stomp_momentary(4, True, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setStompMomentary", {
+            "footswitch": 4, "momentary": True, "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_stomp_label(4, "Solo", "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setStompLabel", {
+            "footswitch": 4, "label": "Solo", "expectedPresetName": "Lead",
+        }))
+
+        midi = [{"type": 1, "channel": 3, "param1": 10, "param2": 5, "param3": 120}]
+        self.tools.set_midi_out(8, midi, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setMidiOut", {
+            "source": 8, "messages": midi, "expectedPresetName": "Lead",
+        }))
+        self.tools.set_preset_load_midi_out(midi, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setPresetLoadMidiOut", {
+            "messages": midi, "expectedPresetName": "Lead",
         }))
 
         self.tools.navigate_bank(-1, "Lead", 42)

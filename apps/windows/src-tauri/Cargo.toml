@@ -1,6 +1,6 @@
 [package]
 name = "qc-voice-control"
-version = "0.1.84"
+version = "0.1.86"
 description = "Unofficial modular desktop controller for Quad Cortex"
 authors = ["Antoni Ivanov"]
 edition = "2021"

@@ -3,6 +3,21 @@ from __future__ import annotations
 from typing import Any, Literal, NotRequired, TypedDict
 
 
+class TunerSettings(TypedDict):
+    inputPortId: int
+    referenceOffsetHz: float
+    referenceHz: float
+    muted: bool
+
+class BypassExpression(TypedDict):
+    pedal: int
+    minimum: float
+    maximum: float
+    mode: int
+    invert: bool
+    delayMs: int
+    latchEmulation: bool
+
 class GridBlock(TypedDict):
     id: str
     modelId: NotRequired[int]
@@ -15,6 +30,7 @@ class GridBlock(TypedDict):
     row: int
     column: int
     bypassed: NotRequired[bool]
+    bypassExpression: NotRequired[BypassExpression]
     color: NotRequired[str]
     glyph: NotRequired[str]
     footswitch: NotRequired[int]
@@ -27,6 +43,17 @@ class FootswitchState(TypedDict):
     color: str
     momentary: NotRequired[bool]
     label: NotRequired[str]
+
+class MidiOutMessage(TypedDict):
+    type: int
+    channel: int
+    param1: int
+    param2: int
+    param3: int
+
+class MidiOutSource(TypedDict):
+    source: int
+    messages: list[MidiOutMessage]
 
 class GridRoute(TypedDict):
     row: int
@@ -69,6 +96,9 @@ class QcStateUpdate(TypedDict):
     tempoLedEnabled: NotRequired[bool]
     scenes: NotRequired[list[str]]
     sceneColors: NotRequired[list[str]]
+    footswitchStates: NotRequired[list[FootswitchState]]
+    midiOut: NotRequired[list[MidiOutSource]]
+    presetLoadMidiOut: NotRequired[list[MidiOutMessage]]
     blocks: NotRequired[list[GridBlock]]
     routes: NotRequired[list[GridRoute]]
     ioPorts: NotRequired[list[IoPortState]]
@@ -126,6 +156,7 @@ class BlockDetails(TypedDict):
     name: str
     category: str
     scene: int
+    bypassExpression: NotRequired[BypassExpression]
     parameters: list[BlockParameter]
 
 class PresetSnapshot(TypedDict):
@@ -142,6 +173,8 @@ class PresetSnapshot(TypedDict):
     scenes: list[str]
     sceneColors: NotRequired[list[str]]
     footswitchStates: NotRequired[list[FootswitchState]]
+    midiOut: NotRequired[list[MidiOutSource]]
+    presetLoadMidiOut: NotRequired[list[MidiOutMessage]]
     blocks: list[GridBlock]
     routes: list[GridRoute]
     ioPorts: NotRequired[list[IoPortState]]

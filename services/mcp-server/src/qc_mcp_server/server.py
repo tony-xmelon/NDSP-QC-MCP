@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from typing import Any, Literal
 
@@ -53,6 +54,24 @@ def _parameter_args(
         "expectedScene": expected_scene,
         "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
     }
+
+
+def _midi_messages(messages: list[dict[str, int]]) -> list[dict[str, int]]:
+    if not isinstance(messages, list) or len(messages) > 12:
+        raise ValueError("messages must be a list containing at most 12 MIDI messages")
+    limits = {"type": (1, 3), "channel": (1, 16), "param1": (0, 127), "param2": (0, 127), "param3": (0, 127)}
+    normalized = []
+    for message in messages:
+        if not isinstance(message, Mapping) or set(message) != set(limits):
+            raise ValueError("each MIDI message must contain only type, channel, param1, param2, and param3")
+        current = {}
+        for field, (minimum, maximum) in limits.items():
+            value = message[field]
+            if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+                raise ValueError(f"MIDI {field} must be an integer from {minimum} through {maximum}")
+            current[field] = value
+        normalized.append(current)
+    return normalized
 
 
 class QcTools:
@@ -111,6 +130,10 @@ class QcTools:
     def get_inhibited_modules(self) -> Any:
         """Read the device's compiler-inhibited Global Gate and EQ state."""
         return self._request("get_inhibited_modules")
+
+    def get_tuner_settings(self) -> Any:
+        """Read tuner preferences without changing or engaging the tuner."""
+        return self._request("get_tuner_settings")
 
     def get_preset_screenshot(
         self, folder_name: str, position: int, is_factory: bool
@@ -187,6 +210,17 @@ class QcTools:
         return self._request("get_block_details", {
             "row": row,
             "column": column,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def get_lane_control_details(self, row: int, control: str, expected_preset_name: str) -> Any:
+        """Read parameters attached to a row's Input Gate or Lane Output."""
+        if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < 4:
+            raise ValueError("row must be an integer from 0 through 3")
+        if control not in ("inputGate", "laneOutput"):
+            raise ValueError("control must be inputGate or laneOutput")
+        return self._request("get_lane_control_details", {
+            "row": row, "control": control,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
         })
 
@@ -395,6 +429,92 @@ class QcTools:
             expected_scene, expected_preset_name,
         ))
 
+    def set_parameter_scene_mode(
+        self, row: int, column: int, parameter_index: int, enabled: bool,
+        expected_preset_name: str,
+    ) -> Any:
+        """Enable or disable per-scene storage for a block parameter."""
+        _grid_cell(row, column)
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("parameter_index must be a non-negative integer")
+        if not isinstance(enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        return self._request("set_parameter_scene_mode", {
+            "row": row, "column": column, "parameterIndex": parameter_index,
+            "enabled": enabled,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_parameter_expression(
+        self, row: int, column: int, parameter_index: int, pedal: Literal[0, 1, 2],
+        minimum: float, maximum: float, expected_preset_name: str,
+    ) -> Any:
+        """Assign or clear an expression pedal using a normalized sweep range."""
+        _grid_cell(row, column)
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("parameter_index must be a non-negative integer")
+        if isinstance(pedal, bool) or pedal not in (0, 1, 2):
+            raise ValueError("pedal must be 0, 1, or 2")
+        if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1 for value in (minimum, maximum)):
+            raise ValueError("minimum and maximum must be normalized numbers from 0 through 1")
+        return self._request("set_parameter_expression", {
+            "row": row, "column": column, "parameterIndex": parameter_index,
+            "pedal": pedal, "minimum": float(minimum), "maximum": float(maximum),
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_lane_control_parameter(
+        self, row: int, control: str, parameter_index: int, value: float,
+        expected_value: float, expected_preset_name: str,
+    ) -> Any:
+        """Set an Input Gate or Lane Output parameter with stale-value guards."""
+        self.get_lane_control_details(row, control, expected_preset_name)
+        for name, candidate in (("value", value), ("expected_value", expected_value)):
+            if isinstance(candidate, bool) or not isinstance(candidate, (int, float)) or not math.isfinite(candidate) or not 0 <= candidate <= 1:
+                raise ValueError(f"{name} must be a normalized number from 0 through 1")
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("parameter_index must be a non-negative integer")
+        return self._request("set_lane_control_parameter", {
+            "row": row, "control": control, "parameterIndex": parameter_index,
+            "value": float(value), "expectedValue": float(expected_value),
+            "expectedPresetName": expected_preset_name,
+        })
+
+    def set_lane_control_scene_mode(
+        self, row: int, control: str, parameter_index: int, enabled: bool,
+        expected_preset_name: str,
+    ) -> Any:
+        """Enable or disable per-scene storage for a row control parameter."""
+        self.get_lane_control_details(row, control, expected_preset_name)
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("parameter_index must be a non-negative integer")
+        if not isinstance(enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        return self._request("set_lane_control_scene_mode", {
+            "row": row, "control": control, "parameterIndex": parameter_index,
+            "enabled": enabled, "expectedPresetName": expected_preset_name,
+        })
+
+    def set_expression_bypass(
+        self, row: int, column: int, pedal: Literal[1, 2], mode: Literal[0, 1, 2],
+        invert: bool, delay_ms: int, latch_emulation: bool, expected_preset_name: str,
+    ) -> Any:
+        """Assign EXP 1/2 to block bypass with verified switch behavior."""
+        _grid_cell(row, column)
+        if isinstance(pedal, bool) or pedal not in (1, 2):
+            raise ValueError("pedal must be 1 or 2")
+        if isinstance(mode, bool) or mode not in (0, 1, 2):
+            raise ValueError("mode must be 0, 1, or 2")
+        if not isinstance(invert, bool) or not isinstance(latch_emulation, bool):
+            raise ValueError("invert and latch_emulation must be booleans")
+        if isinstance(delay_ms, bool) or not isinstance(delay_ms, int) or not 0 <= delay_ms <= 5000:
+            raise ValueError("delay_ms must be an integer from 0 through 5000")
+        return self._request("set_expression_bypass", {
+            "row": row, "column": column, "pedal": pedal, "mode": mode,
+            "invert": invert, "delayMs": delay_ms, "latchEmulation": latch_emulation,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
     def preview_parameter(
         self, row: int, column: int, parameter_index: int, value: float,
         expected_value: float, expected_scene: int, expected_preset_name: str,
@@ -404,6 +524,21 @@ class QcTools:
             row, column, parameter_index, value, expected_value,
             expected_scene, expected_preset_name,
         ))
+
+    def preview_lane_control_parameter(
+        self, row: int, control: str, parameter_index: int, value: float,
+        expected_value: float, expected_preset_name: str,
+    ) -> Any:
+        """Preview a row control parameter without waiting for final readback."""
+        if control not in ("inputGate", "laneOutput"):
+            raise ValueError("control must be inputGate or laneOutput")
+        if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < 4:
+            raise ValueError("row must be an integer from 0 through 3")
+        return self._request("preview_lane_control_parameter", {
+            "row": row, "control": control, "parameterIndex": parameter_index,
+            "value": float(value), "expectedValue": float(expected_value),
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
 
     def move_block(self, row: int, from_column: int, to_column: int, expected_model_id: int, expected_preset_name: str) -> Any:
         """Move a block within its row after validating its identity."""
@@ -443,6 +578,48 @@ class QcTools:
         return self._request("set_block_footswitch", {"row": row, "column": column, "footswitch": footswitch,
             "expectedFootswitch": expected_footswitch, "expectedModelId": expected_model_id,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
+
+    def set_stomp_momentary(self, footswitch: int, momentary: bool, expected_preset_name: str) -> Any:
+        """Set a single-block STOMP footswitch to momentary or latching behavior."""
+        if isinstance(footswitch, bool) or not isinstance(footswitch, int) or not 0 <= footswitch < SCENE_COUNT:
+            raise ValueError(f"footswitch must be an integer from 0 through {SCENE_COUNT - 1}")
+        if not isinstance(momentary, bool):
+            raise ValueError("momentary must be a boolean")
+        return self._request("set_stomp_momentary", {
+            "footswitch": footswitch, "momentary": momentary,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_stomp_label(self, footswitch: int, label: str, expected_preset_name: str) -> Any:
+        """Set the visible label for an assigned STOMP footswitch."""
+        if isinstance(footswitch, bool) or not isinstance(footswitch, int) or not 0 <= footswitch < SCENE_COUNT:
+            raise ValueError(f"footswitch must be an integer from 0 through {SCENE_COUNT - 1}")
+        if not isinstance(label, str) or len(label) > 32 or any(ord(character) < 32 or ord(character) == 127 for character in label):
+            raise ValueError("label must contain at most 32 non-control characters")
+        return self._request("set_stomp_label", {
+            "footswitch": footswitch, "label": label,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_midi_out(
+        self, source: int, messages: list[dict[str, int]], expected_preset_name: str,
+    ) -> Any:
+        """Replace the MIDI Out messages for footswitch A-H or EXP 1/2."""
+        if isinstance(source, bool) or not isinstance(source, int) or not 0 <= source <= 9:
+            raise ValueError("source must be an integer from 0 through 9")
+        return self._request("set_midi_out", {
+            "source": source, "messages": _midi_messages(messages),
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_preset_load_midi_out(
+        self, messages: list[dict[str, int]], expected_preset_name: str,
+    ) -> Any:
+        """Replace the MIDI Out messages sent when the current preset loads."""
+        return self._request("set_preset_load_midi_out", {
+            "messages": _midi_messages(messages),
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
 
     def set_chain_input(self, row: int, input_id: int, expected_input_id: int, expected_preset_name: str) -> Any:
         """Change a signal-row input with route and preset guards."""

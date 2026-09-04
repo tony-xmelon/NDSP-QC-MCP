@@ -1,5 +1,5 @@
 import { QC_SCENE_COLORS } from "./generated-domain.ts";
-import type { BlockDetails, DeviceActionResult, PresetSnapshot } from "./generated-payloads.ts";
+import type { BlockDetails, DeviceActionResult, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
 export * from "./generated-domain.ts";
 export * from "./generated-gateway-methods.ts";
 export * from "./generated-payloads.ts";
@@ -245,6 +245,8 @@ export interface MasterVolumeState {
   value: number;
 }
 
+export type LaneControl = "inputGate" | "laneOutput";
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
@@ -260,6 +262,7 @@ export interface GatewayTransport {
   undo(): Promise<DeviceActionResult>;
   redo(): Promise<DeviceActionResult>;
   inhibitedModules(): Promise<InhibitedModules>;
+  tunerSettings(): Promise<TunerSettings>;
   presetScreenshot(folderName: string, position: number, isFactory?: boolean): Promise<DeviceImage>;
   captureScreen(): Promise<DeviceImage>;
   tapScreen(x: number, y: number): Promise<DeviceActionResult>;
@@ -272,6 +275,10 @@ export interface GatewayTransport {
   addBlock(row: number, column: number, modelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   removeBlock(row: number, column: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setStompMomentary(footswitch: number, momentary: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
+  setStompLabel(footswitch: number, label: string, expectedPresetName: string): Promise<DeviceActionResult>;
+  setMidiOut(source: number, messages: MidiOutMessage[], expectedPresetName: string): Promise<DeviceActionResult>;
+  setPresetLoadMidiOut(messages: MidiOutMessage[], expectedPresetName: string): Promise<DeviceActionResult>;
   setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainSplit(row: number, splitColumn: number | null, mixColumn: number | null, expectedSplitColumn: number | null, expectedMixColumn: number | null, expectedPresetName: string): Promise<DeviceActionResult>;
@@ -281,10 +288,15 @@ export interface GatewayTransport {
   recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
+  laneControlDetails(row: number, control: LaneControl, expectedPresetName: string): Promise<BlockDetails>;
   previewParameter(row: number, column: number, parameterIndex: number, value: number, expectedScene: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
+  previewLaneControlParameter(row: number, control: LaneControl, parameterIndex: number, value: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
+  setLaneControlParameter(row: number, control: LaneControl, parameterIndex: number, value: number, expectedValue: number, expectedPresetName: string): Promise<ParameterActionResult>;
+  setLaneControlSceneMode(row: number, control: LaneControl, parameterIndex: number, enabled: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   setParameterSceneMode(row: number, column: number, parameterIndex: number, enabled: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   setParameterExpression(row: number, column: number, parameterIndex: number, pedal: 0 | 1 | 2, minimum: number, maximum: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  setExpressionBypass(row: number, column: number, pedal: 1 | 2, mode: 0 | 1 | 2, invert: boolean, delayMs: number, latchEmulation: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult>;
   pressFootswitch(index: number, expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;

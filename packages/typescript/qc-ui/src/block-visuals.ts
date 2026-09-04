@@ -1,4 +1,5 @@
 import type { GridBlock } from "@ndsp-qc/client";
+import { QC_COLORS } from "@ndsp-qc/theme";
 
 export type OfficialBlockVisualKey =
   | "plugin" | "amp" | "capture" | "cab" | "overdrive" | "delay" | "reverb"
@@ -22,25 +23,25 @@ export interface OfficialBlockCategory extends OfficialBlockVisual {
 // Compressor are taken from verified Neural DSP Grid references because that
 // sheet does not contain their device glyphs.
 export const OFFICIAL_BLOCK_CATEGORIES: readonly OfficialBlockCategory[] = [
-  { key: "plugin", label: "Plugins", tile: [560, 0], color: "#ff7000", meaning: "Compatible Neural DSP X plugin devices." },
-  { key: "amp", label: "Amp", tile: [480, 0], color: "#ff2727", meaning: "Amplifier devices for guitar and bass." },
-  { key: "capture", label: "Neural Capture", tile: [640, 0], color: "#959595", meaning: "Neural Capture devices." },
-  { key: "cab", label: "Cab", tile: [80, 82], color: "#6954ff", meaning: "Mono and stereo cabinet simulations with selectable microphones." },
-  { key: "overdrive", label: "Overdrive", tile: [400, 0], color: "#ffd236", meaning: "Boost, distortion, fuzz, and overdrive pedal devices." },
-  { key: "delay", label: "Delay", tile: [240, 0], color: "#00ffdd", referenceAsset: "delay", meaning: "Mono and stereo digital, analog, and tape delays." },
-  { key: "reverb", label: "Reverb", tile: [240, 82], color: "#00ffdd", meaning: "Digital and analog reverbs." },
-  { key: "compressor", label: "Compressor", tile: [400, 82], color: "#45f862", referenceAsset: "compressor", meaning: "Mono, stereo, and side-chain dynamics processors." },
-  { key: "pitch", label: "Pitch", tile: [0, 82], color: "#ffd236", referenceAsset: "pitch", meaning: "Pitch shifter devices." },
-  { key: "modulation", label: "Modulation", tile: [160, 0], color: "#3500f1", meaning: "Chorus, flanger, phaser, tremolo, and other modulation devices." },
-  { key: "morph", label: "Morph", tile: [560, 82], color: "#87daff", meaning: "Complex audio processor devices." },
-  { key: "synth", label: "Synth", tile: [480, 82], color: "#e44a5d", meaning: "Devices that generate sounds by shaping and manipulating waveforms." },
-  { key: "filter", label: "Filter", tile: [240, 0], color: "#87daff", meaning: "Dynamic and fixed filter devices." },
-  { key: "equalizer", label: "EQ", tile: [80, 0], color: "#0a74e0", meaning: "Graphic and parametric equalizers." },
-  { key: "ir-loader", label: "IR Loader", tile: [160, 82], color: "#6954ff", meaning: "Third-party impulse-response loaders." },
-  { key: "wah", label: "Wah", tile: [320, 82], color: "#959595", meaning: "Wah pedal devices." },
-  { key: "fx-loop", label: "FX Loop", tile: [0, 0], color: "#959595", meaning: "External-device integration through Send and Return ports." },
-  { key: "looper", label: "Looper", tile: [320, 0], color: "#ff2727", meaning: "Real-time audio recording and layering." },
-  { key: "utility", label: "Utility", tile: [400, 82], color: "#959595", meaning: "Routing, mixing, gain, and other audio tools." }
+  { key: "plugin", label: "Plugins", tile: [560, 0], color: QC_COLORS.category.plugin, meaning: "Compatible Neural DSP X plugin devices." },
+  { key: "amp", label: "Amp", tile: [480, 0], color: QC_COLORS.category.amp, meaning: "Amplifier devices for guitar and bass." },
+  { key: "capture", label: "Neural Capture", tile: [640, 0], color: QC_COLORS.category.capture, meaning: "Neural Capture devices." },
+  { key: "cab", label: "Cab", tile: [80, 82], color: QC_COLORS.category.cab, meaning: "Mono and stereo cabinet simulations with selectable microphones." },
+  { key: "overdrive", label: "Overdrive", tile: [400, 0], color: QC_COLORS.category.overdrive, meaning: "Boost, distortion, fuzz, and overdrive pedal devices." },
+  { key: "delay", label: "Delay", tile: [240, 0], color: QC_COLORS.category.delay, referenceAsset: "delay", meaning: "Mono and stereo digital, analog, and tape delays." },
+  { key: "reverb", label: "Reverb", tile: [240, 82], color: QC_COLORS.category.reverb, meaning: "Digital and analog reverbs." },
+  { key: "compressor", label: "Compressor", tile: [400, 82], color: QC_COLORS.category.compressor, referenceAsset: "compressor", meaning: "Mono, stereo, and side-chain dynamics processors." },
+  { key: "pitch", label: "Pitch", tile: [0, 82], color: QC_COLORS.category.pitch, referenceAsset: "pitch", meaning: "Pitch shifter devices." },
+  { key: "modulation", label: "Modulation", tile: [160, 0], color: QC_COLORS.category.modulation, meaning: "Chorus, flanger, phaser, tremolo, and other modulation devices." },
+  { key: "morph", label: "Morph", tile: [560, 82], color: QC_COLORS.category.morph, meaning: "Complex audio processor devices." },
+  { key: "synth", label: "Synth", tile: [480, 82], color: QC_COLORS.category.synth, meaning: "Devices that generate sounds by shaping and manipulating waveforms." },
+  { key: "filter", label: "Filter", tile: [240, 0], color: QC_COLORS.category.filter, meaning: "Dynamic and fixed filter devices." },
+  { key: "equalizer", label: "EQ", tile: [80, 0], color: QC_COLORS.category.equalizer, meaning: "Graphic and parametric equalizers." },
+  { key: "ir-loader", label: "IR Loader", tile: [160, 82], color: QC_COLORS.category.irLoader, meaning: "Third-party impulse-response loaders." },
+  { key: "wah", label: "Wah", tile: [320, 82], color: QC_COLORS.category.wah, meaning: "Wah pedal devices." },
+  { key: "fx-loop", label: "FX Loop", tile: [0, 0], color: QC_COLORS.category.fxLoop, meaning: "External-device integration through Send and Return ports." },
+  { key: "looper", label: "Looper", tile: [320, 0], color: QC_COLORS.category.looper, meaning: "Real-time audio recording and layering." },
+  { key: "utility", label: "Utility", tile: [400, 82], color: QC_COLORS.category.utility, meaning: "Routing, mixing, gain, and other audio tools." }
 ];
 
 export const OFFICIAL_BLOCK_VISUALS = Object.fromEntries(

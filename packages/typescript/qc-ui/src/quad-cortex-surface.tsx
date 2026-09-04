@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { QC_GRID_COLUMNS, QC_GRID_ROWS, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot } from "@ndsp-qc/client";
 import { footswitchLeds, routePickerGroup, routePickerLabel, sceneLetter as sceneLabel, type QcSurfaceAction } from "@ndsp-qc/core";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
+import { QC_COLORS, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { blockUsesActiveFill, officialBlockVisual, pluginBadge } from "./block-visuals";
 import { CorOsParameterEditor, type CorOsParameterEditorProps } from "./parameter-editor";
 import { parameterEditorAccent, parameterEditorControlSlots, parameterEditorPageSize } from "./parameter-model";
 import { REFERENCE_BLOCK_ICONS } from "./reference-block-icons";
+import { QcDirectoryIcon, QcModeGlyph, QcRouteGlyph } from "./theme-icons";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
 import "./surface-shell.css";
 import "./live-surface.css";
@@ -45,19 +47,6 @@ export interface CorOsSavePresetState {
   onCancel: () => void;
 }
 
-function RoutePickerGlyph({ side, label }: { side: "input" | "output"; label: string }) {
-  if (label === "Internal") return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M7.5 12h9M12 7.5v9" /></svg>;
-  if (label.startsWith("USB ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V4M12 4 8.5 7.5M12 4l3.5 3.5M12 12H7.5l-2.5-2.5M12 16h4.5l2.5-2.5" /><circle cx="5" cy="9.5" r="1.25" /><rect x="17.5" y="11" width="3" height="3" /></svg>;
-  if (label.startsWith("Return ") && label.includes("/")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5H11a4 4 0 0 0-4 4v1m0 0L4.5 7.5M7 10l2.5-2.5M20 14h-9a4 4 0 0 0-4 4v1m0 0-2.5-2.5M7 19l2.5-2.5" /></svg>;
-  if (label.startsWith("Return ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6H12a6 6 0 0 0-6 6v7m0 0-3.5-3.5M6 19l3.5-3.5" /></svg>;
-  if (label === "Multi Out") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.5a7 7 0 1 0 0 13" /><path d="M7 9h11M7 15h11M15 6l3 3-3 3M15 12l3 3-3 3" /></svg>;
-  if (label.startsWith("Send ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5m-2.5-2.5L8 12l-2.5 2.5" /><rect x="8" y="6.5" width="13" height="11" rx="2" /><text x="14.5" y="14.4" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="6.5">FX</text></svg>;
-  if (label === "Out 1/2" || label === "Out 1" || label === "Out 2") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="7.6" r="1.15" /><circle cx="8.2" cy="14.2" r="1.15" /><circle cx="15.8" cy="14.2" r="1.15" /></svg>;
-  if (label.startsWith("Out ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5.5a7 7 0 1 0 0 13" /><path d="M8 12h12m-3-3 3 3-3 3" /></svg>;
-  if (label.includes("/") || label.startsWith("Row ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={side === "input" ? "M4 7h13l-3-3m3 3-3 3M4 17h13l-3-3m3 3-3 3" : "M4 7h13m0 0-3-3m3 3-3 3M4 17h13m0 0-3-3m3 3-3 3"} /></svg>;
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="12" r="3" /><path d={side === "input" ? "M10 12h10l-3-3m3 3-3 3" : "M14 12H4l3-3m-3 3 3 3"} /></svg>;
-}
-
 interface QuadCortexSurfaceProps {
   formFactor: FormFactorManifest;
   snapshot: PresetSnapshot;
@@ -78,7 +67,8 @@ interface QuadCortexSurfaceProps {
   onContextAction?: (action: CorOsContextAction) => void;
 }
 
-const officialBlockSprite = "/qc-block-samples.svg";
+const officialBlockSprite = QC_VISUAL_ASSETS.blockSprite.url;
+
 function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
   const visual = officialBlockVisual(block);
   const [tileX, tileY] = visual.tile;
@@ -98,12 +88,12 @@ function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; 
   /> : null;
   const pluginLabel = badge ? <g className="official-plugin-badge" aria-hidden="true">
     <rect x={x - size * .225} y={y - size * .565} width={size * .45} height={size * .205} rx={size * .065} fill={visual.color} />
-    <text x={x} y={y - size * .405} textAnchor="middle" fill="#111214" stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize={size * .145}>{badge}</text>
+    <text x={x} y={y - size * .405} textAnchor="middle" fill={QC_COLORS.device.blockLabel} stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize={size * .145}>{badge}</text>
   </g> : null;
   if (visual.referenceAsset) return <g><image className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} href={REFERENCE_BLOCK_ICONS[visual.referenceAsset]} preserveAspectRatio="xMidYMid meet" aria-hidden="true" />{fill}{pluginLabel}</g>;
   return <g><svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
     <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
-    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke="#000" strokeWidth="5" />
+    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={QC_COLORS.captured.screen} strokeWidth="5" />
     <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={visual.color} strokeWidth="2.4" />
   </svg>{fill}{pluginLabel}</g>;
 }
@@ -214,39 +204,6 @@ function MasterVolume({ value, onAction }: { value: number; onAction: (action: H
   </div>;
 }
 
-function ModeGlyph({ mode }: { mode: PresetSnapshot["mode"] }) {
-  if (mode === "PRESET") {
-    return <g fill="#f0f0f0">
-      {[0, 8, 16].map((y) => <g key={y} transform={`translate(0 ${y})`}>
-        <rect x="0" y="1" width="6" height="6" rx=".8" /><rect x="9" y="1" width="6" height="6" rx=".8" /><rect x="18" y="1" width="6" height="6" rx=".8" />
-        <rect x="5" y="3" width="5" height="2" /><rect x="14" y="3" width="5" height="2" />
-      </g>)}
-    </g>;
-  }
-  if (mode === "SCENE") {
-    return <g fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="6.5" textAnchor="middle">
-      <rect x="0" y="0" width="11" height="10" rx="1" /><rect x="13" y="0" width="11" height="10" rx="1" /><rect x="0" y="12" width="11" height="10" rx="1" /><rect x="13" y="12" width="11" height="10" rx="1" />
-      <text x="5.5" y="7.2" fill="#111">A</text><text x="18.5" y="7.2" fill="#111">B</text><text x="5.5" y="19.2" fill="#111">C</text><text x="18.5" y="19.2" fill="#111">D</text>
-    </g>;
-  }
-  if (mode === "HYBRID") {
-    return <g><g transform="scale(.68)"><ModeGlyph mode="SCENE" /></g><g transform="translate(9 8) scale(.62)"><ModeGlyph mode="STOMP" /></g></g>;
-  }
-  return <g transform="translate(-525 -78)"><path d="M535.723 79.2008C532.977 81.2508 530.778 82.8924 529.127 84.1255L528.27 84.7656C527.385 85.4269 526.705 85.9358 526.228 86.2924C525.319 86.9726 524.915 87.9041 525.015 89.087L542.055 84.521C541.833 83.0083 542.929 81.2361 545.255 79.1766C544.988 78.8037 544.691 78.4115 544.363 78C542.639 80.0488 540.862 81.2219 539.031 81.5192C537.2 81.8165 536.097 81.0437 535.723 79.2008ZM543.102 84.2407L547.01 83.1933C547.096 82.4398 546.701 81.3799 545.825 80.0139C543.899 81.7499 543.016 83.1667 543.102 84.2407ZM547.559 85.3468L525.619 91.2257C525.399 90.7294 525.237 90.2624 525.135 89.8246L525.201 90.0724L547.243 84.1663L547.559 85.3468ZM529.966 92.3084L533.966 91.2257V94.675L536.966 94.675V98.675H526.966V94.675L529.966 94.675V92.3084Z" fill="#f0f0f0" /></g>;
-}
-
-function DirectoryIcon({ kind }: { kind: "grid" | "download" | "cloud" | "folder" | "new-folder" | "sort" | "upload" | "search" | "done" }) {
-  if (kind === "grid") return <svg viewBox="0 0 24 24" aria-hidden="true">{[3, 10, 17].flatMap((x) => [3, 10, 17].map((y) => <rect key={`${x}-${y}`} x={x} y={y} width="5" height="5" rx=".6" />))}</svg>;
-  if (kind === "download") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4" /></svg>;
-  if (kind === "cloud") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19h11a4 4 0 0 0 .7-7.94A6.5 6.5 0 0 0 5.7 9.4 4.8 4.8 0 0 0 6.5 19Z" /></svg>;
-  if (kind === "folder") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3Z" /><rect x="9" y="11" width="6" height="6" rx="1" className="folder-number" /></svg>;
-  if (kind === "new-folder") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v11H3ZM7 2v8M3 6h8" /></svg>;
-  if (kind === "sort") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8m-8 6h6m-6 6h10M16 5l2 2 3-4m-5 10 2 2 3-4m-5 8 2 2 3-4" /></svg>;
-  if (kind === "upload") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M12 17V4m-5 5 5-5 5 5M4 6h3m-3 5h3m-3 5h3" /></svg>;
-  if (kind === "search") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" /><path d="m15 15 6 6" /></svg>;
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 6" /></svg>;
-}
-
 function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; directory: PresetDirectoryState }) {
   const viewingActiveSetlist = directory.list?.setlistKey === snapshot.setlistKey;
   const currentBank = viewingActiveSetlist ? Math.floor(snapshot.presetPosition / 8) + 1 : 1;
@@ -268,23 +225,23 @@ function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; dir
 
   return <section className="coros-directory" aria-label="Preset Directory">
     <header className="coros-directory-header">
-      <button className="directory-category" aria-label="Preset categories"><span className="directory-grid-icon"><DirectoryIcon kind="grid" /></span><strong>Presets</strong><span className="directory-chevron">▼</span></button>
+      <button className="directory-category" aria-label="Preset categories"><span className="directory-grid-icon"><QcDirectoryIcon kind="grid" /></span><strong>Presets</strong><span className="directory-chevron">▼</span></button>
       <div className="directory-tools" aria-label="Directory tools">
-        <button aria-label="Sort presets"><DirectoryIcon kind="sort" /></button>
-        <button className={uploadMode ? "is-active" : ""} aria-label="Upload to Cloud" aria-pressed={uploadMode} onClick={() => { setPresetMenuPosition(undefined); setUploadMode((active) => !active); }}><DirectoryIcon kind="upload" /></button>
-        <button aria-label="Search presets"><DirectoryIcon kind="search" /></button>
+        <button aria-label="Sort presets"><QcDirectoryIcon kind="sort" /></button>
+        <button className={uploadMode ? "is-active" : ""} aria-label="Upload to Cloud" aria-pressed={uploadMode} onClick={() => { setPresetMenuPosition(undefined); setUploadMode((active) => !active); }}><QcDirectoryIcon kind="upload" /></button>
+        <button aria-label="Search presets"><QcDirectoryIcon kind="search" /></button>
         <span className="directory-tool-divider" />
-        <button className="directory-close" aria-label="Return to Grid" onClick={directory.onClose}><DirectoryIcon kind="done" /></button>
+        <button className="directory-close" aria-label="Return to Grid" onClick={directory.onClose}><QcDirectoryIcon kind="done" /></button>
       </div>
     </header>
     <div className="coros-directory-body">
       <nav className="directory-folders" aria-label="Preset folders">
-        <button><span><DirectoryIcon kind="download" /></span>Downloads</button>
-        <button><span><DirectoryIcon kind="cloud" /></span>Cloud Presets</button>
-        <button className={factoryFolder?.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => factoryFolder && directory.onSelectSetlist(factoryFolder.key)}><span><DirectoryIcon kind="folder" /></span>Factory Presets</button>
-        {userFolders.map((folder) => <button key={folder.key} className={folder.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => directory.onSelectSetlist(folder.key)}><span><DirectoryIcon kind="folder" /></span>{folder.name}<b>⋮</b></button>)}
-        {!userFolders.length && <button className="is-active"><span><DirectoryIcon kind="folder" /></span>{directory.list?.setlistName ?? snapshot.setlistName}<b>⋮</b></button>}
-        <button className="directory-new-setlist" disabled><span><DirectoryIcon kind="new-folder" /></span>New Setlist</button>
+        <button><span><QcDirectoryIcon kind="download" /></span>Downloads</button>
+        <button><span><QcDirectoryIcon kind="cloud" /></span>Cloud Presets</button>
+        <button className={factoryFolder?.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => factoryFolder && directory.onSelectSetlist(factoryFolder.key)}><span><QcDirectoryIcon kind="folder" /></span>Factory Presets</button>
+        {userFolders.map((folder) => <button key={folder.key} className={folder.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => directory.onSelectSetlist(folder.key)}><span><QcDirectoryIcon kind="folder" /></span>{folder.name}<b>⋮</b></button>)}
+        {!userFolders.length && <button className="is-active"><span><QcDirectoryIcon kind="folder" /></span>{directory.list?.setlistName ?? snapshot.setlistName}<b>⋮</b></button>}
+        <button className="directory-new-setlist" disabled><span><QcDirectoryIcon kind="new-folder" /></span>New Setlist</button>
       </nav>
       <nav className="directory-banks" aria-label="Preset banks">
         {banks.length ? banks.map((bank) => <button key={bank} className={bank === selectedBank ? "is-active" : ""} onClick={() => setSelectedBank(bank)}>{bank}</button>) : <span className="directory-loading">{directory.loading ? "READING…" : "NO BANKS"}</span>}
@@ -357,7 +314,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const routeId = side === "input" ? routes[row]?.inputId : routes[row]?.outputId;
     if (!routedPortIsPlugged(side, routeId, snapshot.ioPorts)) return null;
     const x = side === "input" ? 19 : 759;
-    return <path d={`M${x} ${rowY[row] - 33}h22`} stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />;
+    return <path key={`${side}-connection-${row}`} d={`M${x} ${rowY[row] - 33}h22`} stroke={QC_COLORS.device.connectionMark} strokeWidth="3" strokeLinecap="round" />;
   };
   const routeLines = (label: string | undefined) => {
     const value = label ?? "+";
@@ -366,22 +323,22 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   };
   const railLabel = (label: string | undefined, x: number, y: number) => {
     const lines = routeLines(label);
-    if (label === "+") return <g stroke="#dedede" strokeWidth="1.7" strokeLinecap="round"><path d={`M${x - 10} ${y}h20`} /><path d={`M${x} ${y - 10}v20`} /></g>;
+    if (label === "+") return <g stroke={QC_COLORS.captured.utilityMark} strokeWidth="1.7" strokeLinecap="round"><path d={`M${x - 10} ${y}h20`} /><path d={`M${x} ${y - 10}v20`} /></g>;
     const firstY = y - (lines.length - 1) * 8.5;
-    return <text x={x} y={firstY} fill="#e6e6e6" stroke="none" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" fontWeight="400" fontSize="14.5">{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 17 : 0}>{line}</tspan>)}</text>;
+    return <text x={x} y={firstY} fill={QC_COLORS.captured.routeText} stroke="none" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" fontWeight="400" fontSize="14.5">{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 17 : 0}>{line}</tspan>)}</text>;
   };
   const rowRail = (row: number) => rowHasVisibleSignalRail(tabBlocksByRow[row].length, routes[row])
     ? <path key={`row-${row}`} d={`M52 ${rowY[row]}H748`} />
     : null;
   const routeToken = (kind: "S" | "M", x: number, y: number, row: number) => {
-    const color = kind === "S" ? "#0a74e0" : "#e44a5d";
+    const color = kind === "S" ? QC_COLORS.category.equalizer : QC_COLORS.category.synth;
     const node = kind === "S" ? "splitter" : "mixer";
     const selected = selectedBlockId === `routing-${row}-${node}`;
     return <g>
-      {selected && <circle cx={x} cy={y} r="18" fill="none" stroke="#fff" strokeWidth="2" />}
-      <circle cx={x} cy={y} r="15" fill="#000" stroke="none" />
+      {selected && <circle cx={x} cy={y} r="18" fill="none" stroke={QC_COLORS.captured.primaryText} strokeWidth="2" />}
+      <circle cx={x} cy={y} r="15" fill={QC_COLORS.captured.screen} stroke="none" />
       <circle cx={x} cy={y} r="13" fill={color} stroke="none" />
-      <text x={x} y={y + 5.5} textAnchor="middle" fill="#fff" stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="16">{kind}</text>
+      <text x={x} y={y + 5.5} textAnchor="middle" fill={QC_COLORS.captured.primaryText} stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="16">{kind}</text>
     </g>;
   };
   const splitPath = (row: number) => {
@@ -390,7 +347,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const splitX = splitAnchorX(route.splitColumn);
     const rejoins = route.mixColumn !== undefined && route.mixColumn >= 0;
     const mixX = rejoins ? mixAnchorX(route.mixColumn!) : 748;
-    return <g key={`split-${row}`} fill="none" stroke="#8f9092" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    return <g key={`split-${row}`} fill="none" stroke={QC_COLORS.device.splitPath} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       <path d={openSplitPath(splitX, rowY[row], rowY[row + 1])} />
       {rejoins && <path d={rejoinSplitPath(mixX, rowY[row], rowY[row + 1])} />}
       {routeToken("S", splitX, rowY[row], row)}
@@ -403,8 +360,8 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const selected = selectedBlockId === block.id;
     return <g key={block.id} opacity={block.bypassed ? .48 : 1}>
       <DeviceGlyph block={block} x={cx} y={cy} />
-      {selected && <rect x={cx - 34} y={cy - 34} width="68" height="68" rx="15" fill="none" stroke="#f5f5f5" strokeWidth="2" />}
-      {block.bypassed && <path d={`M${cx - 32} ${cy}H${cx + 32}`} fill="none" stroke="#c9c9ca" strokeWidth="2" opacity=".9" />}
+      {selected && <rect x={cx - 34} y={cy - 34} width="68" height="68" rx="15" fill="none" stroke={QC_COLORS.app.text} strokeWidth="2" />}
+      {block.bypassed && <path d={`M${cx - 32} ${cy}H${cx + 32}`} fill="none" stroke={QC_COLORS.device.bypassPath} strokeWidth="2" opacity=".9" />}
     </g>;
   };
   const rowActionStops = (row: number) => {
@@ -436,30 +393,30 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   };
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
-      <rect width="800" height="480" fill="#020202" />
-      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill="#f4f4f4" letterSpacing="-1">{presetBank}</tspan><tspan fill="#3ee77b" letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}${titlePresentation.dimmed ? " is-unsaved" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill={titlePresentation.dimmed ? "#29292b" : "#f4f4f4"} fontSize={presetTitleFontSize} fontStyle={titlePresentation.italic ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
-      <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="800" height="480" fill={QC_COLORS.captured.screen} />
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill={QC_COLORS.hardware.whiteLed} letterSpacing="-1">{presetBank}</tspan><tspan fill={QC_COLORS.device.presetSlotDefault} letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}${titlePresentation.dimmed ? " is-unsaved" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill={titlePresentation.dimmed ? QC_COLORS.captured.unsaved : QC_COLORS.hardware.whiteLed} fontSize={presetTitleFontSize} fontStyle={titlePresentation.italic ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
+      <g fill="none" stroke={QC_COLORS.hardware.whiteLed} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M633 13A13 13 0 1 1 620 26" />
-        <path d="M626 15L634 9V20Z" fill="#f0f0f0" stroke="none" />
+        <path d="M626 15L634 9V20Z" fill={QC_COLORS.hardware.whiteLed} stroke="none" />
       </g>
       <path
         d="M712 13H728L733 18V35H711V14C711 13.448 711.448 13 712 13ZM716 15V22H727V15H716ZM716 27V35H728V27H716Z"
-        fill="#f0f0f0"
+        fill={QC_COLORS.hardware.whiteLed}
         fillRule="evenodd"
       />
-      <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
-      <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
-      <g transform="translate(652 55)"><ModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
-      <g fill="#121315" stroke="#060607" strokeWidth="1.2" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" textAnchor="middle">
+      <rect x="654" y="9" width="31" height="31" rx="4" fill={QC_COLORS.captured.sceneBadge} /><text x="669.5" y="34" textAnchor="middle" fill={QC_COLORS.device.panel} fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
+      <g fill={QC_COLORS.hardware.whiteLed}><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
+      <g transform="translate(652 55)" color={QC_COLORS.hardware.whiteLed}><QcModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill={QC_COLORS.hardware.whiteLed} fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
+      <g fill={QC_COLORS.captured.routePill} stroke={QC_COLORS.captured.screen} strokeWidth="1.2" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" textAnchor="middle">
         {rowY.flatMap((y, row) => [<rect key={`in-${row}`} x="8" y={y - 39} width="44" height="78" rx="15" />, <rect key={`out-${row}`} x="748" y={y - 39} width="44" height="78" rx="15" />])}
         {rowY.flatMap((_, row) => [connectionMark("input", row), connectionMark("output", row)])}
         {rowY.map((y, row) => <g key={`rails-${row}`}>{railLabel(displayInput(row), 30, y)}{railLabel(displayOutput(row), 770, y)}</g>)}
       </g>
-      <g fill="none" stroke="#b5b6b8" strokeWidth="1.7">{rowY.map((_, row) => rowRail(row))}</g>
+      <g fill="none" stroke={QC_COLORS.captured.routeRail} strokeWidth="1.7">{rowY.map((_, row) => rowRail(row))}</g>
       {rowY.map((_, row) => splitPath(row))}
       {!screenBlocks.length && <g aria-label="Empty device slot">
-        <rect x="66" y="119" width="64" height="64" rx="14" fill="#111214" stroke="#080809" strokeWidth="1.2" />
-        <g stroke="#a8a9ab" strokeWidth="1.8" strokeLinecap="round"><path d="M88 151h20" /><path d="M98 141v20" /></g>
+        <rect x="66" y="119" width="64" height="64" rx="14" fill={QC_COLORS.captured.routePill} stroke={QC_COLORS.captured.screen} strokeWidth="1.2" />
+        <g stroke={QC_COLORS.captured.utilityMark} strokeWidth="1.8" strokeLinecap="round"><path d="M88 151h20" /><path d="M98 141v20" /></g>
       </g>}
       <g>{screenBlocks.map(renderBlock)}</g>
     </svg>
@@ -486,16 +443,16 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     {routingPicker && <>
       <button className="coros-route-picker-dismiss" aria-label="Close route selection" onClick={routingPicker.onClose} />
       <svg className="coros-route-focus-layer" viewBox="0 0 800 480" preserveAspectRatio="none" aria-hidden="true">
-        <rect width="800" height="480" fill="#f3f3f3" fillOpacity=".86" />
-        <rect x={routingPicker.side === "input" ? 8 : 748} y={rowY[routingPicker.row] - 39} width="44" height="78" rx="15" fill="#171719" stroke="#050505" strokeWidth="1.5" />
+        <rect width="800" height="480" fill={QC_COLORS.device.focusOverlay} fillOpacity=".86" />
+        <rect x={routingPicker.side === "input" ? 8 : 748} y={rowY[routingPicker.row] - 39} width="44" height="78" rx="15" fill={QC_COLORS.device.routeFocus} stroke={QC_COLORS.captured.screen} strokeWidth="1.5" />
         <g textAnchor="middle">{railLabel(routingPicker.side === "input" ? displayInput(routingPicker.row) : displayOutput(routingPicker.row), routingPicker.side === "input" ? 30 : 770, rowY[routingPicker.row])}</g>
       </svg>
       <section className={`coros-route-picker is-${routingPicker.side}`} aria-label={`Row ${routingPicker.row + 1} ${routingPicker.side} selection`}>
-        <header><RoutePickerGlyph side={routingPicker.side} label={selectedRoute?.[1] ?? "Internal"} /><span>{routePickerLabel(routingPicker.side, selectedRoute?.[1] ?? "Internal")}</span></header>
+        <header><QcRouteGlyph side={routingPicker.side} label={selectedRoute?.[1] ?? "Internal"} /><span>{routePickerLabel(routingPicker.side, selectedRoute?.[1] ?? "Internal")}</span></header>
         <div className="coros-route-options" role="listbox" aria-label={`${routingPicker.side === "input" ? "Input" : "Output"} routes`}>
           {routePickerGroups.map((group) => <div className="coros-route-group" role="group" aria-label={group.name || "Unassigned"} key={group.name || "unassigned"}>
             {group.name && <strong>{group.name}</strong>}
-            {group.options.map(([value, label]) => <button key={value} role="option" aria-selected={value === routingPicker.value} disabled={routingPicker.disabled} onClick={() => routingPicker.onSelect(value)}><RoutePickerGlyph side={routingPicker.side} label={label} /><span>{routePickerLabel(routingPicker.side, label)}</span></button>)}
+            {group.options.map(([value, label]) => <button key={value} role="option" aria-selected={value === routingPicker.value} disabled={routingPicker.disabled} onClick={() => routingPicker.onSelect(value)}><QcRouteGlyph side={routingPicker.side} label={label} /><span>{routePickerLabel(routingPicker.side, label)}</span></button>)}
           </div>)}
         </div>
       </section>
@@ -536,11 +493,11 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
       color: /\bcab\b/i.test(parameterEditor.details.category) && (
         (parameterEditor.page === 0 && index >= 5 && index <= 8)
         || (parameterEditor.page === 1 && index === 2)
-      ) ? "#ffd236" : editorAccent
+      ) ? QC_COLORS.category.pitch : editorAccent
     }));
   })() : undefined;
   const parameterLed = (slot: number, fallback: { active: boolean; assigned: boolean; color: string }) => parameterLeds?.[slot] ?? fallback;
-  const navigationLedColor = "#f4f4f4";
+  const navigationLedColor = QC_COLORS.hardware.whiteLed;
   const bankDownLed = parameterLed(4, { active: false, assigned: false, color: navigationLedColor });
   const svgCropStyle = skin.svgAsset ? {
     width: `${skin.svgAsset.sourceWidth / skin.svgAsset.crop.width * 100}%`,
@@ -557,7 +514,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="footswitch-deck">
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => { const led = parameterLed(index, leds[index]); return <HardwareSwitch key={control.id} role={control.role} label={control.label} active={led.active} assigned={led.assigned} accent={led.color} onAction={onAction} />; })}<HardwareSwitch role={bankDown.role} label="BANK DOWN" active={bankDownLed.active} assigned={bankDownLed.assigned} accent={bankDownLed.color} onAction={onAction} /></div>
       <div className="mode-bracket" aria-hidden="true"><span>＋</span><strong>MODE</strong><span>−</span></div>
-      <div className="footswitch-row">{scenes.slice(4).map((control, index) => { const led = parameterLed(index + 5, leds[index + 4]); return <HardwareSwitch key={control.id} role={control.role} label={control.label} active={led.active} assigned={led.assigned} accent={led.color} onAction={onAction} />; })}<HardwareSwitch role={tempo.role} label="TEMPO" active={parameterLeds ? parameterLeds[9].active : snapshot.tempoLedEnabled} assigned={parameterLeds ? parameterLeds[9].assigned : snapshot.tempoLedEnabled} pulseBpm={!parameterLeds && snapshot.tempoLedEnabled ? snapshot.tempo : undefined} pulseEpochMs={!parameterLeds ? snapshot.tempoPulseEpochMs : undefined} accent={parameterLeds ? parameterLeds[9].color : "#35ee76"} onAction={onAction} /></div>
+      <div className="footswitch-row">{scenes.slice(4).map((control, index) => { const led = parameterLed(index + 5, leds[index + 4]); return <HardwareSwitch key={control.id} role={control.role} label={control.label} active={led.active} assigned={led.assigned} accent={led.color} onAction={onAction} />; })}<HardwareSwitch role={tempo.role} label="TEMPO" active={parameterLeds ? parameterLeds[9].active : snapshot.tempoLedEnabled} assigned={parameterLeds ? parameterLeds[9].assigned : snapshot.tempoLedEnabled} pulseBpm={!parameterLeds && snapshot.tempoLedEnabled ? snapshot.tempo : undefined} pulseEpochMs={!parameterLeds ? snapshot.tempoPulseEpochMs : undefined} accent={parameterLeds ? parameterLeds[9].color : QC_COLORS.device.tempoLed} onAction={onAction} /></div>
       <span className="tuner-hint">TEMPO<br />HOLD: TUNER</span>
     </div>
   </section>;

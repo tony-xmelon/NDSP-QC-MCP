@@ -4,6 +4,7 @@
 //! protobuf shape, initialization order, and value normalization so Android and
 //! Windows never hand-assemble the same wire command independently.
 
+use crate::generated_payloads::MidiOutMessage;
 use crate::proto::cortex_protobuf_v2 as pa;
 use crate::proto::{
     bypass, chain, col_bypass, model, param, param_value, BinaryPreset, Bypass, Chain, ColBypass,
@@ -113,6 +114,18 @@ pub enum DeviceOperation {
         parameter_index: u32,
         value: f32,
     },
+    SetLaneControlParameter {
+        row: u32,
+        control: String,
+        parameter_index: u32,
+        value: f32,
+    },
+    SetLaneControlSceneMode {
+        row: u32,
+        control: String,
+        parameter_index: u32,
+        enabled: bool,
+    },
     ListPresetFolders,
     SavePreset {
         setlist_key: String,
@@ -121,6 +134,7 @@ pub enum DeviceOperation {
         instrument: i32,
     },
     ReadVersion,
+    ReadTuner,
     SetDeviceName(String),
     Undo,
     Redo,
@@ -162,6 +176,31 @@ pub enum DeviceOperation {
         pedal: u32,
         minimum: f32,
         maximum: f32,
+    },
+    SetStompMomentary {
+        footswitch: u32,
+        momentary: bool,
+    },
+    SetStompLabel {
+        footswitch: u32,
+        label: String,
+        single: bool,
+    },
+    SetMidiOut {
+        source: u32,
+        messages: Vec<MidiOutMessage>,
+    },
+    SetPresetLoadMidiOut {
+        messages: Vec<MidiOutMessage>,
+    },
+    SetExpressionBypass {
+        row: u32,
+        column: u32,
+        pedal: u32,
+        mode: u32,
+        invert: bool,
+        delay_ms: u32,
+        latch_emulation: bool,
     },
 }
 
@@ -205,6 +244,28 @@ impl DeviceOperation {
             } => {
                 vec![set_routing_parameter(row, &node, parameter_index, value)]
             }
+            Self::SetLaneControlParameter {
+                row,
+                control,
+                parameter_index,
+                value,
+            } => vec![set_lane_control_parameter(
+                row,
+                &control,
+                parameter_index,
+                value,
+            )],
+            Self::SetLaneControlSceneMode {
+                row,
+                control,
+                parameter_index,
+                enabled,
+            } => vec![set_lane_control_scene_mode(
+                row,
+                &control,
+                parameter_index,
+                enabled,
+            )],
             Self::ListPresetFolders => vec![read(4)],
             Self::SavePreset {
                 setlist_key,
@@ -215,6 +276,7 @@ impl DeviceOperation {
                 vec![save_preset(setlist_key, position, name, instrument)]
             }
             Self::ReadVersion => vec![read_version()],
+            Self::ReadTuner => vec![read_tuner()],
             Self::SetDeviceName(name) => vec![set_device_name(name)],
             Self::Undo => vec![undo()],
             Self::Redo => vec![redo()],
@@ -239,12 +301,64 @@ impl DeviceOperation {
             } => vec![copy_scene(from_index, to_index, swap)],
             Self::SetSceneLabel { scene, label } => vec![set_scene_label(scene, label)],
             Self::SetSceneColor { scene, color } => vec![set_scene_color(scene, color)],
-            Self::SetParameterSceneMode { row, column, parameter_index, enabled } => {
-                vec![set_parameter_scene_mode(row, column, parameter_index, enabled)]
+            Self::SetParameterSceneMode {
+                row,
+                column,
+                parameter_index,
+                enabled,
+            } => {
+                vec![set_parameter_scene_mode(
+                    row,
+                    column,
+                    parameter_index,
+                    enabled,
+                )]
             }
-            Self::SetParameterExpression { row, column, parameter_index, pedal, minimum, maximum } => {
-                vec![set_parameter_expression(row, column, parameter_index, pedal, minimum, maximum)]
+            Self::SetParameterExpression {
+                row,
+                column,
+                parameter_index,
+                pedal,
+                minimum,
+                maximum,
+            } => {
+                vec![set_parameter_expression(
+                    row,
+                    column,
+                    parameter_index,
+                    pedal,
+                    minimum,
+                    maximum,
+                )]
             }
+            Self::SetStompMomentary {
+                footswitch,
+                momentary,
+            } => vec![set_stomp_momentary(footswitch, momentary)],
+            Self::SetStompLabel {
+                footswitch,
+                label,
+                single,
+            } => vec![set_stomp_label(footswitch, label, single)],
+            Self::SetMidiOut { source, messages } => vec![set_midi_out(source, messages, false)],
+            Self::SetPresetLoadMidiOut { messages } => vec![set_midi_out(0, messages, true)],
+            Self::SetExpressionBypass {
+                row,
+                column,
+                pedal,
+                mode,
+                invert,
+                delay_ms,
+                latch_emulation,
+            } => vec![set_expression_bypass(
+                row,
+                column,
+                pedal,
+                mode,
+                invert,
+                delay_ms,
+                latch_emulation,
+            )],
         }
     }
 }
@@ -494,18 +608,92 @@ fn parameter_update(
 }
 
 fn parameter_metadata_update(row: u32, column: u32, parameter: Param) -> OutboundMessage {
+    let mut target = Model {
+        params: vec![parameter],
+        ..Default::default()
+    };
+    let mut chain = Chain {
+        row: Some(chain::Row::Row(row)),
+        ..Default::default()
+    };
+    match column {
+        0..=7 => {
+            target.column = Some(model::Column::Column(column));
+            chain.models.push(target);
+        }
+        8 => chain.combined_splitter.push(target),
+        9 => {
+            target.hash = Some(model::Hash::Hash(11_000));
+            chain.mixer.push(target);
+        }
+        _ => panic!("unsupported parameter target column: {column}"),
+    }
     grid_update(BinaryPreset {
-        chains: vec![Chain {
-            row: Some(chain::Row::Row(row)),
-            models: vec![Model {
-                column: Some(model::Column::Column(column)),
-                params: vec![parameter],
-                ..Default::default()
-            }],
-            ..Default::default()
-        }],
+        chains: vec![chain],
         ..Default::default()
     })
+}
+
+fn lane_control_update(row: u32, control: &str, parameter: Param) -> OutboundMessage {
+    let mut target = Model {
+        params: vec![parameter],
+        ..Default::default()
+    };
+    let mut chain = Chain {
+        row: Some(chain::Row::Row(row)),
+        ..Default::default()
+    };
+    match control {
+        "inputGate" => {
+            target.hash = Some(model::Hash::Hash(28_000));
+            chain.input_control.push(target);
+        }
+        "laneOutput" => {
+            target.hash = Some(model::Hash::Hash(23_000));
+            chain.output_control.push(target);
+        }
+        _ => panic!("unsupported lane control: {control}"),
+    }
+    grid_update(BinaryPreset {
+        chains: vec![chain],
+        ..Default::default()
+    })
+}
+
+pub fn set_lane_control_parameter(
+    row: u32,
+    control: &str,
+    parameter_index: u32,
+    value: f32,
+) -> OutboundMessage {
+    lane_control_update(
+        row,
+        control,
+        Param {
+            index: Some(param::Index::Index(parameter_index)),
+            param_values: vec![ParamValue {
+                value: Some(param_value::Value::FloatValue(value)),
+            }],
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_lane_control_scene_mode(
+    row: u32,
+    control: &str,
+    parameter_index: u32,
+    enabled: bool,
+) -> OutboundMessage {
+    lane_control_update(
+        row,
+        control,
+        Param {
+            index: Some(param::Index::Index(parameter_index)),
+            scene_mode: Some(param::SceneMode::SceneMode(enabled)),
+            ..Default::default()
+        },
+    )
 }
 
 /// Toggle per-scene storage for one block parameter. The flag travels alone.
@@ -515,11 +703,15 @@ pub fn set_parameter_scene_mode(
     parameter_index: u32,
     enabled: bool,
 ) -> OutboundMessage {
-    parameter_metadata_update(row, column, Param {
-        index: Some(param::Index::Index(parameter_index)),
-        scene_mode: Some(param::SceneMode::SceneMode(enabled)),
-        ..Default::default()
-    })
+    parameter_metadata_update(
+        row,
+        column,
+        Param {
+            index: Some(param::Index::Index(parameter_index)),
+            scene_mode: Some(param::SceneMode::SceneMode(enabled)),
+            ..Default::default()
+        },
+    )
 }
 
 /// Assign EXP 1/2 to a block parameter, or clear it with pedal zero.
@@ -531,11 +723,49 @@ pub fn set_parameter_expression(
     minimum: f32,
     maximum: f32,
 ) -> OutboundMessage {
-    parameter_metadata_update(row, column, Param {
-        index: Some(param::Index::Index(parameter_index)),
-        expression: Some(param::Expression::Expression(pedal as i32)),
-        expression_min: Some(param::ExpressionMin::ExpressionMin(minimum)),
-        expression_max: Some(param::ExpressionMax::ExpressionMax(maximum)),
+    parameter_metadata_update(
+        row,
+        column,
+        Param {
+            index: Some(param::Index::Index(parameter_index)),
+            expression: Some(param::Expression::Expression(pedal as i32)),
+            expression_min: Some(param::ExpressionMin::ExpressionMin(minimum)),
+            expression_max: Some(param::ExpressionMax::ExpressionMax(maximum)),
+            ..Default::default()
+        },
+    )
+}
+
+/// Assign an expression pedal to a placed block's bypass switch.
+pub fn set_expression_bypass(
+    row: u32,
+    column: u32,
+    pedal: u32,
+    mode: u32,
+    invert: bool,
+    delay_ms: u32,
+    latch_emulation: bool,
+) -> OutboundMessage {
+    grid_update(BinaryPreset {
+        chains: vec![Chain {
+            row: Some(chain::Row::Row(row)),
+            models: vec![Model {
+                column: Some(model::Column::Column(column)),
+                bypass_expression: vec![crate::proto::Expression {
+                    expression: pedal as i32,
+                    expression_min: 0.0,
+                    expression_max: 1.0,
+                }],
+                expression_bypass_info: vec![crate::proto::ExpressionBypassInfo {
+                    r#type: mode,
+                    invert,
+                    delay_ms,
+                    latch_emulation,
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
         ..Default::default()
     })
 }
@@ -623,6 +853,60 @@ pub fn set_footswitch(row: u32, column: u32, footswitch: Option<u32>) -> Vec<Out
         ..Default::default()
     });
     vec![delete, update]
+}
+
+/// Set the per-preset latching/momentary behavior for a physical A-H switch.
+pub fn set_stomp_momentary(footswitch: u32, momentary: bool) -> OutboundMessage {
+    let mut preset = BinaryPreset::default();
+    preset.stomp_is_momentary.insert(footswitch, momentary);
+    grid_update(preset)
+}
+
+/// Set one of the QC's two footswitch-label maps.
+pub fn set_stomp_label(footswitch: u32, label: String, single: bool) -> OutboundMessage {
+    let mut preset = BinaryPreset::default();
+    if single {
+        preset.single_stomp_labels.insert(footswitch, label);
+    } else {
+        preset.stomp_labels.insert(footswitch, label);
+    }
+    grid_update(preset)
+}
+
+/// Replace the MIDI messages for one A-H/EXP source, or the preset-load list.
+pub fn set_midi_out(
+    source: u32,
+    messages: Vec<MidiOutMessage>,
+    preset_load: bool,
+) -> OutboundMessage {
+    let messages = pa::GeneralMidiMessages {
+        messages: vec![pa::GeneralMidiMessage {
+            source: Some(pa::general_midi_message::Source::Source(source)),
+            msg: messages
+                .into_iter()
+                .map(|message| crate::proto::MidiMessageInfo {
+                    r#type: message.r#type,
+                    channel: message.channel,
+                    param1: message.param1,
+                    param2: message.param2,
+                    param3: message.param3,
+                })
+                .collect(),
+        }],
+    };
+    OutboundMessage::encoded(
+        8,
+        pa::MidiSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            preset_load_messages: preset_load.then_some(
+                pa::midi_settings_message::PresetLoadMessages::PresetLoadMessages(messages.clone()),
+            ),
+            general_midi_messages: (!preset_load).then_some(
+                pa::midi_settings_message::GeneralMidiMessages::GeneralMidiMessages(messages),
+            ),
+            ..Default::default()
+        },
+    )
 }
 
 pub fn set_chain_input(row: u32, input_id: u32) -> OutboundMessage {
@@ -754,6 +1038,16 @@ pub fn read_version() -> OutboundMessage {
     )
 }
 
+pub fn read_tuner() -> OutboundMessage {
+    OutboundMessage::encoded(
+        6,
+        pa::TunerMessage {
+            action: pa::message_action::Enum::Read as i32,
+            ..Default::default()
+        },
+    )
+}
+
 pub fn set_device_name(name: impl Into<String>) -> OutboundMessage {
     OutboundMessage::encoded(
         10,
@@ -839,8 +1133,8 @@ pub fn screen_tap(x: f32, y: f32) -> [OutboundMessage; 2] {
         ..Default::default()
     };
     [
-        OutboundMessage::encoded(72, mouse(pa::remote_control_mouse::Type::Release as i32)),
         OutboundMessage::encoded(72, mouse(pa::remote_control_mouse::Type::Press as i32)),
+        OutboundMessage::encoded(72, mouse(pa::remote_control_mouse::Type::Release as i32)),
     ]
 }
 
@@ -966,6 +1260,8 @@ mod tests {
         assert_eq!(keepalive().payload, [0x08, 0x01]);
         assert_eq!(read(51).payload, [0x08, 0x03]);
         assert_eq!(read_version().payload, [0x08, 0x03]);
+        assert_eq!(read_tuner().message_type, 6);
+        assert_eq!(read_tuner().payload, [0x08, 0x03]);
         assert_eq!(undo().payload, [0x08, 0x01, 0x28, 0x01]);
         assert_eq!(redo().payload, [0x08, 0x01, 0x30, 0x01]);
         assert_eq!(
@@ -984,14 +1280,14 @@ mod tests {
         let tap = screen_tap(184.0, 147.0);
         assert_eq!(
             tap[0].payload,
+            [0x08, 0x01, 0x1a, 0x0a, 0x0d, 0x00, 0x00, 0x38, 0x43, 0x15, 0x00, 0x00, 0x13, 0x43]
+        );
+        assert_eq!(
+            tap[1].payload,
             [
                 0x08, 0x01, 0x1a, 0x0c, 0x0d, 0x00, 0x00, 0x38, 0x43, 0x15, 0x00, 0x00, 0x13, 0x43,
                 0x18, 0x01
             ]
-        );
-        assert_eq!(
-            tap[1].payload,
-            [0x08, 0x01, 0x1a, 0x0a, 0x0d, 0x00, 0x00, 0x38, 0x43, 0x15, 0x00, 0x00, 0x13, 0x43]
         );
     }
 
@@ -1016,6 +1312,190 @@ mod tests {
         let grid = pa::GridMessage::decode(bypass.payload.as_slice()).unwrap();
         let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
         assert!(preset.bypass[0].col_bypass[0].scene_bypass[0].bypass);
+    }
+
+    #[test]
+    fn parameter_assignment_updates_are_sparse_and_preserve_reversed_ranges() {
+        let scene_mode = set_parameter_scene_mode(2, 5, 7, true);
+        let grid = pa::GridMessage::decode(scene_mode.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let parameter = &preset.chains[0].models[0].params[0];
+        assert_eq!(preset.chains[0].row, Some(chain::Row::Row(2)));
+        assert_eq!(
+            preset.chains[0].models[0].column,
+            Some(model::Column::Column(5))
+        );
+        assert_eq!(parameter.index, Some(param::Index::Index(7)));
+        assert_eq!(
+            parameter.scene_mode,
+            Some(param::SceneMode::SceneMode(true))
+        );
+        assert!(parameter.param_values.is_empty());
+        assert!(parameter.expression.is_none());
+
+        let expression = set_parameter_expression(1, 3, 9, 2, 0.85, 0.1);
+        let grid = pa::GridMessage::decode(expression.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let parameter = &preset.chains[0].models[0].params[0];
+        assert_eq!(parameter.index, Some(param::Index::Index(9)));
+        assert_eq!(parameter.expression, Some(param::Expression::Expression(2)));
+        assert_eq!(
+            parameter.expression_min,
+            Some(param::ExpressionMin::ExpressionMin(0.85))
+        );
+        assert_eq!(
+            parameter.expression_max,
+            Some(param::ExpressionMax::ExpressionMax(0.1))
+        );
+        assert!(parameter.param_values.is_empty());
+        assert!(parameter.scene_mode.is_none());
+
+        let bypass = set_expression_bypass(2, 4, 1, 2, true, 250, true);
+        let grid = pa::GridMessage::decode(bypass.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let model = &preset.chains[0].models[0];
+        assert_eq!(preset.chains[0].row, Some(chain::Row::Row(2)));
+        assert_eq!(model.column, Some(model::Column::Column(4)));
+        assert_eq!(model.bypass_expression[0].expression, 1);
+        assert_eq!(model.bypass_expression[0].expression_min, 0.0);
+        assert_eq!(model.bypass_expression[0].expression_max, 1.0);
+        assert_eq!(model.expression_bypass_info[0].r#type, 2);
+        assert!(model.expression_bypass_info[0].invert);
+        assert_eq!(model.expression_bypass_info[0].delay_ms, 250);
+        assert!(model.expression_bypass_info[0].latch_emulation);
+        assert!(model.params.is_empty());
+
+        let splitter_scene = set_parameter_scene_mode(0, 8, 4, true);
+        let grid = pa::GridMessage::decode(splitter_scene.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        assert!(preset.chains[0].models.is_empty());
+        assert!(preset.chains[0].combined_splitter[0].hash.is_none());
+        assert_eq!(
+            preset.chains[0].combined_splitter[0].params[0].index,
+            Some(param::Index::Index(4))
+        );
+        assert_eq!(
+            preset.chains[0].combined_splitter[0].params[0].scene_mode,
+            Some(param::SceneMode::SceneMode(true))
+        );
+
+        let mixer_expression = set_parameter_expression(2, 9, 3, 1, 0.2, 0.9);
+        let grid = pa::GridMessage::decode(mixer_expression.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let mixer = &preset.chains[0].mixer[0];
+        assert_eq!(mixer.hash, Some(model::Hash::Hash(11_000)));
+        assert_eq!(
+            mixer.params[0].expression,
+            Some(param::Expression::Expression(1))
+        );
+    }
+
+    #[test]
+    fn splitter_and_mixer_parameters_use_their_native_chain_containers() {
+        let splitter = set_routing_parameter(0, "splitter", 5, 0.25);
+        let grid = pa::GridMessage::decode(splitter.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let chain = &preset.chains[0];
+        assert_eq!(chain.row, Some(chain::Row::Row(0)));
+        assert!(chain.models.is_empty());
+        assert!(chain.combined_splitter[0].hash.is_none());
+        assert_eq!(
+            chain.combined_splitter[0].params[0].index,
+            Some(param::Index::Index(5))
+        );
+
+        let mixer = set_routing_parameter(2, "mixer", 3, 0.75);
+        let grid = pa::GridMessage::decode(mixer.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let model = &preset.chains[0].mixer[0];
+        assert_eq!(model.hash, Some(model::Hash::Hash(11_000)));
+        assert_eq!(model.params[0].index, Some(param::Index::Index(3)));
+    }
+
+    #[test]
+    fn lane_control_updates_use_their_native_chain_containers() {
+        let input = set_lane_control_parameter(1, "inputGate", 2, 0.4);
+        let grid = pa::GridMessage::decode(input.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let chain = &preset.chains[0];
+        assert!(chain.models.is_empty());
+        assert!(chain.output_control.is_empty());
+        assert_eq!(chain.input_control[0].hash, Some(model::Hash::Hash(28_000)));
+        assert_eq!(
+            chain.input_control[0].params[0].index,
+            Some(param::Index::Index(2))
+        );
+
+        let output = set_lane_control_scene_mode(3, "laneOutput", 0, true);
+        let grid = pa::GridMessage::decode(output.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        let control = &preset.chains[0].output_control[0];
+        assert_eq!(control.hash, Some(model::Hash::Hash(23_000)));
+        assert_eq!(
+            control.params[0].scene_mode,
+            Some(param::SceneMode::SceneMode(true))
+        );
+        assert!(
+            control.params[0].param_values.is_empty(),
+            "scene-mode metadata must travel alone"
+        );
+    }
+
+    #[test]
+    fn stomp_metadata_updates_are_sparse_and_keyed_by_footswitch() {
+        let momentary = set_stomp_momentary(4, true);
+        let grid = pa::GridMessage::decode(momentary.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        assert_eq!(preset.stomp_is_momentary.get(&4), Some(&true));
+        assert!(preset.stomp_mode_assignments.is_empty());
+        assert!(preset.stomp_labels.is_empty());
+        assert!(preset.single_stomp_labels.is_empty());
+
+        let label = set_stomp_label(7, "Solo".into(), true);
+        let grid = pa::GridMessage::decode(label.payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        assert_eq!(
+            preset.single_stomp_labels.get(&7).map(String::as_str),
+            Some("Solo")
+        );
+        assert!(preset.stomp_labels.is_empty());
+        assert!(preset.stomp_is_momentary.is_empty());
+    }
+
+    #[test]
+    fn preset_midi_out_uses_midi_settings_and_preserves_source_slots() {
+        let message = MidiOutMessage {
+            r#type: 2,
+            channel: 4,
+            param1: 30,
+            param2: 5,
+            param3: 120,
+        };
+        let outbound = set_midi_out(7, vec![message.clone()], false);
+        assert_eq!(outbound.message_type, 8);
+        let decoded = pa::MidiSettingsMessage::decode(outbound.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Update as i32);
+        assert!(decoded.preset_load_messages.is_none());
+        let Some(pa::midi_settings_message::GeneralMidiMessages::GeneralMidiMessages(groups)) =
+            decoded.general_midi_messages
+        else {
+            panic!("general MIDI messages missing");
+        };
+        assert_eq!(groups.messages.len(), 1);
+        assert_eq!(
+            groups.messages[0].source,
+            Some(pa::general_midi_message::Source::Source(7))
+        );
+        assert_eq!(groups.messages[0].msg[0].r#type, message.r#type);
+        assert_eq!(groups.messages[0].msg[0].param3, message.param3);
+
+        let outbound = set_midi_out(0, vec![message], true);
+        let decoded = pa::MidiSettingsMessage::decode(outbound.payload.as_slice()).unwrap();
+        assert!(decoded.general_midi_messages.is_none());
+        assert!(matches!(
+            decoded.preset_load_messages,
+            Some(pa::midi_settings_message::PresetLoadMessages::PresetLoadMessages(_))
+        ));
     }
 
     #[test]

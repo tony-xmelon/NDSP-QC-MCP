@@ -125,6 +125,10 @@ final class QcNativeStateDecoder implements AutoCloseable {
         return new JSObject(nativeBlockDetails(requireHandle(), row, column));
     }
 
+    JSObject laneControlDetails(int row, String control) throws Exception {
+        return new JSObject(nativeLaneControlDetails(requireHandle(), row, control));
+    }
+
     JSObject snapshot() throws Exception { return new JSObject(nativeSnapshot(requireHandle())); }
     JSObject modelList() throws Exception { return new JSObject(nativeModelList(requireHandle())); }
     JSObject presetFolders() throws Exception { return new JSObject(nativePresetFolders(requireHandle())); }
@@ -388,6 +392,7 @@ final class QcNativeStateDecoder implements AutoCloseable {
     private static native String nativeDecode(long handle, int messageType, byte[] payload);
     private static native String nativeInstallModelRepo(long handle, byte[] payload);
     private static native String nativeBlockDetails(long handle, int row, int column);
+    private static native String nativeLaneControlDetails(long handle, int row, String control);
     private static native String nativeSnapshot(long handle);
     private static native int nativeModelCount(long handle);
     private static native String nativeModelList(long handle);

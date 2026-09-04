@@ -1,4 +1,5 @@
 import type { BlockParameter } from "@ndsp-qc/client";
+import { QC_COLORS } from "@ndsp-qc/theme";
 
 export const PARAMETER_ENCODER_ROLES = [
   "footswitch:A", "footswitch:B", "footswitch:C", "footswitch:D", "footswitch:E",
@@ -76,7 +77,7 @@ export function parameterEditorPageSize(category: string, parameters: ReadonlyAr
 
 /** Grid category color and editor control color are not always the same on CorOS. */
 export function parameterEditorAccent(name: string, fallback: string): string {
-  return /adaptive\s+gate/i.test(name) ? "#f4f4f4" : fallback;
+  return /adaptive\s+gate/i.test(name) ? QC_COLORS.hardware.whiteLed : fallback;
 }
 
 export function parameterEditorTabs(name: string, category: string, pageCount: number): string[] {

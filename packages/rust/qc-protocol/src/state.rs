@@ -5,8 +5,9 @@
 //! the small camelCase state-event contract consumed by `@ndsp-qc/core`.
 
 pub use crate::generated_payloads::{
-    BlockDetails, BlockParameter, BypassUpdate, GridBlock, GridRoute, IoPortState, ModeSlot,
-    QcStateUpdate as StateUpdate, ScalePoint,
+    BlockDetails, BlockParameter, BypassExpression, BypassUpdate, FootswitchState, GridBlock,
+    GridRoute, IoPortState, MidiOutMessage, MidiOutSource, ModeSlot, QcStateUpdate as StateUpdate,
+    ScalePoint,
 };
 use crate::proto::cortex_protobuf_v2 as pa;
 use crate::proto::{
@@ -64,6 +65,9 @@ impl StateUpdate {
             tempo_led_enabled: None,
             scenes: None,
             scene_colors: None,
+            footswitch_states: None,
+            midi_out: None,
+            preset_load_midi_out: None,
             blocks: None,
             routes: None,
             io_ports: None,
@@ -730,6 +734,36 @@ impl StateDecoder {
                 (model, model_hash(model)?)
             }
         };
+        self.parameter_target_details(row, column, model, model_id, routing_node)
+    }
+
+    /// Parameters attached to the row itself rather than to a Grid cell.
+    /// These are explicit control targets in the public API; the private column
+    /// discriminator only keeps optimistic live-value overrides collision-free.
+    pub fn lane_control_details(&self, row: u32, control: &str) -> Option<BlockDetails> {
+        let preset = self.preset.as_ref()?;
+        let chain = preset
+            .chains
+            .iter()
+            .enumerate()
+            .find(|(index, item)| chain_row(item, *index as u32) == row)?
+            .1;
+        let (model, model_id, discriminator) = match control {
+            "inputGate" => (chain.input_control.first()?, 28_000, 10),
+            "laneOutput" => (chain.output_control.first()?, 23_000, 11),
+            _ => return None,
+        };
+        self.parameter_target_details(row, discriminator, model, model_id, None)
+    }
+
+    fn parameter_target_details(
+        &self,
+        row: u32,
+        column: u32,
+        model: &Model,
+        model_id: u32,
+        routing_node: Option<&str>,
+    ) -> Option<BlockDetails> {
         let info = self.catalog.get(&model_id);
         let mut current_values = HashMap::new();
         for (positional, parameter) in model.params.iter().enumerate() {
@@ -906,6 +940,7 @@ impl StateDecoder {
                 .map(|item| display_category(&item.category))
                 .unwrap_or_else(|| "Utility".into()),
             scene: self.active_scene,
+            bypass_expression: model_bypass_expression(model),
             parameters,
         })
     }
@@ -1000,6 +1035,31 @@ impl StateDecoder {
                     update.parameter_index = Some(index);
                     update.normalized_value = Some(value);
                     states.push(update);
+                }
+            }
+            for (discriminator, controls) in [
+                (10_u32, chain.input_control.as_slice()),
+                (11_u32, chain.output_control.as_slice()),
+            ] {
+                for control in controls {
+                    for (parameter_pos, parameter) in control.params.iter().enumerate() {
+                        let index = param_index(parameter, parameter_pos as u32);
+                        let Some(value) = parameter.param_values.first().and_then(float_value)
+                        else {
+                            continue;
+                        };
+                        if !(0.0..=1.0).contains(&value) {
+                            continue;
+                        }
+                        self.parameter_overrides
+                            .insert((row, discriminator, index), value as f64);
+                        let mut update = StateUpdate::new("laneControlParameter");
+                        update.row = Some(row);
+                        update.column = Some(discriminator);
+                        update.parameter_index = Some(index);
+                        update.normalized_value = Some(value);
+                        states.push(update);
+                    }
                 }
             }
         }
@@ -1136,8 +1196,9 @@ impl StateDecoder {
         let assignments = preset
             .stomp_mode_assignments
             .iter()
-            .filter(|item| item.stomp_index <= 7)
-            .map(|item| ((item.row, item.column), item.stomp_index))
+            .enumerate()
+            .filter(|(_, item)| item.stomp_index <= 7)
+            .map(|(order, item)| ((item.row, item.column), (item.stomp_index, order as u32)))
             .collect::<HashMap<_, _>>();
         let mut blocks = Vec::new();
         let mut routes = Vec::new();
@@ -1189,13 +1250,75 @@ impl StateDecoder {
                             )
                         })
                         .copied(),
+                    bypass_expression: model_bypass_expression(model),
                     color: None,
                     glyph: None,
-                    footswitch: assignments.get(&(row, column)).copied(),
-                    footswitch_order: None,
+                    footswitch: assignments.get(&(row, column)).map(|value| value.0),
+                    footswitch_order: assignments.get(&(row, column)).map(|value| value.1),
                 });
             }
         }
+        update.footswitch_states = Some(
+            (0..domain::SCENE_COUNT)
+                .map(|index| {
+                    let mut targets = blocks
+                        .iter()
+                        .filter(|block| block.footswitch == Some(index))
+                        .collect::<Vec<_>>();
+                    targets.sort_by_key(|block| block.footswitch_order.unwrap_or(u32::MAX));
+                    FootswitchState {
+                        index,
+                        active: targets
+                            .first()
+                            .is_some_and(|block| block.bypassed == Some(false)),
+                        assigned: !targets.is_empty(),
+                        color: stomp_color(&targets),
+                        momentary: Some(
+                            preset
+                                .stomp_is_momentary
+                                .get(&index)
+                                .copied()
+                                .unwrap_or(false),
+                        ),
+                        label: Some(
+                            preset
+                                .single_stomp_labels
+                                .get(&index)
+                                .or_else(|| preset.stomp_labels.get(&index))
+                                .cloned()
+                                .unwrap_or_default(),
+                        ),
+                    }
+                })
+                .collect(),
+        );
+        update.midi_out = Some(
+            preset
+                .midi_messages_general_v2
+                .chunks(12)
+                .take(10)
+                .enumerate()
+                .filter_map(|(source, messages)| {
+                    let messages = messages
+                        .iter()
+                        .filter(|message| midi_message_present(message))
+                        .map(midi_message)
+                        .collect::<Vec<_>>();
+                    (!messages.is_empty()).then_some(MidiOutSource {
+                        source: source as u32,
+                        messages,
+                    })
+                })
+                .collect(),
+        );
+        update.preset_load_midi_out = Some(
+            preset
+                .midi_messages
+                .iter()
+                .filter(|message| midi_message_present(message))
+                .map(midi_message)
+                .collect(),
+        );
         update.blocks = Some(blocks);
         update.routes = Some(routes);
         if catalog_refresh {
@@ -1203,6 +1326,106 @@ impl StateDecoder {
         }
         update
     }
+}
+
+fn midi_message_present(message: &crate::proto::MidiMessageInfo) -> bool {
+    message.r#type != 0
+        || message.channel != 0
+        || message.param1 != 0
+        || message.param2 != 0
+        || message.param3 != 0
+}
+
+fn midi_message(message: &crate::proto::MidiMessageInfo) -> MidiOutMessage {
+    MidiOutMessage {
+        r#type: message.r#type,
+        channel: message.channel,
+        param1: message.param1,
+        param2: message.param2,
+        param3: message.param3,
+    }
+}
+
+fn model_bypass_expression(model: &Model) -> Option<BypassExpression> {
+    let assignment = model.bypass_expression.first()?;
+    if assignment.expression <= 0 {
+        return None;
+    }
+    let info = model
+        .expression_bypass_info
+        .first()
+        .cloned()
+        .unwrap_or_default();
+    Some(BypassExpression {
+        pedal: assignment.expression as u32,
+        minimum: assignment.expression_min,
+        maximum: assignment.expression_max,
+        mode: info.r#type,
+        invert: info.invert,
+        delay_ms: info.delay_ms,
+        latch_emulation: info.latch_emulation,
+    })
+}
+
+fn stomp_color(blocks: &[&GridBlock]) -> String {
+    if blocks.len() != 1 {
+        return if blocks.is_empty() {
+            "#626367"
+        } else {
+            "#f4f4f4"
+        }
+        .into();
+    }
+    let block = blocks[0];
+    let category = format!(
+        "{} {}",
+        block.category.as_deref().unwrap_or_default(),
+        block.kind
+    )
+    .to_ascii_lowercase();
+    let name = block.name.to_ascii_lowercase();
+    let color = if block.plugin == Some(true) {
+        "#ff7000"
+    } else if category.contains("capture") {
+        "#f4f4f4"
+    } else if category.contains("amplifier")
+        || category.split_whitespace().any(|word| word == "amp")
+    {
+        "#ff2727"
+    } else if category.contains("looper") {
+        "#ff2727"
+    } else if category.contains("ir loader")
+        || category.contains("irloader")
+        || category.contains("cab")
+        || category.contains("impulse response")
+    {
+        "#6954ff"
+    } else if ["overdrive", "distortion", "drive", "boost", "fuzz"]
+        .iter()
+        .any(|term| category.contains(term))
+    {
+        "#ffd236"
+    } else if category.contains("delay") || category.contains("reverb") {
+        "#00ffdd"
+    } else if category.contains("compressor") {
+        "#45f862"
+    } else if category.contains("pitch") || name.contains("octav") {
+        "#ffd236"
+    } else if category.contains("modulation")
+        || category.split_whitespace().any(|word| word == "mod")
+    {
+        "#3500f1"
+    } else if category.contains("morph") || category.contains("filter") {
+        "#87daff"
+    } else if category.contains("synth") {
+        "#e44a5d"
+    } else if category.contains("equalizer") || category.split_whitespace().any(|word| word == "eq")
+    {
+        "#0a74e0"
+    } else {
+        "#f4f4f4"
+    };
+    color.into()
 }
 
 fn routing_parameter_options(node: Option<&str>, index: u32) -> Vec<String> {
@@ -1847,6 +2070,14 @@ mod tests {
 
     #[test]
     fn normalizes_full_preset_and_live_updates() {
+        let mut midi_messages_general_v2 = vec![crate::proto::MidiMessageInfo::default(); 120];
+        midi_messages_general_v2[12] = crate::proto::MidiMessageInfo {
+            r#type: 1,
+            channel: 3,
+            param1: 10,
+            param2: 64,
+            param3: 0,
+        };
         let preset = BinaryPreset {
             name: Some(binary_preset::Name::Name("Shared Decoder".into())),
             tempo: Some(binary_preset::Tempo::Tempo(99)),
@@ -1860,6 +2091,27 @@ mod tests {
                     hash: Some(model::Hash::Hash(1234)),
                     column: Some(model::Column::Column(3)),
                     params: vec![numeric_param(7, 0.25)],
+                    bypass_expression: vec![crate::proto::Expression {
+                        expression: 2,
+                        expression_min: 0.0,
+                        expression_max: 1.0,
+                    }],
+                    expression_bypass_info: vec![crate::proto::ExpressionBypassInfo {
+                        r#type: 1,
+                        invert: true,
+                        delay_ms: 300,
+                        latch_emulation: false,
+                    }],
+                    ..Default::default()
+                }],
+                input_control: vec![Model {
+                    hash: Some(model::Hash::Hash(28_000)),
+                    params: vec![numeric_param(0, 0.35)],
+                    ..Default::default()
+                }],
+                output_control: vec![Model {
+                    hash: Some(model::Hash::Hash(23_000)),
+                    params: vec![numeric_param(1, 0.6)],
                     ..Default::default()
                 }],
                 ..Default::default()
@@ -1882,6 +2134,16 @@ mod tests {
                 column: 3,
                 stomp_index: 4,
             }],
+            single_stomp_labels: HashMap::from([(4, "Gate".into())]),
+            stomp_is_momentary: HashMap::from([(4, true)]),
+            midi_messages_general_v2,
+            midi_messages: vec![crate::proto::MidiMessageInfo {
+                r#type: 3,
+                channel: 5,
+                param1: 1,
+                param2: 2,
+                param3: 7,
+            }],
             ..Default::default()
         };
         let raw = pa::RecallPresetMessage {
@@ -1891,10 +2153,57 @@ mod tests {
         .encode_to_vec();
         let mut decoder = StateDecoder::new();
         let states = decoder.decode(15, &raw).unwrap();
+        assert!(
+            (decoder
+                .lane_control_details(0, "inputGate")
+                .unwrap()
+                .parameters[0]
+                .normalized_value
+                .unwrap()
+                - 0.35)
+                .abs()
+                < 1e-6
+        );
+        assert!(
+            (decoder
+                .lane_control_details(0, "laneOutput")
+                .unwrap()
+                .parameters[0]
+                .normalized_value
+                .unwrap()
+                - 0.6)
+                .abs()
+                < 1e-6
+        );
         assert_eq!(states[0].preset_name.as_deref(), Some("Shared Decoder"));
         assert_eq!(states[0].blocks.as_ref().unwrap()[0].column, 3);
         assert_eq!(states[0].blocks.as_ref().unwrap()[0].bypassed, Some(true));
+        let bypass_expression = states[0].blocks.as_ref().unwrap()[0]
+            .bypass_expression
+            .as_ref()
+            .unwrap();
+        assert_eq!(bypass_expression.pedal, 2);
+        assert_eq!(bypass_expression.mode, 1);
+        assert!(bypass_expression.invert);
+        assert_eq!(bypass_expression.delay_ms, 300);
+        assert_eq!(
+            states[0].blocks.as_ref().unwrap()[0].footswitch_order,
+            Some(0)
+        );
         assert_eq!(states[0].routes.as_ref().unwrap()[0].input, "In 1");
+        let footswitch = &states[0].footswitch_states.as_ref().unwrap()[4];
+        assert!(footswitch.assigned);
+        assert!(footswitch.momentary.unwrap());
+        assert_eq!(footswitch.label.as_deref(), Some("Gate"));
+        assert_eq!(states[0].midi_out.as_ref().unwrap()[0].source, 1);
+        assert_eq!(
+            states[0].midi_out.as_ref().unwrap()[0].messages[0].param1,
+            10
+        );
+        assert_eq!(
+            states[0].preset_load_midi_out.as_ref().unwrap()[0].param3,
+            7
+        );
         assert_eq!(
             decoder.block_details(0, 3).unwrap().parameters[0].normalized_value,
             Some(0.25)

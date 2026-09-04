@@ -114,6 +114,16 @@ $env:QC_EXPECTED_SERIAL_SUFFIX = "<last serial characters>"
 .venv\Scripts\python.exe tools\verify_native_backup.py 5
 ```
 
+Focused transport regressions can exercise backup after both session restart
+paths, or after a synthesized touchscreen tap. The latter guards the required
+PRESS-then-RELEASE ordering; leaving the remote pointer pressed causes the QC to
+refuse a LocalBackup stream.
+
+```powershell
+.venv\Scripts\python.exe tools\verify_native_backup.py 1 --reset-session --disconnect-reconnect
+.venv\Scripts\python.exe tools\verify_native_backup.py 1 --screen-tap-roundtrip
+```
+
 ## Full hardware verification plan
 
 The physical release run is intentionally staged. Each stage is completed on

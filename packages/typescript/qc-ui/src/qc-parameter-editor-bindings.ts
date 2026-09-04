@@ -1,4 +1,5 @@
 import type { PresetSnapshot } from "@ndsp-qc/client";
+import { QC_COLORS } from "@ndsp-qc/theme";
 import type { CorOsParameterEditorProps } from "./parameter-editor";
 import { officialBlockVisual } from "./block-visuals";
 import type { BlockEditorSessionController } from "./use-block-editor-session";
@@ -37,9 +38,9 @@ export function qcParameterEditorBindings(options: QcParameterEditorBindingOptio
     ?? snapshot.blocks.find((block) => block.row === details.row && block.column === details.column);
   const routingNode = details.column === 8 ? "splitter" : details.column === 9 ? "mixer" : undefined;
   const accent = routingNode === "splitter"
-    ? "#0a74e0"
+    ? QC_COLORS.category.equalizer
     : routingNode === "mixer"
-      ? "#e44a5d"
+      ? QC_COLORS.category.synth
       : officialBlockVisual(selected ?? { id: "editor", name: details.name, kind: "utility", category: details.category, row: details.row, column: details.column }).color;
 
   return {

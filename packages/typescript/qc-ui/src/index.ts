@@ -10,6 +10,8 @@ export { parameterContextMenuItems } from "./parameter-menu";
 export type { ParameterContextMenuItem, ParameterEditorContextAction } from "./parameter-menu";
 export { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, GRID_ROUTE_BOUNDARIES, mixAnchorX, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "./coros-ui";
 export { MicrophoneIcon } from "./microphone-icon";
+export { QcDirectoryIcon, QcEditorIcon, QcModeGlyph, QcRouteGlyph } from "./theme-icons";
+export type { QcDirectoryIconName, QcEditorIconName } from "./theme-icons";
 export { RoutingEditor } from "./routing-editor";
 export type { RoutingEditorProps } from "./routing-editor";
 export { AddBlockPanel, GridManagementPanel } from "./grid-workflow-panels";

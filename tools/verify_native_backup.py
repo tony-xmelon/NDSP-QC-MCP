@@ -40,7 +40,12 @@ def exchange(process: subprocess.Popen[bytes], request: dict) -> dict:
 
 
 def main() -> int:
-    runs = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+    arguments = sys.argv[1:]
+    runs = next((int(argument) for argument in arguments if argument.isdigit()), 1)
+    reset_session = "--reset-session" in arguments
+    disconnect_reconnect = "--disconnect-reconnect" in arguments
+    device_name_roundtrip = "--device-name-roundtrip" in arguments
+    screen_tap_roundtrip = "--screen-tap-roundtrip" in arguments
     expected_suffix = os.environ.get("QC_EXPECTED_SERIAL_SUFFIX")
     if not expected_suffix:
         raise RuntimeError("QC_EXPECTED_SERIAL_SUFFIX is required for the physical safety check")
@@ -73,6 +78,78 @@ def main() -> int:
         request_id += 1
         if not identity.get("serial", "").endswith(expected_suffix):
             raise RuntimeError("connected QC does not match QC_EXPECTED_SERIAL_SUFFIX")
+
+        if device_name_roundtrip:
+            original_name = (identity.get("customName") or "Quad Cortex").strip()
+            temporary_name = "QC MCP BACKUP TEST"
+            if original_name == temporary_name:
+                temporary_name = "QC MCP BACKUP TEST 2"
+            for name in (temporary_name, original_name):
+                exchange(
+                    process,
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "method": "device.setDeviceName",
+                        "params": {"name": name, "confirmPersistentWrite": True},
+                    },
+                )
+                request_id += 1
+
+        if reset_session:
+            reset = exchange(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "device.resetSession",
+                    "params": {"confirmRiskyOperation": True},
+                },
+            )
+            request_id += 1
+            if reset.get("phase") != "ready":
+                raise RuntimeError(f"session reset ended in {reset.get('phase')!r}")
+
+        if disconnect_reconnect:
+            exchange(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "device.disconnect",
+                    "params": {"confirmRiskyOperation": True},
+                },
+            )
+            request_id += 1
+            reconnect = exchange(
+                process,
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "device.reconnect",
+                    "params": {"confirmRiskyOperation": True},
+                },
+            )
+            request_id += 1
+            if reconnect.get("phase") != "ready":
+                raise RuntimeError(f"reconnect ended in {reconnect.get('phase')!r}")
+
+        if screen_tap_roundtrip:
+            for _ in range(2):
+                exchange(
+                    process,
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "method": "device.tapScreen",
+                        "params": {
+                            "x": 400,
+                            "y": 240,
+                            "confirmRiskyOperation": True,
+                        },
+                    },
+                )
+                request_id += 1
         for index in range(runs):
             started = time.monotonic()
             backup = exchange(

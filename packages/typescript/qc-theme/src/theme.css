@@ -1,0 +1,59 @@
+:root {
+  color-scheme: dark;
+  --qc-screen: #000000;
+  --qc-route-pill: #101010;
+  --qc-unsaved: #313031;
+  --qc-route-rail: #c6c3c6;
+  --qc-route-text: #dedfde;
+  --qc-utility-mark: #949694;
+  --qc-primary-text: #ffffff;
+  --qc-scene-badge: #ffd331;
+  --qc-white-led: #f4f4f4;
+  --qc-idle-led: #626367;
+  --qc-device-panel: #121212;
+  --qc-device-panel-raised: #1e1e1e;
+  --qc-device-control-surface: #2e2e2e;
+  --qc-device-divider: #1a1a1b;
+  --qc-device-disabled: #77797c;
+  --qc-device-context-menu: #292a2c;
+  --qc-device-context-menu-hover: #3a3b3e;
+  --qc-device-block-label: #111214;
+  --qc-device-connection-mark: #f28c22;
+  --qc-device-split-path: #8f9092;
+  --qc-device-bypass-path: #c9c9ca;
+  --qc-device-focus-overlay: #f3f3f3;
+  --qc-device-route-focus: #171719;
+  --qc-device-preset-slot: #3ee77b;
+  --qc-device-tempo-led: #35ee76;
+
+  --qc-category-plugin: #ff7000;
+  --qc-category-amp: #ff2727;
+  --qc-category-neutral: #959595;
+  --qc-category-cab: #6954ff;
+  --qc-category-overdrive: #ffd236;
+  --qc-category-time: #00ffdd;
+  --qc-category-compressor: #45f862;
+  --qc-category-modulation: #3500f1;
+  --qc-category-morph: #87daff;
+  --qc-category-synth: #e44a5d;
+  --qc-category-eq: #0a74e0;
+
+  --qc-app-canvas: #08090b;
+  --qc-app-canvas-deep: #07080a;
+  --qc-app-panel: #111419;
+  --qc-app-panel-raised: #171b20;
+  --qc-app-control: #1a2026;
+  --qc-app-border: #343b43;
+  --qc-app-text: #f5f6f7;
+  --qc-app-text-muted: #8e969f;
+  --qc-app-success: #53de80;
+  --qc-app-info: #70d6ff;
+  --qc-app-warning: #e8b957;
+  --qc-app-danger: #f26d6d;
+
+  --qc-font-device: "Arial Narrow", "Roboto Condensed", Arial, Helvetica, sans-serif;
+  --qc-font-app: Inter, "Segoe UI Variable", "Segoe UI", sans-serif;
+  --qc-font-mono: "DM Mono", "Cascadia Mono", Consolas, monospace;
+  --qc-screen-aspect: 1.6666667;
+  --qc-chassis-aspect: 1.4871795;
+}

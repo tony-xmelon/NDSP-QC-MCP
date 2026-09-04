@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from "react";
 import type { BlockDetails, BlockParameter } from "@ndsp-qc/client";
 import { sceneLetter } from "@ndsp-qc/core";
+import { QC_COLORS } from "@ndsp-qc/theme";
 import { parameterControlKind, parameterDisplay, parameterEditorAccent, parameterEditorFamily, parameterEditorIsFullScreen, parameterEditorPageCount, parameterEditorPageSize, parameterEditorPageSlots, parameterEditorTabs, parameterNormalizedValue, parameterRealValue, parameterStep, type ParameterEditorFamily } from "./parameter-model";
-import { parameterContextMenuItems, type ParameterContextMenuItem, type ParameterEditorContextAction } from "./parameter-menu";
+import { parameterContextMenuItems, type ParameterEditorContextAction } from "./parameter-menu";
+import { QcEditorIcon } from "./theme-icons";
 
 export type { ParameterEditorContextAction } from "./parameter-menu";
 
@@ -29,19 +31,6 @@ export interface CorOsParameterEditorProps {
   clipboardModelId?: number;
   contextActionEnabled?: Partial<Record<ParameterEditorContextAction, boolean>>;
   onClose: () => void;
-}
-
-function ParameterMenuIcon({ kind }: { kind: ParameterContextMenuItem["icon"] }) {
-  if (kind === "save") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l3 3v15H4Z"/><path d="M8 3v6h8V3M8 16h8"/></svg>;
-  if (kind === "change") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15m0 0-3-3m3 3-3 3M20 16H5m0 0 3-3m-3 3 3 3"/></svg>;
-  if (kind === "copy") return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="4" width="12" height="12" rx="2"/><path d="M16 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h2"/></svg>;
-  if (kind === "paste") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6H5v15h14V6h-4"/><rect x="8" y="3" width="8" height="5" rx="1.5"/></svg>;
-  if (kind === "reset") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8V3m0 5h5M5.8 7.2A8 8 0 1 1 4 15"/></svg>;
-  if (kind === "defaults") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16M2 9h6M9 15h6M16 8h6"/></svg>;
-  if (kind === "expression") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19h12l-1.7-9H8.2ZM8.2 10 9.5 5h5l1.8 5M9 22h6"/></svg>;
-  if (kind === "looper") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7a7 7 0 1 1-1.7 7M7 7H3m4 0V3"/><circle cx="12" cy="12" r="2"/></svg>;
-  if (kind === "mute") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4ZM17 9l4 6m0-6-4 6"/></svg>;
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7M10 11v6m4-6v6"/></svg>;
 }
 
 function clamp(value: number) { return Math.max(0, Math.min(1, value)); }
@@ -332,7 +321,7 @@ function IrLoaderEditorBody({ name, parameters, page, drafts, accent, disabled, 
   accent: string;
   disabled?: boolean;
 } & ControlCallbacks) {
-  if (page === 0) return <div className="ir-loader-body"><IrLoaderChannel base={0} allParameters={parameters} drafts={drafts} accent={accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />{/dual/i.test(name) && <IrLoaderChannel base={8} allParameters={parameters} drafts={drafts} accent="#ffd236" disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />}</div>;
+  if (page === 0) return <div className="ir-loader-body"><IrLoaderChannel base={0} allParameters={parameters} drafts={drafts} accent={accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />{/dual/i.test(name) && <IrLoaderChannel base={8} allParameters={parameters} drafts={drafts} accent={QC_COLORS.category.pitch} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />}</div>;
   const roomControls = parameters.filter((parameter) => parameter.index >= 16 && parameter.index <= 21 && parameter.normalizedValue != null);
   return <div className="parameter-controls ir-loader-room-controls">{roomControls.map((parameter, slot) => <ParameterControl key={parameter.index} parameter={parameter} value={drafts[parameter.index] ?? parameter.normalizedValue ?? 0} slot={slot} accent={accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />)}</div>;
 }
@@ -412,9 +401,9 @@ function CabChannel({ side, allParameters, drafts, accent, disabled, onDraftChan
     if (onCommitBatch) onCommitBatch([{ parameter: position, value: drag.position }, { parameter: distance, value: drag.distance }]);
     else onCommit(position, drag.position);
   };
-  return <section className={`cab-channel${bypassValue >= .5 ? " is-bypassed" : ""}`} style={{ "--cab-accent": side ? "#ffd236" : accent, "--mic-x": `${10 + positionValue * 80}%`, "--mic-y": `${24 + distanceValue * 66}%` } as CSSProperties}>
+  return <section className={`cab-channel${bypassValue >= .5 ? " is-bypassed" : ""}`} style={{ "--cab-accent": side ? QC_COLORS.category.pitch : accent, "--mic-x": `${10 + positionValue * 80}%`, "--mic-y": `${24 + distanceValue * 66}%` } as CSSProperties}>
     <div className="cab-channel-controls">
-      {controls.map((parameter) => <ParameterControl key={parameter.index} parameter={parameter} value={drafts[parameter.index] ?? parameter.normalizedValue ?? 0} slot={allParameters.indexOf(parameter)} accent={side ? "#ffd236" : accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />)}
+      {controls.map((parameter) => <ParameterControl key={parameter.index} parameter={parameter} value={drafts[parameter.index] ?? parameter.normalizedValue ?? 0} slot={allParameters.indexOf(parameter)} accent={side ? QC_COLORS.category.pitch : accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />)}
     </div>
     <button className="cab-speaker" disabled={disabled || !position?.writable || !distance?.writable} aria-label={`Microphone ${side + 1} position ${position?.displayValue ?? ""}, distance ${distance?.displayValue ?? ""}`} onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -502,7 +491,7 @@ export function CorOsParameterEditor(props: CorOsParameterEditorProps) {
       <button className={`parameter-bypass${bypassed ? " is-bypassed" : ""}`} disabled={Boolean(routingNode)} aria-label={routingNode ? `${details.name} bypass is controlled by routing` : bypassed ? "Activate device" : "Bypass device"} aria-pressed={routingNode ? undefined : bypassed} onClick={onToggleBypass}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v12M8.5 7.7a11 11 0 1 0 15 0" /></svg></button>
       <button className="parameter-close" aria-label="Close parameter editor" onClick={onClose}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m8 16.5 5.2 5.1L24.5 10" /></svg></button>
       {!routingNode && menuOpen && <div className="parameter-context-menu" role="menu" aria-label="Device contextual menu">
-        {contextItems.map((item) => <button key={item.action} role="menuitem" className={`${item.action === "remove" ? "is-danger" : ""}${item.separatorBefore ? " has-separator" : ""}`} disabled={item.disabled || contextActionEnabled?.[item.action] === false} onClick={() => runContextAction(item.action)}><ParameterMenuIcon kind={item.icon}/><span>{item.label}</span></button>)}
+        {contextItems.map((item) => <button key={item.action} role="menuitem" className={`${item.action === "remove" ? "is-danger" : ""}${item.separatorBefore ? " has-separator" : ""}`} disabled={item.disabled || contextActionEnabled?.[item.action] === false} onClick={() => runContextAction(item.action)}><QcEditorIcon kind={item.icon}/><span>{item.label}</span></button>)}
       </div>}
     </header>
     {tabs.length > 0 && <nav className="parameter-tabs" aria-label="Parameter tabs">{tabs.map((label, index) => <button key={label} className={safePage === index ? "is-active" : ""} aria-current={safePage === index ? "page" : undefined} onClick={() => onPageChange(index)}>{label}</button>)}</nav>}
