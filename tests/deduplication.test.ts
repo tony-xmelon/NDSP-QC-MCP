@@ -533,13 +533,18 @@ test("assistant tool outcomes reconcile through one shared UI path", () => {
 
 test("the outbound relay contract has one platform-neutral owner", () => {
   const relay = source("packages/typescript/qc-core/src/relay.ts");
+  const workflow = source("packages/typescript/qc-ui/src/use-public-relay-workflow.ts");
   const windows = source("apps/windows/src/tauri-transport.ts");
   const android = source("apps/android/src/native-services.ts");
+  const windowsApp = source("apps/windows/src/App.tsx");
+  const androidApp = source("apps/android/src/App.tsx");
   assert.match(relay, /export type PublicRelayState/);
   assert.match(relay, /export interface PublicRelayStatus/);
   assert.match(relay, /export interface PublicRelayPort/);
   assert.match(windows, /publicRelay: PublicRelayPort/);
   assert.match(android, /publicRelay: PublicRelayPort/);
+  assert.match(workflow, /export function usePublicRelayWorkflow/);
+  for (const app of [windowsApp, androidApp]) assert.match(app, /usePublicRelayWorkflow/);
   for (const adapter of [windows, android]) {
     assert.doesNotMatch(adapter, /type PublicRelayState\s*=/);
     assert.doesNotMatch(adapter, /interface PublicRelayStatus/);

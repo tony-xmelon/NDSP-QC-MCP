@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage, type PublicRelayStatus } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -89,10 +89,8 @@ export function App() {
   const [antigravityModels, setAntigravityModels] = useState<AntigravityModel[]>(fallbackAntigravityModels);
   const [remoteChatAllowed, setRemoteChatAllowed] = useState(() => localStorage.getItem(remoteChatDisclosureKey) !== "declined");
   const [assistantAccessMode, setAssistantAccessMode] = useState<ControlAccessMode>(storedAccessMode);
-  const [relayStatus, setRelayStatus] = useState<PublicRelayStatus>();
   const [relayEndpoint, setRelayEndpoint] = useState("");
   const [relayPairingCode, setRelayPairingCode] = useState("");
-  const [relayPending, setRelayPending] = useState(false);
   const [chatSettingsDraft, setChatSettingsDraft] = useState({ provider: "openai-responses" as ChatSettings["provider"], model: "", baseUrl: "", timeoutMs: 30000 });
   const [chatApiKey, setChatApiKey] = useState("");
   const [googleOauthClientId, setGoogleOauthClientId] = useState("");
@@ -134,6 +132,14 @@ export function App() {
     const detail = error instanceof Error ? error.message : String(error);
     setNotice(detail);
   }, []);
+  const {
+    status: relayStatus, pending: relayPending, pair: pairRelay,
+    start: startRelay, unpair: unpairRelay, setAccessMode: setRelayAccessMode
+  } = usePublicRelayWorkflow({
+    relay: publicRelay,
+    enabled: Boolean(window.__TAURI_INTERNALS__),
+    pollIntervalMs: 2000
+  });
   const workflows = useQcWorkflows({
     controller: qcController,
     transport: qcTransport,
@@ -425,65 +431,45 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!window.__TAURI_INTERNALS__) return;
-    let active = true;
-    const refresh = () => void publicRelay.status().then((status) => {
-      if (!active) return;
-      setRelayStatus(status);
-      if (status.endpoint) setRelayEndpoint((current) => current || status.endpoint || "");
-    }).catch(() => undefined);
-    refresh();
-    const timer = window.setInterval(refresh, 2000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, []);
+    if (relayStatus?.endpoint) setRelayEndpoint((current) => current || relayStatus.endpoint || "");
+  }, [relayStatus?.endpoint]);
 
   useEffect(() => {
     if (!window.__TAURI_INTERNALS__) return;
-    void publicRelay.setAccessMode(assistantAccessMode).then(setRelayStatus).catch(actionFailed);
-  }, [actionFailed, assistantAccessMode]);
+    void setRelayAccessMode(assistantAccessMode).catch(actionFailed);
+  }, [actionFailed, assistantAccessMode, setRelayAccessMode]);
 
   const pairPublicRelay = async () => {
     if (!relayEndpoint.trim() || !relayPairingCode.trim()) {
       setNotice("Enter the public relay HTTPS address and one-time pairing code.");
       return;
     }
-    setRelayPending(true);
     try {
-      const status = await publicRelay.pair(relayEndpoint, relayPairingCode);
+      await pairRelay(relayEndpoint, relayPairingCode);
       setRelayPairingCode("");
-      setRelayStatus(status);
       setNotice("This computer is paired with the public MCP relay.");
     } catch (error) {
       actionFailed(error);
-    } finally {
-      setRelayPending(false);
     }
   };
 
   const reconnectPublicRelay = async () => {
-    setRelayPending(true);
     try {
-      await publicRelay.start();
-      setRelayStatus(await publicRelay.status());
+      await startRelay();
       setNotice("Public MCP relay reconnect started.");
     } catch (error) {
       actionFailed(error);
-    } finally {
-      setRelayPending(false);
     }
   };
 
   const unpairPublicRelay = async () => {
-    setRelayPending(true);
     try {
-      setRelayStatus(await publicRelay.unpair());
+      await unpairRelay();
       setRelayEndpoint("");
       setRelayPairingCode("");
       setNotice("This computer was unpaired from the public MCP relay.");
     } catch (error) {
       actionFailed(error);
-    } finally {
-      setRelayPending(false);
     }
   };
 

@@ -4,8 +4,8 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
-import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcRelayNative, QcUsbNative, VoiceInputNative } from "./native-services";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
+import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcUsbNative, subscribeRelayState, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
 type AndroidGeminiModel = GeminiModelId;
@@ -68,9 +68,10 @@ export function App() {
   const [quotaState, setQuotaState] = useState<"unreported" | "available" | "exhausted">("unreported");
   const [quotaNow, setQuotaNow] = useState(Date.now());
   const [voiceState, setVoiceState] = useState("idle");
-  const [relayState, setRelayState] = useState<RelayState>("stopped");
-  const [relayPaired, setRelayPaired] = useState(false);
   const [controlAccessMode, setControlAccessMode] = useState<ControlAccessMode>(storedControlAccessMode);
+  const relayWorkflow = usePublicRelayWorkflow({ relay: publicRelay, enabled: native, autoStart: true, subscribe: subscribeRelayState });
+  const relayState: RelayState = relayWorkflow.status?.state ?? "stopped";
+  const relayPaired = relayWorkflow.status?.paired ?? false;
   const [workflowPanel, setWorkflowPanel] = useState<"block" | "add" | "routing" | "scene" | null>(null);
   const connectInFlight = useRef(false);
   const presetSynchronized = useRef(false);
@@ -209,19 +210,10 @@ export function App() {
   }, [native]);
 
   useEffect(() => {
-    if (!native) return;
-    let cancelled = false;
-    const listener = QcRelayNative.addListener("relayState", ({ state }) => !cancelled && setRelayState(state));
-    void publicRelay.status().then((status) => {
-      if (cancelled) return;
-      setRelayPaired(status.paired);
-      setRelayState(status.state);
-      setControlAccessMode(status.accessMode);
-      writeAssistantAccessMode(window.localStorage, status.accessMode);
-      if (status.paired && status.state === "stopped") void publicRelay.start();
-    }).catch(() => {});
-    return () => { cancelled = true; void listener.then((value) => value.remove()); };
-  }, [native]);
+    if (!relayWorkflow.status) return;
+    setControlAccessMode(relayWorkflow.status.accessMode);
+    writeAssistantAccessMode(window.localStorage, relayWorkflow.status.accessMode);
+  }, [relayWorkflow.status?.accessMode]);
 
   const openBlockEditor = gridWorkflow.openBlock;
   const closeBlockEditor = gridWorkflow.close;
@@ -418,15 +410,14 @@ export function App() {
     if (!native) return;
     if (relayPaired) {
       if (!window.confirm("Unpair this phone from the remote QC relay?")) return;
-      const status = await publicRelay.unpair(); setRelayPaired(status.paired); setRelayState(status.state); return;
+      await relayWorkflow.unpair(); return;
     }
     const endpoint = window.prompt("Secure relay URL (https://…)", "https://")?.trim();
     if (!endpoint) return;
     const pairingCode = window.prompt("One-time pairing code")?.trim();
     if (!pairingCode) return;
     try {
-      const status = await publicRelay.pair(endpoint, pairingCode);
-      setRelayPaired(status.paired); setRelayState(status.state);
+      await relayWorkflow.pair(endpoint, pairingCode);
       appendAssistant("Phone paired. The secure remote relay is connecting in the background.");
     } catch (error) { appendAssistant(error instanceof Error ? error.message : "Relay pairing failed."); }
   };
@@ -437,7 +428,7 @@ export function App() {
     writeAssistantAccessMode(window.localStorage, mode);
     if (!native) return;
     try {
-      await publicRelay.setAccessMode(mode);
+      await relayWorkflow.setAccessMode(mode);
       appendAssistant(`Assistant and remote access changed to ${mode}. Guarded confirmations still apply; manual controls remain available.`);
     } catch (error) {
       setControlAccessMode(previous);

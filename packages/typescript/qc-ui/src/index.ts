@@ -60,6 +60,8 @@ export { ASSISTANT_ACCESS_OPTIONS, AssistantAccessSelect, AssistantAttachmentLis
 export type { AssistantAttachment } from "./assistant-chat-primitives";
 export { executeAndReconcileQcAction, reconcileQcActionOutcome } from "./qc-action-outcome";
 export type { QcActionImageAttachment, QcActionOutcomeHandlers } from "./qc-action-outcome";
+export { usePublicRelayWorkflow } from "./use-public-relay-workflow";
+export type { PublicRelaySubscription, PublicRelayWorkflowOptions } from "./use-public-relay-workflow";
 export { useAssistantAutoScroll } from "./use-assistant-auto-scroll";
 export { ASSISTANT_ACCESS_MODE_STORAGE_KEY, readAssistantAccessMode, writeAssistantAccessMode } from "./assistant-access-storage";
 export { browserWorkflowPrompts } from "./browser-workflow-prompts";

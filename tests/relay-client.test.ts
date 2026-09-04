@@ -8,6 +8,7 @@ const client = readFileSync(new URL("../packages/rust/qc-relay-client/src/lib.rs
 const windowsRelay = readFileSync(new URL("../apps/windows/src-tauri/src/relay.rs", import.meta.url), "utf8");
 const windowsRoot = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
 const windowsApp = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+const relayWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-public-relay-workflow.ts", import.meta.url), "utf8");
 
 test("shared contract assigns every write to exactly one cumulative access tier", () => {
   const assigned = new Map<string, string>();
@@ -41,8 +42,10 @@ test("Windows outbound relay shares the generated MCP action boundary", () => {
 
 test("Windows exposes pairing and native relay access policy in Settings", () => {
   assert.match(windowsApp, /Public MCP relay/);
-  assert.match(windowsApp, /publicRelay\.pair\(relayEndpoint, relayPairingCode\)/);
-  assert.match(windowsApp, /publicRelay\.setAccessMode\(assistantAccessMode\)/);
+  assert.match(windowsApp, /pairRelay\(relayEndpoint, relayPairingCode\)/);
+  assert.match(windowsApp, /setRelayAccessMode\(assistantAccessMode\)/);
+  assert.match(relayWorkflow, /relay\.pair\(endpoint, pairingCode, deviceName\)/);
+  assert.match(relayWorkflow, /relay\.setAccessMode\(mode\)/);
   assert.match(windowsApp, /No listening port is opened/);
 });
 

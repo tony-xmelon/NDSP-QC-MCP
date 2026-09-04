@@ -55,6 +55,8 @@ export const GeminiNative = registerPlugin<GeminiNativePlugin>("Gemini");
 export const QcUsbNative = registerPlugin<QcUsbNativePlugin>("QcUsb");
 export const VoiceInputNative = registerPlugin<VoiceInputNativePlugin>("VoiceInput");
 export const QcRelayNative = registerPlugin<QcRelayNativePlugin>("QcRelay");
+export const subscribeRelayState = (listener: (state: PublicRelayState) => void) =>
+  QcRelayNative.addListener("relayState", ({ state }) => listener(state));
 
 export const publicRelay: PublicRelayPort = {
   status: () => QcRelayNative.status(),
