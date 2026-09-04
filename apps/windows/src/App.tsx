@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent 
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantAccessMode, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles, type ControlAccessMode, type PublicRelayStatus } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -115,11 +115,7 @@ export function App() {
   const [connectionEvents, setConnectionEvents] = useState<ConnectionEvent[]>([{ at: new Date().toISOString(), event: "app-start", result: "info", detail: "QC Control started; waiting for the desktop runtime." }]);
   const chatInput = useRef<HTMLTextAreaElement>(null);
   const chatAttachmentInput = useRef<HTMLInputElement>(null);
-  const conversationView = useRef<HTMLDivElement>(null);
-  const chatStickToBottom = useRef(true);
-  const chatUserScrolling = useRef(false);
-  const chatProgrammaticScroll = useRef(false);
-  const chatScrollTimer = useRef<number | undefined>(undefined);
+  const assistantScroll = useAssistantAutoScroll(chatOpen, messages);
   const speechRecognition = useRef<SpeechRecognitionLike | undefined>(undefined);
   const voiceTranscript = useRef("");
   const submitVoiceOnEnd = useRef(false);
@@ -266,49 +262,15 @@ export function App() {
     setSnapshot
   });
 
-  const noteChatUserScroll = () => {
-    chatProgrammaticScroll.current = false;
-    chatUserScrolling.current = true;
-    if (chatScrollTimer.current !== undefined) window.clearTimeout(chatScrollTimer.current);
-    chatScrollTimer.current = window.setTimeout(() => {
-      chatUserScrolling.current = false;
-    }, 900);
-  };
-
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => chatInput.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  const updateChatScrollPosition = () => {
-    const element = conversationView.current;
-    if (!element || chatProgrammaticScroll.current) return;
-    chatStickToBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 48;
-  };
-
   const commitToolSnapshot = (next: PresetSnapshot) => {
     snapshotRef.current = next;
     setSnapshot(next);
   };
-
-  useEffect(() => {
-    const element = conversationView.current;
-    if (!chatOpen || !element || !chatStickToBottom.current || chatUserScrolling.current) return;
-    chatProgrammaticScroll.current = true;
-    const frame = window.requestAnimationFrame(() => {
-      element.scrollTo({ top: element.scrollHeight, behavior: "auto" });
-      chatStickToBottom.current = true;
-      chatProgrammaticScroll.current = false;
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      chatProgrammaticScroll.current = false;
-    };
-  }, [chatOpen, messages]);
-
-  useEffect(() => () => {
-    if (chatScrollTimer.current !== undefined) window.clearTimeout(chatScrollTimer.current);
-  }, []);
 
   const stopSyncProgressAnimation = () => {
     if (syncProgressTimer.current !== undefined) window.clearInterval(syncProgressTimer.current);
@@ -1641,7 +1603,7 @@ export function App() {
       <ChatDock
         open={chatOpen}
         messages={messages}
-        conversationRef={conversationView}
+        conversationRef={assistantScroll.containerRef}
         inputRef={chatInput}
         attachmentInputRef={chatAttachmentInput}
         value={message}
@@ -1658,8 +1620,8 @@ export function App() {
         quotaLabel={chatQuota?.available && chatQuota.remainingFraction !== undefined ? `${Math.round(chatQuota.remainingFraction * 100)}%` : "—"}
         resetLabel={quotaResetLabel(chatQuota?.resetTime) ?? "—"}
         onRestore={() => setChatOpen(true)}
-        onScroll={updateChatScrollPosition}
-        onUserScroll={noteChatUserScroll}
+        onScroll={assistantScroll.onScroll}
+        onUserScroll={assistantScroll.onUserScroll}
         onValueChange={setMessage}
         onPaste={pasteChatAttachments}
         onSend={() => void sendMessage()}

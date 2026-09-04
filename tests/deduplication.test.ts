@@ -482,3 +482,13 @@ test("assistant tool outcomes reconcile through one shared UI path", () => {
   assert.doesNotMatch(windows, /if \(result\.connection\) setConnection/);
   assert.doesNotMatch(android, /if \(outcome\.connection\) deviceConnection/);
 });
+
+test("both chat surfaces share user-respecting message auto-scroll", () => {
+  const hook = source("packages/typescript/qc-ui/src/use-assistant-auto-scroll.ts");
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  assert.match(hook, /stickToBottom/);
+  assert.match(hook, /userScrolling/);
+  for (const app of [windows, android]) assert.match(app, /useAssistantAutoScroll/);
+  assert.doesNotMatch(windows, /chatStickToBottom/);
+});

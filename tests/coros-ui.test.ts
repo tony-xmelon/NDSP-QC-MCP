@@ -686,13 +686,15 @@ test("slow device saves and navigation stay off the window event thread", () => 
 test("chat follows new messages without stealing a user-controlled scroll position", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const dockSource = readFileSync(new URL("../apps/windows/src/chat-dock.tsx", import.meta.url), "utf8");
+  const scrollSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-assistant-auto-scroll.ts", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../apps/windows/src/styles.css", import.meta.url), "utf8");
-  assert.match(appSource, /chatStickToBottom/);
-  assert.match(appSource, /chatUserScrolling/);
-  assert.match(appSource, /chatProgrammaticScroll/);
-  assert.match(appSource, /element\.scrollTo\(\{ top: element\.scrollHeight/);
-  assert.match(appSource, /behavior: "auto"/, "new model responses must land at the bottom without a smooth-scroll event disabling follow mode");
-  assert.match(appSource, /if \(!element \|\| chatProgrammaticScroll\.current\) return;/, "programmatic scroll events must not be interpreted as user scrolling");
+  assert.match(appSource, /useAssistantAutoScroll\(chatOpen, messages\)/);
+  assert.match(scrollSource, /stickToBottom/);
+  assert.match(scrollSource, /userScrolling/);
+  assert.match(scrollSource, /programmaticScroll/);
+  assert.match(scrollSource, /element\.scrollTo\(\{ top: element\.scrollHeight/);
+  assert.match(scrollSource, /behavior: "auto"/, "new model responses must land at the bottom without a smooth-scroll event disabling follow mode");
+  assert.match(scrollSource, /if \(!element \|\| programmaticScroll\.current\) return;/, "programmatic scroll events must not be interpreted as user scrolling");
   assert.match(dockSource, /onWheel=\{props\.onUserScroll\}/);
   assert.match(styles, /\.conversation-preview::\-webkit-scrollbar \{ width: 5px; \}/);
   assert.match(styles, /scrollbar-color: transparent transparent/);
