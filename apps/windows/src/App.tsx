@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantAccessMode, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantAccessMode, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
@@ -1088,49 +1088,37 @@ export function App() {
   };
 
   const executeImmediateAssistantIntent = async (intent: ReturnType<typeof parseAssistantIntent>) => {
-    if (intent.kind === "inspect") {
-      appendMessage("assistant", formatSnapshotSummary(snapshot));
-      setNotice("Current QC context summarized locally.");
+    if (intent.kind === "parameter" && connection.demo) throw new Error("Connect the Quad Cortex before preparing a live parameter edit.");
+    const resolution = resolveOfflineAssistantIntent(intent, snapshot, selectedBlockId, assistantAccessMode);
+    if (resolution.kind === "response") {
+      appendMessage("assistant", resolution.detail);
+      setNotice(resolution.intent === "inspect" ? "Current QC context summarized locally." : "Typed QC command examples are shown in chat.");
       return;
     }
-    if (intent.kind === "help") {
-      appendMessage("assistant", assistantHelp);
-      setNotice("Typed QC command examples are shown in chat.");
-      return;
-    }
-    const intentTool = assistantIntentToolName(intent);
-    if (intentTool && !assistantAccessPermitsChatTool(assistantAccessMode, intentTool)) throw new Error(`Assistant ${assistantAccessMode} access does not permit that operation. Manual controls are still available.`);
-    if (intent.kind === "bypass") {
-      const block = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
-      if (!block || block.bypassed === undefined) throw new Error("Select a bypass-capable block on the Grid first.");
-      const targetBypassed = intent.desired === "toggle" ? !block.bypassed : intent.desired === "bypassed";
-      if (block.bypassed === targetBypassed) {
-        appendMessage("assistant", `${block.name} is already ${targetBypassed ? "bypassed" : "enabled"}.`);
-        setNotice(`${block.name} already matches the requested bypass state.`);
+    if (resolution.kind === "denied") throw new Error(resolution.detail);
+    if (resolution.kind === "bypass") {
+      if (!resolution.changed) {
+        appendMessage("assistant", `${resolution.block.name} is already ${resolution.targetBypassed ? "bypassed" : "enabled"}.`);
+        setNotice(`${resolution.block.name} already matches the requested bypass state.`);
         return;
       }
-      const label = `${targetBypassed ? "Bypass" : "Enable"} ${block.name} in Scene ${sceneLetter(snapshot.activeScene)}`;
-      setPendingAssistantAction({ kind: "bypass", block, targetBypassed, label });
+      setPendingAssistantAction({ kind: "bypass", block: resolution.block, targetBypassed: resolution.targetBypassed, label: resolution.label });
       appendMessage("assistant", "I prepared a temporary Grid edit. Review it below before applying.");
       setNotice("Temporary bypass edit is waiting for review.");
       return;
     }
-    if (intent.kind === "parameter") {
-      if (connection.demo) throw new Error("Connect the Quad Cortex before preparing a live parameter edit.");
-      const selected = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
-      if (!selected) throw new Error("Select a block on the Grid first.");
-      const details = await tauriTransport.blockDetails(selected.row, selected.column, snapshot.presetName);
-      const resolved = resolveAssistantParameterEdit(details, intent.parameter, intent.value);
+    if (connection.demo) throw new Error("Connect the Quad Cortex before running that performance command.");
+    if (resolution.kind === "parameter") {
+      const details = await tauriTransport.blockDetails(resolution.block.row, resolution.block.column, snapshot.presetName);
+      const resolved = resolveAssistantParameterEdit(details, resolution.parameter, resolution.value);
       const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}`;
       setPendingAssistantAction({ kind: "parameter", block: details, parameter: resolved.parameter, value: resolved.normalized, label });
       appendMessage("assistant", "I prepared a temporary parameter edit. Review it below before applying.");
       setNotice("Temporary parameter edit is waiting for review.");
       return;
     }
-    if (connection.demo) throw new Error("Connect the Quad Cortex before running that performance command.");
-    const selected = snapshot.blocks.find((candidate) => candidate.id === selectedBlockId);
-    const deviceCommand = assistantIntentCommand(intent, selected);
-    if (deviceCommand) {
+    if (resolution.kind === "command") {
+      const deviceCommand = resolution.command;
       const previousTempo = snapshot.tempo;
       const result = await runAssistantCommand(qcTransport, deviceCommand);
       if (deviceCommand.kind === "tempo") {
@@ -1142,13 +1130,13 @@ export function App() {
       setNotice(detail);
       return;
     }
-    if (intent.kind === "bank") {
-      const detail = await performanceWorkflow.navigateBank(intent.direction, true);
+    if (resolution.kind === "bank") {
+      const detail = await performanceWorkflow.navigateBank(resolution.direction, true);
       if (detail) appendMessage("tool", detail);
       return;
     }
-    if (intent.kind === "recall") {
-      const detail = await presetWorkflow.recallLocation(intent.location);
+    if (resolution.kind === "recall") {
+      const detail = await presetWorkflow.recallLocation(resolution.location);
       appendMessage("tool", detail);
       setNotice(detail);
     }

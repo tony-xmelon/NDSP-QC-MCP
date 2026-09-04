@@ -6,6 +6,7 @@ export { applyFootswitchPreview, footswitchIntent, footswitchLeds, optimisticall
 export { assistantActionPrompt, assistantIntentToolName, assistantToolActionPrompt, assistantHelp, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, validateAssistantActions, type AssistantAction, type AssistantIntent, type AssistantReply, type ValidatedAssistantAction } from "./assistant.ts";
 export { SHARED_QC_ACTIONS, type SharedQcActionName } from "./generated-actions.ts";
 export { assistantActionCommand, assistantCommandDetail, assistantIntentCommand, type QcAssistantDeviceCommand } from "./assistant-execution.ts";
+export { resolveOfflineAssistantIntent, type OfflineAssistantIntentResolution } from "./assistant-intent-resolution.ts";
 export type { QcCommandResult, QcDeviceTransport } from "./transport.ts";
 export { createQcGatewayTransport } from "./gateway-transport.ts";
 export { QcCommandCoordinator, type QcCommandToken, type QcOptimisticCommand } from "./command-coordinator.ts";

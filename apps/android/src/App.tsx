@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantAccessMode, parseAssistantIntent, parseAssistantReply, recentModelConversation, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantAccessMode, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
@@ -274,19 +274,19 @@ export function App() {
 
   const localFallback = async (input: string): Promise<string> => {
     const intent = parseAssistantIntent(input);
-    if (intent.kind === "inspect") return formatSnapshotSummary(snapshot);
-    const intentTool = assistantIntentToolName(intent);
-    if (intentTool && !assistantAccessPermitsTool(controlAccessMode, intentTool)) return `Assistant ${controlAccessMode} access does not permit that operation. Manual on-screen controls remain available.`;
-    if (intent.kind === "scene" && !usbConnected) {
-      await selectScene(intent.index, false);
-      return `Scene ${sceneLetter(intent.index)} selected in the preview.`;
-    }
-    if (intent.kind === "parameter") {
-      if (!usbConnected) return "Connect the Quad Cortex over USB first.";
-      if (!selectedBlock) return "Select a block on the Grid first.";
-      try {
-        const details = await androidGatewayTransport.blockDetails(selectedBlock.row, selectedBlock.column, snapshot.presetName);
-        const resolved = resolveAssistantParameterEdit(details, intent.parameter, intent.value);
+    if (intent.kind === "parameter" && !usbConnected) return "Connect the Quad Cortex over USB first.";
+    try {
+      const resolution = resolveOfflineAssistantIntent(intent, snapshot, selectedBlockId, controlAccessMode);
+      if (resolution.kind === "response") {
+        if (resolution.intent === "inspect") return resolution.detail;
+        return native
+          ? `Gemini is unavailable right now. ${resolution.detail}`
+          : "Browser preview is offline. On Android, Gemini chat, voice input, and direct Quad Cortex USB are enabled.";
+      }
+      if (resolution.kind === "denied") return resolution.detail;
+      if (resolution.kind === "parameter") {
+        const details = await androidGatewayTransport.blockDetails(resolution.block.row, resolution.block.column, snapshot.presetName);
+        const resolved = resolveAssistantParameterEdit(details, resolution.parameter, resolution.value);
         const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}?`;
         if (!window.confirm(`${label}\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary parameter edit cancelled.";
         const result = await androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, snapshot.presetName);
@@ -294,34 +294,27 @@ export function App() {
         if (blockDetails?.row === result.block.row && blockDetails.column === result.block.column) parameterWorkflow.updateDetails(result.block);
         deviceHistory.record({ label: `${details.name} ${resolved.parameter.name}`, execute: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.parameter.normalizedValue as number, resolved.normalized, snapshot.activeScene, current.presetName), redo: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, current.presetName) });
         return result.detail;
-      } catch (error) { return error instanceof Error ? error.message : "That QC parameter could not be changed."; }
-    }
-    if (intent.kind === "bypass" && selectedBlock?.bypassed !== undefined) {
-      const target = intent.desired === "toggle" ? !selectedBlock.bypassed : intent.desired === "bypassed";
-      if (target !== selectedBlock.bypassed && !window.confirm(`${target ? "Bypass" : "Enable"} ${selectedBlock.name} in Scene ${sceneLetter(snapshot.activeScene)}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary bypass edit cancelled.";
-    }
-    if (intent.kind === "bank") {
-      try { return await performanceWorkflow.navigateBank(intent.direction, true) ?? "Bank changed."; }
-      catch (error) { return error instanceof Error ? error.message : "Bank navigation failed."; }
-    }
-    if (intent.kind === "recall") {
-      try { return await presetWorkflow.recallLocation(intent.location); }
-      catch (error) { return error instanceof Error ? error.message : "Preset recall failed."; }
-    }
-    let deviceCommand;
-    try {
-      deviceCommand = assistantIntentCommand(intent, selectedBlock);
-    } catch (error) {
-      return error instanceof Error ? error.message : "That QC command is not valid.";
-    }
-    if (deviceCommand) {
+      }
+      if (resolution.kind === "bypass") {
+        if (resolution.changed && !window.confirm(`${resolution.label}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary bypass edit cancelled.";
+        if (!resolution.changed) return `${resolution.block.name} is already ${resolution.targetBypassed ? "bypassed" : "enabled"}.`;
+        if (!usbConnected) return "Connect the Quad Cortex over USB first.";
+        const result = await runAssistantCommand(qcTransport, resolution.command);
+        return assistantCommandDetail(resolution.command, result);
+      }
+      if (resolution.kind === "bank") return await performanceWorkflow.navigateBank(resolution.direction, true) ?? "Bank changed.";
+      if (resolution.kind === "recall") return await presetWorkflow.recallLocation(resolution.location);
+      const deviceCommand = resolution.command;
+      if (deviceCommand.kind === "scene" && !usbConnected) {
+        await selectScene(deviceCommand.scene, false);
+        return `Scene ${sceneLetter(deviceCommand.scene)} selected in the preview.`;
+      }
       if (!usbConnected) return "Connect the Quad Cortex over USB first.";
       const result = await runAssistantCommand(qcTransport, deviceCommand);
       return assistantCommandDetail(deviceCommand, result);
+    } catch (error) {
+      return error instanceof Error ? error.message : "That QC command could not be completed.";
     }
-    return native
-      ? `Gemini is unavailable right now. ${assistantHelp}`
-      : "Browser preview is offline. On Android, Gemini chat, voice input, and direct Quad Cortex USB are enabled.";
   };
 
   const recordAndroidUsage = (result: Awaited<ReturnType<typeof GeminiNative.generate>>) => {

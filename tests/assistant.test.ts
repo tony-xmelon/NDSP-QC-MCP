@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parseAssistantIntent } from "../packages/typescript/qc-core/src/assistant.ts";
+import { resolveOfflineAssistantIntent } from "../packages/typescript/qc-core/src/assistant-intent-resolution.ts";
 import { SHARED_QC_ASSISTANT_TOOLS } from "../packages/typescript/qc-core/src/assistant-tools.ts";
+import { demoSnapshot } from "../packages/typescript/qc-client/src/index.ts";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatErrorMessage, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, isReadOnlyChatTool, numericArgument, qcChatTools } from "../apps/windows/src/model-chat.ts";
 
 test("parses immediate performance commands", () => {
@@ -27,6 +29,32 @@ test("parses offline edits while model tools provide direct application", () => 
     parameter: "noise reduction",
     value: "51%"
   });
+});
+
+test("resolves offline assistant workflows identically for native shells", () => {
+  const block = demoSnapshot.blocks.find((candidate) => candidate.bypassed !== undefined);
+  assert.ok(block);
+  assert.deepEqual(
+    resolveOfflineAssistantIntent({ kind: "scene", index: 2 }, demoSnapshot, block.id, "full"),
+    { kind: "command", command: { kind: "scene", scene: 2 } }
+  );
+  assert.deepEqual(
+    resolveOfflineAssistantIntent({ kind: "bank", direction: -1 }, demoSnapshot, block.id, "full"),
+    { kind: "bank", direction: -1 }
+  );
+  assert.equal(resolveOfflineAssistantIntent({ kind: "inspect" }, demoSnapshot, block.id, "read-only").kind, "response");
+  assert.equal(resolveOfflineAssistantIntent({ kind: "tempo", bpm: 120 }, demoSnapshot, block.id, "read-only").kind, "denied");
+  const bypass = resolveOfflineAssistantIntent({ kind: "bypass", desired: "toggle" }, demoSnapshot, block.id, "modify");
+  assert.equal(bypass.kind, "bypass");
+  if (bypass.kind === "bypass") {
+    assert.equal(bypass.targetBypassed, !block.bypassed);
+    assert.equal(bypass.changed, true);
+    assert.match(bypass.label, /Scene A$/);
+  }
+  assert.throws(
+    () => resolveOfflineAssistantIntent({ kind: "parameter", parameter: "gain", value: "50%" }, demoSnapshot, "missing", "modify"),
+    /Select a block/
+  );
 });
 
 test("publishes strict schemas for every allowed QC model tool", () => {

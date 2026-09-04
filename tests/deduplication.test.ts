@@ -251,13 +251,16 @@ test("one shared command coordinator owns optimistic state and stale-echo policy
 
 test("assistant actions use one shared provider-neutral executor", () => {
   const resolver = source("packages/typescript/qc-core/src/assistant-execution.ts");
+  const intentResolver = source("packages/typescript/qc-core/src/assistant-intent-resolution.ts");
   const executor = source("packages/typescript/qc-ui/src/qc-action-executor.ts");
   const controller = source("packages/typescript/qc-ui/src/use-qc-controller.ts");
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
   assert.match(resolver, /assistantIntentCommand/);
+  assert.match(intentResolver, /resolveOfflineAssistantIntent/);
   assert.match(controller, /const runAssistantCommand/);
-  assert.match(windows, /assistantIntentCommand\(intent, selected\)/);
+  assert.match(windows, /resolveOfflineAssistantIntent\(intent, snapshot, selectedBlockId, assistantAccessMode\)/);
+  assert.match(android, /resolveOfflineAssistantIntent\(intent, snapshot, selectedBlockId, controlAccessMode\)/);
   assert.match(windows, /runAssistantCommand\(qcTransport, deviceCommand\)/);
   assert.match(android, /runAssistantCommand\(qcTransport,/);
   assert.match(android, /assistantToolActionPrompt\(snapshotRef\.current,/);
@@ -266,7 +269,10 @@ test("assistant actions use one shared provider-neutral executor", () => {
   assert.match(android, /executeQcAction\(action,/);
   assert.match(executor, /export async function executeQcAction/);
   assert.match(source("packages/typescript/qc-ui/src/assistant-parameter-edit.ts"), /resolveAssistantParameterEdit/);
-  for (const app of [windows, android]) assert.match(app, /resolveAssistantParameterEdit/);
+  for (const app of [windows, android]) {
+    assert.match(app, /resolveAssistantParameterEdit/);
+    assert.doesNotMatch(app, /assistantIntentCommand|assistantIntentToolName/);
+  }
   assert.doesNotMatch(android, /Allowed reversible hardware actions:/);
 });
 
