@@ -13,17 +13,38 @@ pub enum Classification {
 #[derive(Clone, Copy, Debug)]
 pub enum Kind {
     String,
-    VisibleString { max_chars: usize },
+    VisibleString {
+        max_chars: usize,
+    },
     NullableString,
-    NullableInteger { min: i64, max: Option<i64> },
+    NullableInteger {
+        min: i64,
+        max: Option<i64>,
+    },
     NullableBoolean,
-    NullableNumber { min: f64, max: Option<f64> },
+    NullableNumber {
+        min: f64,
+        max: Option<f64>,
+    },
     Boolean,
-    Integer { min: i64, max: Option<i64> },
-    Number { min: f64, max: Option<f64> },
+    Integer {
+        min: i64,
+        max: Option<i64>,
+    },
+    Number {
+        min: f64,
+        max: Option<f64>,
+    },
     MidiMessages,
     StringEnum(&'static [&'static str]),
     BooleanRows,
+    IntegerArray {
+        min: i64,
+        max: i64,
+        min_items: usize,
+        max_items: usize,
+        unique: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -836,11 +857,41 @@ pub static ACTIONS: &[ActionSpec] = &[
         classification: Classification::PersistentWrite,
         description: "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB.",
         properties: &[
-            p!("input_port_id", Kind::Integer { min: 1, max: Some(14) }),
-            p!("level_db", Kind::NullableNumber { min: -12.0, max: Some(60.0) }),
-            p!("impedance", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
-            p!("input_type", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
-            p!("ground_lift", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!(
+                "input_port_id",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(14)
+                }
+            ),
+            p!(
+                "level_db",
+                Kind::NullableNumber {
+                    min: -12.0,
+                    max: Some(60.0)
+                }
+            ),
+            p!(
+                "impedance",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "input_type",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "ground_lift",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
             p!("confirm_persistent_write", BOOL),
         ],
     },
@@ -850,9 +901,27 @@ pub static ACTIONS: &[ActionSpec] = &[
         classification: Classification::PersistentWrite,
         description: "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update.",
         properties: &[
-            p!("output_port_id", Kind::Integer { min: 1, max: Some(22) }),
-            p!("level", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
-            p!("ground_lift", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!(
+                "output_port_id",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(22)
+                }
+            ),
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "ground_lift",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
             p!("mute", Kind::NullableBoolean),
             p!("confirm_persistent_write", BOOL),
         ],
@@ -863,9 +932,27 @@ pub static ACTIONS: &[ActionSpec] = &[
         classification: Classification::PersistentWrite,
         description: "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates.",
         properties: &[
-            p!("level", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
-            p!("headphones_source", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
-            p!("dry_wet", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "headphones_source",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "dry_wet",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
             p!("confirm_persistent_write", BOOL),
         ],
     },
@@ -885,6 +972,151 @@ pub static ACTIONS: &[ActionSpec] = &[
             p!("xlr12_linked", Kind::NullableBoolean),
             p!("out34_linked", Kind::NullableBoolean),
             p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_global_eq",
+        rpc: "device.globalEq",
+        classification: Classification::Read,
+        description: "Read Global EQ bypass state and all 28 normalized parameters.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_global_eq_bypassed",
+        rpc: "device.setGlobalEqBypassed",
+        classification: Classification::PersistentWrite,
+        description: "Enable or bypass the global EQ after explicit confirmation.",
+        properties: &[p!("bypassed", BOOL), p!("confirm_persistent_write", BOOL)],
+    },
+    ActionSpec {
+        name: "set_global_eq_band",
+        rpc: "device.setGlobalEqBand",
+        classification: Classification::PersistentWrite,
+        description: "Update one Global EQ band with sparse normalized controls after explicit confirmation.",
+        properties: &[
+            p!(
+                "band",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(5)
+                }
+            ),
+            p!(
+                "gain",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "frequency",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "q",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "filter_type",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(4)
+                }
+            ),
+            p!("enabled", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_global_eq_output",
+        rpc: "device.setGlobalEqOutput",
+        classification: Classification::PersistentWrite,
+        description: "Update Global EQ output level and output-pair assignments after explicit confirmation.",
+        properties: &[
+            p!(
+                "level",
+                Kind::NullableNumber {
+                    min: 0.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!("out12", Kind::NullableBoolean),
+            p!("out34", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_mode_cycle",
+        rpc: "device.modeCycle",
+        classification: Classification::Read,
+        description: "Read the configured footswitch modes in cycle order.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_mode_cycle",
+        rpc: "device.setModeCycle",
+        classification: Classification::PersistentWrite,
+        description: "Replace the ordered footswitch mode cycle after explicit confirmation.",
+        properties: &[
+            p!(
+                "slots",
+                Kind::IntegerArray {
+                    min: 0,
+                    max: 8,
+                    min_items: 1,
+                    max_items: 3,
+                    unique: true
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "get_looper_status",
+        rpc: "device.looperStatus",
+        classification: Classification::Read,
+        description: "Read the complete Looper X transport and progress state when a looper is present.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "control_looper",
+        rpc: "device.controlLooper",
+        classification: Classification::LiveWrite,
+        description: "Control Looper X through its documented MIDI CC interface.",
+        properties: &[
+            p!(
+                "command",
+                Kind::StringEnum(&[
+                    "open",
+                    "close",
+                    "duplicate",
+                    "oneShot",
+                    "halfSpeed",
+                    "punch",
+                    "record",
+                    "play",
+                    "reverse",
+                    "undoRedo",
+                    "duplicateMode",
+                    "quantize",
+                    "midiClockStart",
+                    "performMode",
+                    "routingMode"
+                ])
+            ),
+            p!(
+                "value",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(13)
+                }
+            ),
         ],
     },
     ActionSpec {
@@ -1059,5 +1291,15 @@ fn schema_for(kind: Kind) -> Value {
         Kind::BooleanRows => {
             json!({"type":"array", "minItems":4, "maxItems":4, "items":{"type":"boolean"}})
         }
+        Kind::IntegerArray {
+            min,
+            max,
+            min_items,
+            max_items,
+            unique,
+        } => json!({
+            "type":"array", "minItems":min_items, "maxItems":max_items,
+            "uniqueItems":unique, "items":{"type":"integer","minimum":min,"maximum":max}
+        }),
     }
 }

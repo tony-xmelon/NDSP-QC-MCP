@@ -186,6 +186,86 @@ pub struct IoSettings {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GlobalEqParameter {
+    pub parameter_index: i32,
+    pub value: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalEqSettings {
+    pub parameters: Vec<GlobalEqParameter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bypassed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_user_defaults: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModeCycle {
+    pub slots: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LooperStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undo_progress: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duplicate_cycle: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub num_duplicate_cycles: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub one_shot_stopped: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redo_available: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loop_length: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub free_samples: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_reverse: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub one_shot: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub half_speed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fixed_duplicate_cycles: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub armed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waiting_for_cycle: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undo_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_write_displacement: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_write_displacement: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub events_waiting_for_quantize: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_clock: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transition: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub one_shot_play: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_start_waiting: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantize_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_type: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BypassExpression {
     pub pedal: u32,
     pub minimum: f32,

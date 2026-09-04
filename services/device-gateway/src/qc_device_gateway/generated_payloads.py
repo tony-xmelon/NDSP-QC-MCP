@@ -99,6 +99,46 @@ class IoSettings(TypedDict):
     xlr12Linked: NotRequired[bool]
     out34Linked: NotRequired[bool]
 
+class GlobalEqParameter(TypedDict):
+    parameterIndex: int
+    value: float
+
+class GlobalEqSettings(TypedDict):
+    parameters: list[GlobalEqParameter]
+    bypassed: NotRequired[bool]
+    hasUserDefaults: NotRequired[bool]
+
+class ModeCycle(TypedDict):
+    slots: list[int]
+
+class LooperStatus(TypedDict):
+    state: NotRequired[int]
+    progress: NotRequired[float]
+    undoProgress: NotRequired[float]
+    duplicateCycle: NotRequired[int]
+    numDuplicateCycles: NotRequired[int]
+    oneShotStopped: NotRequired[int]
+    redoAvailable: NotRequired[int]
+    loopLength: NotRequired[int]
+    freeSamples: NotRequired[int]
+    inReverse: NotRequired[int]
+    oneShot: NotRequired[int]
+    halfSpeed: NotRequired[int]
+    fixedDuplicateCycles: NotRequired[int]
+    armed: NotRequired[int]
+    waitingForCycle: NotRequired[int]
+    undoCount: NotRequired[int]
+    maxWriteDisplacement: NotRequired[float]
+    minWriteDisplacement: NotRequired[float]
+    eventsWaitingForQuantize: NotRequired[int]
+    currentClock: NotRequired[int]
+    transition: NotRequired[int]
+    action: NotRequired[int]
+    oneShotPlay: NotRequired[bool]
+    syncStartWaiting: NotRequired[bool]
+    quantizeEnabled: NotRequired[bool]
+    updateType: NotRequired[int]
+
 class BypassExpression(TypedDict):
     pedal: int
     minimum: float

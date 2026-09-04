@@ -1,5 +1,5 @@
 import { QC_SCENE_COLORS } from "./generated-domain.ts";
-import type { BlockDetails, DeviceActionResult, GeneralSettings, IoSettings, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
+import type { BlockDetails, DeviceActionResult, GeneralSettings, GlobalEqSettings, IoSettings, LooperStatus, MidiOutMessage, ModeCycle, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
 export * from "./generated-domain.ts";
 export * from "./generated-gateway-methods.ts";
 export * from "./generated-payloads.ts";
@@ -270,6 +270,14 @@ export interface GatewayTransport {
   setUsbPort(level: number | null, headphonesSource: number | null, dryWet: number | null): Promise<DeviceActionResult>;
   setMidiThru(enabled: boolean): Promise<DeviceActionResult>;
   setOutputPairing(xlr12Linked: boolean | null, out34Linked: boolean | null): Promise<DeviceActionResult>;
+  globalEq(): Promise<GlobalEqSettings>;
+  setGlobalEqBypassed(bypassed: boolean): Promise<DeviceActionResult>;
+  setGlobalEqBand(band: number, gain: number | null, frequency: number | null, q: number | null, filterType: number | null, enabled: boolean | null): Promise<DeviceActionResult>;
+  setGlobalEqOutput(level: number | null, out12: boolean | null, out34: boolean | null): Promise<DeviceActionResult>;
+  modeCycle(): Promise<ModeCycle>;
+  setModeCycle(slots: number[]): Promise<DeviceActionResult>;
+  looperStatus(): Promise<LooperStatus>;
+  controlLooper(command: string, value: number | null): Promise<DeviceActionResult>;
   setGeneralInteger(setting: "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" | "holdTiming" | "midiChannel", value: number): Promise<DeviceActionResult>;
   setGeneralToggle(setting: "midiOverUsb" | "ignoreDuplicatePc" | "stompModeAutoAssign" | "swapTempoTunerAccess" | "disableInternetConnectionCheck" | "dynamicDelayCompensation" | "presetDimmed" | "midiClockIn" | "gigViewStompAccess", enabled: boolean): Promise<DeviceActionResult>;
   setSceneBypassBehavior(behavior: "alwaysOverwrite" | "nonstompOverwrite" | "neverOverwrite"): Promise<DeviceActionResult>;

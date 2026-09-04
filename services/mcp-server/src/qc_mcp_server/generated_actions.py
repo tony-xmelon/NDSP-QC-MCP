@@ -402,6 +402,54 @@ SHARED_QC_ACTIONS = {
     "access": "full",
     "description": "Pair or unpair output couples. Null leaves that output couple unchanged."
   },
+  "get_global_eq": {
+    "rpc": "device.globalEq",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read Global EQ bypass state and all 28 normalized parameters."
+  },
+  "set_global_eq_bypassed": {
+    "rpc": "device.setGlobalEqBypassed",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Enable or bypass the global EQ after explicit confirmation."
+  },
+  "set_global_eq_band": {
+    "rpc": "device.setGlobalEqBand",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Update one Global EQ band with sparse normalized controls after explicit confirmation."
+  },
+  "set_global_eq_output": {
+    "rpc": "device.setGlobalEqOutput",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Update Global EQ output level and output-pair assignments after explicit confirmation."
+  },
+  "get_mode_cycle": {
+    "rpc": "device.modeCycle",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the configured footswitch modes in cycle order."
+  },
+  "set_mode_cycle": {
+    "rpc": "device.setModeCycle",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Replace the ordered footswitch mode cycle after explicit confirmation."
+  },
+  "get_looper_status": {
+    "rpc": "device.looperStatus",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the complete Looper X transport and progress state when a looper is present."
+  },
+  "control_looper": {
+    "rpc": "device.controlLooper",
+    "classification": "live-write",
+    "access": "performance",
+    "description": "Control Looper X through its documented MIDI CC interface."
+  },
   "set_general_integer": {
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

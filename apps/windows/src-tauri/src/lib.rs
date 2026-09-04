@@ -1064,13 +1064,18 @@ async fn set_input_port(
     input_type: Option<f64>,
     ground_lift: Option<f64>,
 ) -> Result<Value, String> {
-    background_gateway_request_params(app, rpc::SET_INPUT_PORT, json!({
-        "inputPortId": input_port_id,
-        "levelDb": level_db,
-        "impedance": impedance,
-        "inputType": input_type,
-        "groundLift": ground_lift,
-    })).await
+    background_gateway_request_params(
+        app,
+        rpc::SET_INPUT_PORT,
+        json!({
+            "inputPortId": input_port_id,
+            "levelDb": level_db,
+            "impedance": impedance,
+            "inputType": input_type,
+            "groundLift": ground_lift,
+        }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1081,12 +1086,17 @@ async fn set_output_port(
     ground_lift: Option<f64>,
     mute: Option<bool>,
 ) -> Result<Value, String> {
-    background_gateway_request_params(app, rpc::SET_OUTPUT_PORT, json!({
-        "outputPortId": output_port_id,
-        "level": level,
-        "groundLift": ground_lift,
-        "mute": mute,
-    })).await
+    background_gateway_request_params(
+        app,
+        rpc::SET_OUTPUT_PORT,
+        json!({
+            "outputPortId": output_port_id,
+            "level": level,
+            "groundLift": ground_lift,
+            "mute": mute,
+        }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1096,11 +1106,16 @@ async fn set_usb_port(
     headphones_source: Option<f64>,
     dry_wet: Option<f64>,
 ) -> Result<Value, String> {
-    background_gateway_request_params(app, rpc::SET_USB_PORT, json!({
-        "level": level,
-        "headphonesSource": headphones_source,
-        "dryWet": dry_wet,
-    })).await
+    background_gateway_request_params(
+        app,
+        rpc::SET_USB_PORT,
+        json!({
+            "level": level,
+            "headphonesSource": headphones_source,
+            "dryWet": dry_wet,
+        }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1114,10 +1129,101 @@ async fn set_output_pairing(
     xlr12_linked: Option<bool>,
     out34_linked: Option<bool>,
 ) -> Result<Value, String> {
-    background_gateway_request_params(app, rpc::SET_OUTPUT_PAIRING, json!({
-        "xlr12Linked": xlr12_linked,
-        "out34Linked": out34_linked,
-    })).await
+    background_gateway_request_params(
+        app,
+        rpc::SET_OUTPUT_PAIRING,
+        json!({
+            "xlr12Linked": xlr12_linked,
+            "out34Linked": out34_linked,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn global_eq(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::GLOBAL_EQ).await
+}
+
+#[tauri::command]
+async fn set_global_eq_bypassed(app: AppHandle, bypassed: bool) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_BYPASSED,
+        json!({
+            "bypassed": bypassed,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_global_eq_band(
+    app: AppHandle,
+    band: u32,
+    gain: Option<f64>,
+    frequency: Option<f64>,
+    q: Option<f64>,
+    filter_type: Option<u32>,
+    enabled: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_BAND,
+        json!({
+            "band": band, "gain": gain, "frequency": frequency, "q": q,
+            "filterType": filter_type, "enabled": enabled,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_global_eq_output(
+    app: AppHandle,
+    level: Option<f64>,
+    out12: Option<bool>,
+    out34: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GLOBAL_EQ_OUTPUT,
+        json!({
+            "level": level, "out12": out12, "out34": out34,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn mode_cycle(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::MODE_CYCLE).await
+}
+
+#[tauri::command]
+async fn set_mode_cycle(app: AppHandle, slots: Vec<u32>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_MODE_CYCLE, json!({ "slots": slots })).await
+}
+
+#[tauri::command]
+async fn looper_status(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::LOOPER_STATUS).await
+}
+
+#[tauri::command]
+async fn control_looper(
+    app: AppHandle,
+    command: String,
+    value: Option<u32>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::CONTROL_LOOPER,
+        json!({
+            "command": command, "value": value,
+        }),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -2534,6 +2640,14 @@ pub fn run() {
             set_usb_port,
             set_midi_thru,
             set_output_pairing,
+            global_eq,
+            set_global_eq_bypassed,
+            set_global_eq_band,
+            set_global_eq_output,
+            mode_cycle,
+            set_mode_cycle,
+            looper_status,
+            control_looper,
             set_general_integer,
             set_general_toggle,
             set_scene_bypass_behavior,

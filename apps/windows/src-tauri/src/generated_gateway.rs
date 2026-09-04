@@ -22,6 +22,14 @@ pub mod rpc {
     pub const SET_USB_PORT: &str = "device.setUsbPort";
     pub const SET_MIDI_THRU: &str = "device.setMidiThru";
     pub const SET_OUTPUT_PAIRING: &str = "device.setOutputPairing";
+    pub const GLOBAL_EQ: &str = "device.globalEq";
+    pub const SET_GLOBAL_EQ_BYPASSED: &str = "device.setGlobalEqBypassed";
+    pub const SET_GLOBAL_EQ_BAND: &str = "device.setGlobalEqBand";
+    pub const SET_GLOBAL_EQ_OUTPUT: &str = "device.setGlobalEqOutput";
+    pub const MODE_CYCLE: &str = "device.modeCycle";
+    pub const SET_MODE_CYCLE: &str = "device.setModeCycle";
+    pub const LOOPER_STATUS: &str = "device.looperStatus";
+    pub const CONTROL_LOOPER: &str = "device.controlLooper";
     pub const SET_GENERAL_INTEGER: &str = "device.setGeneralInteger";
     pub const SET_GENERAL_TOGGLE: &str = "device.setGeneralToggle";
     pub const SET_SCENE_BYPASS_BEHAVIOR: &str = "device.setSceneBypassBehavior";

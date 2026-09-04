@@ -8,9 +8,9 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
-    decode_captured_screen, decode_device_identity, decode_general_settings,
-    decode_inhibited_modules, decode_io_settings, decode_preset_screenshot, decode_tuner_settings,
-    PngImage,
+    decode_captured_screen, decode_device_identity, decode_general_settings, decode_global_eq,
+    decode_inhibited_modules, decode_io_settings, decode_looper_status, decode_mode_cycle,
+    decode_preset_screenshot, decode_tuner_settings, PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -77,6 +77,45 @@ pub fn plan_host_midi(method: &str, params: &Value) -> Result<HostMidiPlan, Stri
                 controller: profile::MODE_SLOT_CONTROLLER,
                 value: slot,
                 detail: format!("Mode slot {} sent", slot + 1),
+            })
+        }
+        "device.controlLooper" => {
+            let command = required_text(params, "command")?;
+            let supplied = params.get("value").filter(|value| !value.is_null());
+            let (controller, value, needs_value, maximum) = match command.as_str() {
+                "open" => (48, 0, false, 0),
+                "close" => (48, 127, false, 0),
+                "duplicate" => (49, 127, false, 0),
+                "oneShot" => (50, 127, false, 0),
+                "halfSpeed" => (51, 127, false, 0),
+                "punch" => (52, 127, false, 0),
+                "record" => (53, 127, false, 0),
+                "play" => (54, 127, false, 0),
+                "reverse" => (55, 127, false, 0),
+                "undoRedo" => (56, 127, false, 0),
+                "duplicateMode" => (57, 0, true, 1),
+                "quantize" => (58, 0, true, 9),
+                "midiClockStart" => (59, 0, true, 1),
+                "performMode" => (60, 0, true, 1),
+                "routingMode" => (61, 0, true, 13),
+                _ => return Err("unsupported Looper X command".into()),
+            };
+            if !needs_value && supplied.is_some() {
+                return Err(format!("{command} does not accept value"));
+            }
+            let value = if needs_value {
+                supplied
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u8::try_from(value).ok())
+                    .filter(|value| *value <= maximum)
+                    .ok_or_else(|| format!("{command} requires value 0 through {maximum}"))?
+            } else {
+                value
+            };
+            Ok(HostMidiPlan {
+                controller,
+                value,
+                detail: format!("Looper X {command} sent"),
             })
         }
         _ => Err(format!("Gateway method does not use host MIDI: {method}")),
@@ -535,6 +574,9 @@ pub enum GatewayResponseProjection {
     TunerSettings,
     GeneralSettings,
     IoSettings,
+    GlobalEq,
+    ModeCycle,
+    LooperStatus,
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -573,6 +615,18 @@ impl GatewayResponseProjection {
             .map_err(|error| error.to_string()),
             Self::IoSettings => serde_json::to_value(
                 decode_io_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::GlobalEq => {
+                serde_json::to_value(decode_global_eq(payload).map_err(|error| error.to_string())?)
+                    .map_err(|error| error.to_string())
+            }
+            Self::ModeCycle => {
+                serde_json::to_value(decode_mode_cycle(payload).map_err(|error| error.to_string())?)
+                    .map_err(|error| error.to_string())
+            }
+            Self::LooperStatus => serde_json::to_value(
+                decode_looper_status(payload).map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -662,6 +716,24 @@ pub fn plan_gateway_read(
             response_type: 3,
             timeout_ms: 10_000,
             projection: GatewayResponseProjection::IoSettings,
+        }),
+        "device.globalEq" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadGlobalEq,
+            response_type: 38,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::GlobalEq,
+        }),
+        "device.modeCycle" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadModeCycle,
+            response_type: 14,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::ModeCycle,
+        }),
+        "device.looperStatus" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadLooperStatus,
+            response_type: 28,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::LooperStatus,
         }),
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
@@ -1451,6 +1523,72 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
                 out34_linked,
             })
         }
+        "setGlobalEqBypassed" => Ok(DeviceOperation::SetGlobalEqBypassed(boolean(
+            params, "bypassed",
+        )?)),
+        "setGlobalEqBand" => {
+            let band = bounded_u32(params, "band", 5)?;
+            if band == 0 {
+                return Err("band must be 1 through 5".into());
+            }
+            let mut controls = Vec::new();
+            let base = ((band - 1) * 5) as i32;
+            for (field, offset) in [("gain", 0), ("frequency", 1), ("q", 2)] {
+                if let Some(value) = optional_normalized(params, field)? {
+                    controls.push((base + offset, value));
+                }
+            }
+            if let Some(value) = params.get("filterType").filter(|value| !value.is_null()) {
+                let filter_type = value
+                    .as_u64()
+                    .filter(|value| *value <= 4)
+                    .ok_or_else(|| "filterType must be null or 0 through 4".to_string())?;
+                controls.push((base + 3, filter_type as f32 / 4.0));
+            }
+            if let Some(enabled) = optional_boolean(params, "enabled")? {
+                controls.push((base + 4, if enabled { 1.0 } else { 0.0 }));
+            }
+            if controls.is_empty() {
+                return Err("setGlobalEqBand needs at least one control".into());
+            }
+            Ok(DeviceOperation::SetGlobalEqParameters(controls))
+        }
+        "setGlobalEqOutput" => {
+            let mut controls = Vec::new();
+            if let Some(level) = optional_normalized(params, "level")? {
+                controls.push((25, level));
+            }
+            if let Some(out12) = optional_boolean(params, "out12")? {
+                controls.push((26, if out12 { 1.0 } else { 0.0 }));
+            }
+            if let Some(out34) = optional_boolean(params, "out34")? {
+                controls.push((27, if out34 { 1.0 } else { 0.0 }));
+            }
+            if controls.is_empty() {
+                return Err("setGlobalEqOutput needs level, out12, or out34".into());
+            }
+            Ok(DeviceOperation::SetGlobalEqParameters(controls))
+        }
+        "setModeCycle" => {
+            let values = params
+                .get("slots")
+                .and_then(Value::as_array)
+                .filter(|values| !values.is_empty() && values.len() <= 3)
+                .ok_or_else(|| "slots must contain one through three mode values".to_string())?;
+            let mut slots = Vec::with_capacity(values.len());
+            for value in values {
+                let slot = value
+                    .as_u64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .filter(|value| *value <= 8)
+                    .ok_or_else(|| "mode-cycle values must be 0 through 8".to_string())?;
+                if slots.contains(&slot) {
+                    return Err("mode-cycle values must be unique".into());
+                }
+                slots.push(slot);
+            }
+            Ok(DeviceOperation::SetModeCycle(slots))
+        }
         "addBlock" => Ok(DeviceOperation::AddBlock {
             row: row()?,
             column: column("column")?,
@@ -1827,6 +1965,12 @@ fn verification_for_operation(
         | DeviceOperation::SetUsbPort { .. }
         | DeviceOperation::SetMidiThru(_)
         | DeviceOperation::SetOutputPairing { .. }
+        | DeviceOperation::ReadGlobalEq
+        | DeviceOperation::SetGlobalEqBypassed(_)
+        | DeviceOperation::SetGlobalEqParameters(_)
+        | DeviceOperation::ReadModeCycle
+        | DeviceOperation::SetModeCycle(_)
+        | DeviceOperation::ReadLooperStatus
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -1876,6 +2020,27 @@ pub fn plan_gateway_write(
             GatewayWritePlan {
                 write: PlannedWrite::HidOperation(operation(operation_name, params)?),
                 detail: "Global I/O setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setGlobalEqBypassed"
+        | "device.setGlobalEqBand"
+        | "device.setGlobalEqOutput"
+        | "device.setModeCycle" => {
+            let operation_name = match method {
+                "device.setGlobalEqBypassed" => "setGlobalEqBypassed",
+                "device.setGlobalEqBand" => "setGlobalEqBand",
+                "device.setGlobalEqOutput" => "setGlobalEqOutput",
+                _ => "setModeCycle",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: if method == "device.setModeCycle" {
+                    "Mode cycle sent to the Quad Cortex"
+                } else {
+                    "Global EQ setting sent to the Quad Cortex"
+                }
+                .into(),
                 verification: GatewayVerification::None,
             }
         }
@@ -2185,7 +2350,10 @@ pub fn plan_gateway_write(
                 detail: format!("{name} accepted"),
             }
         }
-        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
+        "device.pressFootswitch"
+        | "device.tapTempo"
+        | "device.selectModeSlot"
+        | "device.controlLooper" => {
             let midi = plan_host_midi(method, params)?;
             GatewayWritePlan {
                 write: PlannedWrite::MidiControlChange {
@@ -3049,6 +3217,79 @@ mod tests {
             plan_gateway_write("device.setDeviceName", &json!({"name": "bad\nname"}), None)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn global_eq_mode_cycle_and_looper_are_planned_and_bounded() {
+        let global_eq = plan_gateway_read("device.globalEq", &Value::Null, 0).unwrap();
+        assert_eq!(global_eq.response_type, 38);
+        assert!(matches!(global_eq.operation, DeviceOperation::ReadGlobalEq));
+        assert!(matches!(
+            global_eq.projection,
+            GatewayResponseProjection::GlobalEq
+        ));
+
+        let mode_cycle = plan_gateway_read("device.modeCycle", &Value::Null, 0).unwrap();
+        assert_eq!(mode_cycle.response_type, 14);
+        assert!(matches!(
+            mode_cycle.operation,
+            DeviceOperation::ReadModeCycle
+        ));
+
+        let looper = plan_gateway_read("device.looperStatus", &Value::Null, 0).unwrap();
+        assert_eq!(looper.response_type, 28);
+        assert!(matches!(
+            looper.operation,
+            DeviceOperation::ReadLooperStatus
+        ));
+
+        let band = plan_gateway_write(
+            "device.setGlobalEqBand",
+            &json!({"band": 2, "gain": 0.25, "filterType": 4, "enabled": false}),
+            None,
+        )
+        .unwrap();
+        assert!(matches!(
+            band.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetGlobalEqParameters(ref controls))
+                if controls == &vec![(5, 0.25), (8, 1.0), (9, 0.0)]
+        ));
+        assert!(plan_gateway_write(
+            "device.setGlobalEqBand",
+            &json!({"band": 0, "gain": 0.5}),
+            None,
+        )
+        .is_err());
+
+        let modes =
+            plan_gateway_write("device.setModeCycle", &json!({"slots": [2, 0, 1]}), None).unwrap();
+        assert!(matches!(
+            modes.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetModeCycle(ref slots))
+                if slots == &vec![2, 0, 1]
+        ));
+        assert!(
+            plan_gateway_write("device.setModeCycle", &json!({"slots": [1, 1]}), None,).is_err()
+        );
+
+        let record = plan_host_midi("device.controlLooper", &json!({"command": "record"})).unwrap();
+        assert_eq!((record.controller, record.value), (53, 127));
+        let routing = plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "routingMode", "value": 13}),
+        )
+        .unwrap();
+        assert_eq!((routing.controller, routing.value), (61, 13));
+        assert!(plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "routingMode", "value": 14}),
+        )
+        .is_err());
+        assert!(plan_host_midi(
+            "device.controlLooper",
+            &json!({"command": "record", "value": 1}),
+        )
+        .is_err());
     }
 
     #[test]

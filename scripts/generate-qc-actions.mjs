@@ -20,6 +20,10 @@ const schemaType = (kind) => {
   if (kind === "general-integer-setting") return { type: "string", enum: ["screenBrightness", "ledBrightness", "dimmedLedBrightness", "holdTiming", "midiChannel"] };
   if (kind === "general-toggle-setting") return { type: "string", enum: ["midiOverUsb", "ignoreDuplicatePc", "stompModeAutoAssign", "swapTempoTunerAccess", "disableInternetConnectionCheck", "dynamicDelayCompensation", "presetDimmed", "midiClockIn", "gigViewStompAccess"] };
   if (kind === "scene-bypass-behavior") return { type: "string", enum: ["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"] };
+  if (kind === "global-eq-filter") return { type: ["integer", "null"], minimum: 0, maximum: 4 };
+  if (kind === "mode-cycle") return { type: "array", minItems: 1, maxItems: 3, uniqueItems: true, items: { type: "integer", minimum: 0, maximum: 8 } };
+  if (kind === "looper-command") return { type: "string", enum: ["open", "close", "duplicate", "oneShot", "halfSpeed", "punch", "record", "play", "reverse", "undoRedo", "duplicateMode", "quantize", "midiClockStart", "performMode", "routingMode"] };
+  if (kind === "nullable-looper-value") return { type: ["integer", "null"], minimum: 0, maximum: 13 };
   if (kind === "boolean-row-array") return { type: "array", minItems: 4, maxItems: 4, items: { type: "boolean" } };
   if (kind === "scene-index") return { type: "integer", minimum: 0, maximum: scenes - 1 };
   if (kind === "tempo") return { type: "integer", minimum: minimumTempoBpm, maximum: maximumTempoBpm };

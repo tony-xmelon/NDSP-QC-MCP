@@ -73,6 +73,14 @@ final class GeneratedRemoteActions {
         "device.setUsbPort",
         "device.setMidiThru",
         "device.setOutputPairing",
+        "device.globalEq",
+        "device.setGlobalEqBypassed",
+        "device.setGlobalEqBand",
+        "device.setGlobalEqOutput",
+        "device.modeCycle",
+        "device.setModeCycle",
+        "device.looperStatus",
+        "device.controlLooper",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -98,7 +106,10 @@ final class GeneratedRemoteActions {
         "device.presetScreenshot",
         "device.captureScreen",
         "device.generalSettings",
-        "device.ioSettings"
+        "device.ioSettings",
+        "device.globalEq",
+        "device.modeCycle",
+        "device.looperStatus"
     };
 
     private static final String[] PERFORMANCE = {
@@ -109,7 +120,8 @@ final class GeneratedRemoteActions {
         "device.showGigView",
         "device.selectModeSlot",
         "device.setMasterVolume",
-        "device.setTempo"
+        "device.setTempo",
+        "device.controlLooper"
     };
 
     private static final String[] MODIFY = {
@@ -165,6 +177,10 @@ final class GeneratedRemoteActions {
         "device.setUsbPort",
         "device.setMidiThru",
         "device.setOutputPairing",
+        "device.setGlobalEqBypassed",
+        "device.setGlobalEqBand",
+        "device.setGlobalEqOutput",
+        "device.setModeCycle",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",

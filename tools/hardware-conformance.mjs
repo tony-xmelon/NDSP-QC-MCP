@@ -368,6 +368,8 @@ async function main() {
   let originalMasterVolume;
   let originalGeneralSettings;
   let originalIoSettings;
+  let originalGlobalEq;
+  let originalModeCycle;
   let transportStarted = false;
   let deviceAuthorized = false;
   let firstScreenTapSent = false;
@@ -442,6 +444,26 @@ async function main() {
       value = await transport.call("get_io_settings", {});
       if (predicate(value)) return value;
       await sleep(1000);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForGlobalEq = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_global_eq", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForModeCycle = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_mode_cycle", {});
+      if (predicate(value)) return value;
+      await sleep(500);
     } while (Date.now() < deadline);
     return value;
   };
@@ -540,6 +562,15 @@ async function main() {
       Array.isArray(value.inputs) && value.inputs.length > 0 && Array.isArray(value.outputs),
       "I/O settings did not include input and output port arrays."
     ));
+    originalGlobalEq = await call("get_global_eq", {}, (value) => assert(
+      Array.isArray(value.parameters) && value.parameters.length > 0,
+      "Global EQ did not include its parameter array."
+    ));
+    originalModeCycle = await call("get_mode_cycle", {}, (value) => assert(
+      Array.isArray(value.slots) && value.slots.length >= 1 && value.slots.length <= 3,
+      "Mode cycle did not include one through three slots."
+    ));
+    await call("get_looper_status", {}, (value) => assert(value && typeof value === "object", "Looper status is invalid."));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
       const screenPath = resolve(root, config.discoveryScreenPath);
@@ -618,6 +649,9 @@ async function main() {
       await transport.call("select_mode_slot", { slot: config.performance.restoreModeSlot, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => value.mode === modeBySlot[config.performance.restoreModeSlot]);
       assert(currentSnapshot.mode === modeBySlot[config.performance.restoreModeSlot], "Mode-slot restoration did not reach authoritative device state.");
+
+      await call("control_looper", { command: "open", value: null });
+      await transport.call("control_looper", { command: "close", value: null });
 
       const originalVolume = originalMasterVolume;
       await call("set_master_volume", { value: config.performance.masterVolume, expected_value: originalVolume, confirm_risky_operation: true });
@@ -935,6 +969,51 @@ async function main() {
         confirm_persistent_write: true
       });
 
+      assert(typeof originalGlobalEq.bypassed === "boolean", "A restorable Global EQ bypass state is required.");
+      await call("set_global_eq_bypassed", {
+        bypassed: !originalGlobalEq.bypassed, confirm_persistent_write: true
+      });
+      let globalEq = await waitForGlobalEq((value) => value.bypassed === !originalGlobalEq.bypassed);
+      assert(globalEq.bypassed === !originalGlobalEq.bypassed, "Global EQ bypass did not read back.");
+      await transport.call("set_global_eq_bypassed", {
+        bypassed: originalGlobalEq.bypassed, confirm_persistent_write: true
+      });
+
+      const eqValue = (index) => originalGlobalEq.parameters.find((parameter) => parameter.parameterIndex === index)?.value;
+      const originalBandGain = eqValue(0);
+      assert(Number.isFinite(originalBandGain), "A restorable Global EQ band gain is required.");
+      const testBandGain = originalBandGain > .98 ? .97 : originalBandGain + .01;
+      await call("set_global_eq_band", {
+        band: 1, gain: testBandGain, frequency: null, q: null, filter_type: null, enabled: null,
+        confirm_persistent_write: true
+      });
+      globalEq = await waitForGlobalEq((value) => Math.abs(value.parameters?.find((item) => item.parameterIndex === 0)?.value - testBandGain) < .002);
+      assert(Math.abs(globalEq.parameters.find((item) => item.parameterIndex === 0).value - testBandGain) < .002, "Global EQ band did not read back.");
+      await transport.call("set_global_eq_band", {
+        band: 1, gain: originalBandGain, frequency: null, q: null, filter_type: null, enabled: null,
+        confirm_persistent_write: true
+      });
+
+      const originalOutputLevel = eqValue(25);
+      assert(Number.isFinite(originalOutputLevel), "A restorable Global EQ output level is required.");
+      const testOutputLevel = originalOutputLevel > .98 ? .97 : originalOutputLevel + .01;
+      await call("set_global_eq_output", {
+        level: testOutputLevel, out12: null, out34: null, confirm_persistent_write: true
+      });
+      globalEq = await waitForGlobalEq((value) => Math.abs(value.parameters?.find((item) => item.parameterIndex === 25)?.value - testOutputLevel) < .002);
+      assert(Math.abs(globalEq.parameters.find((item) => item.parameterIndex === 25).value - testOutputLevel) < .002, "Global EQ output did not read back.");
+      await transport.call("set_global_eq_output", {
+        level: originalOutputLevel, out12: null, out34: null, confirm_persistent_write: true
+      });
+
+      const testCycle = originalModeCycle.slots.length > 1
+        ? [...originalModeCycle.slots].reverse()
+        : [originalModeCycle.slots[0], originalModeCycle.slots[0] === 0 ? 1 : 0];
+      await call("set_mode_cycle", { slots: testCycle, confirm_persistent_write: true });
+      const modeCycle = await waitForModeCycle((value) => JSON.stringify(value.slots) === JSON.stringify(testCycle));
+      assert(JSON.stringify(modeCycle.slots) === JSON.stringify(testCycle), "Mode cycle did not read back.");
+      await transport.call("set_mode_cycle", { slots: originalModeCycle.slots, confirm_persistent_write: true });
+
       const nameA = uniqueName(config.persistent.namePrefix, "A");
       const nameRenamed = uniqueName(config.persistent.namePrefix, "R");
       report.disposableSlotsModified = [config.persistent.slotA, config.persistent.slotB];
@@ -988,7 +1067,7 @@ async function main() {
     }
 
     // Backup is intentionally last: it is the longest operation and a bulk
-    // transport failure must not hide evidence for the other 44 actions.
+    // transport failure must not hide evidence for the other actions.
     if (enabledHazards.has("persistent")) {
       await call("create_device_backup", { name: uniqueName(config.persistent.namePrefix, "backup"), confirm_persistent_write: true });
     }
@@ -1066,6 +1145,36 @@ async function main() {
             });
           }
         });
+      }
+      if (enabledHazards.has("persistent") && originalGlobalEq) {
+        await restoreAttempt("global-eq", async () => {
+          if (typeof originalGlobalEq.bypassed === "boolean") {
+            await transport.call("set_global_eq_bypassed", {
+              bypassed: originalGlobalEq.bypassed, confirm_persistent_write: true
+            });
+          }
+          for (let band = 1; band <= 5; band += 1) {
+            const base = (band - 1) * 5;
+            const value = (index) => originalGlobalEq.parameters?.find((item) => item.parameterIndex === index)?.value;
+            await transport.call("set_global_eq_band", {
+              band, gain: value(base), frequency: value(base + 1), q: value(base + 2),
+              filter_type: Number.isFinite(value(base + 3)) ? Math.round(value(base + 3) * 4) : null,
+              enabled: Number.isFinite(value(base + 4)) ? value(base + 4) >= .5 : null,
+              confirm_persistent_write: true
+            });
+          }
+          await transport.call("set_global_eq_output", {
+            level: originalGlobalEq.parameters?.find((item) => item.parameterIndex === 25)?.value ?? null,
+            out12: Number(originalGlobalEq.parameters?.find((item) => item.parameterIndex === 26)?.value) >= .5,
+            out34: Number(originalGlobalEq.parameters?.find((item) => item.parameterIndex === 27)?.value) >= .5,
+            confirm_persistent_write: true
+          });
+        });
+      }
+      if (enabledHazards.has("persistent") && originalModeCycle?.slots) {
+        await restoreAttempt("mode-cycle", () => transport.call("set_mode_cycle", {
+          slots: originalModeCycle.slots, confirm_persistent_write: true
+        }));
       }
       await restoreAttempt("starting-preset", async () => {
         let current = await transport.call("get_current_preset", {});

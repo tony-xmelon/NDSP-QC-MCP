@@ -68,6 +68,14 @@ const ALLOWED: &[&str] = &[
     "device.setUsbPort",
     "device.setMidiThru",
     "device.setOutputPairing",
+    "device.globalEq",
+    "device.setGlobalEqBypassed",
+    "device.setGlobalEqBand",
+    "device.setGlobalEqOutput",
+    "device.modeCycle",
+    "device.setModeCycle",
+    "device.looperStatus",
+    "device.controlLooper",
     "device.setGeneralInteger",
     "device.setGeneralToggle",
     "device.setSceneBypassBehavior",
@@ -94,6 +102,9 @@ const READ_ONLY: &[&str] = &[
     "device.captureScreen",
     "device.generalSettings",
     "device.ioSettings",
+    "device.globalEq",
+    "device.modeCycle",
+    "device.looperStatus",
 ];
 
 const PERFORMANCE: &[&str] = &[
@@ -105,6 +116,7 @@ const PERFORMANCE: &[&str] = &[
     "device.selectModeSlot",
     "device.setMasterVolume",
     "device.setTempo",
+    "device.controlLooper",
 ];
 
 const MODIFY: &[&str] = &[

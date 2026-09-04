@@ -21,6 +21,9 @@ export const CASES = Object.freeze({
   get_tuner_settings: { phase: "read", hazard: "read" },
   get_general_settings: { phase: "read", hazard: "read" },
   get_io_settings: { phase: "read", hazard: "read" },
+  get_global_eq: { phase: "read", hazard: "read" },
+  get_mode_cycle: { phase: "read", hazard: "read" },
+  get_looper_status: { phase: "read", hazard: "read" },
   get_preset_screenshot: { phase: "read", hazard: "read" },
   capture_screen: { phase: "read", hazard: "read" },
   preview_parameter: { phase: "modify", hazard: "live" },
@@ -40,6 +43,7 @@ export const CASES = Object.freeze({
   show_tuner: { phase: "performance", hazard: "live" },
   show_gig_view: { phase: "performance", hazard: "live" },
   select_mode_slot: { phase: "performance", hazard: "live" },
+  control_looper: { phase: "performance", hazard: "live" },
   set_master_volume: { phase: "performance", hazard: "live" },
   recall_preset: { phase: "modify", hazard: "live" },
   reload_preset: { phase: "modify", hazard: "live" },
@@ -74,7 +78,11 @@ export const CASES = Object.freeze({
   set_output_port: { phase: "persistent", hazard: "persistent" },
   set_usb_port: { phase: "persistent", hazard: "persistent" },
   set_midi_thru: { phase: "persistent", hazard: "persistent" },
-  set_output_pairing: { phase: "persistent", hazard: "persistent" }
+  set_output_pairing: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_bypassed: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_band: { phase: "persistent", hazard: "persistent" },
+  set_global_eq_output: { phase: "persistent", hazard: "persistent" },
+  set_mode_cycle: { phase: "persistent", hazard: "persistent" }
 });
 
 const requiredFixturePaths = [

@@ -2,9 +2,10 @@
 //! of the continuous preset-state stream.
 
 use crate::generated_payloads::{
-    ExpressionPortSettings, GeneralSettings, GlobalBypassRows, HeadphonesFeed, HeadphonesSettings,
-    InputPortSettings, IoSettings, MasterVolumeAssignment, MidiPortSettings, OutputPortSettings,
-    TunerSettings, UsbPortSettings,
+    ExpressionPortSettings, GeneralSettings, GlobalBypassRows, GlobalEqParameter, GlobalEqSettings,
+    HeadphonesFeed, HeadphonesSettings, InputPortSettings, IoSettings, LooperStatus,
+    MasterVolumeAssignment, MidiPortSettings, ModeCycle, OutputPortSettings, TunerSettings,
+    UsbPortSettings,
 };
 use crate::proto::cortex_protobuf_v2 as pa;
 use prost::Message;
@@ -475,6 +476,91 @@ pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeEr
     })
 }
 
+pub fn decode_global_eq(payload: &[u8]) -> Result<GlobalEqSettings, ResponseDecodeError> {
+    let message = pa::GlobalEqMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "Global EQ action is not UPDATE",
+        ));
+    }
+    Ok(GlobalEqSettings {
+        parameters: message
+            .parameters
+            .into_iter()
+            .map(|parameter| GlobalEqParameter {
+                parameter_index: parameter.parameter_index,
+                value: parameter.value,
+            })
+            .collect(),
+        bypassed: message
+            .bypassed
+            .map(|pa::global_eq_message::Bypassed::Bypassed(value)| value),
+        has_user_defaults: message
+            .has_user_defaults
+            .map(|pa::global_eq_message::HasUserDefaults::HasUserDefaults(value)| value),
+    })
+}
+
+pub fn decode_mode_cycle(payload: &[u8]) -> Result<ModeCycle, ResponseDecodeError> {
+    let message = pa::ModeMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch("mode action is not UPDATE"));
+    }
+    let slots = message
+        .available_modes
+        .map(|pa::mode_message::AvailableModes::AvailableModes(value)| value.modes)
+        .filter(|values| !values.is_empty())
+        .ok_or(ResponseDecodeError::Incomplete("mode cycle"))?;
+    Ok(ModeCycle { slots })
+}
+
+pub fn decode_looper_status(payload: &[u8]) -> Result<LooperStatus, ResponseDecodeError> {
+    let message = pa::LooperMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch("looper action is not UPDATE"));
+    }
+    let status = message
+        .status
+        .map(|pa::looper_message::Status::Status(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("looper status"))?;
+    Ok(LooperStatus {
+        state: Some(status.state),
+        progress: Some(status.progress),
+        undo_progress: Some(status.undo_progress),
+        duplicate_cycle: Some(status.duplicate_cycle),
+        num_duplicate_cycles: Some(status.num_duplicate_cycles),
+        one_shot_stopped: Some(status.one_shot_stopped),
+        redo_available: Some(status.redo_available),
+        loop_length: Some(status.loop_length),
+        free_samples: Some(status.free_samples),
+        in_reverse: Some(status.in_reverse),
+        one_shot: Some(status.one_shot),
+        half_speed: Some(status.half_speed),
+        fixed_duplicate_cycles: Some(status.fixed_duplicate_cycles),
+        armed: Some(status.armed),
+        waiting_for_cycle: Some(status.waiting_for_cycle),
+        undo_count: Some(status.undo_count),
+        max_write_displacement: Some(status.max_write_displacement),
+        min_write_displacement: Some(status.min_write_displacement),
+        events_waiting_for_quantize: Some(status.events_waiting_for_quantize),
+        current_clock: Some(status.current_clock),
+        transition: Some(status.transition),
+        action: Some(status.action),
+        one_shot_play: message
+            .one_shot_play
+            .map(|pa::looper_message::OneShotPlay::OneShotPlay(value)| value),
+        sync_start_waiting: message
+            .sync_start_waiting
+            .map(|pa::looper_message::SyncStartWaiting::SyncStartWaiting(value)| value),
+        quantize_enabled: message
+            .quantize_enabled
+            .map(|pa::looper_message::QuantizeEnabled::QuantizeEnabled(value)| value),
+        update_type: message
+            .update_type
+            .map(|pa::looper_message::UpdateType::UpdateType(value)| value),
+    })
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -837,5 +923,58 @@ mod tests {
             "the QC backup stream ended with an incomplete or unsupported document"
         );
         assert!(!backup.started());
+    }
+
+    #[test]
+    fn global_eq_mode_cycle_and_looper_reads_preserve_device_state() {
+        let eq = pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            parameters: vec![pa::GlobalEqParameter {
+                parameter_index: 6,
+                value: 0.75,
+            }],
+            bypassed: Some(pa::global_eq_message::Bypassed::Bypassed(false)),
+            has_user_defaults: Some(pa::global_eq_message::HasUserDefaults::HasUserDefaults(
+                true,
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let eq = decode_global_eq(&eq).unwrap();
+        assert_eq!(eq.parameters[0].parameter_index, 6);
+        assert_eq!(eq.parameters[0].value, 0.75);
+        assert_eq!(eq.bypassed, Some(false));
+
+        let modes = pa::ModeMessage {
+            action: pa::message_action::Enum::Update as i32,
+            available_modes: Some(pa::mode_message::AvailableModes::AvailableModes(
+                pa::AvailableModes {
+                    modes: vec![7, 1, 2],
+                },
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert_eq!(decode_mode_cycle(&modes).unwrap().slots, vec![7, 1, 2]);
+
+        let looper = pa::LooperMessage {
+            action: pa::message_action::Enum::Update as i32,
+            status: Some(pa::looper_message::Status::Status(pa::LooperStatus {
+                state: 3,
+                progress: 0.5,
+                in_reverse: 1,
+                undo_count: 2,
+                ..Default::default()
+            })),
+            one_shot_play: Some(pa::looper_message::OneShotPlay::OneShotPlay(true)),
+            quantize_enabled: Some(pa::looper_message::QuantizeEnabled::QuantizeEnabled(false)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let looper = decode_looper_status(&looper).unwrap();
+        assert_eq!(looper.state, Some(3));
+        assert_eq!(looper.progress, Some(0.5));
+        assert_eq!(looper.in_reverse, Some(1));
+        assert_eq!(looper.one_shot_play, Some(true));
     }
 }

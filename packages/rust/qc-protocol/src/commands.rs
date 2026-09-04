@@ -156,6 +156,12 @@ pub enum DeviceOperation {
         ir: [bool; 4],
     },
     ReadIoSettings,
+    ReadGlobalEq,
+    SetGlobalEqBypassed(bool),
+    SetGlobalEqParameters(Vec<(i32, f32)>),
+    ReadModeCycle,
+    SetModeCycle(Vec<u32>),
+    ReadLooperStatus,
     SetInputPort {
         input_port_id: u32,
         level: Option<f32>,
@@ -339,6 +345,12 @@ impl DeviceOperation {
             Self::ReadVersion => vec![read_version()],
             Self::ReadTuner => vec![read_tuner()],
             Self::ReadIoSettings => vec![read(3)],
+            Self::ReadGlobalEq => vec![read_global_eq()],
+            Self::SetGlobalEqBypassed(bypassed) => vec![set_global_eq_bypassed(bypassed)],
+            Self::SetGlobalEqParameters(parameters) => vec![set_global_eq_parameters(&parameters)],
+            Self::ReadModeCycle => vec![read_mode_cycle()],
+            Self::SetModeCycle(slots) => vec![set_mode_cycle(&slots)],
+            Self::ReadLooperStatus => vec![read_looper_status()],
             Self::SetInputPort {
                 input_port_id,
                 level,
@@ -514,6 +526,61 @@ pub fn version_hello() -> OutboundMessage {
 
 pub fn read(message_type: u16) -> OutboundMessage {
     OutboundMessage::action(message_type, pa::message_action::Enum::Read)
+}
+
+pub fn read_global_eq() -> OutboundMessage {
+    read(38)
+}
+
+pub fn set_global_eq_bypassed(bypassed: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        38,
+        pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            bypassed: Some(pa::global_eq_message::Bypassed::Bypassed(bypassed)),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_global_eq_parameters(parameters: &[(i32, f32)]) -> OutboundMessage {
+    OutboundMessage::encoded(
+        38,
+        pa::GlobalEqMessage {
+            action: pa::message_action::Enum::Update as i32,
+            parameters: parameters
+                .iter()
+                .map(|(parameter_index, value)| pa::GlobalEqParameter {
+                    parameter_index: *parameter_index,
+                    value: *value,
+                })
+                .collect(),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_mode_cycle() -> OutboundMessage {
+    read(14)
+}
+
+pub fn set_mode_cycle(slots: &[u32]) -> OutboundMessage {
+    OutboundMessage::encoded(
+        14,
+        pa::ModeMessage {
+            action: pa::message_action::Enum::Update as i32,
+            available_modes: Some(pa::mode_message::AvailableModes::AvailableModes(
+                pa::AvailableModes {
+                    modes: slots.to_vec(),
+                },
+            )),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_looper_status() -> OutboundMessage {
+    read(28)
 }
 
 pub fn connection(connected: bool) -> OutboundMessage {
@@ -2153,5 +2220,36 @@ mod tests {
         assert!(!value.out34);
         assert!(value.send12);
         assert!(!value.headphones);
+    }
+
+    #[test]
+    fn global_eq_and_mode_cycle_writes_are_typed_and_sparse() {
+        let bypass = set_global_eq_bypassed(true);
+        assert_eq!(bypass.message_type, 38);
+        let decoded = pa::GlobalEqMessage::decode(bypass.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Update as i32);
+        assert!(matches!(
+            decoded.bypassed,
+            Some(pa::global_eq_message::Bypassed::Bypassed(true))
+        ));
+        assert!(decoded.parameters.is_empty());
+
+        let controls = set_global_eq_parameters(&[(0, 0.75), (4, 1.0)]);
+        let decoded = pa::GlobalEqMessage::decode(controls.payload.as_slice()).unwrap();
+        assert!(decoded.bypassed.is_none());
+        assert_eq!(decoded.parameters.len(), 2);
+        assert_eq!(decoded.parameters[0].parameter_index, 0);
+        assert_eq!(decoded.parameters[1].value, 1.0);
+
+        let cycle = set_mode_cycle(&[7, 1, 2]);
+        assert_eq!(cycle.message_type, 14);
+        let decoded = pa::ModeMessage::decode(cycle.payload.as_slice()).unwrap();
+        let pa::mode_message::AvailableModes::AvailableModes(available) =
+            decoded.available_modes.unwrap();
+        assert_eq!(available.modes, vec![7, 1, 2]);
+
+        assert_eq!(read_global_eq().message_type, 38);
+        assert_eq!(read_mode_cycle().message_type, 14);
+        assert_eq!(read_looper_status().message_type, 28);
     }
 }

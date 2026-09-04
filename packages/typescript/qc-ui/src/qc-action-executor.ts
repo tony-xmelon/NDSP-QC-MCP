@@ -88,6 +88,14 @@ const booleanRowsArgument = (call: AssistantToolCall, name: string): [boolean, b
   return value as [boolean, boolean, boolean, boolean];
 };
 
+const integerArrayArgument = (call: AssistantToolCall, name: string): number[] => {
+  const value = call.arguments[name];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "number" || !Number.isInteger(entry))) {
+    throw new Error(`${call.name} returned an invalid ${name}.`);
+  }
+  return value;
+};
+
 const midiMessagesArgument = (call: AssistantToolCall): MidiOutMessage[] => {
   const value = call.arguments.messages;
   if (!Array.isArray(value) || value.length > 12) throw new Error(`${call.name} requires an array of no more than 12 MIDI messages.`);
@@ -240,6 +248,15 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (call.name === "get_io_settings") {
     return { detail: "Read all current Quad Cortex I/O settings and physical connection flags.", data: await gateway.ioSettings() };
   }
+  if (call.name === "get_global_eq") {
+    return { detail: "Read Global EQ state and all normalized controls.", data: await gateway.globalEq() };
+  }
+  if (call.name === "get_mode_cycle") {
+    return { detail: "Read the configured footswitch mode cycle.", data: await gateway.modeCycle() };
+  }
+  if (call.name === "get_looper_status") {
+    return { detail: "Read the current Looper X transport state.", data: await gateway.looperStatus() };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -355,6 +372,32 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     }
     return actionResult(await gateway.setOutputPairing(
       nullableBooleanArgument(call, "xlr12_linked"), nullableBooleanArgument(call, "out34_linked")
+    ));
+  }
+  if (call.name === "set_global_eq_bypassed" || call.name === "set_global_eq_band"
+    || call.name === "set_global_eq_output" || call.name === "set_mode_cycle") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_global_eq_bypassed") {
+      return actionResult(await gateway.setGlobalEqBypassed(booleanArgument(call, "bypassed")));
+    }
+    if (call.name === "set_global_eq_band") {
+      return actionResult(await gateway.setGlobalEqBand(
+        integerArgument(call, "band"), nullableNumberArgument(call, "gain"),
+        nullableNumberArgument(call, "frequency"), nullableNumberArgument(call, "q"),
+        nullableIntegerArgument(call, "filter_type"), nullableBooleanArgument(call, "enabled")
+      ));
+    }
+    if (call.name === "set_global_eq_output") {
+      return actionResult(await gateway.setGlobalEqOutput(
+        nullableNumberArgument(call, "level"), nullableBooleanArgument(call, "out12"),
+        nullableBooleanArgument(call, "out34")
+      ));
+    }
+    return actionResult(await gateway.setModeCycle(integerArrayArgument(call, "slots")));
+  }
+  if (call.name === "control_looper") {
+    return actionResult(await gateway.controlLooper(
+      stringArgument(call, "command"), nullableIntegerArgument(call, "value")
     ));
   }
   if (call.name === "undo_device" || call.name === "redo_device") {

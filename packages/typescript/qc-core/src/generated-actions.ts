@@ -2733,6 +2733,312 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "get_global_eq",
+    "rpc": "device.globalEq",
+    "classification": "read",
+    "description": "Read Global EQ bypass state and all 28 normalized parameters.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_bypassed",
+    "rpc": "device.setGlobalEqBypassed",
+    "classification": "persistent-write",
+    "description": "Enable or bypass the global EQ after explicit confirmation.",
+    "properties": {
+      "bypassed": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "bypassed",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "bypassed": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "bypassed",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_band",
+    "rpc": "device.setGlobalEqBand",
+    "classification": "persistent-write",
+    "description": "Update one Global EQ band with sparse normalized controls after explicit confirmation.",
+    "properties": {
+      "band": "integer",
+      "gain": "nullable-normalized",
+      "frequency": "nullable-normalized",
+      "q": "nullable-normalized",
+      "filter_type": "global-eq-filter",
+      "enabled": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "band",
+      "gain",
+      "frequency",
+      "q",
+      "filter_type",
+      "enabled",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "band": {
+          "type": "integer"
+        },
+        "gain": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "frequency": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "q": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "filter_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4
+        },
+        "enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "band",
+        "gain",
+        "frequency",
+        "q",
+        "filter_type",
+        "enabled",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_eq_output",
+    "rpc": "device.setGlobalEqOutput",
+    "classification": "persistent-write",
+    "description": "Update Global EQ output level and output-pair assignments after explicit confirmation.",
+    "properties": {
+      "level": "nullable-normalized",
+      "out12": "nullable-boolean",
+      "out34": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "level",
+      "out12",
+      "out34",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "out12": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "out34": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "level",
+        "out12",
+        "out34",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_mode_cycle",
+    "rpc": "device.modeCycle",
+    "classification": "read",
+    "description": "Read the configured footswitch modes in cycle order.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_mode_cycle",
+    "rpc": "device.setModeCycle",
+    "classification": "persistent-write",
+    "description": "Replace the ordered footswitch mode cycle after explicit confirmation.",
+    "properties": {
+      "slots": "mode-cycle",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "slots",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "slots",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_looper_status",
+    "rpc": "device.looperStatus",
+    "classification": "read",
+    "description": "Read the complete Looper X transport and progress state when a looper is present.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "control_looper",
+    "rpc": "device.controlLooper",
+    "classification": "live-write",
+    "description": "Control Looper X through its documented MIDI CC interface.",
+    "properties": {
+      "command": "looper-command",
+      "value": "nullable-looper-value"
+    },
+    "required": [
+      "command",
+      "value"
+    ],
+    "access": "performance",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "open",
+            "close",
+            "duplicate",
+            "oneShot",
+            "halfSpeed",
+            "punch",
+            "record",
+            "play",
+            "reverse",
+            "undoRedo",
+            "duplicateMode",
+            "quantize",
+            "midiClockStart",
+            "performMode",
+            "routingMode"
+          ]
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 13
+        }
+      },
+      "required": [
+        "command",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "set_general_integer",
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

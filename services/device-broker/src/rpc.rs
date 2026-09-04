@@ -84,8 +84,8 @@ fn handle(
         "system.status" => Ok(json!({
             "platform": "Rust device gateway",
             "gatewayAvailable": true,
-            "gatewayApiVersion": 11,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "hostMidiPerformance"],
+            "gatewayApiVersion": 12,
+            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "nativeGlobalEq", "nativeModeCycle", "nativeLooper", "hostMidiPerformance"],
             "message": "Shared Rust QC engine active"
         })),
         "device.status" => {
@@ -119,6 +119,9 @@ fn handle(
         "device.ioSettings" => {
             execute_gateway_read(controller, "device.ioSettings", &request.params)
         }
+        "device.globalEq" | "device.modeCycle" | "device.looperStatus" => {
+            execute_gateway_read(controller, &request.method, &request.params)
+        }
         "device.setInputPort"
         | "device.setOutputPort"
         | "device.setUsbPort"
@@ -126,6 +129,10 @@ fn handle(
         | "device.setOutputPairing" => {
             gateway_operation(controller, &request.params, &request.method)
         }
+        "device.setGlobalEqBypassed"
+        | "device.setGlobalEqBand"
+        | "device.setGlobalEqOutput"
+        | "device.setModeCycle" => gateway_operation(controller, &request.params, &request.method),
         "device.setGeneralInteger"
         | "device.setGeneralToggle"
         | "device.setSceneBypassBehavior"
@@ -171,14 +178,15 @@ fn handle(
         "device.setTempo" => gateway_set_tempo(controller, &request.params),
         "device.setMasterVolume" => gateway_set_master_volume(controller, &request.params),
         "device.masterVolume" => gateway_master_volume(controller),
-        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
-            gateway_performance_midi(
-                controller,
-                performance_midi,
-                &request.method,
-                &request.params,
-            )
-        }
+        "device.pressFootswitch"
+        | "device.tapTempo"
+        | "device.selectModeSlot"
+        | "device.controlLooper" => gateway_performance_midi(
+            controller,
+            performance_midi,
+            &request.method,
+            &request.params,
+        ),
         "device.addBlock" => gateway_operation(controller, &request.params, "device.addBlock"),
         "device.removeBlock" => {
             gateway_operation(controller, &request.params, "device.removeBlock")
@@ -1378,7 +1386,7 @@ mod tests {
             },
         );
         assert_eq!(response["result"]["platform"], "Rust device gateway");
-        assert_eq!(response["result"]["gatewayApiVersion"], 11);
+        assert_eq!(response["result"]["gatewayApiVersion"], 12);
         assert_eq!(response["result"]["gatewayAvailable"], true);
         assert!(response["result"]["capabilities"]
             .as_array()

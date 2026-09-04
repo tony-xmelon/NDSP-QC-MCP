@@ -108,6 +108,50 @@ export interface IoSettings {
   out34Linked?: boolean;
 }
 
+export interface GlobalEqParameter {
+  parameterIndex: number;
+  value: number;
+}
+
+export interface GlobalEqSettings {
+  parameters: GlobalEqParameter[];
+  bypassed?: boolean;
+  hasUserDefaults?: boolean;
+}
+
+export interface ModeCycle {
+  slots: number[];
+}
+
+export interface LooperStatus {
+  state?: number;
+  progress?: number;
+  undoProgress?: number;
+  duplicateCycle?: number;
+  numDuplicateCycles?: number;
+  oneShotStopped?: number;
+  redoAvailable?: number;
+  loopLength?: number;
+  freeSamples?: number;
+  inReverse?: number;
+  oneShot?: number;
+  halfSpeed?: number;
+  fixedDuplicateCycles?: number;
+  armed?: number;
+  waitingForCycle?: number;
+  undoCount?: number;
+  maxWriteDisplacement?: number;
+  minWriteDisplacement?: number;
+  eventsWaitingForQuantize?: number;
+  currentClock?: number;
+  transition?: number;
+  action?: number;
+  oneShotPlay?: boolean;
+  syncStartWaiting?: boolean;
+  quantizeEnabled?: boolean;
+  updateType?: number;
+}
+
 export interface BypassExpression {
   pedal: number;
   minimum: number;
