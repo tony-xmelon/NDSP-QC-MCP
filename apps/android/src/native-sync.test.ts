@@ -60,8 +60,9 @@ test("mode slots A through C use the same shared transport contract and immediat
   assert.match(appSource, /runModeSlot\(qcTransport, slot\)/);
 });
 
-test("Tap Tempo uses physical-control MIDI and live bypass updates are batched", () => {
-  assert.match(sharedTransportSource, /gateway\.pressFootswitch\(9, state\.mode, state\.presetName\)/);
+test("Tap Tempo uses its explicit official MIDI control and live bypass updates are batched", () => {
+  assert.match(sharedTransportSource, /gateway\.tapTempo\(state\.mode, state\.presetName\)/);
+  assert.match(rustRuntimeRequestSource, /"device\.tapTempo"[\s\S]*profile::TAP_TEMPO_CONTROLLER/);
   assert.match(rustRuntimeRequestSource, /MidiControlChange/);
   assert.match(appSource, /qcTransport\.tapTempo\(snapshotRef\.current\)/);
   assert.match(rustStateSource, /StateUpdate::new\("bypassBatch"\)/);
@@ -135,6 +136,7 @@ test("Android generic dispatch covers the generated Grid, routing, and MIDI acti
     assert.match(rustRuntimeRequestSource, new RegExp(method.replace(".", "\\.")));
   }
   assert.match(generatedGatewaySource, /case "device\.pressFootswitch": return "PLANNED_WRITE"/);
+  assert.match(generatedGatewaySource, /case "device\.tapTempo": return "PLANNED_WRITE"/);
   assert.match(generatedGatewaySource, /case "device\.selectModeSlot": return "PLANNED_WRITE"/);
   assert.match(javaSource, /stateDecoder\.gatewayPlan\(method, JSObject\.fromJSONObject\(params\)\)/);
   assert.match(nativeDecoderSource, /PlannedGatewayWrite/);

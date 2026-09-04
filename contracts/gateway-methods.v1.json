@@ -19,7 +19,7 @@
     "TAP_SCREEN": ["device.tapScreen"],
     "BACKUP": ["device.createBackup"],
     "PREVIEW_PARAMETER": ["device.previewParameter"],
-    "PLANNED_WRITE": ["device.undo", "device.redo", "device.selectScene", "device.toggleBypass", "device.moveBlock", "device.addBlock", "device.removeBlock", "device.setBlockFootswitch", "device.setChainInput", "device.setChainOutput", "device.setChainSplit", "device.setParameter", "device.setTempo", "device.setMasterVolume", "device.pressFootswitch", "device.selectModeSlot", "device.showTuner", "device.showGigView"],
+    "PLANNED_WRITE": ["device.undo", "device.redo", "device.selectScene", "device.toggleBypass", "device.moveBlock", "device.addBlock", "device.removeBlock", "device.setBlockFootswitch", "device.setChainInput", "device.setChainOutput", "device.setChainSplit", "device.setParameter", "device.setTempo", "device.setMasterVolume", "device.pressFootswitch", "device.tapTempo", "device.selectModeSlot", "device.showTuner", "device.showGigView"],
     "PRESET_WRITE": ["device.navigateBank", "device.recallPreset", "device.reloadPreset"],
     "PERSISTENT_WRITE": ["device.savePresetAs", "device.copyPreset", "device.renameCurrentPreset"]
   },
@@ -61,6 +61,7 @@
     { "rpc": "device.setMasterVolume", "target": "set_master_volume", "client": "setMasterVolume", "tauri": "set_master_volume", "args": ["value", "expectedValue"] },
     { "rpc": "device.masterVolume", "target": "master_volume_state", "client": "currentMasterVolume", "tauri": "current_master_volume", "args": [] },
     { "rpc": "device.pressFootswitch", "target": "press_footswitch", "client": "pressFootswitch", "tauri": "press_footswitch", "args": ["index", "expectedMode", { "name": "expectedPresetName", "default": "" }] },
+    { "rpc": "device.tapTempo", "target": "tap_tempo", "client": "tapTempo", "tauri": "tap_tempo", "args": ["expectedMode", { "name": "expectedPresetName", "default": "" }] },
     { "rpc": "device.selectModeSlot", "target": "select_mode_slot", "client": "selectModeSlot", "tauri": "select_mode_slot", "args": ["slot", { "name": "expectedPresetName", "default": "" }] },
     { "rpc": "device.listPresetSlots", "target": "list_preset_slots", "client": "listPresetSlots", "tauri": "list_preset_slots", "args": [] },
     { "rpc": "device.savePresetAs", "target": "save_preset_as", "client": "savePresetAs", "tauri": "save_preset_as", "args": ["setlistKey", "position", "name", { "name": "expectedPresetName", "default": "" }, "expectedPosition", { "name": "confirmOverwrite", "default": false }] },

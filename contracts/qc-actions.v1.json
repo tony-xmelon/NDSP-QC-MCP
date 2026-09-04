@@ -1,7 +1,7 @@
 {
   "version": 1,
   "accessTiers": {
-    "performance": ["press_footswitch", "navigate_bank", "show_tuner", "show_gig_view", "select_mode_slot", "set_master_volume", "set_tempo"],
+    "performance": ["press_footswitch", "tap_tempo", "navigate_bank", "show_tuner", "show_gig_view", "select_mode_slot", "set_master_volume", "set_tempo"],
     "modify": ["preview_parameter", "undo_device", "redo_device", "select_scene", "recall_preset", "reload_preset", "set_bypass", "set_parameter", "move_block", "add_block", "remove_block", "set_block_footswitch", "set_chain_input", "set_chain_output", "set_chain_split", "save_preset_as", "rename_current_preset", "copy_preset"],
     "full": ["reconnect_device", "reset_device_session", "disconnect_device", "create_device_backup", "set_device_name", "tap_screen"]
   },
@@ -30,6 +30,7 @@
     { "name": "tap_screen", "rpc": "device.tapScreen", "classification": "risky-write", "description": "Tap an exact touchscreen pixel after reviewing a fresh screen capture and explicitly confirming the action.", "properties": { "x": "screen-x", "y": "screen-y", "confirm_risky_operation": "boolean" }, "required": ["x", "y", "confirm_risky_operation"] },
     { "name": "select_scene", "rpc": "device.selectScene", "classification": "live-write", "description": "Immediately select a performance scene, numbered 0 through {maxScene}.", "properties": { "scene": "scene-index", "expected_preset_name": "string" }, "required": ["scene", "expected_preset_name"] },
     { "name": "press_footswitch", "rpc": "device.pressFootswitch", "classification": "live-write", "description": "Press a physical Quad Cortex footswitch by its stable hardware index.", "properties": { "index": "integer", "expected_mode": "string", "expected_preset_name": "string" }, "required": ["index", "expected_mode", "expected_preset_name"] },
+    { "name": "tap_tempo", "rpc": "device.tapTempo", "classification": "live-write", "description": "Tap the dedicated Quad Cortex tempo control through its official MIDI command.", "properties": { "expected_mode": "string", "expected_preset_name": "string" }, "required": ["expected_mode", "expected_preset_name"] },
     { "name": "navigate_bank", "rpc": "device.navigateBank", "classification": "live-write", "description": "Immediately navigate one performance bank down (-1) or up (1).", "properties": { "direction": "integer", "expected_preset_name": "string", "expected_position": "integer" }, "required": ["direction", "expected_preset_name", "expected_position"] },
     { "name": "show_tuner", "rpc": "device.showTuner", "classification": "live-write", "description": "Show or hide the tuner.", "properties": { "shown": "boolean" }, "required": ["shown"] },
     { "name": "show_gig_view", "rpc": "device.showGigView", "classification": "live-write", "description": "Show or hide Gig View.", "properties": { "shown": "boolean" }, "required": ["shown"] },

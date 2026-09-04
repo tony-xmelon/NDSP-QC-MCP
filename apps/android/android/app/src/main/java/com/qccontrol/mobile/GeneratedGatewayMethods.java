@@ -42,6 +42,7 @@ final class GeneratedGatewayMethods {
         "device.setMasterVolume",
         "device.masterVolume",
         "device.pressFootswitch",
+        "device.tapTempo",
         "device.selectModeSlot",
         "device.listPresetSlots",
         "device.savePresetAs",
@@ -96,6 +97,7 @@ final class GeneratedGatewayMethods {
             case "device.setMasterVolume": return "PLANNED_WRITE";
             case "device.masterVolume": return "MASTER_VOLUME";
             case "device.pressFootswitch": return "PLANNED_WRITE";
+            case "device.tapTempo": return "PLANNED_WRITE";
             case "device.selectModeSlot": return "PLANNED_WRITE";
             case "device.listPresetSlots": return "PRESET_LIBRARY";
             case "device.savePresetAs": return "PERSISTENT_WRITE";

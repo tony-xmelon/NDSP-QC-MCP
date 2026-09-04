@@ -667,6 +667,37 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "tap_tempo",
+    "rpc": "device.tapTempo",
+    "classification": "live-write",
+    "description": "Tap the dedicated Quad Cortex tempo control through its official MIDI command.",
+    "properties": {
+      "expected_mode": "string",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "expected_mode",
+      "expected_preset_name"
+    ],
+    "access": "performance",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expected_mode": {
+          "type": "string"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_mode",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "navigate_bank",
     "rpc": "device.navigateBank",
     "classification": "live-write",

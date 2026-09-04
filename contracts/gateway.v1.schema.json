@@ -59,6 +59,7 @@
             "device.setMasterVolume",
             "device.masterVolume",
             "device.pressFootswitch",
+            "device.tapTempo",
             "device.selectModeSlot",
             "device.listPresetSlots",
             "device.savePresetAs",

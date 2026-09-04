@@ -301,6 +301,13 @@ pub static ACTIONS: &[ActionSpec] = &[
         ],
     },
     ActionSpec {
+        name: "tap_tempo",
+        rpc: "device.tapTempo",
+        classification: Classification::LiveWrite,
+        description: "Tap the dedicated Quad Cortex tempo control through its official MIDI command.",
+        properties: &[p!("expected_mode", TEXT), p!("expected_preset_name", TEXT)],
+    },
+    ActionSpec {
         name: "navigate_bank",
         rpc: "device.navigateBank",
         classification: Classification::LiveWrite,

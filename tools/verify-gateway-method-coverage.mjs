@@ -4,11 +4,12 @@ const contract = JSON.parse(await readFile("contracts/gateway-methods.v1.json", 
 const broker = await readFile("services/device-broker/src/rpc.rs", "utf8");
 const windowsHost = await readFile("apps/windows/src-tauri/src/lib.rs", "utf8");
 
-// These two operations intentionally remain in the Tauri MIDI host because
+// These operations intentionally remain in the Tauri MIDI host because
 // Windows already owns its persistent MIDI port. Every USB operation must be
 // dispatched by the native Rust broker.
 const hostMidiMethods = new Map([
   ["device.pressFootswitch", "press_footswitch"],
+  ["device.tapTempo", "tap_tempo"],
   ["device.selectModeSlot", "select_mode_slot"],
 ]);
 

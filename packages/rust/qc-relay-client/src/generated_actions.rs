@@ -25,6 +25,7 @@ const ALLOWED: &[&str] = &[
     "device.tapScreen",
     "device.selectScene",
     "device.pressFootswitch",
+    "device.tapTempo",
     "device.navigateBank",
     "device.showTuner",
     "device.showGigView",
@@ -66,6 +67,7 @@ const READ_ONLY: &[&str] = &[
 
 const PERFORMANCE: &[&str] = &[
     "device.pressFootswitch",
+    "device.tapTempo",
     "device.navigateBank",
     "device.showTuner",
     "device.showGigView",

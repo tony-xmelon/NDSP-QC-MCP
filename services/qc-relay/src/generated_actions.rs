@@ -154,6 +154,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "tap_tempo",
+        rpc: "device.tapTempo",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "navigate_bank",
         rpc: "device.navigateBank",
         class: ActionClass::LiveWrite,

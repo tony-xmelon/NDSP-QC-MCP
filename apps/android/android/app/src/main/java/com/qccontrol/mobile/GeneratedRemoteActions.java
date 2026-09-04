@@ -30,6 +30,7 @@ final class GeneratedRemoteActions {
         "device.tapScreen",
         "device.selectScene",
         "device.pressFootswitch",
+        "device.tapTempo",
         "device.navigateBank",
         "device.showTuner",
         "device.showGigView",
@@ -71,6 +72,7 @@ final class GeneratedRemoteActions {
 
     private static final String[] PERFORMANCE = {
         "device.pressFootswitch",
+        "device.tapTempo",
         "device.navigateBank",
         "device.showTuner",
         "device.showGigView",

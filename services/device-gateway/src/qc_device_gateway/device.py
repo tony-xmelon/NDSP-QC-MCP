@@ -1,4 +1,4 @@
-"""Read-only pyquadcortex adapter owned exclusively by the gateway process."""
+"""Development parity adapter owned exclusively by the Python gateway process."""
 
 from __future__ import annotations
 
@@ -12,11 +12,32 @@ from typing import Any
 
 from .domain import GRID_COLUMNS, GRID_ROWS, INPUT_ROUTE_LABELS, MAXIMUM_TEMPO_BPM, MINIMUM_TEMPO_BPM, OUTPUT_ROUTE_LABELS, SCENE_COUNT
 from .generated_payloads import BlockDetails, DeviceActionResult, PresetSnapshot
-from .usb_profile import FOOTSWITCH_BASE_CONTROLLER, MIDI_PRESSED_VALUE, MODE_SLOT_CONTROLLER
+from .usb_profile import FOOTSWITCH_BASE_CONTROLLER, MIDI_PRESSED_VALUE, MODE_SLOT_CONTROLLER, TAP_TEMPO_CONTROLLER
 
 
 MIN_TEMPO_BPM = MINIMUM_TEMPO_BPM
 MAX_TEMPO_BPM = MAXIMUM_TEMPO_BPM
+
+
+def _protocol_api():
+    """Return the stable message-level API across pyquadcortex 0.40/0.41."""
+    import pyquadcortex
+
+    return getattr(pyquadcortex, "protocol", pyquadcortex)
+
+
+def _production_automation_proto():
+    protocol = _protocol_api()
+    from importlib import import_module
+
+    return import_module(f"{protocol.__name__}.proto.ProductionAutomation_pb2")
+
+
+def _parse_model_repo(payload: bytes):
+    protocol = _protocol_api()
+    from importlib import import_module
+
+    return import_module(f"{protocol.__name__}.catalog").parse_model_repo(payload)
 
 
 def _native_transport_method(qc: Any, name: str):
@@ -315,7 +336,7 @@ def _catalog_audit(models: Any) -> dict[str, Any]:
 
 def _tempo_bpm(preset: Any) -> int:
     """Convert the QC tempo block's normalized value to its displayed BPM."""
-    import pyquadcortex
+    pyquadcortex = _protocol_api()
 
     value = pyquadcortex.tempo_params(preset).get(0)
     if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -328,7 +349,7 @@ def _tempo_value(bpm: int) -> float:
 
 
 def _normalized_mode_value(value: int) -> str:
-    import pyquadcortex
+    pyquadcortex = _protocol_api()
 
     if value in pyquadcortex.HYBRID_MODES:
         return "HYBRID"
@@ -342,7 +363,7 @@ def _normalized_mode(qc: Any) -> str:
 
 def _footswitch_modes_value(value: int) -> list[str]:
     """Return the mode used by the physical top and bottom A-H switch rows."""
-    import pyquadcortex
+    pyquadcortex = _protocol_api()
 
     if value in pyquadcortex.HYBRID_MODES:
         return [mode.name for mode in pyquadcortex.HYBRID_MODES[value]]
@@ -448,7 +469,7 @@ class PyQuadCortexDevice:
 
     def reconnect(self) -> dict[str, Any]:
         self.close()
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         from .native_transport import connect_native, native_broker_enabled
 
@@ -523,12 +544,10 @@ class PyQuadCortexDevice:
 
     def _ensure_catalog(self) -> Any:
         """Fetch the compatibility catalog; native UI metadata is owned by Rust."""
-        from pyquadcortex.catalog import parse_model_repo
-
         qc = self._require_session()
         if getattr(qc, "_catalog", None) is None:
             payload = qc._fetch_model_repo()
-            qc._catalog = parse_model_repo(payload)
+            qc._catalog = _parse_model_repo(payload)
         return qc._catalog
 
     def _parameter_display_metadata(self, model_id: int, parameter_index: int, spec: Any, options: list[str]) -> dict[str, Any]:
@@ -553,7 +572,7 @@ class PyQuadCortexDevice:
         return preset
 
     def _read_position_state(self, timeout: float = 10.0) -> Any:
-        from pyquadcortex.proto import ProductionAutomation_pb2 as pa
+        pa = _production_automation_proto()
 
         return self._require_session()._read_state(
             pa.SetlistPositionMessage,
@@ -572,7 +591,7 @@ class PyQuadCortexDevice:
         return self._setlist_key, self._preset_position, self._setlist_is_factory
 
     def list_presets(self, refresh: bool = False, setlist_key: str | None = None) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         active_setlist_key, current_position, _ = self._current_position(refresh=True)
@@ -626,7 +645,7 @@ class PyQuadCortexDevice:
         return {"folders": self._preset_folder_cache}
 
     def list_preset_slots(self) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         setlist_key, current_position, is_factory = self._current_position(refresh=True)
@@ -660,7 +679,7 @@ class PyQuadCortexDevice:
 
     def create_device_backup(self, name: str, timeout: float = 60.0) -> dict[str, Any]:
         """Collect the QC's native chunked backup JSON without opening its payload."""
-        from pyquadcortex.proto import ProductionAutomation_pb2 as pa
+        pa = _production_automation_proto()
 
         clean_name = "".join(character for character in str(name) if character.isprintable()).strip()
         if not clean_name:
@@ -809,7 +828,7 @@ class PyQuadCortexDevice:
         expected_position: int,
         confirm_overwrite: bool,
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Preset name is required.")
@@ -931,7 +950,7 @@ class PyQuadCortexDevice:
         confirm_overwrite: bool,
     ) -> dict[str, Any]:
         """Copy one stored preset over the currently loaded user preset slot."""
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         if not isinstance(source_setlist_key, str) or not source_setlist_key.strip():
             raise ValueError("Source setlist is required.")
@@ -1010,7 +1029,7 @@ class PyQuadCortexDevice:
         expected_preset_name: str,
         expected_position: int | None = None,
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
             raise ValueError("Preset position must be an integer from 0 through 255.")
@@ -1119,7 +1138,7 @@ class PyQuadCortexDevice:
         if not isinstance(expected_bypassed, bool) or not isinstance(desired_bypassed, bool):
             raise ValueError("Expected and desired bypass states must be true or false.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1181,7 +1200,7 @@ class PyQuadCortexDevice:
         if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
             raise ValueError("Expected model ID must be a positive integer.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1227,7 +1246,7 @@ class PyQuadCortexDevice:
         if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id <= 0:
             raise ValueError("Model ID must be a positive integer.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1272,7 +1291,7 @@ class PyQuadCortexDevice:
         if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
             raise ValueError("Expected model ID must be a positive integer.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1320,7 +1339,7 @@ class PyQuadCortexDevice:
         if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
             raise ValueError("Expected model ID must be a positive integer.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1378,7 +1397,7 @@ class PyQuadCortexDevice:
             if isinstance(value, bool) or not isinstance(value, int) or value not in labels:
                 raise ValueError(f"{label.capitalize()} is not a supported {route_kind} ID.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1455,7 +1474,7 @@ class PyQuadCortexDevice:
         validate_pair(split_column, mix_column, "Requested")
         validate_pair(expected_split_column, expected_mix_column, "Expected")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -1495,7 +1514,7 @@ class PyQuadCortexDevice:
     def _routing_node_details(
         self, preset: Any, row: int, column: int, scene: int
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         node = ROUTING_NODE_COLUMNS[column]
         split = next((item for item in pyquadcortex.splits(preset) if item.row == row), None)
@@ -1692,7 +1711,7 @@ class PyQuadCortexDevice:
                 }
                 return native
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         preset = self._assert_expected_preset(expected_preset_name)
         scene = int(qc.active_scene())
@@ -1832,7 +1851,7 @@ class PyQuadCortexDevice:
         scene: int,
         expected_preset_name: str,
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         node = ROUTING_NODE_COLUMNS[column]
         details = self._routing_node_details(preset, row, column, scene)
@@ -1885,7 +1904,7 @@ class PyQuadCortexDevice:
         if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
             raise ValueError("Parameter index must be a non-negative integer.")
 
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
@@ -2003,7 +2022,7 @@ class PyQuadCortexDevice:
         expected_tempo: int,
         expected_preset_name: str,
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         if isinstance(bpm, bool) or not isinstance(bpm, int) or not MIN_TEMPO_BPM <= bpm <= MAX_TEMPO_BPM:
             raise ValueError(f"Tempo must be an integer from {MIN_TEMPO_BPM} through {MAX_TEMPO_BPM} BPM.")
@@ -2091,7 +2110,7 @@ class PyQuadCortexDevice:
         expected_mode: str,
         expected_preset_name: str,
     ) -> dict[str, Any]:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < SCENE_COUNT:
             raise ValueError(f"Footswitch must be an integer from 0 through {SCENE_COUNT - 1}.")
@@ -2137,6 +2156,25 @@ class PyQuadCortexDevice:
             detail += "; no visible assignment changed"
         return {"detail": detail, "snapshot": after}
 
+    def tap_tempo(
+        self,
+        expected_mode: str,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Send the dedicated QC Tap Tempo MIDI command (CC#44)."""
+        if expected_mode not in {"PRESET", "SCENE", "STOMP", "HYBRID"}:
+            raise ValueError("Expected mode must be PRESET, SCENE, STOMP, or HYBRID.")
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        actual_mode = _normalized_mode(qc)
+        if actual_mode != expected_mode:
+            raise RuntimeError(
+                f"Footswitch mode changed on the Quad Cortex: expected {expected_mode}, "
+                f"but it is {actual_mode}. Refresh and retry."
+            )
+        endpoint = _send_qc_midi_cc(TAP_TEMPO_CONTROLLER, MIDI_PRESSED_VALUE)
+        return {"detail": f"Tap Tempo sent immediately through {endpoint}"}
+
     def select_mode_slot(self, slot: int, expected_preset_name: str) -> dict[str, Any]:
         """Recall one of the three configured QC mode slots through official MIDI CC#47."""
         if isinstance(slot, bool) or not isinstance(slot, int) or not 0 <= slot <= 2:
@@ -2163,7 +2201,7 @@ class PyQuadCortexDevice:
         return {"detail": "Gig View opened on the Quad Cortex" if shown else "Gig View closed"}
 
     def snapshot(self) -> PresetSnapshot:
-        import pyquadcortex
+        pyquadcortex = _protocol_api()
 
         qc = self._require_session()
         setlist_key, preset_position, _ = self._current_position(refresh=True)

@@ -209,6 +209,13 @@ class QcTools:
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
         })
 
+    def tap_tempo(self, expected_mode: str, expected_preset_name: str) -> Any:
+        """Tap the dedicated physical tempo control with current-state guards."""
+        return self._request("tap_tempo", {
+            "expectedMode": _required_text(expected_mode, "expected_mode"),
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
     def navigate_bank(
         self, direction: Literal[-1, 1], expected_preset_name: str, expected_position: int
     ) -> Any:

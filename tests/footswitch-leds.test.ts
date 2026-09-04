@@ -114,6 +114,15 @@ test("Windows mode-slot changes share the immediate persistent MIDI lane", () =>
   assert.doesNotMatch(command, /background_gateway_request|with_gateway/);
 });
 
+test("Windows Tap Tempo uses explicit CC44 on the persistent MIDI lane", () => {
+  const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+  const command = rustSource.slice(rustSource.indexOf("async fn tap_tempo"), rustSource.indexOf("async fn select_mode_slot"));
+  assert.match(command, /state::<Mutex<PerformanceMidi>>/);
+  assert.match(command, /plan_host_midi\("device\.tapTempo"/);
+  assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
+  assert.doesNotMatch(command, /press_footswitch|background_gateway_request|with_gateway/);
+});
+
 test("device-reported STOMP LED state is authoritative", () => {
   const leds = footswitchLeds(snapshot({
     footswitchStates: [{ index: 4, active: true, assigned: true, color: "#123456" }],

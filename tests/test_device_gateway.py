@@ -374,6 +374,8 @@ class FakeDevice:
         return {"value": 56}
     def press_footswitch(self, index, expected_mode, expected_preset_name):
         return {"detail": f"footswitch {index}:{expected_mode}", "snapshot": self.snapshot()}
+    def tap_tempo(self, expected_mode, expected_preset_name):
+        return {"detail": f"tap-tempo {expected_mode}"}
     def select_mode_slot(self, slot, expected_preset_name):
         return {"detail": f"mode-slot {slot}", "snapshot": self.snapshot()}
     def list_preset_slots(self):

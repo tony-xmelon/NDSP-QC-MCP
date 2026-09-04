@@ -12,6 +12,7 @@ test("Windows adapts gateway.v1 expected-state guards to the shared device port"
     toggleBypass: async (...args: unknown[]) => { calls.push({ method: "toggleBypass", args }); return result; },
     setTempo: async (...args: unknown[]) => { calls.push({ method: "setTempo", args }); return result; },
     pressFootswitch: async (...args: unknown[]) => { calls.push({ method: "pressFootswitch", args }); return result; },
+    tapTempo: async (...args: unknown[]) => { calls.push({ method: "tapTempo", args }); return result; },
     showTuner: async (...args: unknown[]) => { calls.push({ method: "showTuner", args }); return result; },
     showGigView: async (...args: unknown[]) => { calls.push({ method: "showGigView", args }); return result; }
   } as unknown as GatewayTransport;
@@ -29,7 +30,7 @@ test("Windows adapts gateway.v1 expected-state guards to the shared device port"
     { method: "toggleBypass", args: [0, 1, 0, false, true, "Brit 2203"] },
     { method: "setTempo", args: [96, 120, "Brit 2203"] },
     { method: "pressFootswitch", args: [3, "PRESET", "Brit 2203"] },
-    { method: "pressFootswitch", args: [9, "PRESET", "Brit 2203"] },
+    { method: "tapTempo", args: ["PRESET", "Brit 2203"] },
     { method: "showTuner", args: [true] }
   ]);
 

@@ -99,6 +99,12 @@ class ToolSafetyTests(unittest.TestCase):
             "expectedPresetName": "Lead",
         }))
 
+        self.tools.tap_tempo("STOMP", "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.tapTempo", {
+            "expectedMode": "STOMP",
+            "expectedPresetName": "Lead",
+        }))
+
         self.tools.move_block(1, 2, 3, 101, "Lead")
         self.assertEqual(self.backend.calls[-1][0], "device.moveBlock")
         self.assertEqual(self.backend.calls[-1][1]["expectedModelId"], 101)

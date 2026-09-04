@@ -144,6 +144,12 @@ SHARED_QC_ACTIONS = {
     "access": "performance",
     "description": "Press a physical Quad Cortex footswitch by its stable hardware index."
   },
+  "tap_tempo": {
+    "rpc": "device.tapTempo",
+    "classification": "live-write",
+    "access": "performance",
+    "description": "Tap the dedicated Quad Cortex tempo control through its official MIDI command."
+  },
   "navigate_bank": {
     "rpc": "device.navigateBank",
     "classification": "live-write",

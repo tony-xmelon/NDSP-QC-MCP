@@ -22,10 +22,13 @@ test("Windows and Android compose the same QC behavior and screen packages", () 
 
 test("shared UI exclusively owns dirty-title and parameter-screen rendering", () => {
   const surface = source("packages/typescript/qc-ui/src/quad-cortex-surface.tsx");
+  const corosUi = source("packages/typescript/qc-ui/src/coros-ui.ts");
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
   const desktopStyles = source("apps/windows/src/styles.css");
-  assert.match(surface, /snapshot\.dirty \? "\*" : ""/);
+  assert.match(surface, /presetTitlePresentation\(snapshot\.presetName, snapshot\.dirty\)/);
+  assert.match(corosUi, /text: `\$\{normalizedName\}\$\{dirty \? "\*" : ""\}`/);
+  assert.match(corosUi, /dimmed: unsaved && !dirty/);
   assert.match(surface, /<CorOsParameterEditor \{\.\.\.parameterEditor\} \/>/);
   assert.match(surface, /import "\.\/surface-shell\.css"/);
   assert.doesNotMatch(desktopStyles, /^\.qc-chassis \{/m);
@@ -220,6 +223,7 @@ test("one Rust command and framing engine owns both native USB hosts", () => {
   const windowsWorker = source("services/device-broker/src/worker.rs");
   const androidJni = source("packages/rust/qc-android/src/lib.rs");
   const androidPlugin = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  const androidBuild = source("apps/android/android/app/build.gradle");
   const windowsAdapter = source("services/device-gateway/src/qc_device_gateway/native_transport.py");
   assert.match(commands, /pub fn initialization/);
   assert.match(commands, /pub fn set_parameter_numeric/);
@@ -238,6 +242,7 @@ test("one Rust command and framing engine owns both native USB hosts", () => {
   assert.match(androidPlugin, /stateDecoder\.initializationCommands/);
   assert.match(androidPlugin, /stateDecoder\.encodeFrame/);
   assert.match(androidPlugin, /stateDecoder\.pushReport/);
+  assert.match(androidBuild, /packages\/rust\/qc-device-runtime/, "shared runtime changes must invalidate Android's native library");
   assert.doesNotMatch(androidPlugin, /frameReports|FLAG_FIRST|FLAG_LAST/);
   assert.doesNotMatch(androidPlugin, /fieldVarint|fieldMessage|QcUsbFraming|QcProtobufWire/);
 });

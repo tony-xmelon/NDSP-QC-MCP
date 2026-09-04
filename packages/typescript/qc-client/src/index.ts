@@ -282,6 +282,7 @@ export interface GatewayTransport {
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult>;
   pressFootswitch(index: number, expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;
+  tapTempo(expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;
   selectModeSlot(slot: 0 | 1 | 2, expectedPresetName: string): Promise<DeviceActionResult>;
   listPresetSlots(): Promise<PresetSlotList>;
   savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult>;

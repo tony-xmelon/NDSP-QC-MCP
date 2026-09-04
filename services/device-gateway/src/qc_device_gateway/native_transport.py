@@ -141,8 +141,10 @@ class NativeBrokerTransport:
 
     @staticmethod
     def _registry():
-        from pyquadcortex import registry
-        return registry
+        import pyquadcortex
+
+        protocol = getattr(pyquadcortex, "protocol", pyquadcortex)
+        return __import__(f"{protocol.__name__}.registry", fromlist=["registry"])
 
     @staticmethod
     def _decode(raw: dict[str, Any]):
@@ -319,7 +321,10 @@ class NativeBrokerTransport:
 
 def connect_native():
     """Return a high-level pyquadcortex client using the native USB owner."""
-    from pyquadcortex.client import QuadCortex
+    import pyquadcortex
+
+    protocol = getattr(pyquadcortex, "protocol", pyquadcortex)
+    QuadCortex = protocol.QuadCortex
 
     executable = find_native_broker()
     if executable is None:

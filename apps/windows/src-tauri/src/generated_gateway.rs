@@ -38,6 +38,7 @@ pub mod rpc {
     pub const SET_MASTER_VOLUME: &str = "device.setMasterVolume";
     pub const CURRENT_MASTER_VOLUME: &str = "device.masterVolume";
     pub const PRESS_FOOTSWITCH: &str = "device.pressFootswitch";
+    pub const TAP_TEMPO: &str = "device.tapTempo";
     pub const SELECT_MODE_SLOT: &str = "device.selectModeSlot";
     pub const LIST_PRESET_SLOTS: &str = "device.listPresetSlots";
     pub const SAVE_PRESET_AS: &str = "device.savePresetAs";

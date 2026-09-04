@@ -36,9 +36,7 @@ export function createQcGatewayTransport(
     },
     tapTempo(snapshot) {
       const state = expected(snapshot);
-      // Footswitch index 9 is the QC TAP switch. Keeping this as a physical
-      // MIDI action gives both hosts the same timing and device behaviour.
-      return gateway.pressFootswitch(9, state.mode, state.presetName);
+      return gateway.tapTempo(state.mode, state.presetName);
     },
     blockDetails(row, column, snapshot) {
       return gateway.blockDetails(row, column, expected(snapshot).presetName);

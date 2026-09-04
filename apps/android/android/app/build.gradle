@@ -7,8 +7,8 @@ android {
         applicationId "com.qccontrol.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 21
-        versionName "0.3.16"
+        versionCode 23
+        versionName "0.3.18"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters 'arm64-v8a', 'x86_64'
@@ -60,6 +60,10 @@ def buildSharedQcRust = tasks.register('buildSharedQcRust', Exec) {
         exclude 'target/**'
     })
     inputs.files(fileTree(new File(qcRepoRoot, 'packages/rust/qc-android')) {
+        include 'Cargo.toml', 'src/**'
+        exclude 'target/**'
+    })
+    inputs.files(fileTree(new File(qcRepoRoot, 'packages/rust/qc-device-runtime')) {
         include 'Cargo.toml', 'src/**'
         exclude 'target/**'
     })

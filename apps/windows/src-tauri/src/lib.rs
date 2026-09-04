@@ -1676,8 +1676,8 @@ async fn press_footswitch(
     expected_mode: String,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    if u32::from(index) >= qc_protocol::domain::SCENE_COUNT + 3 {
-        return Err("Footswitch index must be from 0 through 10.".into());
+    if u32::from(index) >= qc_protocol::domain::SCENE_COUNT {
+        return Err("Footswitch index must be from 0 through 7 (A through H).".into());
     }
     if !matches!(
         expected_mode.as_str(),
@@ -1698,6 +1698,36 @@ async fn press_footswitch(
     Ok(json!({
         "detail": format!("{detail} immediately through {endpoint}; live USB state will reconcile the result."),
         "immediate": true,
+        "expectedPresetName": expected_preset_name
+    }))
+}
+
+#[tauri::command]
+async fn tap_tempo(
+    app: AppHandle,
+    expected_mode: String,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    if !matches!(
+        expected_mode.as_str(),
+        "PRESET" | "SCENE" | "STOMP" | "HYBRID"
+    ) {
+        return Err("The current footswitch mode is not valid.".into());
+    }
+    let plan = plan_host_midi("device.tapTempo", &json!({}))?;
+    let detail = plan.detail.clone();
+    let endpoint = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Mutex<PerformanceMidi>>()
+            .lock()
+            .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+            .send(plan.controller, plan.value)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    Ok(json!({
+        "detail": format!("{detail} immediately through {endpoint}; live USB state will reconcile the result."),
+        "immediate": true,
+        "expectedMode": expected_mode,
         "expectedPresetName": expected_preset_name
     }))
 }
@@ -2341,6 +2371,7 @@ pub fn run() {
             set_master_volume,
             current_master_volume,
             press_footswitch,
+            tap_tempo,
             select_mode_slot,
             list_preset_slots,
             save_preset_as,

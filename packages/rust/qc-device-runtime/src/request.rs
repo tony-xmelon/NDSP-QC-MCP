@@ -57,13 +57,18 @@ pub struct HostMidiPlan {
 pub fn plan_host_midi(method: &str, params: &Value) -> Result<HostMidiPlan, String> {
     match method {
         "device.pressFootswitch" => {
-            let index = bounded_u32(params, "index", domain::SCENE_COUNT + 2)? as u8;
+            let index = bounded_u32(params, "index", domain::SCENE_COUNT - 1)? as u8;
             Ok(HostMidiPlan {
                 controller: profile::FOOTSWITCH_BASE_CONTROLLER + index,
                 value: profile::MIDI_PRESSED_VALUE,
                 detail: format!("Footswitch index {index} sent"),
             })
         }
+        "device.tapTempo" => Ok(HostMidiPlan {
+            controller: profile::TAP_TEMPO_CONTROLLER,
+            value: profile::MIDI_PRESSED_VALUE,
+            detail: "Tap Tempo sent".into(),
+        }),
         "device.selectModeSlot" => {
             let slot = bounded_u32(params, "slot", 2)? as u8;
             Ok(HostMidiPlan {
@@ -1323,7 +1328,7 @@ pub fn plan_gateway_write(
                 detail: format!("{name} accepted"),
             }
         }
-        "device.pressFootswitch" | "device.selectModeSlot" => {
+        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
             let midi = plan_host_midi(method, params)?;
             GatewayWritePlan {
                 write: PlannedWrite::MidiControlChange {
@@ -1391,14 +1396,35 @@ mod tests {
 
         let footswitch = plan_gateway_write(
             "device.pressFootswitch",
-            &json!({"index": 10, "expectedMode": "STOMP", "expectedPresetName": "Live"}),
+            &json!({"index": 7, "expectedMode": "STOMP", "expectedPresetName": "Live"}),
             Some(&snapshot),
         )
         .unwrap();
         assert_eq!(
             footswitch.write,
             PlannedWrite::MidiControlChange {
-                controller: profile::FOOTSWITCH_BASE_CONTROLLER + 10,
+                controller: profile::FOOTSWITCH_BASE_CONTROLLER + 7,
+                value: profile::MIDI_PRESSED_VALUE,
+            }
+        );
+
+        assert!(plan_gateway_write(
+            "device.pressFootswitch",
+            &json!({"index": 8, "expectedMode": "STOMP", "expectedPresetName": "Live"}),
+            Some(&snapshot),
+        )
+        .is_err());
+
+        let tap = plan_gateway_write(
+            "device.tapTempo",
+            &json!({"expectedMode": "STOMP", "expectedPresetName": "Live"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert_eq!(
+            tap.write,
+            PlannedWrite::MidiControlChange {
+                controller: profile::TAP_TEMPO_CONTROLLER,
                 value: profile::MIDI_PRESSED_VALUE,
             }
         );
