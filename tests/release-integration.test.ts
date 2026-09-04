@@ -50,6 +50,8 @@ test("software parity compile-checks the Windows shell without release sidecars"
   assert.match(parity, /TAURI_CONFIG = '\{"bundle":\{"externalBin":\[\]\}\}'/);
   assert.match(parity, /cargo check --locked --manifest-path "apps\/windows\/src-tauri\/Cargo\.toml"/);
   assert.match(parity, /cargo test --locked --manifest-path \$manifest/);
+  assert.match(parity, /artifacts\\software-parity-target/);
+  assert.match(parity, /\$env:CARGO_TARGET_DIR = \$previousCargoTargetDirectory/);
   assert.match(readFileSync(new URL("../packages/rust/qc-windows-midi/Cargo.lock", import.meta.url), "utf8"), /name = "qc-windows-midi"/);
 });
 

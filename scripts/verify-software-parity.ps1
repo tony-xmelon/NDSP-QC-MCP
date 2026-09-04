@@ -6,6 +6,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+$previousCargoTargetDirectory = $env:CARGO_TARGET_DIR
+if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) {
+    $env:CARGO_TARGET_DIR = Join-Path $repositoryRoot "artifacts\software-parity-target"
+}
 
 function Invoke-Checked {
     param(
@@ -82,5 +86,6 @@ try {
     Write-Host "`nSoftware parity gate passed. Physical Windows and Android conformance is still required for a release."
 }
 finally {
+    $env:CARGO_TARGET_DIR = $previousCargoTargetDirectory
     Pop-Location
 }
