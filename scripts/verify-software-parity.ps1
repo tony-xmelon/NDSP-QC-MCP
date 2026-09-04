@@ -47,6 +47,19 @@ try {
         Invoke-Checked "Rust tests: $manifest" { cargo test --manifest-path $manifest }
     }
 
+    Invoke-Checked "Windows native shell check" {
+        $previousTauriConfig = $env:TAURI_CONFIG
+        try {
+            # Compile the full shell without requiring release-only sidecars to
+            # have been downloaded and staged by build-windows-installer.ps1.
+            $env:TAURI_CONFIG = '{"bundle":{"externalBin":[]}}'
+            cargo check --manifest-path "apps/windows/src-tauri/Cargo.toml"
+        }
+        finally {
+            $env:TAURI_CONFIG = $previousTauriConfig
+        }
+    }
+
     if ($BuildApps) {
         Invoke-Checked "Windows web build" { npm run build:windows }
         Invoke-Checked "Android web build" { npm run build:android:web }

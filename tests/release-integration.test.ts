@@ -44,6 +44,13 @@ test("both distribution paths require a clean full software parity preflight", (
   }
 });
 
+test("software parity compile-checks the Windows shell without release sidecars", () => {
+  const parity = script("verify-software-parity.ps1");
+  assert.match(parity, /Windows native shell check/);
+  assert.match(parity, /TAURI_CONFIG = '\{"bundle":\{"externalBin":\[\]\}\}'/);
+  assert.match(parity, /cargo check --manifest-path "apps\/windows\/src-tauri\/Cargo\.toml"/);
+});
+
 test("Android package, Gradle, and lockfile share one release version", () => {
   const appPackage = JSON.parse(readFileSync(new URL("../apps/android/package.json", import.meta.url), "utf8"));
   const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
