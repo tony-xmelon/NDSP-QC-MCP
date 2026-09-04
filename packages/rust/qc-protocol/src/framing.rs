@@ -108,6 +108,7 @@ pub fn decode(reports: &[Vec<u8>]) -> Result<(u16, Vec<u8>), FrameError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     fn hex(value: &str) -> Vec<u8> {
         value
@@ -161,5 +162,49 @@ mod tests {
         let mut report = encode(1, &[])[0].to_vec();
         report[2] &= !FLAG_FIRST;
         assert_eq!(decode(&[report]), Err(FrameError::MissingFirst));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn arbitrary_bounded_payloads_round_trip(
+            message_type in any::<u16>(),
+            payload in prop::collection::vec(any::<u8>(), 0..8192)
+        ) {
+            let reports = encode(message_type, &payload);
+            let owned = reports.iter().map(|report| report.to_vec()).collect::<Vec<_>>();
+            prop_assert_eq!(decode(&owned), Ok((message_type, payload)));
+        }
+
+        #[test]
+        fn arbitrary_report_sequences_never_panic_or_allocate_past_the_bound(
+            reports in prop::collection::vec(prop::collection::vec(any::<u8>(), 0..160), 0..96)
+        ) {
+            let result = std::panic::catch_unwind(|| decode(&reports));
+            prop_assert!(result.is_ok());
+            if let Ok(Ok((_message_type, payload))) = result {
+                prop_assert!(payload.len() <= profile::MAX_FRAME_BYTES);
+            }
+        }
+
+        #[test]
+        fn assembler_recovers_after_an_arbitrary_malformed_prefix(
+            prefix in prop::collection::vec(prop::collection::vec(any::<u8>(), 0..160), 0..32),
+            message_type in any::<u16>(),
+            payload in prop::collection::vec(any::<u8>(), 0..2048)
+        ) {
+            let mut assembler = crate::session::FrameAssembler::new();
+            for report in prefix {
+                let _ = assembler.push(report);
+            }
+            let mut observed = None;
+            for report in encode(message_type, &payload) {
+                if let Ok(Some(frame)) = assembler.push(report.to_vec()) {
+                    observed = Some(frame);
+                }
+            }
+            prop_assert_eq!(observed, Some((message_type, payload)));
+        }
     }
 }
