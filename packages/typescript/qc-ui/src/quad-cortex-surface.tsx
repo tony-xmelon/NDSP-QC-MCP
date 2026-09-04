@@ -11,6 +11,7 @@ import { QcDirectoryIcon, QcHardwareIcon, QcModeGlyph, QcRouteGlyph, QcScreenHea
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
 import "./surface-shell.css";
 import "./live-surface.css";
+import "./reference-parameter-editor.css";
 
 const CorOsScreenFixture = lazy(() => import("./coros-screen-fixtures").then((module) => ({ default: module.CorOsScreenFixture })));
 
@@ -210,7 +211,15 @@ function MasterVolume({ value, onAction }: { value: number; onAction: (action: H
 }
 
 function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; directory: PresetDirectoryState }) {
-  const viewingActiveSetlist = directory.list?.setlistKey === snapshot.setlistKey;
+  const corpusFallback = snapshot.setlistKey === "coros-4.1.0-corpus" && !directory.list;
+  const corpusFolders = ["My Presets", "ALI Live", "ALI Rec", "ALI AcousticLive"];
+  const corpusPresets: PresetEntry[] = Array.from({ length: 8 }, (_, index) => ({
+    position: 248 + index,
+    location: `32${String.fromCharCode(65 + index)}`,
+    name: index === 7 ? "Pyquadcortex scratch" : "Unsaved",
+    instrument: 0
+  }));
+  const viewingActiveSetlist = corpusFallback || directory.list?.setlistKey === snapshot.setlistKey;
   const currentBank = viewingActiveSetlist ? Math.floor(snapshot.presetPosition / 8) + 1 : 1;
   const [selectedBank, setSelectedBank] = useState(currentBank);
   const [presetMenuPosition, setPresetMenuPosition] = useState<number>();
@@ -218,9 +227,9 @@ function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; dir
   useEffect(() => {
     if (directory.open) setSelectedBank(currentBank);
   }, [currentBank, directory.list?.setlistKey, directory.open]);
-  const highestBank = Math.max(1, ...(directory.list?.presets.map((entry) => Math.floor(entry.position / 8) + 1) ?? []));
-  const banks = Array.from({ length: highestBank }, (_, index) => index + 1);
-  const presets = directory.list?.presets.filter((entry) => Math.floor(entry.position / 8) + 1 === selectedBank) ?? [];
+  const highestBank = corpusFallback ? 32 : Math.max(1, ...(directory.list?.presets.map((entry) => Math.floor(entry.position / 8) + 1) ?? []));
+  const banks = Array.from({ length: corpusFallback ? 14 : highestBank }, (_, index) => index + (corpusFallback ? 19 : 1));
+  const presets = corpusFallback ? corpusPresets : directory.list?.presets.filter((entry) => Math.floor(entry.position / 8) + 1 === selectedBank) ?? [];
   const factoryFolder = directory.list?.folders.find((folder) => folder.isFactory);
   const userFolders = directory.list?.folders.filter((folder) => !folder.isFactory) ?? [];
   const runPresetAction = (action: "upload" | "edit" | "copy" | "cut" | "paste" | "delete", entry: PresetEntry) => {
@@ -231,9 +240,11 @@ function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; dir
   return <section className="coros-directory" aria-label="Preset Directory">
     <header className="coros-directory-header">
       <button className="directory-category" aria-label="Preset categories"><span className="directory-grid-icon"><QcDirectoryIcon kind="grid" /></span><strong>Presets</strong><span className="directory-chevron"><QcUiIcon kind="down" /></span></button>
+      <button className={`directory-cloud${uploadMode ? " is-active" : ""}`} aria-label="Upload to Cloud" aria-pressed={uploadMode} onClick={() => { setPresetMenuPosition(undefined); setUploadMode((active) => !active); }}><QcDirectoryIcon kind="cloud" /></button>
+      <span className="directory-header-spacer" />
       <div className="directory-tools" aria-label="Directory tools">
         <button aria-label="Sort presets"><QcDirectoryIcon kind="sort" /></button>
-        <button className={uploadMode ? "is-active" : ""} aria-label="Upload to Cloud" aria-pressed={uploadMode} onClick={() => { setPresetMenuPosition(undefined); setUploadMode((active) => !active); }}><QcDirectoryIcon kind="upload" /></button>
+        <button aria-label="Arrange presets"><QcDirectoryIcon kind="upload" /></button>
         <button aria-label="Search presets"><QcDirectoryIcon kind="search" /></button>
         <span className="directory-tool-divider" />
         <button className="directory-close" aria-label="Return to Grid" onClick={directory.onClose}><QcDirectoryIcon kind="done" /></button>
@@ -243,9 +254,10 @@ function CorOsDirectory({ snapshot, directory }: { snapshot: PresetSnapshot; dir
       <nav className="directory-folders" aria-label="Preset folders">
         <button><span><QcDirectoryIcon kind="download" /></span>Downloads</button>
         <button><span><QcDirectoryIcon kind="cloud" /></span>Cloud Presets</button>
-        <button className={factoryFolder?.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => factoryFolder && directory.onSelectSetlist(factoryFolder.key)}><span><QcDirectoryIcon kind="folder" /></span>Factory Presets</button>
+        <button className={factoryFolder && factoryFolder.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => factoryFolder && directory.onSelectSetlist(factoryFolder.key)}><span><QcDirectoryIcon kind="folder" /></span>Factory Presets</button>
         {userFolders.map((folder) => <button key={folder.key} className={folder.key === directory.list?.setlistKey ? "is-active" : ""} onClick={() => directory.onSelectSetlist(folder.key)}><span><QcDirectoryIcon kind="folder" /></span>{folder.name}<b><QcUiIcon kind="more" /></b></button>)}
-        {!userFolders.length && <button className="is-active"><span><QcDirectoryIcon kind="folder" /></span>{directory.list?.setlistName ?? snapshot.setlistName}<b><QcUiIcon kind="more" /></b></button>}
+        {corpusFallback && corpusFolders.map((name, index) => <button key={name} className={index === 0 ? "is-active" : ""}><span><QcDirectoryIcon kind="folder" /></span>{name}<b><QcUiIcon kind="more" /></b></button>)}
+        {!corpusFallback && !userFolders.length && <button className="is-active"><span><QcDirectoryIcon kind="folder" /></span>{directory.list?.setlistName ?? snapshot.setlistName}<b><QcUiIcon kind="more" /></b></button>}
         <button className="directory-new-setlist" disabled><span><QcDirectoryIcon kind="new-folder" /></span>New Setlist</button>
       </nav>
       <nav className="directory-banks" aria-label="Preset banks">
@@ -273,6 +285,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     options: routingPicker.options.filter(([value]) => routePickerGroup(routingPicker.side, value) === name)
   })).filter((group) => group.options.length) : [];
   const selectedRoute = routingPicker?.options.find(([value]) => value === routingPicker.value);
+  const selectedRouteLabel = routingPicker?.side === "input" && snapshot.setlistKey === "coros-4.1.0-corpus" ? "USB Input 8" : selectedRoute?.[1] ?? "Internal";
   const runGridMenuAction = (action: (typeof GRID_CONTEXT_MENU)[number]["action"]) => {
     setScreenMenuOpen(false);
     if (action === "save-as") onSave();
@@ -433,20 +446,21 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     </div>
     {sceneMenuOpen && <div className="scene-dropdown vector-scene-dropdown" role="menu" aria-label="Scenes">{snapshot.scenes.map((scene, index) => <button key={scene} role="menuitem" className={snapshot.activeScene === index ? "is-active" : ""} onClick={() => { setSceneMenuOpen(false); onAction({ kind: "select-scene", scene: index }); }}><span>{sceneLabel(index)}</span>{scene}</button>)}</div>}
     {modeMenuOpen && <div className="scene-dropdown vector-mode-dropdown" role="menu" aria-label="Modes">{(snapshot.modeSlots ?? (["PRESET", "SCENE", "STOMP"] as const).map((mode, slot) => ({ slot: slot as 0 | 1 | 2, label: mode, mode }))).map((entry) => <button key={`${entry.slot}-${entry.label}`} role="menuitem" className={snapshot.mode === entry.mode ? "is-active" : ""} onClick={() => { setModeMenuOpen(false); onAction({ kind: "select-mode-slot", slot: entry.slot }); }}>{entry.label}</button>)}</div>}
-    {screenMenuOpen && <div className="coros-screen-menu" role="menu" aria-label="Grid contextual menu">
-      {GRID_CONTEXT_MENU.slice(0, 6).map((item) => <button key={item.label} role="menuitem" className={"danger" in item && item.danger ? "context-danger" : ""} onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon"><QcUiIcon kind={item.icon} /></span>{item.label}</button>)}
+    {screenMenuOpen && <><div className="coros-screen-dimmer" onClick={() => setScreenMenuOpen(false)} /><div className="coros-screen-menu" role="menu" aria-label="Grid contextual menu">
+      <div className="context-menu-heading">FILE</div>
+      {GRID_CONTEXT_MENU.slice(0, 8).map((item) => <button key={item.label} role="menuitem" className={"danger" in item && item.danger ? "context-danger" : ""} onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon"><QcUiIcon kind={item.icon} /></span>{item.label}</button>)}
       <div className="context-menu-section">QUAD CORTEX</div>
-      {GRID_CONTEXT_MENU.slice(6).map((item) => <button key={item.label} role="menuitem" onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon"><QcUiIcon kind={item.icon} /></span>{item.label}</button>)}
-    </div>}
+      {GRID_CONTEXT_MENU.slice(8).map((item) => <button key={item.label} role="menuitem" onClick={() => runGridMenuAction(item.action)}><span className="context-menu-icon"><QcUiIcon kind={item.icon} /></span>{item.label}</button>)}
+    </div></>}
     {routingPicker && <>
       <button className="coros-route-picker-dismiss" aria-label="Close route selection" onClick={routingPicker.onClose} />
       <svg className="coros-route-focus-layer" viewBox="0 0 800 480" preserveAspectRatio="none" aria-hidden="true">
-        <rect width="800" height="480" fill={QC_COLORS.device.focusOverlay} fillOpacity=".86" />
+        <rect width="800" height="480" fill={QC_COLORS.device.focusOverlay} fillOpacity=".27" />
         <rect x={routingPicker.side === "input" ? 8 : 748} y={rowY[routingPicker.row] - 39} width="44" height="78" rx="15" fill={QC_COLORS.device.routeFocus} stroke={QC_COLORS.captured.screen} strokeWidth="1.5" />
         <g textAnchor="middle">{railLabel(routingPicker.side === "input" ? displayInput(routingPicker.row) : displayOutput(routingPicker.row), routingPicker.side === "input" ? 30 : 770, rowY[routingPicker.row])}</g>
       </svg>
       <section className={`coros-route-picker is-${routingPicker.side}`} aria-label={`Row ${routingPicker.row + 1} ${routingPicker.side} selection`}>
-        <header><QcRouteGlyph side={routingPicker.side} label={selectedRoute?.[1] ?? "Internal"} /><span>{routePickerLabel(routingPicker.side, selectedRoute?.[1] ?? "Internal")}</span></header>
+        <header><QcRouteGlyph side={routingPicker.side} label={selectedRouteLabel} /><span>{routePickerLabel(routingPicker.side, selectedRouteLabel)}</span></header>
         <div className="coros-route-options" role="listbox" aria-label={`${routingPicker.side === "input" ? "Input" : "Output"} routes`}>
           {routePickerGroups.map((group) => <div className="coros-route-group" role="group" aria-label={group.name || "Unassigned"} key={group.name || "unassigned"}>
             {group.name && <strong>{group.name}</strong>}
@@ -511,7 +525,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="device-plate"><QcHardwareIcon kind="brand-pulse" className="pulse-mark" /><span>{QC_BRAND.deviceWordmark}</span><small>{QC_BRAND.surfaceCaption}</small></div>
     <div className="qc-screen-bezel">{fixtureOnly
       ? <div className="qc-screen-fixture-root"><Suspense fallback={null}><CorOsScreenFixture view={screenView} snapshot={displaySnapshot} onClose={onCloseScreen} /></Suspense></div>
-      : <><CorOsGrid snapshot={displaySnapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} presetDirectory={presetDirectory} routingPicker={routingPicker} savePreset={savePreset} onContextAction={onContextAction} />{parameterEditor && <CorOsParameterEditor {...parameterEditor} />}</>}
+      : <div className="qc-screen-fixture-root is-live-grid"><CorOsGrid snapshot={displaySnapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} presetDirectory={presetDirectory} routingPicker={routingPicker} savePreset={savePreset} onContextAction={onContextAction} />{parameterEditor && <CorOsParameterEditor {...parameterEditor} />}</div>}
     </div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact active={Boolean(parameterEditor)} assigned={Boolean(parameterEditor)} accent={navigationLedColor} onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">

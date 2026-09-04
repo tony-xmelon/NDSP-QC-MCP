@@ -38,6 +38,16 @@ const schemas: Record<string, ParameterSeed[]> = {
 // take precedence over the category fallback, which exists only to make every
 // category inspectable while the desktop preview is disconnected.
 const modelSchemas: Record<string, ParameterSeed[]> = {
+  "simple gate": [["THRESHOLD", 0, -60, 0, "dB"]],
+  "chief ds1": [["DISTORTION", .58, 0, 10], ["TONE", .47, 0, 10], ["LEVEL", .5, 0, 10]],
+  "digital flanger": [
+    ["MIX", 1, 0, 100, "%"], ["RATE", .0095, .01, 20, "Hz"], ["SYNC", 1, 0, 1, "", ["On", "Off"]],
+    ["SYNC NOTE", .5, 0, 1, "", ["1/16", "1/8", "1/4", "1/2", "1/1"]], ["DEPTH", 1, 0, 100, "%"],
+    ["DELAY", 0, 1, 20, "ms"], ["FEEDBACK", .9, -100, 100, "%"], ["POLARITY", 1, 0, 1, "", ["Pos", "Neg"]],
+    ["WIDTH", 1, 0, 100, "%"], ["DRIVE", 0, 0, 1, "", ["OFF", "ON"]]
+  ],
+  "uk c30 topboost": [["VOLUME", .38, 0, 10], ["BASS", .38, 0, 10], ["TREBLE", .58, 0, 10], ["TONE CUT", .45, 0, 10], ["BOOST", 0, 0, 1, "", ["COOL", "HOT"]], ["OUTPUT", .5, -24, 24, "dB"]],
+  "ambience": [["MIX", .12, 0, 100, "%"], ["SIZE", .5, 0, 1, "", ["Small", "Med", "Large"]], ["PRE DELAY", .04, 0, 500, "ms"], ["HIGH PASS", .03, 20, 2000, "Hz"], ["LOW PASS", .263, 1000, 20000, "Hz"], ["TRAILS", 1, 0, 1, "", ["On", "Off"]]],
   "adaptive gate": [["NOISE REDUCTION", .62, 0, 100, "%"]],
   "parametric-8": Array.from({ length: 8 }, (_, index) => {
     const band = index + 1;

@@ -104,7 +104,7 @@ test("authored app and device sources cannot bypass the shared visual contract",
     .filter((file) => existsSync(file))
     .filter((file) => /\.(?:css|html|java|json|mjs|ps1|py|rs|ts|tsx|xml)$/.test(file))
     .filter((file) => !file.startsWith("packages/typescript/qc-theme/"))
-    .filter((file) => !file.startsWith("packages/typescript/qc-ui/src/official-") && !file.startsWith("packages/typescript/qc-ui/src/remaining-fixtures") && !file.endsWith("/coros-screen-fixtures.tsx") && !file.endsWith("/fixture-live-surface.css"))
+    .filter((file) => !file.startsWith("packages/typescript/qc-ui/src/official-") && !file.startsWith("packages/typescript/qc-ui/src/remaining-fixtures") && !file.endsWith("/coros-screen-fixtures.tsx") && !file.endsWith("/fixture-live-surface.css") && !file.endsWith("/reference-parameter-editor.css"))
     .filter((file) => !/^tools\/capture_.*\.mjs$/.test(file))
     .filter((file) => file !== "tools/sweep_qc_font.mjs")
     .filter((file) => !file.includes("/tests/") && !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"))

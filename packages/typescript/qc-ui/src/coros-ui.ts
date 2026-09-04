@@ -1,4 +1,4 @@
-export type CorOsContextAction = "create-new" | "edit-details" | "preset-midi-out" | "favorite" | "delete-preset" | "new-capture" | "tempo" | "cpu-monitor" | "settings";
+export type CorOsContextAction = "create-new" | "edit-details" | "copy-scene" | "swap-scene" | "preset-midi-out" | "favorite" | "delete-preset" | "new-capture" | "modes-configuration" | "tempo" | "cpu-monitor" | "settings";
 
 /** Grid gaps before columns 0-7, followed by the gap after column 7. */
 export const GRID_ROUTE_BOUNDARIES = [75, 141, 228.5, 317, 404.5, 488, 572, 659.5, 748] as const;
@@ -89,13 +89,16 @@ export function routedPortIsPlugged(
 export const GRID_CONTEXT_MENU = [
   { label: "Create New", icon: "add", action: "create-new" },
   { label: "Save as…", icon: "save-as", action: "save-as" },
-  { label: "Edit details", icon: "edit", action: "edit-details" },
+  { label: "Edit Details", icon: "edit", action: "edit-details" },
+  { label: "Copy Scene A", icon: "file", action: "copy-scene" },
+  { label: "Swap Scene A", icon: "next", action: "swap-scene" },
   { label: "Preset MIDI Out", icon: "midi", action: "preset-midi-out" },
   { label: "Add to favorites", icon: "favorite", action: "favorite" },
-  { label: "Delete preset", icon: "delete", action: "delete-preset", danger: true },
+  { label: "Delete Preset", icon: "delete", action: "delete-preset", danger: true },
   { label: "New Neural Capture", icon: "capture", action: "new-capture" },
+  { label: "Modes Configuration", icon: "settings", action: "modes-configuration" },
   { label: "Tempo", icon: "tempo", action: "tempo" },
-  { label: "CPU monitor", icon: "cpu", action: "cpu-monitor" },
+  { label: "CPU Monitor", icon: "cpu", action: "cpu-monitor" },
   { label: "Settings", icon: "settings", action: "settings" }
 ] as const;
 

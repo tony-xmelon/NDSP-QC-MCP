@@ -27,8 +27,9 @@ test("neutral Grid colors match the native QC capture", () => {
 test("Grid contextual menu starts with the device Create New command", () => {
   assert.equal(GRID_CONTEXT_MENU[0].label, "Create New");
   assert.deepEqual(GRID_CONTEXT_MENU.map((item) => item.label), [
-    "Create New", "Save as…", "Edit details", "Preset MIDI Out", "Add to favorites",
-    "Delete preset", "New Neural Capture", "Tempo", "CPU monitor", "Settings"
+    "Create New", "Save as…", "Edit Details", "Copy Scene A", "Swap Scene A",
+    "Preset MIDI Out", "Add to favorites", "Delete Preset", "New Neural Capture",
+    "Modes Configuration", "Tempo", "CPU Monitor", "Settings"
   ]);
 });
 
@@ -178,7 +179,7 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   assert.match(surfaceSource, /routePickerLabel\(routingPicker\.side, selectedRoute/);
   assert.match(surfaceSource, /routePickerGroups\.map/);
   assert.match(surfaceSource, /className="coros-route-focus-layer"/);
-  assert.match(surfaceSource, /fill=\{QC_COLORS\.device\.focusOverlay\} fillOpacity="\.86"/);
+  assert.match(surfaceSource, /fill=\{QC_COLORS\.device\.focusOverlay\} fillOpacity="\.27"/);
   assert.match(surfaceSource, /QcRouteGlyph/, "the surface must use the shared route glyph renderer");
   assert.match(iconSource, /label\.startsWith\("Return "\)/, "Return routes need their dedicated curved-return glyph");
   assert.match(iconSource, /label\.startsWith\("Send "\)/, "Send routes need their dedicated outward loop glyph");

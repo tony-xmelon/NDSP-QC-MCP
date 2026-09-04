@@ -1014,10 +1014,13 @@ export function App() {
     else {
       const labels: Record<Exclude<CorOsContextAction, "edit-details" | "settings">, string> = {
         "create-new": "Create New",
+        "copy-scene": "Copy Scene A",
+        "swap-scene": "Swap Scene A",
         "preset-midi-out": "Preset MIDI Out",
         favorite: "Add to favorites",
         "delete-preset": "Delete preset",
         "new-capture": "New Neural Capture",
+        "modes-configuration": "Modes Configuration",
         tempo: "Tempo",
         "cpu-monitor": "CPU monitor"
       };

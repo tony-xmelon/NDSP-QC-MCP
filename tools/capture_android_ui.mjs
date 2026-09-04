@@ -85,6 +85,7 @@ const editors = [
 for (const [id, name] of editors) {
   await load();
   await page.getByLabel(`Row 1, ${name}`).click();
+  await page.locator(".coros-parameter-editor").waitFor({ state: "visible" });
   await capture(id);
 }
 

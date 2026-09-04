@@ -51,7 +51,10 @@ if (android) await page.addStyleTag({ content: `
 ` });
 await page.locator(".dialog-close").click({ timeout: 1000 }).catch(() => undefined);
 if (presetDirectory) await page.getByLabel(/Open preset Directory/).click();
-if (screen in editorNames) await page.getByLabel(`Row 1, ${editorNames[screen]}`).click();
+if (screen in editorNames) {
+  await page.getByLabel(`Row 1, ${editorNames[screen]}`).click();
+  await page.locator(".coros-parameter-editor").waitFor({ state: "visible" });
+}
 const target = page.locator(".qc-screen-bezel");
 const box = await target.boundingBox();
 if (!box || Math.round(box.width) !== 800 || Math.round(box.height) !== 480) throw new Error(`expected 800x480, got ${box?.width}x${box?.height}`);

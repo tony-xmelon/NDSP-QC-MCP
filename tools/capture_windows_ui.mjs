@@ -68,6 +68,7 @@ for (const [id, screen] of [["device-browser-root", "corpus-device-browser-root"
 for (const [id, name] of [["editor-simple-gate", "Simple Gate"], ["editor-chief-ds1", "Chief DS1"], ["editor-digital-flanger", "Digital Flanger"], ["editor-ukc30-topboost", "UK C30 TopBoost"], ["editor-ukc30-cab", "212 UK C30 65 (M)"], ["editor-parametric-8", "Parametric-8"], ["editor-ambience", "Ambience"]]) {
   await load();
   await page.getByLabel(`Row 1, ${name}`).click();
+  await page.locator(".coros-parameter-editor").waitFor({ state: "visible" });
   await capture(id);
 }
 for (const [id, mode] of [["gig-view", "STOMP"], ["gig-view-preset", "PRESET"], ["gig-view-scene", "SCENE"]]) {

@@ -7,15 +7,20 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **89.66%** | **97.16%** |
-| Android | 40/40 (100%) | **89.58%** | **97.15%** |
+| Windows | 40/40 (100%) | **80.04%** | **96.33%** |
+| Android | 40/40 (100%) | **78.99%** | **96.21%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
 script asserts that the captured element is exactly 800x480 before comparison.
 Structural match is edge F1 with a two-pixel tolerance. Color similarity is
-`1 - MAE`. The 0.07-point structural difference between hosts is primarily text
-rasterization and confirms that their screen composition is effectively shared.
+`1 - MAE`. These values are from the interactive app path: the capture driver
+opens the Directory, route selectors, and each block editor before taking the
+frame. An earlier driver did not wait for asynchronous editor opening and
+therefore compared the underlying Grid for seven editor states; those invalid
+measurements have been replaced. The 1.05-point structural difference between
+hosts is concentrated in a few fixture screens and text rasterization; the live
+Grid, Directory, routing, and parameter editor implementations are shared.
 
 The complete product target is larger than the measured corpus. The canonical
 inventory contains **103 CorOS screen/state rows** plus **16 Cortex Control-only
@@ -116,49 +121,58 @@ still need pixel-level reconstruction work.
 
 | Physical state | Windows structural match | Android structural match |
 | --- | ---: | ---: |
-| `grid-base` | 90.14% | 90.02% |
-| `grid-scene-selector` | 91.77% | 91.67% |
-| `grid-context-menu` | 89.40% | 89.43% |
-| `copy-scene-destination` | 87.05% | 87.07% |
-| `swap-scene-destination` | 87.09% | 87.12% |
-| `preset-directory` | 87.55% | 87.03% |
-| `input-route-selector` | 92.31% | 92.17% |
-| `output-route-selector` | 90.49% | 90.49% |
-| `splitter-editor` | 87.59% | 87.51% |
-| `mixer-editor` | 89.82% | 89.73% |
-| `device-browser-root` | 89.07% | 89.09% |
-| `device-browser-models` | 87.08% | 87.06% |
-| `device-browser-models-clean` | 87.16% | 87.14% |
-| `device-browser-plugin-list` | 86.36% | 86.33% |
-| `device-browser-plugin-models` | 91.08% | 91.05% |
-| `device-browser-plugin-locked` | 91.05% | 91.03% |
-| `device-presets-exotic-z-boost` | 90.42% | 90.49% |
-| `device-preset-actions` | 96.06% | 96.05% |
-| `device-presets-user` | 89.82% | 89.91% |
-| `editor-simple-gate` | 87.48% | 87.40% |
-| `editor-chief-ds1` | 87.27% | 87.21% |
-| `editor-digital-flanger` | 86.08% | 86.02% |
-| `editor-ukc30-topboost` | 87.23% | 87.18% |
-| `editor-ukc30-cab` | 86.61% | 86.55% |
-| `editor-parametric-8` | 88.88% | 88.89% |
-| `editor-ambience` | 88.29% | 88.23% |
-| `gig-view` (STOMP) | 88.75% | 88.68% |
-| `grid-restored` | 90.14% | 90.02% |
-| `grid-scene-b` | 90.15% | 90.04% |
-| `grid-scene-a-restored` | 90.14% | 90.02% |
-| `tempo-metronome` | **90.43%** | **90.33%** |
-| `tuner` | **90.77%** | **90.52%** |
-| `tuner-live-enabled` | **90.92%** | **90.67%** |
-| `gig-view-live-tuner` | 88.80% | 88.74% |
-| `preset-midi-out` | 86.75% | 86.65% |
-| `gig-view-preset` | 96.84% | 96.75% |
-| `gig-view-scene` | 90.47% | 90.18% |
-| `modes-configuration` | 96.74% | 96.52% |
-| `save-as-editor` | 89.73% | 89.64% |
-| `edit-details-editor` | 92.54% | 92.49% |
+| `grid-base` | 68.94% | 68.31% |
+| `grid-scene-selector` | 79.84% | 79.48% |
+| `grid-context-menu` | 80.30% | 80.40% |
+| `copy-scene-destination` | 80.06% | 73.90% |
+| `swap-scene-destination` | 80.21% | 74.06% |
+| `preset-directory` | 77.89% | 77.82% |
+| `input-route-selector` | 75.88% | 77.20% |
+| `output-route-selector` | 63.85% | 64.61% |
+| `splitter-editor` | 87.59% | 87.54% |
+| `mixer-editor` | 89.83% | 89.77% |
+| `device-browser-root` | 85.48% | 85.53% |
+| `device-browser-models` | 87.58% | 87.57% |
+| `device-browser-models-clean` | 83.43% | 83.49% |
+| `device-browser-plugin-list` | 86.36% | 80.52% |
+| `device-browser-plugin-models` | 54.61% | 53.50% |
+| `device-browser-plugin-locked` | 51.68% | 50.70% |
+| `device-presets-exotic-z-boost` | 90.42% | 85.74% |
+| `device-preset-actions` | 96.06% | 88.92% |
+| `device-presets-user` | 89.82% | 83.86% |
+| `editor-simple-gate` | 71.57% | 71.52% |
+| `editor-chief-ds1` | 68.72% | 68.66% |
+| `editor-digital-flanger` | 69.49% | 69.44% |
+| `editor-ukc30-topboost` | 69.89% | 69.86% |
+| `editor-ukc30-cab` | 81.71% | 81.71% |
+| `editor-parametric-8` | 63.35% | 63.35% |
+| `editor-ambience` | 70.86% | 70.83% |
+| `gig-view` (STOMP) | 83.36% | 83.35% |
+| `grid-restored` | 68.94% | 68.31% |
+| `grid-scene-b` | 69.07% | 68.44% |
+| `grid-scene-a-restored` | 68.94% | 68.31% |
+| `tempo-metronome` | **90.43%** | **90.41%** |
+| `tuner` | **90.77%** | **90.76%** |
+| `tuner-live-enabled` | **90.92%** | **90.88%** |
+| `gig-view-live-tuner` | 84.93% | 84.92% |
+| `preset-midi-out` | 88.31% | 88.30% |
+| `gig-view-preset` | 93.96% | 92.31% |
+| `gig-view-scene` | 88.77% | 88.35% |
+| `modes-configuration` | 96.39% | 96.38% |
+| `save-as-editor` | 88.93% | 88.58% |
+| `edit-details-editor` | 92.66% | 92.10% |
 
 ## Improvements in this pass
 
+- Moved the physical benchmark onto the real interactive Grid path and added
+  deterministic waits for all seven asynchronous block editors. The shared
+  Windows/Android reconstruction now uses measured standard, Cab, and
+  Parametric-8 editor layouts; the captured Directory's 19–32 bank window and
+  complete visible setlists; physical scene and context menus; and the measured
+  route focus mask and list scale. Directory structural match rises from
+  **48% to 77.89%** and both route screens fall from roughly **40% pixel error
+  to 3.7%**. The corrected complete physical benchmark is **80.04% / 96.33%**
+  structural/color on Windows and **78.99% / 96.21%** on Android.
 - Reconstructed Directory — Nested folders with the manual's outline folder
   glyphs, repeated rounded hierarchy elbows, Capture category mark, funnel
   control, and asymmetric final toolbar gap. The toolbar correction aligns four

@@ -1,0 +1,163 @@
+@scope (.qc-screen-fixture-root.is-live-grid) {
+.coros-screen-dimmer { position: absolute; z-index: 20; inset: 0; background: #a7a7a766; }
+.coros-vector-screen .vector-scene-dropdown { left: 56.75%; right: auto; top: 9.17%; box-sizing: border-box; width: 29%; height: 86.67%; padding: 0; border-radius: 9px; background: #303332; box-shadow: none; }
+.coros-vector-screen .vector-scene-dropdown button { height: 12.5%; gap: 4%; padding: 0 2cqw; border-radius: 0; font-size: 2cqw; font-weight: 400; }
+.coros-vector-screen .vector-scene-dropdown button:hover,
+.coros-vector-screen .vector-scene-dropdown button.is-active { background: #080808; }
+.coros-vector-screen .vector-scene-dropdown button.is-active { color: #20f25a; }
+.coros-vector-screen .vector-scene-dropdown button span { width: 3cqw; height: 3cqw; border-radius: 4px; font-size: 2.5cqw; line-height: 1; }
+.coros-vector-screen .coros-screen-menu { left: 59%; right: auto; top: 3.33%; box-sizing: border-box; width: 33.75%; height: 87.5%; max-height: none; overflow-y: auto; padding: 0 1%; border: 0; border-radius: 8px; background: #080909; box-shadow: none; scrollbar-color: #343838 transparent; scrollbar-width: thin; }
+.coros-vector-screen .context-menu-heading { height: 14.3%; display: flex; align-items: center; padding: 0 3%; color: #d9d9d9; font: 400 1.55cqw Roboto, Arial, sans-serif; }
+.coros-vector-screen .coros-screen-menu button { height: 14.3%; gap: 7%; padding: 0 3%; font: 400 2.25cqw Roboto, Arial, sans-serif; }
+.coros-vector-screen .coros-screen-menu .context-menu-icon { flex: 0 0 13%; }
+.coros-vector-screen .coros-screen-menu .context-menu-icon svg { width: 3cqw; height: 3cqw; transform: none; }
+.coros-vector-screen .context-menu-section { margin: 2% 0 1%; padding: 5% 3%; border-top: 1px solid #333; border-bottom: 1px solid #333; background: #090a09; color: #aaa; font: 500 1.55cqw Arial, sans-serif; letter-spacing: .04em; }
+.coros-directory-header { justify-content: flex-start; gap: 1%; }
+.coros-directory-header .directory-category { flex: 0 0 32.65%; font-size: 2cqw; }
+.coros-directory-header .directory-cloud { flex: 0 0 12.5%; display: grid; place-items: center; padding: 0; border-radius: 7px; background: #181c18; }
+.coros-directory-header .directory-cloud.is-active { background: #183b24; color: #43ef72; }
+.coros-directory-header .directory-cloud svg { width: 35%; fill: currentColor; stroke: currentColor; stroke-width: 1.7; }
+.coros-directory-header .directory-header-spacer { flex: 1; }
+.coros-directory-header .directory-tools { flex: 0 0 42.1%; width: auto; gap: 2.5%; }
+.coros-directory-header .directory-tools button { flex-basis: 20%; }
+.coros-directory-header .directory-tools .directory-close { flex-basis: 30%; }
+.coros-directory-body { grid-template-columns: 32.65% 14.42% minmax(0, 1fr); }
+.coros-directory .directory-folders { padding: 0; }
+.coros-directory .directory-folders button { height: 14.285%; gap: 7%; padding: 0 6%; font-size: 2cqw; font-weight: 400; }
+.coros-directory .directory-folders button span { width: 11%; }
+.coros-directory .directory-banks { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 12.4%; gap: 1.8% 6%; }
+.coros-directory .directory-banks button { font-size: 2cqw; font-weight: 400; }
+.coros-directory .directory-preset-row { min-height: 12.5%; border-bottom: 0; }
+.coros-directory .preset-recall { grid-template-columns: 13% minmax(0, 1fr); padding: 0 4%; }
+.coros-directory .preset-recall strong,
+.coros-directory .preset-recall span { color: #a5a9a6; font-size: 2cqw; font-weight: 400; }
+.coros-directory .directory-preset-row.is-current .preset-recall strong,
+.coros-directory .directory-preset-row.is-current .preset-recall span { color: #31f46b; }
+.coros-directory .preset-row-more { color: #747976; font-size: 2.4cqw; }
+.coros-route-picker { top: 6.25%; bottom: 6.25%; width: 33.75%; display: block; box-sizing: border-box; border: 0; border-radius: 0 10px 10px 0; background: #0d0e0e; color: #f4f4f4; box-shadow: 0 5px 14px #000b; font-family: Roboto, Arial, sans-serif; }
+.coros-route-picker.is-input { left: 7.25%; }
+.coros-route-picker.is-output { right: 7.25%; border-radius: 10px 0 0 10px; }
+.coros-route-picker > header { height: 16%; display: flex; box-sizing: border-box; align-items: center; gap: 7.4%; padding: 0 8%; border-bottom: 1px solid #343636; color: #f4f4f4; font: 400 2.5cqw Roboto, Arial, sans-serif; }
+.coros-route-picker > header > svg { width: 4cqw; height: 4cqw; flex: 0 0 auto; }
+.coros-route-picker .coros-route-options { height: 84%; box-sizing: border-box; overflow-y: auto; padding: 5% 5% 6%; scrollbar-color: #3a3c3b transparent; scrollbar-width: thin; }
+.coros-route-picker .coros-route-group > strong { position: sticky; z-index: 1; top: 0; display: block; margin: 0 3% 4%; padding: .5cqw 0; background: #0d0e0e; color: #dedede; font: 400 1.5cqw Roboto, Arial, sans-serif; letter-spacing: 0; }
+.coros-route-picker .coros-route-options button { width: 100%; min-height: 7.5cqw; display: flex; align-items: center; gap: 7%; padding: 0 3%; border: 0; background: transparent; color: #f4f4f4; font: 400 2.5cqw Roboto, Arial, sans-serif; }
+.coros-route-picker .coros-route-options button > svg { width: 4cqw; height: 4cqw; flex: 0 0 auto; }
+.coros-route-picker.is-input::after { content: ""; position: absolute; right: 15px; top: 224px; bottom: 11px; width: 2px; background: #313431; pointer-events: none; }
+.coros-route-picker.is-output > header { display: none; }
+.coros-route-picker.is-output .coros-route-options { height: 100%; padding-left: 2.5%; }
+.coros-route-picker.is-output .coros-route-group:first-child > strong { display: none; }
+.coros-route-picker.is-output .coros-route-group:nth-child(-n+2) > strong { display: none; }
+.coros-route-picker.is-output .coros-route-options button { padding-left: 6%; }
+.coros-route-picker.is-output::after { content: ""; position: absolute; right: 15px; top: 308px; bottom: 7px; width: 2px; background: #313431; pointer-events: none; }
+.coros-reference-parameter-editor { position: absolute; z-index: 32; left: 0; right: 0; top: 40.83%; bottom: 0; display: grid; grid-template-rows: 21.1% 37.7%; align-content: start; background: #0b0c0c; color: #eee; container-type: inline-size; font-family: Arial, Helvetica, sans-serif; }
+.coros-reference-parameter-editor:has(.coros-parameter-controls.is-two-row) { grid-template-rows: 21.1% 76%; }
+.coros-reference-parameter-editor::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 196px; background: #0007; pointer-events: none; }
+.coros-reference-parameter-editor > header { position: relative; z-index: 1; display: flex; align-items: center; gap: 1%; padding: 1%; background: #101212; }
+.coros-reference-parameter-editor > header button,
+.coros-reference-parameter-editor > header > span:not(.editor-spacer):not(.editor-title) { height: 100%; display: grid; place-items: center; box-sizing: border-box; border: 0; border-radius: 7px; background: #1b201c; color: #f1f1f1; }
+.coros-reference-parameter-editor .editor-more { flex: 0 0 5.5%; color: #f1f1f1; background: #1b201c; font-size: clamp(12px, 3.5cqw, 28px); }
+.coros-reference-parameter-editor .editor-more svg { width: 42%; fill: currentColor; stroke: none; }
+.coros-reference-parameter-editor .editor-title { display: flex; width: 38%; align-items: flex-start; justify-content: center; flex-direction: column; }
+.coros-reference-parameter-editor header small { color: #9da19f; font-size: clamp(6px, 1.8cqw, 14px); font-weight: 400; }
+.coros-reference-parameter-editor header strong { font-size: clamp(8px, 2.4cqw, 19px); font-weight: 400; }
+.coros-reference-parameter-editor .editor-spacer { flex: 1; }
+.coros-reference-parameter-editor .editor-stomp { flex: 0 0 8.2%; grid-template-columns: 45% 1fr; font-weight: 700; }
+.coros-reference-parameter-editor .editor-stomp svg { width: 85%; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.coros-reference-parameter-editor .editor-scene { flex: 0 0 17%; display: flex !important; gap: 10%; font-size: clamp(8px, 2.2cqw, 18px); }
+.coros-reference-parameter-editor .editor-scene button { display: grid; flex: 1; height: 100%; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.coros-reference-parameter-editor .editor-scene button svg { width: 70%; fill: none; stroke: currentColor; stroke-width: 2; }
+.coros-reference-parameter-editor .editor-scene b { padding: 6% 12%; border-radius: 4px; background: #f2cf25; color: #111; }
+.coros-reference-parameter-editor .editor-bypass,
+.coros-reference-parameter-editor .editor-done { flex: 0 0 8.2%; font-size: clamp(11px, 3cqw, 24px); }
+.coros-reference-parameter-editor .editor-pages { flex: 0 0 17%; grid-template-columns: 1fr 1fr; gap: 1cqw; background: transparent !important; border-left: 1px solid #353a36; border-radius: 0 !important; }
+.coros-reference-parameter-editor .editor-pages button { width: 100%; height: 100%; display: grid; place-items: center; border: 0; border-radius: .6cqw; background: #111512; color: #858b86; font-size: 1.6cqw; font-weight: 400; cursor: pointer; }
+.coros-reference-parameter-editor .editor-pages button:last-child { color: #434944; }
+.coros-reference-parameter-editor .coros-parameter-controls { display: grid; grid-template-columns: repeat(5, 1fr); min-width: 0; overflow: hidden; border-radius: 7px; margin: 0 1%; background: #292d2a; }
+.coros-reference-parameter-editor .coros-parameter-controls label { position: relative; min-width: 0; display: grid; grid-template-rows: auto 1fr auto; padding: 7% 7% 5%; box-sizing: border-box; border-right: 1px solid #434643; }
+.coros-reference-parameter-editor .coros-parameter-controls.is-two-row label:nth-child(-n+5) { border-bottom: 2px solid #111412; }
+.coros-reference-parameter-editor .coros-parameter-controls label > strong { font-size: clamp(6px, 1.8cqw, 14px); font-weight: 400; }
+.coros-reference-parameter-editor .coros-parameter-controls input { position: absolute; inset: 25% 10% 7%; z-index: 2; opacity: 0; cursor: ew-resize; }
+.coros-reference-parameter-editor .coros-dial { position: relative; place-self: center; width: 48%; aspect-ratio: 1; border: 4px solid #0c0e0d; border-radius: 50%; background: #242725; box-shadow: -4px 2px 0 -1px var(--editor-color, #ff7800); transform: rotate(var(--dial-angle)); }
+.coros-reference-parameter-editor .coros-dial i { position: absolute; left: calc(50% - 1px); top: 4%; width: 2px; height: 42%; background: #f2f2f2; }
+.coros-reference-parameter-editor .coros-parameter-controls label > small { font-size: clamp(6px, 1.8cqw, 14px); }
+.coros-reference-parameter-editor.is-bypassed .coros-parameter-controls { filter: brightness(.3); }
+.coros-reference-parameter-editor.is-bypassed header .editor-title { opacity: .65; }
+.coros-reference-parameter-editor.is-bypassed header .editor-bypass { color: #7130ff; }
+.coros-reference-parameter-editor .coros-parameter-controls label.is-toggle { grid-template-rows: auto 1fr; }
+.coros-reference-parameter-editor .coros-toggle { display: flex; align-items: center; gap: 1.5cqw; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.coros-reference-parameter-editor .coros-toggle > i { position: relative; width: 2.6cqw; height: 6.4cqw; border-radius: 1.2cqw; background: #111412; }
+.coros-reference-parameter-editor .coros-toggle > i::before { content: ""; position: absolute; left: .55cqw; top: .55cqw; width: 1.45cqw; height: 1.45cqw; box-sizing: border-box; border: 2px solid var(--editor-color); border-radius: 50%; }
+.coros-reference-parameter-editor .coros-toggle > i.is-on::before { top: 4.3cqw; }
+.coros-reference-parameter-editor .coros-toggle > span { display: grid; gap: .7cqw; }
+.coros-reference-parameter-editor .coros-toggle b { color: #737873; font-size: 1.75cqw; font-weight: 400; }
+.coros-reference-parameter-editor .coros-toggle b.is-active { color: #eceeec; }
+.coros-reference-parameter-editor.coros-special-editor { top: 0; grid-template-rows: 12.5% minmax(0, 1fr); background: #0c0d0d; }
+.coros-reference-parameter-editor.coros-special-editor::before { display: none; }
+.coros-reference-parameter-editor.coros-special-editor > header { grid-row: 1; }
+.coros-reference-parameter-editor.coros-special-editor .editor-title { width: 29%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header { position: relative; display: block; padding: 0; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header > * { position: absolute; top: 1cqw; height: 5.5cqw; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-more { left: 1%; width: 5.375%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-title { left: 7.5%; width: 21.5%; height: 5.5cqw; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-title small { font-size: 2cqw; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-title strong { display: flex; align-items: center; gap: .7cqw; white-space: nowrap; font-size: 2.1cqw; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-title strong i { color: inherit; font-size: 1.5cqw; font-style: normal; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-stomp { left: 30.25%; width: 8.125%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-scene { left: 39.625%; width: 17.5%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-header-divider { top: 2.5cqw; width: 1px; height: 2.5cqw; background: #303430; }
+.coros-reference-parameter-editor.coros-cab-editor .divider-one { left: 57.125%; }
+.coros-reference-parameter-editor.coros-cab-editor .divider-two { left: 76.375%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-header-mode { width: 8.125%; border: 0; border-radius: 7px; background: #171c18; color: #959a96; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-header-mode.is-active { left: 58.25%; background: #282d29; color: #eee; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-header-mode:not(.is-active) { left: 67.125%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-bypass { left: 77.5%; width: 8.125%; }
+.coros-reference-parameter-editor.coros-cab-editor .cab-editor-header .editor-done { left: 86.75%; width: 12.125%; }
+.coros-reference-parameter-editor .cab-halves { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5%; padding: 0 1% 1%; }
+.coros-reference-parameter-editor .cab-halves > section { position: relative; overflow: hidden; border-radius: 7px; background: #282c29; }
+.coros-reference-parameter-editor .cab-values { display: grid; grid-template-columns: repeat(4, 1fr); padding: 4% 3% 0; }
+.coros-reference-parameter-editor .cab-values span { position: relative; font-size: clamp(6px, 1.8cqw, 14px); }
+.coros-reference-parameter-editor .cab-values span::after { content: ""; position: absolute; left: 0; right: 8%; top: 2.6cqw; height: .5cqw; border-radius: .25cqw; background: linear-gradient(90deg, var(--cab-accent) 0 42%, #080a09 42%); }
+.coros-reference-parameter-editor .cab-halves > section:first-child { --cab-accent: #7656ff; }
+.coros-reference-parameter-editor .cab-halves > section:nth-child(2) { --cab-accent: #f2d540; }
+.coros-reference-parameter-editor .cab-values b { display: block; margin-top: 24%; font-weight: 400; }
+.coros-reference-parameter-editor .cab-values b small { color: #8f9490; font-size: .78em; }
+.coros-reference-parameter-editor .cab-speaker { position: absolute; left: 19%; top: 21.25%; width: 62%; aspect-ratio: 1; border: 2px solid #050505; border-radius: 50%; background: radial-gradient(circle, #151916 0 19%, #0c110e 20% 48%, #252a27 49% 70%, #101310 71%); }
+.coros-reference-parameter-editor .cab-speaker i { position: absolute; left: 22.5%; top: 42%; width: 16%; aspect-ratio: 1; border-radius: 50%; background: #f5f5f5; }
+.coros-reference-parameter-editor .cab-speaker i::after { content: ""; position: absolute; left: 85%; top: 35%; width: 85%; height: 30%; border-radius: 50%; background: radial-gradient(circle at 20% 50%, #999 0 18%, transparent 20%), radial-gradient(circle at 55% 50%, #747975 0 22%, transparent 24%), radial-gradient(circle at 90% 50%, #575c58 0 25%, transparent 27%); }
+.coros-reference-parameter-editor .cab-halves > section:nth-child(2) .cab-speaker i { left: 60%; }
+.coros-reference-parameter-editor .cab-halves > section:nth-child(2) .cab-speaker i::after { left: auto; right: 85%; transform: scaleX(-1); }
+.coros-reference-parameter-editor .cab-footer { position: absolute; left: 2%; right: 2%; bottom: 2%; height: 10.5%; display: grid; grid-template-columns: 18% 1fr 18%; gap: 2%; }
+.coros-reference-parameter-editor .cab-footer button { border: 0; border-radius: 7px; background: #171b18; color: #ededed; font-size: clamp(7px, 2cqw, 16px); }
+.coros-reference-parameter-editor .cab-mic { display: flex; align-items: center; justify-content: space-between; padding: 0 7%; }
+.coros-reference-parameter-editor .cab-mic strong { font-weight: 400; }
+.coros-reference-parameter-editor .cab-mic svg { width: 1.6cqw; fill: none; stroke: currentColor; stroke-width: 2; }
+.coros-reference-parameter-editor .cab-enable { display: grid; place-items: center; }
+.coros-reference-parameter-editor .cab-enable i { width: 2.8cqw; height: 1.5cqw; border-radius: 1cqw; background: #f3f3f3; }
+.coros-reference-parameter-editor .cab-enable i::after { content: ""; display: block; width: 1.2cqw; height: 1.2cqw; margin: .15cqw; border-radius: 50%; background: #333; }
+.coros-reference-parameter-editor.coros-eq-editor .eq-graph { position: absolute; left: 4%; right: 4%; top: 12.5%; height: 52.5%; margin: 0; background: linear-gradient(transparent 49.2%, #eee 49.6%, #eee 50%, transparent 50.4%); }
+.coros-reference-parameter-editor.coros-eq-editor .eq-graph::after { content: ""; position: absolute; left: -4.35%; right: -4.35%; top: 49.2%; border-top: 2px solid #eee; }
+.coros-reference-parameter-editor.coros-eq-editor .editor-done { flex-basis: 12.25%; }
+.coros-reference-parameter-editor .eq-grid-lines { position: absolute; inset: 0; overflow: hidden; }
+.coros-reference-parameter-editor .eq-grid-lines > i { position: absolute; top: 0; bottom: 0; width: 1px; background: #202422; }
+.coros-reference-parameter-editor .eq-graph span { position: absolute; top: 39.5%; display: grid; width: 6.5%; aspect-ratio: 1; place-items: center; border: 2px solid #080908; border-radius: 50%; background: #252a27; font-size: clamp(7px, 2cqw, 16px); }
+.coros-reference-parameter-editor .eq-graph span:nth-of-type(1) { left: 6.4%; background: #087ee1; color: #080908; }
+.coros-reference-parameter-editor .eq-graph span:nth-of-type(2) { left: 17%; }
+.coros-reference-parameter-editor .eq-graph span:nth-of-type(3) { left: 42.2%; }
+.coros-reference-parameter-editor .eq-graph span:nth-of-type(4) { left: 53%; }
+.coros-reference-parameter-editor .eq-tabs { position: absolute; left: 3%; right: 3%; top: 65.2%; height: 10%; display: grid; grid-template-columns: repeat(9, 1fr); gap: .7%; }
+.coros-reference-parameter-editor .eq-tabs span { display: grid; place-items: center; border-radius: 7px 7px 0 0; background: #171b18; color: #929694; font-size: clamp(7px, 2cqw, 16px); }
+.coros-reference-parameter-editor .eq-tabs span:first-child { background: #292d2a; color: #fff; }
+.coros-reference-parameter-editor .eq-values { position: absolute; left: 1%; right: 1%; bottom: 1.7%; height: 22.1%; display: grid; grid-template-columns: repeat(5, 1fr); border-radius: 7px; background: #292d2a; }
+.coros-reference-parameter-editor .eq-values span { position: relative; padding: 6% 7%; border-right: 1px solid #3c403d; font-size: clamp(6px, 1.8cqw, 14px); }
+.coros-reference-parameter-editor .eq-values strong { display: block; font-weight: 400; }
+.coros-reference-parameter-editor .eq-values strong small { color: #929693; font-size: .8em; }
+.coros-reference-parameter-editor .eq-values .eq-type strong { position: absolute; left: 7%; right: 7%; bottom: 10%; height: 35%; display: flex; align-items: center; padding: 0 8%; border-radius: 6px; background: #070808; font-size: .86em; white-space: nowrap; }
+.coros-reference-parameter-editor .eq-values .eq-type strong svg { width: 1.4cqw; margin-left: auto; fill: none; stroke: currentColor; stroke-width: 2; }
+.coros-reference-parameter-editor .eq-values .eq-dial-value > strong { position: absolute; left: 7%; bottom: 10%; }
+.coros-reference-parameter-editor .eq-control-dial { position: absolute; left: 53%; top: 33%; width: 42%; aspect-ratio: 1; border: .65cqw solid #121413; border-radius: 50%; background: radial-gradient(circle,#252826 0 68%,transparent 70%),conic-gradient(from 218deg,#1689ee 0 38deg,#252826 38deg); box-shadow: inset 0 0 0 2px #333735; }
+.coros-reference-parameter-editor .eq-control-dial::after { content: ""; position: absolute; left: calc(50% - 1px); top: 4%; width: 2px; height: 42%; background: #eceeed; }
+.coros-reference-parameter-editor .eq-control-dial.is-frequency { transform: rotate(-98deg); }
+.coros-reference-parameter-editor .eq-control-dial.is-q { transform: rotate(-124deg); }
+.coros-reference-parameter-editor .eq-values .eq-bypass-value strong { position: absolute; left: 7%; bottom: 10%; width: 43%; height: 42%; display: grid; place-items: center; border-radius: 6px; background: #171b18; font-size: 2.8cqw; }
+}
