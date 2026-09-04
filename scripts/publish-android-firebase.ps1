@@ -8,8 +8,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$androidPackage = Get-Content (Join-Path $repoRoot "apps\android\package.json") | ConvertFrom-Json
-$apkPath = Join-Path $repoRoot "artifacts\android\QC-Control-Android-$($androidPackage.version)-debug.apk"
 $builtApkPath = Join-Path $repoRoot "apps\android\android\app\build\outputs\apk\debug\app-debug.apk"
 $capacitorConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\capacitor.config.ts") -Raw
 if ($capacitorConfig -notmatch 'appId\s*:\s*["'']([^"'']+)["'']') {
@@ -33,10 +31,12 @@ try {
     npm run android:build:debug
     if ($LASTEXITCODE -ne 0) { throw "Android build failed with exit code $LASTEXITCODE." }
 
-    New-Item -ItemType Directory -Force (Split-Path -Parent $apkPath) | Out-Null
-    Copy-Item -LiteralPath $builtApkPath -Destination $apkPath -Force
-
-    & node (Join-Path $repoRoot "tools\release-provenance.mjs") $apkPath
+    $stagedApkPath = @(& node (Join-Path $repoRoot "tools\release-candidates.mjs") stage android $builtApkPath)
+    if ($LASTEXITCODE -ne 0 -or $stagedApkPath.Count -ne 1) { throw "Could not stage the Android release candidate." }
+    $apkPath = $stagedApkPath[0]
+    $releaseArtifacts = @(& node (Join-Path $repoRoot "tools\release-candidates.mjs") list)
+    if ($LASTEXITCODE -ne 0 -or $releaseArtifacts.Count -lt 1) { throw "Could not enumerate current release candidates." }
+    & node (Join-Path $repoRoot "tools\release-provenance.mjs") @releaseArtifacts
     if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }
 
     if ($PrepareOnly) {

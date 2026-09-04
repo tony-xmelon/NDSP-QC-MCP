@@ -56,5 +56,9 @@ try {
 finally {
     $apkArchive.Dispose()
 }
-& node (Join-Path $repoRoot "tools\release-provenance.mjs") $builtApkPath
+$stagedApkPath = @(& node (Join-Path $repoRoot "tools\release-candidates.mjs") stage android $builtApkPath)
+if ($LASTEXITCODE -ne 0 -or $stagedApkPath.Count -ne 1) { throw "Could not stage the Android release candidate." }
+$releaseArtifacts = @(& node (Join-Path $repoRoot "tools\release-candidates.mjs") list)
+if ($LASTEXITCODE -ne 0 -or $releaseArtifacts.Count -lt 1) { throw "Could not enumerate current release candidates." }
+& node (Join-Path $repoRoot "tools\release-provenance.mjs") @releaseArtifacts
 if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }

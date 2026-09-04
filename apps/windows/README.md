@@ -102,7 +102,10 @@ npm run build:installer
 
 That command builds the native Rust device broker, embeds its target-triple
 sidecar in the Tauri bundle, and writes the installer under
-`src-tauri/target/release/bundle/nsis`. The installed app resolves the gateway
+`src-tauri/target/release/bundle/nsis`. It also stages an exact-version copy
+under `artifacts/windows` with source-commit and SHA-256 metadata. When the
+Android candidate comes from the same clean commit, one release manifest and
+SBOM cover both applications. The installed app resolves the gateway
 beside its own executable; `QC_GATEWAY_EXECUTABLE` remains available for an
 explicit test override. Source builds can select the repository `.venv` parity
 gateway only by setting `QC_GATEWAY_RUNTIME=python`.

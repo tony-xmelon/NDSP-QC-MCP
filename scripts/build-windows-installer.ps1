@@ -126,6 +126,10 @@ $windowsInstallers = @(Get-Item -LiteralPath $expectedInstallerPath -ErrorAction
 if ($windowsInstallers.Count -ne 1) {
     throw "The Windows installer build completed without its exact current-version NSIS artifact: $expectedInstallerPath"
 }
-& node (Join-Path $repositoryRoot "tools\release-provenance.mjs") @windowsInstallers
+$stagedInstallerPath = @(& node (Join-Path $repositoryRoot "tools\release-candidates.mjs") stage windows $windowsInstallers[0])
+if ($LASTEXITCODE -ne 0 -or $stagedInstallerPath.Count -ne 1) { throw "Could not stage the Windows release candidate." }
+$releaseArtifacts = @(& node (Join-Path $repositoryRoot "tools\release-candidates.mjs") list)
+if ($LASTEXITCODE -ne 0 -or $releaseArtifacts.Count -lt 1) { throw "Could not enumerate current release candidates." }
+& node (Join-Path $repositoryRoot "tools\release-provenance.mjs") @releaseArtifacts
 if ($LASTEXITCODE -ne 0) { throw "Could not generate Windows release provenance." }
 $buildLock.Dispose()

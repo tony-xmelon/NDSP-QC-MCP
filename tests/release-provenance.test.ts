@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildSbom, npmComponents, parseCargoLock, parseGradleDeclarations, parseGradleDependencyReport, sha256, sidecarComponents } from "../tools/release-provenance.mjs";
+import { candidateMetadataMatches, releaseCandidateFileName } from "../tools/release-candidates.mjs";
 
 test("release hashes are stable SHA-256 values", () => {
   assert.equal(sha256("QC Control"), "908fe6920dbb1fe6c417dbf1dd500de708a852925329c0291964b01982209f07");
@@ -68,4 +69,17 @@ test("Windows sidecars retain their release identity and verified archive hash",
   assert.equal(component.hashes[0].content, "a".repeat(64));
   assert.equal(component.externalReferences[0].type, "distribution");
   assert.equal(component.properties[0].value, "windows-sidecar");
+});
+
+test("release candidates use stable platform and version names", () => {
+  assert.equal(releaseCandidateFileName("android", "1.2.3"), "QC-Control-Android-1.2.3-debug.apk");
+  assert.equal(releaseCandidateFileName("windows", "4.5.6"), "QC-Control-Windows-4.5.6-x64-setup.exe");
+  assert.throws(() => releaseCandidateFileName("ios", "1.0.0"), /Unsupported release platform/);
+});
+
+test("release candidate metadata must match the current source and bytes", () => {
+  const expected = { platform: "android", sourceCommit: "abc", size: 42, sha256: "def" };
+  assert.equal(candidateMetadataMatches({ schemaVersion: 1, sourceDirty: false, ...expected }, expected), true);
+  assert.equal(candidateMetadataMatches({ schemaVersion: 1, sourceDirty: true, ...expected }, expected), false);
+  assert.equal(candidateMetadataMatches({ schemaVersion: 1, sourceDirty: false, ...expected, sourceCommit: "old" }, expected), false);
 });

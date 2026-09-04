@@ -128,6 +128,11 @@ The Firebase Android app is registered as `com.qccontrol.mobile` in the `qc-cont
 npm run android:publish:firebase -- -ReleaseNotes "Describe this build" -Testers "tester@example.com"
 ```
 
+Packaging stages the exact APK under `artifacts/android` with source-commit and
+SHA-256 metadata. If a Windows installer from the same clean commit has also
+been staged, the generated release manifest and SBOM cover both applications.
+Artifacts from an older commit or with changed bytes are excluded automatically.
+
 `apps/android/package.json` is the Android version source. Increment it with
 `npm run version:android:patch` (or `:minor` / `:major`), or set an explicit
 version with `npm run version:android:set -- 1.2.3`. The shared version tool

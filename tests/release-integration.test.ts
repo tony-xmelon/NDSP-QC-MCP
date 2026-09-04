@@ -7,12 +7,14 @@ const script = (name: string) => readFileSync(new URL(`../scripts/${name}`, impo
 test("Android builds and Firebase publishing emit provenance for the exact APK", () => {
   const build = script("build-android-debug.ps1");
   const publish = script("publish-android-firebase.ps1");
-  assert.match(build, /release-provenance\.mjs"\) \$builtApkPath/);
+  assert.match(build, /release-candidates\.mjs"\) stage android \$builtApkPath/);
+  assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
   assert.match(build, /lib\/arm64-v8a\/libqc_android\.so/);
   assert.match(build, /lib\/x86_64\/libqc_android\.so/);
   assert.match(build, /assembleDebug lintDebug/);
   assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-provenance.mjs"));
-  assert.match(publish, /release-provenance\.mjs"\) \$apkPath/);
+  assert.match(publish, /release-candidates\.mjs"\) stage android \$builtApkPath/);
+  assert.match(publish, /release-provenance\.mjs"\) @releaseArtifacts/);
   assert.match(publish, /\[string\]\$Testers = "prezimir@gmail\.com"/);
   assert.match(publish, /google-services\.json/);
   assert.match(publish, /capacitor\.config\.ts/);
@@ -36,12 +38,26 @@ test("release provenance fingerprints the executable app parity contract", () =>
 test("Windows installer builds checksum their external Cargo target artifact", () => {
   const build = script("build-windows-installer.ps1");
   assert.match(build, /release\\bundle\\nsis/);
-  assert.match(build, /release-provenance\.mjs"\) @windowsInstallers/);
+  assert.match(build, /release-candidates\.mjs"\) stage windows \$windowsInstallers\[0\]/);
+  assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
   assert.match(build, /tauri\.conf\.json/);
   assert.match(build, /\$tauriConfig\.productName/);
   assert.match(build, /\$tauriConfig\.version/);
   assert.match(build, /without its exact current-version NSIS artifact/);
   assert.doesNotMatch(build, /-Filter "\*\.exe"/);
+});
+
+test("both app builds preserve only same-source staged release candidates", () => {
+  const candidates = readFileSync(new URL("../tools/release-candidates.mjs", import.meta.url), "utf8");
+  assert.match(candidates, /gitOutput\(\["rev-parse", "HEAD"\]\)/);
+  assert.match(candidates, /gitOutput\(\["status", "--porcelain"\]\)/);
+  assert.match(candidates, /sourceDirty === false/);
+  assert.match(candidates, /metadata\.sourceCommit === expected\.sourceCommit/);
+  assert.match(candidates, /metadata\.sha256 === expected\.sha256/);
+  for (const build of [script("build-android-debug.ps1"), script("build-windows-installer.ps1"), script("publish-android-firebase.ps1")]) {
+    assert.match(build, /release-candidates\.mjs"\) list/);
+    assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
+  }
 });
 
 test("packaged Windows gateway verification follows the generated contract", () => {

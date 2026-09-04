@@ -20,8 +20,10 @@ const contractFiles = [
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 function commandVersion(command, args = ["--version"]) {
-  const executable = process.platform === "win32" && command === "npm" ? "npm.cmd" : command;
-  try { return execFileSync(executable, args, { cwd: repositoryRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
+  const useCommandShell = process.platform === "win32" && command === "npm";
+  const executable = useCommandShell ? process.env.ComSpec ?? "cmd.exe" : command;
+  const commandArgs = useCommandShell ? ["/d", "/s", "/c", `npm ${args.join(" ")}`] : args;
+  try { return execFileSync(executable, commandArgs, { cwd: repositoryRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
   catch { return "unavailable"; }
 }
 
