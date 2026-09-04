@@ -1,3 +1,4 @@
+$ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $buildLockPath = Join-Path $repositoryRoot "apps\windows\src-tauri\target\qc-control-installer.lock"
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $buildLockPath) | Out-Null
@@ -24,30 +25,42 @@ $rustHost = ($rustHostLine -split ":", 2)[1].Trim()
 $mediaFetcherTarget = Join-Path $binaryDirectory "qc-media-fetch-$rustHost.exe"
 $mediaFfmpegTarget = Join-Path $binaryDirectory "qc-media-ffmpeg-$rustHost.exe"
 $mediaDenoTarget = Join-Path $binaryDirectory "qc-media-deno-$rustHost.exe"
+
+function Get-VerifiedDownload {
+    param(
+        [Parameter(Mandatory = $true)][string]$Uri,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Sha256
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Path
+    }
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $Sha256.ToLowerInvariant()) {
+        throw "Downloaded build dependency failed SHA-256 verification: $Path (expected $Sha256, received $actual). Remove the cached file and deliberately update its pinned URL/checksum before retrying."
+    }
+}
+
 & node (Join-Path $PSScriptRoot "version-app.mjs") sync
 if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Windows app version." }
 
 New-Item -ItemType Directory -Force -Path $binaryDirectory | Out-Null
 New-Item -ItemType Directory -Force -Path $sidecarBuildDirectory | Out-Null
-if (-not (Test-Path -LiteralPath $mediaFetcherTarget -PathType Leaf)) {
-    Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe" -OutFile $mediaFetcherTarget
-}
-if (-not (Test-Path -LiteralPath $mediaDenoTarget -PathType Leaf)) {
-    $denoArchive = Join-Path $sidecarBuildDirectory "deno-2.9.6.zip"
-    $denoExtract = Join-Path $sidecarBuildDirectory "deno-2.9.6"
-    Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/denoland/deno/releases/download/v2.9.6/deno-x86_64-pc-windows-msvc.zip" -OutFile $denoArchive
-    Expand-Archive -LiteralPath $denoArchive -DestinationPath $denoExtract -Force
-    Copy-Item -LiteralPath (Join-Path $denoExtract "deno.exe") -Destination $mediaDenoTarget -Force
-}
-if (-not (Test-Path -LiteralPath $mediaFfmpegTarget -PathType Leaf)) {
-    $ffmpegArchive = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl.zip"
-    $ffmpegExtract = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl"
-    Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip" -OutFile $ffmpegArchive
-    Expand-Archive -LiteralPath $ffmpegArchive -DestinationPath $ffmpegExtract -Force
-    $ffmpegSource = Get-ChildItem -LiteralPath $ffmpegExtract -Filter "ffmpeg.exe" -File -Recurse | Select-Object -First 1
-    if (-not $ffmpegSource) { throw "The FFmpeg package did not contain ffmpeg.exe." }
-    Copy-Item -LiteralPath $ffmpegSource.FullName -Destination $mediaFfmpegTarget -Force
-}
+Get-VerifiedDownload -Uri "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe" -Path $mediaFetcherTarget -Sha256 "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a"
+
+$denoArchive = Join-Path $sidecarBuildDirectory "deno-2.9.6.zip"
+$denoExtract = Join-Path $sidecarBuildDirectory "deno-2.9.6"
+Get-VerifiedDownload -Uri "https://github.com/denoland/deno/releases/download/v2.9.6/deno-x86_64-pc-windows-msvc.zip" -Path $denoArchive -Sha256 "15e5300b0ba3c3695a7621d90160a746ec9e710228cee639afa9d580f6e3cd11"
+Expand-Archive -LiteralPath $denoArchive -DestinationPath $denoExtract -Force
+Copy-Item -LiteralPath (Join-Path $denoExtract "deno.exe") -Destination $mediaDenoTarget -Force
+
+$ffmpegArchive = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl.zip"
+$ffmpegExtract = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl"
+Get-VerifiedDownload -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip" -Path $ffmpegArchive -Sha256 "87ea9cc2c40e8cbb853dccc65df3ae33d970285366828f040faccb17ff5c3d66"
+Expand-Archive -LiteralPath $ffmpegArchive -DestinationPath $ffmpegExtract -Force
+$ffmpegSource = Get-ChildItem -LiteralPath $ffmpegExtract -Filter "ffmpeg.exe" -File -Recurse | Select-Object -First 1
+if (-not $ffmpegSource) { throw "The FFmpeg package did not contain ffmpeg.exe." }
+Copy-Item -LiteralPath $ffmpegSource.FullName -Destination $mediaFfmpegTarget -Force
 foreach ($windowsTarget in @("x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu")) {
     foreach ($mediaTool in @("fetch", "ffmpeg", "deno")) {
         $source = Join-Path $binaryDirectory "qc-media-$mediaTool-$rustHost.exe"
