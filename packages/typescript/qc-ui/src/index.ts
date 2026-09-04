@@ -62,3 +62,4 @@ export { reconcileQcActionOutcome } from "./qc-action-outcome";
 export type { QcActionImageAttachment, QcActionOutcomeHandlers } from "./qc-action-outcome";
 export { useAssistantAutoScroll } from "./use-assistant-auto-scroll";
 export { ASSISTANT_ACCESS_MODE_STORAGE_KEY, readAssistantAccessMode, writeAssistantAccessMode } from "./assistant-access-storage";
+export { browserWorkflowPrompts } from "./browser-workflow-prompts";

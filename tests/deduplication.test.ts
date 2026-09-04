@@ -14,6 +14,8 @@ test("Windows and Android compose the same QC behavior and screen packages", () 
     assert.match(app, /useBlockEditorSession\(\)/);
     assert.match(app, /useQcController\(demoSnapshot\)/);
     assert.match(app, /useQcWorkflows\(/, "the complete shared workflow suite must be composed by both native shells");
+    assert.match(app, /prompts: browserWorkflowPrompts/);
+    assert.doesNotMatch(app, /window\.(?:confirm|prompt)\(message/);
     assert.doesNotMatch(app, /use(?:PresetWorkflow|RoutingWorkflow|GridWorkflow|ParameterWorkflow|PerformanceWorkflow|SceneWorkflow|DeviceHistory)\(/);
     assert.match(app, /reconcileFrame/);
     assert.match(app, /parseAssistantIntent\(/);
