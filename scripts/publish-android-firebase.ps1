@@ -12,6 +12,9 @@ $firebaseAppId = "1:762132554544:android:2e6417e3507a3d87e09ef5"
 
 Push-Location $repoRoot
 try {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "scripts\verify-software-parity.ps1") -BuildApps -RequireClean
+    if ($LASTEXITCODE -ne 0) { throw "Software parity preflight failed; Android distribution was not started." }
+
     npm run android:build:debug
     if ($LASTEXITCODE -ne 0) { throw "Android build failed with exit code $LASTEXITCODE." }
 

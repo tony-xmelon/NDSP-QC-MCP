@@ -33,3 +33,10 @@ test("Windows installer verifies every downloaded executable dependency", () => 
   assert.equal((build.match(/-Sha256 "[a-f0-9]{64}"/g) ?? []).length, 3);
   assert.equal((build.match(/Invoke-WebRequest/g) ?? []).length, 1, "downloads must only occur inside the checksum-enforcing helper");
 });
+
+test("both distribution paths require a clean full software parity preflight", () => {
+  for (const build of [script("build-windows-installer.ps1"), script("publish-android-firebase.ps1")]) {
+    assert.match(build, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
+    assert.ok(build.indexOf("verify-software-parity.ps1") < build.indexOf("release-provenance.mjs"));
+  }
+});
