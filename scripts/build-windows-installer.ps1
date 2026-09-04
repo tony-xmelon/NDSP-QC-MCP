@@ -119,8 +119,13 @@ try {
 finally {
     Pop-Location
 }
-$windowsInstallers = @(Get-ChildItem -LiteralPath (Join-Path $env:CARGO_TARGET_DIR "release\bundle\nsis") -Filter "*.exe" -File -ErrorAction SilentlyContinue | ForEach-Object FullName)
-if (-not $windowsInstallers.Count) { throw "The Windows installer build completed without an NSIS artifact." }
+$tauriConfig = Get-Content -LiteralPath (Join-Path $tauriRoot "tauri.conf.json") -Raw | ConvertFrom-Json
+$expectedInstallerName = "$($tauriConfig.productName)_$($tauriConfig.version)_x64-setup.exe"
+$expectedInstallerPath = Join-Path $env:CARGO_TARGET_DIR "release\bundle\nsis\$expectedInstallerName"
+$windowsInstallers = @(Get-Item -LiteralPath $expectedInstallerPath -ErrorAction SilentlyContinue | ForEach-Object FullName)
+if ($windowsInstallers.Count -ne 1) {
+    throw "The Windows installer build completed without its exact current-version NSIS artifact: $expectedInstallerPath"
+}
 & node (Join-Path $repositoryRoot "tools\release-provenance.mjs") @windowsInstallers
 if ($LASTEXITCODE -ne 0) { throw "Could not generate Windows release provenance." }
 $buildLock.Dispose()

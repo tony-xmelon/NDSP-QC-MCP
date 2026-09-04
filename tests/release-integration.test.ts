@@ -30,7 +30,11 @@ test("Windows installer builds checksum their external Cargo target artifact", (
   const build = script("build-windows-installer.ps1");
   assert.match(build, /release\\bundle\\nsis/);
   assert.match(build, /release-provenance\.mjs"\) @windowsInstallers/);
-  assert.match(build, /without an NSIS artifact/);
+  assert.match(build, /tauri\.conf\.json/);
+  assert.match(build, /\$tauriConfig\.productName/);
+  assert.match(build, /\$tauriConfig\.version/);
+  assert.match(build, /without its exact current-version NSIS artifact/);
+  assert.doesNotMatch(build, /-Filter "\*\.exe"/);
 });
 
 test("packaged Windows gateway verification follows the generated contract", () => {
