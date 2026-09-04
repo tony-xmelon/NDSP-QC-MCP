@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **80.04%** | **96.33%** |
-| Android | 40/40 (100%) | **78.99%** | **96.21%** |
+| Windows | 40/40 (100%) | **81.87%** | **96.55%** |
+| Android | 40/40 (100%) | **80.71%** | **96.42%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -18,7 +18,7 @@ Structural match is edge F1 with a two-pixel tolerance. Color similarity is
 opens the Directory, route selectors, and each block editor before taking the
 frame. An earlier driver did not wait for asynchronous editor opening and
 therefore compared the underlying Grid for seven editor states; those invalid
-measurements have been replaced. The 1.05-point structural difference between
+measurements have been replaced. The 1.16-point structural difference between
 hosts is concentrated in a few fixture screens and text rasterization; the live
 Grid, Directory, routing, and parameter editor implementations are shared.
 
@@ -135,8 +135,8 @@ still need pixel-level reconstruction work.
 | `device-browser-models` | 87.58% | 87.57% |
 | `device-browser-models-clean` | 83.43% | 83.49% |
 | `device-browser-plugin-list` | 86.36% | 80.52% |
-| `device-browser-plugin-models` | 54.61% | 53.50% |
-| `device-browser-plugin-locked` | 51.68% | 50.70% |
+| `device-browser-plugin-models` | 90.72% | 87.23% |
+| `device-browser-plugin-locked` | 88.50% | 85.52% |
 | `device-presets-exotic-z-boost` | 90.42% | 85.74% |
 | `device-preset-actions` | 96.06% | 88.92% |
 | `device-presets-user` | 89.82% | 83.86% |
@@ -164,6 +164,13 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Restored the omitted right-hand model column in the two physical plugin
+  browser fixtures, including the selected Plini and locked Cory Wong device
+  lists, block artwork, preset controls, and license locks. The model screen
+  rises from **54.61% to 90.72% Windows / 53.50% to 87.23% Android**; the
+  locked screen rises from **51.68% to 88.50% / 50.70% to 85.52%**. The
+  complete physical benchmark consequently reaches **81.87% / 96.55%**
+  structural/color on Windows and **80.71% / 96.42%** on Android.
 - Moved the physical benchmark onto the real interactive Grid path and added
   deterministic waits for all seven asynchronous block editors. The shared
   Windows/Android reconstruction now uses measured standard, Cab, and
@@ -172,7 +179,8 @@ still need pixel-level reconstruction work.
   route focus mask and list scale. Directory structural match rises from
   **48% to 77.89%** and both route screens fall from roughly **40% pixel error
   to 3.7%**. The corrected complete physical benchmark is **80.04% / 96.33%**
-  structural/color on Windows and **78.99% / 96.21%** on Android.
+  structural/color on Windows and **78.99% / 96.21%** on Android before the
+  plugin-model correction above.
 - Reconstructed Directory — Nested folders with the manual's outline folder
   glyphs, repeated rounded hierarchy elbows, Capture category mark, funnel
   control, and asymmetric final toolbar gap. The toolbar correction aligns four
