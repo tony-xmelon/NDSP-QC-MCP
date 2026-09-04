@@ -51,13 +51,19 @@ try {
         Invoke-Checked "Rust tests: $manifest" { cargo test --locked --manifest-path $manifest }
     }
 
-    Invoke-Checked "Windows native shell check" {
+    foreach ($manifest in $rustManifests) {
+        Invoke-Checked "Rust lints: $manifest" {
+            cargo clippy --locked --all-targets --manifest-path $manifest -- -D warnings
+        }
+    }
+
+    Invoke-Checked "Windows native shell lint" {
         $previousTauriConfig = $env:TAURI_CONFIG
         try {
             # Compile the full shell without requiring release-only sidecars to
             # have been downloaded and staged by build-windows-installer.ps1.
             $env:TAURI_CONFIG = '{"bundle":{"externalBin":[]}}'
-            cargo check --locked --manifest-path "apps/windows/src-tauri/Cargo.toml"
+            cargo clippy --locked --all-targets --manifest-path "apps/windows/src-tauri/Cargo.toml" -- -D warnings
         }
         finally {
             $env:TAURI_CONFIG = $previousTauriConfig
