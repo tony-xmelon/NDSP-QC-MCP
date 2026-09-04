@@ -84,8 +84,8 @@ fn handle(
         "system.status" => Ok(json!({
             "platform": "Rust device gateway",
             "gatewayAvailable": true,
-            "gatewayApiVersion": 10,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "hostMidiPerformance"],
+            "gatewayApiVersion": 11,
+            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "hostMidiPerformance"],
             "message": "Shared Rust QC engine active"
         })),
         "device.status" => {
@@ -115,6 +115,16 @@ fn handle(
         }
         "device.generalSettings" => {
             execute_gateway_read(controller, "device.generalSettings", &request.params)
+        }
+        "device.ioSettings" => {
+            execute_gateway_read(controller, "device.ioSettings", &request.params)
+        }
+        "device.setInputPort"
+        | "device.setOutputPort"
+        | "device.setUsbPort"
+        | "device.setMidiThru"
+        | "device.setOutputPairing" => {
+            gateway_operation(controller, &request.params, &request.method)
         }
         "device.setGeneralInteger"
         | "device.setGeneralToggle"
@@ -1368,7 +1378,10 @@ mod tests {
             },
         );
         assert_eq!(response["result"]["platform"], "Rust device gateway");
-        assert_eq!(response["result"]["gatewayApiVersion"], 10);
+        assert_eq!(response["result"]["gatewayApiVersion"], 11);
         assert_eq!(response["result"]["gatewayAvailable"], true);
+        assert!(response["result"]["capabilities"]
+            .as_array()
+            .is_some_and(|capabilities| capabilities.contains(&json!("nativeIoSettings"))));
     }
 }

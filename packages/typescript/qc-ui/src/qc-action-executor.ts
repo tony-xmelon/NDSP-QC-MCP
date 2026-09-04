@@ -66,6 +66,20 @@ const nullableIntegerArgument = (call: AssistantToolCall, name: string): number 
   return value;
 };
 
+const nullableNumberArgument = (call: AssistantToolCall, name: string): number | null => {
+  const value = call.arguments[name];
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${call.name} returned an invalid ${name}.`);
+  return value;
+};
+
+const nullableBooleanArgument = (call: AssistantToolCall, name: string): boolean | null => {
+  const value = call.arguments[name];
+  if (value === null) return null;
+  if (typeof value !== "boolean") throw new Error(`${call.name} returned an invalid ${name}.`);
+  return value;
+};
+
 const booleanRowsArgument = (call: AssistantToolCall, name: string): [boolean, boolean, boolean, boolean] => {
   const value = call.arguments[name];
   if (!Array.isArray(value) || value.length !== 4 || value.some((entry) => typeof entry !== "boolean")) {
@@ -223,6 +237,9 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (call.name === "get_general_settings") {
     return { detail: "Read the current Quad Cortex Device Settings.", data: await gateway.generalSettings() };
   }
+  if (call.name === "get_io_settings") {
+    return { detail: "Read all current Quad Cortex I/O settings and physical connection flags.", data: await gateway.ioSettings() };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -308,6 +325,36 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     }
     return actionResult(await gateway.setGlobalBypass(
       booleanRowsArgument(call, "cab"), booleanRowsArgument(call, "ir")
+    ));
+  }
+  if (call.name === "set_input_port" || call.name === "set_output_port"
+    || call.name === "set_usb_port" || call.name === "set_midi_thru"
+    || call.name === "set_output_pairing") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_input_port") {
+      return actionResult(await gateway.setInputPort(
+        integerArgument(call, "input_port_id"), nullableNumberArgument(call, "level_db"),
+        nullableNumberArgument(call, "impedance"), nullableNumberArgument(call, "input_type"),
+        nullableNumberArgument(call, "ground_lift")
+      ));
+    }
+    if (call.name === "set_output_port") {
+      return actionResult(await gateway.setOutputPort(
+        integerArgument(call, "output_port_id"), nullableNumberArgument(call, "level"),
+        nullableNumberArgument(call, "ground_lift"), nullableBooleanArgument(call, "mute")
+      ));
+    }
+    if (call.name === "set_usb_port") {
+      return actionResult(await gateway.setUsbPort(
+        nullableNumberArgument(call, "level"), nullableNumberArgument(call, "headphones_source"),
+        nullableNumberArgument(call, "dry_wet")
+      ));
+    }
+    if (call.name === "set_midi_thru") {
+      return actionResult(await gateway.setMidiThru(booleanArgument(call, "enabled")));
+    }
+    return actionResult(await gateway.setOutputPairing(
+      nullableBooleanArgument(call, "xlr12_linked"), nullableBooleanArgument(call, "out34_linked")
     ));
   }
   if (call.name === "undo_device" || call.name === "redo_device") {

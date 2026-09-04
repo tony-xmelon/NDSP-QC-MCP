@@ -376,6 +376,42 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "get_io_settings",
+        rpc: "device.ioSettings",
+        class: ActionClass::Read,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_input_port",
+        rpc: "device.setInputPort",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_output_port",
+        rpc: "device.setOutputPort",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_usb_port",
+        rpc: "device.setUsbPort",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_midi_thru",
+        rpc: "device.setMidiThru",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_output_pairing",
+        rpc: "device.setOutputPairing",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
         name: "set_general_integer",
         rpc: "device.setGeneralInteger",
         class: ActionClass::PersistentWrite,

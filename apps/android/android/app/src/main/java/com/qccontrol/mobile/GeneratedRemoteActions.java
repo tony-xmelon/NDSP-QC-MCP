@@ -67,6 +67,12 @@ final class GeneratedRemoteActions {
         "device.renameCurrentPreset",
         "device.copyPreset",
         "device.generalSettings",
+        "device.ioSettings",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -91,7 +97,8 @@ final class GeneratedRemoteActions {
         "device.tunerSettings",
         "device.presetScreenshot",
         "device.captureScreen",
-        "device.generalSettings"
+        "device.generalSettings",
+        "device.ioSettings"
     };
 
     private static final String[] PERFORMANCE = {
@@ -153,6 +160,11 @@ final class GeneratedRemoteActions {
         "device.savePresetAs",
         "device.renameCurrentPreset",
         "device.copyPreset",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",

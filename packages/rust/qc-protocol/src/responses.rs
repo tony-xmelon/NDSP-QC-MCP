@@ -357,23 +357,27 @@ pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeEr
     let inputs = settings
         .in_port
         .into_iter()
-        .map(|port| InputPortSettings {
-            input_port_id: port.input_port_id,
-            level: port
+        .map(|port| {
+            let level = port
                 .level
-                .map(|pa::input_port_settings::Level::Level(value)| value),
-            impedance: port
-                .input_zmode
-                .map(|pa::input_port_settings::InputZmode::InputZmode(value)| value),
-            input_type: port
-                .input_type
-                .map(|pa::input_port_settings::InputType::InputType(value)| value),
-            ground_lift: port
-                .ground_lift
-                .map(|pa::input_port_settings::GroundLift::GroundLift(value)| value),
-            plugged: port
-                .plugged
-                .map(|pa::input_port_settings::Plugged::Plugged(value)| value),
+                .map(|pa::input_port_settings::Level::Level(value)| value);
+            InputPortSettings {
+                input_port_id: port.input_port_id,
+                level,
+                level_db: level.map(|value| -12.0 + 72.0 * value),
+                impedance: port
+                    .input_zmode
+                    .map(|pa::input_port_settings::InputZmode::InputZmode(value)| value),
+                input_type: port
+                    .input_type
+                    .map(|pa::input_port_settings::InputType::InputType(value)| value),
+                ground_lift: port
+                    .ground_lift
+                    .map(|pa::input_port_settings::GroundLift::GroundLift(value)| value),
+                plugged: port
+                    .plugged
+                    .map(|pa::input_port_settings::Plugged::Plugged(value)| value),
+            }
         })
         .collect();
     let outputs = settings

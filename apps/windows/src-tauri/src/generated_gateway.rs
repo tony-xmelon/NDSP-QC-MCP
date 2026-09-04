@@ -16,6 +16,12 @@ pub mod rpc {
     pub const INHIBITED_MODULES: &str = "device.inhibitedModules";
     pub const TUNER_SETTINGS: &str = "device.tunerSettings";
     pub const GENERAL_SETTINGS: &str = "device.generalSettings";
+    pub const IO_SETTINGS: &str = "device.ioSettings";
+    pub const SET_INPUT_PORT: &str = "device.setInputPort";
+    pub const SET_OUTPUT_PORT: &str = "device.setOutputPort";
+    pub const SET_USB_PORT: &str = "device.setUsbPort";
+    pub const SET_MIDI_THRU: &str = "device.setMidiThru";
+    pub const SET_OUTPUT_PAIRING: &str = "device.setOutputPairing";
     pub const SET_GENERAL_INTEGER: &str = "device.setGeneralInteger";
     pub const SET_GENERAL_TOGGLE: &str = "device.setGeneralToggle";
     pub const SET_SCENE_BYPASS_BEHAVIOR: &str = "device.setSceneBypassBehavior";

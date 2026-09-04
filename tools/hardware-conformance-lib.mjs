@@ -20,6 +20,7 @@ export const CASES = Object.freeze({
   get_inhibited_modules: { phase: "read", hazard: "read" },
   get_tuner_settings: { phase: "read", hazard: "read" },
   get_general_settings: { phase: "read", hazard: "read" },
+  get_io_settings: { phase: "read", hazard: "read" },
   get_preset_screenshot: { phase: "read", hazard: "read" },
   capture_screen: { phase: "read", hazard: "read" },
   preview_parameter: { phase: "modify", hazard: "live" },
@@ -68,7 +69,12 @@ export const CASES = Object.freeze({
   set_general_toggle: { phase: "persistent", hazard: "persistent" },
   set_scene_bypass_behavior: { phase: "persistent", hazard: "persistent" },
   set_master_volume_assignment: { phase: "persistent", hazard: "persistent" },
-  set_global_bypass: { phase: "persistent", hazard: "persistent" }
+  set_global_bypass: { phase: "persistent", hazard: "persistent" },
+  set_input_port: { phase: "persistent", hazard: "persistent" },
+  set_output_port: { phase: "persistent", hazard: "persistent" },
+  set_usb_port: { phase: "persistent", hazard: "persistent" },
+  set_midi_thru: { phase: "persistent", hazard: "persistent" },
+  set_output_pairing: { phase: "persistent", hazard: "persistent" }
 });
 
 const requiredFixturePaths = [

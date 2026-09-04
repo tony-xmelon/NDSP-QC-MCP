@@ -92,6 +92,8 @@ pub struct InputPortSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_db: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub impedance: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_type: Option<f32>,

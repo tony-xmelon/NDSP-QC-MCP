@@ -238,6 +238,30 @@ class ToolSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "confirm_persistent_write"):
                 method(*arguments[:-1], False)
 
+    def test_io_actions_share_the_persistent_confirmation_gate(self) -> None:
+        self.tools.get_io_settings()
+        self.assertEqual(self.backend.calls[-1], ("device.ioSettings", {}))
+
+        mutations = [
+            (self.tools.set_input_port, (1, 12.0, None, 1.0, None, True),
+             ("device.setInputPort", {"inputPortId": 1, "levelDb": 12.0,
+                                      "impedance": None, "inputType": 1.0, "groundLift": None})),
+            (self.tools.set_output_port, (4, .75, None, False, True),
+             ("device.setOutputPort", {"outputPortId": 4, "level": .75,
+                                       "groundLift": None, "mute": False})),
+            (self.tools.set_usb_port, (.25, None, 1.0, True),
+             ("device.setUsbPort", {"level": .25, "headphonesSource": None, "dryWet": 1.0})),
+            (self.tools.set_midi_thru, (True, True),
+             ("device.setMidiThru", {"enabled": True})),
+            (self.tools.set_output_pairing, (True, None, True),
+             ("device.setOutputPairing", {"xlr12Linked": True, "out34Linked": None})),
+        ]
+        for method, arguments, expected in mutations:
+            method(*arguments)
+            self.assertEqual(self.backend.calls[-1], expected)
+            with self.assertRaisesRegex(ValueError, "confirm_persistent_write"):
+                method(*arguments[:-1], False)
+
 
 class McpSurfaceTests(unittest.TestCase):
     def test_server_publishes_only_intent_level_tools_and_resources(self) -> None:

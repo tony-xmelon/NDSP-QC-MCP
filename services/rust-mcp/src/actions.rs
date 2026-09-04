@@ -16,6 +16,8 @@ pub enum Kind {
     VisibleString { max_chars: usize },
     NullableString,
     NullableInteger { min: i64, max: Option<i64> },
+    NullableBoolean,
+    NullableNumber { min: f64, max: Option<f64> },
     Boolean,
     Integer { min: i64, max: Option<i64> },
     Number { min: f64, max: Option<f64> },
@@ -822,6 +824,70 @@ pub static ACTIONS: &[ActionSpec] = &[
         properties: &[],
     },
     ActionSpec {
+        name: "get_io_settings",
+        rpc: "device.ioSettings",
+        classification: Classification::Read,
+        description: "Read complete input, output, headphone, USB, MIDI, expression-pedal, connection, and output-pairing settings.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_input_port",
+        rpc: "device.setInputPort",
+        classification: Classification::PersistentWrite,
+        description: "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB.",
+        properties: &[
+            p!("input_port_id", Kind::Integer { min: 1, max: Some(14) }),
+            p!("level_db", Kind::NullableNumber { min: -12.0, max: Some(60.0) }),
+            p!("impedance", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("input_type", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("ground_lift", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_output_port",
+        rpc: "device.setOutputPort",
+        classification: Classification::PersistentWrite,
+        description: "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update.",
+        properties: &[
+            p!("output_port_id", Kind::Integer { min: 1, max: Some(22) }),
+            p!("level", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("ground_lift", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("mute", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_usb_port",
+        rpc: "device.setUsbPort",
+        classification: Classification::PersistentWrite,
+        description: "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates.",
+        properties: &[
+            p!("level", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("headphones_source", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("dry_wet", Kind::NullableNumber { min: 0.0, max: Some(1.0) }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_midi_thru",
+        rpc: "device.setMidiThru",
+        classification: Classification::PersistentWrite,
+        description: "Enable or disable the QC MIDI Thru setting after explicit confirmation.",
+        properties: &[p!("enabled", BOOL), p!("confirm_persistent_write", BOOL)],
+    },
+    ActionSpec {
+        name: "set_output_pairing",
+        rpc: "device.setOutputPairing",
+        classification: Classification::PersistentWrite,
+        description: "Pair or unpair output couples. Null leaves that output couple unchanged.",
+        properties: &[
+            p!("xlr12_linked", Kind::NullableBoolean),
+            p!("out34_linked", Kind::NullableBoolean),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "set_general_integer",
         rpc: "device.setGeneralInteger",
         classification: Classification::PersistentWrite,
@@ -947,6 +1013,14 @@ fn schema_for(kind: Kind) -> Value {
         Kind::NullableString => json!({"type":["string","null"]}),
         Kind::NullableInteger { min, max } => {
             let mut s = json!({"type":["integer","null"],"minimum":min});
+            if let Some(max) = max {
+                s["maximum"] = json!(max);
+            }
+            s
+        }
+        Kind::NullableBoolean => json!({"type":["boolean","null"]}),
+        Kind::NullableNumber { min, max } => {
+            let mut s = json!({"type":["number","null"],"minimum":min});
             if let Some(max) = max {
                 s["maximum"] = json!(max);
             }

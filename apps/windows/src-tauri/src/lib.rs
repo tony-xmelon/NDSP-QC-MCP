@@ -1051,6 +1051,76 @@ async fn general_settings(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn io_settings(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::IO_SETTINGS).await
+}
+
+#[tauri::command]
+async fn set_input_port(
+    app: AppHandle,
+    input_port_id: u32,
+    level_db: Option<f64>,
+    impedance: Option<f64>,
+    input_type: Option<f64>,
+    ground_lift: Option<f64>,
+) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_INPUT_PORT, json!({
+        "inputPortId": input_port_id,
+        "levelDb": level_db,
+        "impedance": impedance,
+        "inputType": input_type,
+        "groundLift": ground_lift,
+    })).await
+}
+
+#[tauri::command]
+async fn set_output_port(
+    app: AppHandle,
+    output_port_id: u32,
+    level: Option<f64>,
+    ground_lift: Option<f64>,
+    mute: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_OUTPUT_PORT, json!({
+        "outputPortId": output_port_id,
+        "level": level,
+        "groundLift": ground_lift,
+        "mute": mute,
+    })).await
+}
+
+#[tauri::command]
+async fn set_usb_port(
+    app: AppHandle,
+    level: Option<f64>,
+    headphones_source: Option<f64>,
+    dry_wet: Option<f64>,
+) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_USB_PORT, json!({
+        "level": level,
+        "headphonesSource": headphones_source,
+        "dryWet": dry_wet,
+    })).await
+}
+
+#[tauri::command]
+async fn set_midi_thru(app: AppHandle, enabled: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_MIDI_THRU, json!({ "enabled": enabled })).await
+}
+
+#[tauri::command]
+async fn set_output_pairing(
+    app: AppHandle,
+    xlr12_linked: Option<bool>,
+    out34_linked: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_OUTPUT_PAIRING, json!({
+        "xlr12Linked": xlr12_linked,
+        "out34Linked": out34_linked,
+    })).await
+}
+
+#[tauri::command]
 async fn set_general_integer(app: AppHandle, setting: String, value: i32) -> Result<Value, String> {
     background_gateway_request_params(
         app,
@@ -2458,6 +2528,12 @@ pub fn run() {
             inhibited_modules,
             tuner_settings,
             general_settings,
+            io_settings,
+            set_input_port,
+            set_output_port,
+            set_usb_port,
+            set_midi_thru,
+            set_output_pairing,
             set_general_integer,
             set_general_toggle,
             set_scene_bypass_behavior,

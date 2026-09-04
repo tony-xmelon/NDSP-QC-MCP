@@ -52,6 +52,7 @@ class GeneralSettings(TypedDict):
 class InputPortSettings(TypedDict):
     inputPortId: int
     level: NotRequired[float]
+    levelDb: NotRequired[float]
     impedance: NotRequired[float]
     inputType: NotRequired[float]
     groundLift: NotRequired[float]

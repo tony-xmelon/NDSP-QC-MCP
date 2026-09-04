@@ -1257,6 +1257,17 @@ fn optional_boolean(params: &Value, field: &str) -> Result<Option<bool>, String>
     }
 }
 
+fn optional_input_gain(params: &Value, field: &str) -> Result<Option<f32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_f64()
+            .filter(|value| (-12.0..=60.0).contains(value))
+            .map(|value| Some(((value + 12.0) / 72.0) as f32))
+            .ok_or_else(|| format!("{field} must be an input gain from -12 through +60 dB")),
+    }
+}
+
 fn midi_out_messages(params: &Value) -> Result<Vec<MidiOutMessage>, String> {
     let values = params
         .get("messages")
@@ -1378,7 +1389,7 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             if input_port_id == 0 {
                 return Err("inputPortId must identify a real input port (1 through 14)".into());
             }
-            let level = optional_normalized(params, "level")?;
+            let level = optional_input_gain(params, "levelDb")?;
             let impedance = optional_normalized(params, "impedance")?;
             let input_type = optional_normalized(params, "inputType")?;
             let ground_lift = optional_normalized(params, "groundLift")?;

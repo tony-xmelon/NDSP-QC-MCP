@@ -2445,6 +2445,294 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "get_io_settings",
+    "rpc": "device.ioSettings",
+    "classification": "read",
+    "description": "Read complete input, output, headphone, USB, MIDI, expression-pedal, connection, and output-pairing settings.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_input_port",
+    "rpc": "device.setInputPort",
+    "classification": "persistent-write",
+    "description": "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB.",
+    "properties": {
+      "input_port_id": "io-input-port",
+      "level_db": "nullable-input-gain",
+      "impedance": "nullable-normalized",
+      "input_type": "nullable-normalized",
+      "ground_lift": "nullable-normalized",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "input_port_id",
+      "level_db",
+      "impedance",
+      "input_type",
+      "ground_lift",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "input_port_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 14
+        },
+        "level_db": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -12,
+          "maximum": 60
+        },
+        "impedance": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "input_type": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ground_lift": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input_port_id",
+        "level_db",
+        "impedance",
+        "input_type",
+        "ground_lift",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_output_port",
+    "rpc": "device.setOutputPort",
+    "classification": "persistent-write",
+    "description": "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update.",
+    "properties": {
+      "output_port_id": "io-output-port",
+      "level": "nullable-normalized",
+      "ground_lift": "nullable-normalized",
+      "mute": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "output_port_id",
+      "level",
+      "ground_lift",
+      "mute",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "output_port_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 22
+        },
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ground_lift": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mute": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "output_port_id",
+        "level",
+        "ground_lift",
+        "mute",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_usb_port",
+    "rpc": "device.setUsbPort",
+    "classification": "persistent-write",
+    "description": "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates.",
+    "properties": {
+      "level": "nullable-normalized",
+      "headphones_source": "nullable-normalized",
+      "dry_wet": "nullable-normalized",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "level",
+      "headphones_source",
+      "dry_wet",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "headphones_source": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dry_wet": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "level",
+        "headphones_source",
+        "dry_wet",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_midi_thru",
+    "rpc": "device.setMidiThru",
+    "classification": "persistent-write",
+    "description": "Enable or disable the QC MIDI Thru setting after explicit confirmation.",
+    "properties": {
+      "enabled": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "enabled",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_output_pairing",
+    "rpc": "device.setOutputPairing",
+    "classification": "persistent-write",
+    "description": "Pair or unpair output couples. Null leaves that output couple unchanged.",
+    "properties": {
+      "xlr12_linked": "nullable-boolean",
+      "out34_linked": "nullable-boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "xlr12_linked",
+      "out34_linked",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "xlr12_linked": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "out34_linked": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "xlr12_linked",
+        "out34_linked",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "set_general_integer",
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

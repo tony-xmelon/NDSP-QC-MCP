@@ -139,6 +139,56 @@ class QcTools:
         """Read global Quad Cortex Device Settings."""
         return self._request("get_general_settings")
 
+    def get_io_settings(self) -> Any:
+        """Read all Quad Cortex input, output, USB, MIDI and expression-port settings."""
+        return self._request("get_io_settings")
+
+    def set_input_port(self, input_port_id: int, level_db: float | None,
+                       impedance: float | None, input_type: float | None,
+                       ground_lift: float | None, confirm_persistent_write: bool) -> Any:
+        """Sparsely update one input port after explicit confirmation."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing I/O settings requires confirm_persistent_write=true.")
+        return self._request("set_input_port", {
+            "inputPortId": input_port_id, "levelDb": level_db,
+            "impedance": impedance, "inputType": input_type, "groundLift": ground_lift,
+        })
+
+    def set_output_port(self, output_port_id: int, level: float | None,
+                        ground_lift: float | None, mute: bool | None,
+                        confirm_persistent_write: bool) -> Any:
+        """Sparsely update one output port after explicit confirmation."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing I/O settings requires confirm_persistent_write=true.")
+        return self._request("set_output_port", {
+            "outputPortId": output_port_id, "level": level,
+            "groundLift": ground_lift, "mute": mute,
+        })
+
+    def set_usb_port(self, level: float | None, headphones_source: float | None,
+                     dry_wet: float | None, confirm_persistent_write: bool) -> Any:
+        """Sparsely update USB audio settings after explicit confirmation."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing I/O settings requires confirm_persistent_write=true.")
+        return self._request("set_usb_port", {
+            "level": level, "headphonesSource": headphones_source, "dryWet": dry_wet,
+        })
+
+    def set_midi_thru(self, enabled: bool, confirm_persistent_write: bool) -> Any:
+        """Set MIDI Thru after explicit confirmation."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing I/O settings requires confirm_persistent_write=true.")
+        return self._request("set_midi_thru", {"enabled": enabled})
+
+    def set_output_pairing(self, xlr12_linked: bool | None, out34_linked: bool | None,
+                           confirm_persistent_write: bool) -> Any:
+        """Pair or unpair output couples after explicit confirmation."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing I/O settings requires confirm_persistent_write=true.")
+        return self._request("set_output_pairing", {
+            "xlr12Linked": xlr12_linked, "out34Linked": out34_linked,
+        })
+
     def set_general_integer(self, setting: str, value: int, confirm_persistent_write: bool) -> Any:
         """Set one validated integer Device Setting."""
         if confirm_persistent_write is not True:

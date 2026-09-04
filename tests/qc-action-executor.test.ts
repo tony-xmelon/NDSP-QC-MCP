@@ -157,6 +157,35 @@ test("general settings actions share one confirmed app execution path", async ()
   }, context), /explicit user confirmation/);
 });
 
+test("I/O settings actions preserve sparse nulls through one confirmed app path", async () => {
+  const calls: unknown[][] = [];
+  const state = { inputs: [{ inputPortId: 1, level: .5, levelDb: 24 }], outputs: [], expressions: [] };
+  const gateway = {
+    ioSettings: async () => state,
+    setInputPort: async (...args: unknown[]) => { calls.push(["input", ...args]); return { detail: "sent" }; },
+    setOutputPort: async (...args: unknown[]) => { calls.push(["output", ...args]); return { detail: "sent" }; },
+    setUsbPort: async (...args: unknown[]) => { calls.push(["usb", ...args]); return { detail: "sent" }; },
+    setMidiThru: async (...args: unknown[]) => { calls.push(["midi", ...args]); return { detail: "sent" }; },
+    setOutputPairing: async (...args: unknown[]) => { calls.push(["pairing", ...args]); return { detail: "sent" }; }
+  } as unknown as GatewayTransport;
+  const context = { gateway, snapshot: demoSnapshot, connected: true };
+  const read = await executeQcAction({ name: "get_io_settings", arguments: {} }, context);
+  assert.equal(read.data, state);
+  const confirmed = { confirm_persistent_write: true };
+  await executeQcAction({ name: "set_input_port", arguments: { input_port_id: 1, level_db: 12, impedance: null, input_type: 1, ground_lift: null, ...confirmed } }, context);
+  await executeQcAction({ name: "set_output_port", arguments: { output_port_id: 4, level: null, ground_lift: null, mute: false, ...confirmed } }, context);
+  await executeQcAction({ name: "set_usb_port", arguments: { level: .25, headphones_source: null, dry_wet: 1, ...confirmed } }, context);
+  await executeQcAction({ name: "set_midi_thru", arguments: { enabled: true, ...confirmed } }, context);
+  await executeQcAction({ name: "set_output_pairing", arguments: { xlr12_linked: true, out34_linked: null, ...confirmed } }, context);
+  assert.deepEqual(calls, [
+    ["input", 1, 12, null, 1, null],
+    ["output", 4, null, null, false],
+    ["usb", .25, null, 1],
+    ["midi", true],
+    ["pairing", true, null]
+  ]);
+});
+
 test("device-global actions do not require an unrelated preset guard", async () => {
   const calls: string[] = [];
   const gateway = {

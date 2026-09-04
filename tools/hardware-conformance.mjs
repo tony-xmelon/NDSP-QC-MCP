@@ -367,6 +367,7 @@ async function main() {
   let parameter;
   let originalMasterVolume;
   let originalGeneralSettings;
+  let originalIoSettings;
   let transportStarted = false;
   let deviceAuthorized = false;
   let firstScreenTapSent = false;
@@ -431,6 +432,16 @@ async function main() {
       value = await transport.call("get_general_settings", {});
       if (predicate(value)) return value;
       await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForIoSettings = async (predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_io_settings", {});
+      if (predicate(value)) return value;
+      await sleep(1000);
     } while (Date.now() < deadline);
     return value;
   };
@@ -524,6 +535,10 @@ async function main() {
     originalGeneralSettings = await call("get_general_settings", {}, (value) => assert(
       Number.isInteger(value.sceneBypassBehavior === "alwaysOverwrite" ? 0 : value.sceneBypassBehavior === "nonstompOverwrite" ? 1 : value.sceneBypassBehavior === "neverOverwrite" ? 2 : NaN),
       "General settings did not include a valid scene bypass behavior."
+    ));
+    originalIoSettings = await call("get_io_settings", {}, (value) => assert(
+      Array.isArray(value.inputs) && value.inputs.length > 0 && Array.isArray(value.outputs),
+      "I/O settings did not include input and output port arrays."
     ));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
@@ -858,6 +873,68 @@ async function main() {
       assert(settings.globalBypassCab?.row1 === testCab[0], "Global Cab bypass did not read back.");
       await transport.call("set_global_bypass", { cab, ir, confirm_persistent_write: true });
 
+      const input = originalIoSettings.inputs.find((port) => Number.isFinite(port.levelDb));
+      assert(input, "A restorable input gain is required for I/O conformance.");
+      const testInputDb = input.levelDb > 58 ? input.levelDb - 1 : input.levelDb + 1;
+      await call("set_input_port", {
+        input_port_id: input.inputPortId, level_db: testInputDb,
+        impedance: null, input_type: null, ground_lift: null,
+        confirm_persistent_write: true
+      });
+      let io = await waitForIoSettings((value) => value.inputs?.some(
+        (port) => port.inputPortId === input.inputPortId && Math.abs(port.levelDb - testInputDb) < .002));
+      assert(io.inputs.some((port) => port.inputPortId === input.inputPortId && Math.abs(port.levelDb - testInputDb) < .002), "Input gain did not read back.");
+      await transport.call("set_input_port", {
+        input_port_id: input.inputPortId, level_db: input.levelDb,
+        impedance: null, input_type: null, ground_lift: null,
+        confirm_persistent_write: true
+      });
+
+      const output = originalIoSettings.outputs.find((port) => typeof port.muted === "boolean");
+      assert(output, "A restorable output mute is required for I/O conformance.");
+      await call("set_output_port", {
+        output_port_id: output.outputPortId, level: null, ground_lift: null,
+        mute: !output.muted, confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => value.outputs?.some(
+        (port) => port.outputPortId === output.outputPortId && port.muted === !output.muted));
+      assert(io.outputs.some((port) => port.outputPortId === output.outputPortId && port.muted === !output.muted), "Output mute did not read back.");
+      await transport.call("set_output_port", {
+        output_port_id: output.outputPortId, level: null, ground_lift: null,
+        mute: output.muted, confirm_persistent_write: true
+      });
+
+      assert(Number.isFinite(originalIoSettings.usb?.level), "A restorable USB level is required for I/O conformance.");
+      const testUsbLevel = originalIoSettings.usb.level > .98 ? .97 : originalIoSettings.usb.level + .01;
+      await call("set_usb_port", {
+        level: testUsbLevel, headphones_source: null, dry_wet: null,
+        confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => Math.abs(value.usb?.level - testUsbLevel) < .002);
+      assert(Math.abs(io.usb?.level - testUsbLevel) < .002, "USB level did not read back.");
+      await transport.call("set_usb_port", {
+        level: originalIoSettings.usb.level, headphones_source: null, dry_wet: null,
+        confirm_persistent_write: true
+      });
+
+      const originalMidiThru = Number(originalIoSettings.midi?.thru) >= .5;
+      await call("set_midi_thru", { enabled: !originalMidiThru, confirm_persistent_write: true });
+      io = await waitForIoSettings((value) => (Number(value.midi?.thru) >= .5) === !originalMidiThru);
+      assert((Number(io.midi?.thru) >= .5) === !originalMidiThru, "MIDI Thru did not read back.");
+      await transport.call("set_midi_thru", { enabled: originalMidiThru, confirm_persistent_write: true });
+
+      assert(typeof originalIoSettings.xlr12Linked === "boolean", "A restorable output-pairing value is required.");
+      await call("set_output_pairing", {
+        xlr12_linked: !originalIoSettings.xlr12Linked, out34_linked: null,
+        confirm_persistent_write: true
+      });
+      io = await waitForIoSettings((value) => value.xlr12Linked === !originalIoSettings.xlr12Linked);
+      assert(io.xlr12Linked === !originalIoSettings.xlr12Linked, "Output pairing did not read back.");
+      await transport.call("set_output_pairing", {
+        xlr12_linked: originalIoSettings.xlr12Linked, out34_linked: null,
+        confirm_persistent_write: true
+      });
+
       const nameA = uniqueName(config.persistent.namePrefix, "A");
       const nameRenamed = uniqueName(config.persistent.namePrefix, "R");
       report.disposableSlotsModified = [config.persistent.slotA, config.persistent.slotB];
@@ -954,6 +1031,39 @@ async function main() {
           if (settings.globalBypassCab && settings.globalBypassIr) {
             const rows = (value) => [value.row1, value.row2, value.row3, value.row4];
             await transport.call("set_global_bypass", { cab: rows(settings.globalBypassCab), ir: rows(settings.globalBypassIr), confirm_persistent_write: true });
+          }
+        });
+      }
+      if (enabledHazards.has("persistent") && originalIoSettings) {
+        await restoreAttempt("io-settings", async () => {
+          for (const input of originalIoSettings.inputs ?? []) {
+            if (!Number.isFinite(input.levelDb)) continue;
+            await transport.call("set_input_port", {
+              input_port_id: input.inputPortId, level_db: input.levelDb,
+              impedance: null, input_type: null, ground_lift: null,
+              confirm_persistent_write: true
+            });
+          }
+          for (const output of originalIoSettings.outputs ?? []) {
+            if (typeof output.muted !== "boolean") continue;
+            await transport.call("set_output_port", {
+              output_port_id: output.outputPortId, level: null, ground_lift: null,
+              mute: output.muted, confirm_persistent_write: true
+            });
+          }
+          if (Number.isFinite(originalIoSettings.usb?.level)) await transport.call("set_usb_port", {
+            level: originalIoSettings.usb.level, headphones_source: null, dry_wet: null,
+            confirm_persistent_write: true
+          });
+          if (originalIoSettings.midi?.thru !== undefined) await transport.call("set_midi_thru", {
+            enabled: Number(originalIoSettings.midi.thru) >= .5, confirm_persistent_write: true
+          });
+          if (typeof originalIoSettings.xlr12Linked === "boolean" || typeof originalIoSettings.out34Linked === "boolean") {
+            await transport.call("set_output_pairing", {
+              xlr12_linked: originalIoSettings.xlr12Linked ?? null,
+              out34_linked: originalIoSettings.out34Linked ?? null,
+              confirm_persistent_write: true
+            });
           }
         });
       }

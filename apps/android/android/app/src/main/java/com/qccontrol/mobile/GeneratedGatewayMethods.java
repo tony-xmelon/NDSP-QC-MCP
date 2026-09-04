@@ -20,6 +20,12 @@ final class GeneratedGatewayMethods {
         "device.inhibitedModules",
         "device.tunerSettings",
         "device.generalSettings",
+        "device.ioSettings",
+        "device.setInputPort",
+        "device.setOutputPort",
+        "device.setUsbPort",
+        "device.setMidiThru",
+        "device.setOutputPairing",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -96,6 +102,12 @@ final class GeneratedGatewayMethods {
             case "device.inhibitedModules": return "CORRELATED_READ";
             case "device.tunerSettings": return "CORRELATED_READ";
             case "device.generalSettings": return "CORRELATED_READ";
+            case "device.ioSettings": return "CORRELATED_READ";
+            case "device.setInputPort": return "PLANNED_WRITE";
+            case "device.setOutputPort": return "PLANNED_WRITE";
+            case "device.setUsbPort": return "PLANNED_WRITE";
+            case "device.setMidiThru": return "PLANNED_WRITE";
+            case "device.setOutputPairing": return "PLANNED_WRITE";
             case "device.setGeneralInteger": return "PLANNED_WRITE";
             case "device.setGeneralToggle": return "PLANNED_WRITE";
             case "device.setSceneBypassBehavior": return "PLANNED_WRITE";

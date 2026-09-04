@@ -8,6 +8,11 @@ const { gridRows, gridColumns, scenes, minimumTempoBpm, maximumTempoBpm } = doma
 const schemaType = (kind) => {
   if (kind === "nullable-string") return { type: ["string", "null"] };
   if (kind === "nullable-integer") return { type: ["integer", "null"] };
+  if (kind === "nullable-boolean") return { type: ["boolean", "null"] };
+  if (kind === "nullable-normalized") return { type: ["number", "null"], minimum: 0, maximum: 1 };
+  if (kind === "nullable-input-gain") return { type: ["number", "null"], minimum: -12, maximum: 60 };
+  if (kind === "io-input-port") return { type: "integer", minimum: 1, maximum: 14 };
+  if (kind === "io-output-port") return { type: "integer", minimum: 1, maximum: 22 };
   if (kind === "grid-row") return { type: "integer", minimum: 0, maximum: gridRows - 1 };
   if (kind === "grid-column") return { type: "integer", minimum: 0, maximum: gridColumns - 1 };
   if (kind === "parameter-column") return { type: "integer", minimum: 0, maximum: gridColumns + 1 };

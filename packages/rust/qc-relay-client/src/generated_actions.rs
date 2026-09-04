@@ -62,6 +62,12 @@ const ALLOWED: &[&str] = &[
     "device.renameCurrentPreset",
     "device.copyPreset",
     "device.generalSettings",
+    "device.ioSettings",
+    "device.setInputPort",
+    "device.setOutputPort",
+    "device.setUsbPort",
+    "device.setMidiThru",
+    "device.setOutputPairing",
     "device.setGeneralInteger",
     "device.setGeneralToggle",
     "device.setSceneBypassBehavior",
@@ -87,6 +93,7 @@ const READ_ONLY: &[&str] = &[
     "device.presetScreenshot",
     "device.captureScreen",
     "device.generalSettings",
+    "device.ioSettings",
 ];
 
 const PERFORMANCE: &[&str] = &[

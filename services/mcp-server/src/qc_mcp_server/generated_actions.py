@@ -366,6 +366,42 @@ SHARED_QC_ACTIONS = {
     "access": "read-only",
     "description": "Read the QC Device Settings and System settings without changing them."
   },
+  "get_io_settings": {
+    "rpc": "device.ioSettings",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read complete input, output, headphone, USB, MIDI, expression-pedal, connection, and output-pairing settings."
+  },
+  "set_input_port": {
+    "rpc": "device.setInputPort",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change one or more settings for a QC input. Each supplied field is sent in its own hardware update; input gain is expressed safely in dB."
+  },
+  "set_output_port": {
+    "rpc": "device.setOutputPort",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change level, ground lift, or mute for one QC output. Every supplied field is sent in a separate hardware update."
+  },
+  "set_usb_port": {
+    "rpc": "device.setUsbPort",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change USB level, headphone source, or dry/wet routing using normalized device values and separate hardware updates."
+  },
+  "set_midi_thru": {
+    "rpc": "device.setMidiThru",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Enable or disable the QC MIDI Thru setting after explicit confirmation."
+  },
+  "set_output_pairing": {
+    "rpc": "device.setOutputPairing",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Pair or unpair output couples. Null leaves that output couple unchanged."
+  },
   "set_general_integer": {
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

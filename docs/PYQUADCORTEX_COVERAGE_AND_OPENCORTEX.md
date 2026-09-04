@@ -62,12 +62,12 @@ methods one-for-one.
 
 ### Contracted command surface: 100%
 
-The version-10 product contract is now fully aligned: all 66 device actions are
+The version-11 product contract is now fully aligned: all 72 device actions are
 available to the shared Windows and Android application layer, the Rust MCP
 server, and the native Rust gateway. The generated Python MCP schema follows the
 same public action contract, and the Python compatibility gateway now implements
 every contracted device RPC as well. Including `system.status`, both native hosts
-expose all 67 gateway RPC methods. Generation and parity tests fail
+expose all 73 gateway RPC methods. Generation and parity tests fail
 when a contract action or RPC is absent from any of those layers.
 
 This 100% figure describes the deliberately supported product command surface.
@@ -80,6 +80,7 @@ implemented until their Rust wire format and hardware readback are verified.
 |---|---|
 | Session/framing, live preset state, model catalogue, blocks, bypass, parameters, routing, footswitch assignment, preset recall/save/copy, master volume, tempo, tuner/Gig View visibility, screen capture/tap, backup | Implemented |
 | Physical I/O connection state | Implemented by decoding the already-requested `IOSettings` message; projected to the shared snapshot and clients |
+| Full I/O settings and writes | Native Rust reads every sparse input, output, headphone, USB, MIDI, expression-pedal and pairing field. Input gain uses the measured -12..+60 dB scale; selector and uncalibrated level fields remain normalized. Sparse updates emit one field per hardware message because the QC drops some coalesced fields. Every write is persistent-confirmed and covered by eventual-consistency readback/restoration in physical conformance. |
 | Scene copy/swap, labels and colours | Implemented in this audit with typed commands, shared validation, state-based label/colour verification, RPC and generated Windows/Android bindings |
 | Parameter scene mode and expression assignment | Native sparse Rust reads and writes cover placed blocks plus splitter and mixer parameters, with correct container keying, validation, RPC and generated Windows/Android bindings |
 | Input Gate and Lane Output parameters | Native Rust explicitly projects the per-row `input_control` model 28000 and `output_control` model 23000, and exposes guarded read, low-latency preview, verified value write, and scene-mode write paths without pretending these controls occupy Grid columns |
@@ -89,7 +90,7 @@ implemented until their Rust wire format and hardware readback are verified.
 | General device settings | Native Rust now reads the complete sparse `GeneralSettings` reply and safely writes the hardware-verified brightness, hold timing, MIDI, dimming, access, lock, delay-compensation and scene-bypass fields. Whole-value Master Volume assignments and Cab/IR global-bypass rows are typed and atomic so partial submessage writes cannot clear unrelated flags. Power, reboot and Wi-Fi-reset commands are deliberately absent. |
 | STOMP labels and momentary mode | Native sparse Rust writes and preset readback are implemented. The public planner automatically chooses the QC's single/multi-label map and refuses momentary changes unless exactly one block is assigned, matching the device's silent hardware restriction |
 | Preset MIDI Out | Implemented in native Rust for all ten A-H/EXP sources and preset-load messages, including the hardware's MIDISettings wire route, 12-message replacement semantics, typed snapshots, readback verification, Windows/Android bindings, chat/MCP actions and physical conformance cases |
-| Full I/O writes, Global EQ, mode-cycle settings | Protocol is hardware-verified upstream; native Rust read/write projections remain to be added. Tuner writes remain deliberately unexposed because any host tuner-setting write invisibly engages the tuner and can silence outputs, while only a physical open/close can disengage it without changing preferences |
+| Global EQ and mode-cycle settings | Protocol is hardware-verified upstream; native Rust read/write projections remain to be added. Tuner writes remain deliberately unexposed because any host tuner-setting write invisibly engages the tuner and can silence outputs, while only a physical open/close can disengage it without changing preferences |
 | Favourites/recents, pinned models, captures and IR browsing/loading, setlist create/delete/duplicate and preset delete/move | Library operations remain to be added to the native Rust public contract |
 | Capture creation, imports, cloud/account operations, calibration, native bulk copy and firmware operations | Not parity targets: upstream marks these partial, unsupported, unexplored or unsafe |
 

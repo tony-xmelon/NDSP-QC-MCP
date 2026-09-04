@@ -53,6 +53,7 @@ export interface GeneralSettings {
 export interface InputPortSettings {
   inputPortId: number;
   level?: number;
+  levelDb?: number;
   impedance?: number;
   inputType?: number;
   groundLift?: number;

@@ -1,5 +1,5 @@
 import { QC_SCENE_COLORS } from "./generated-domain.ts";
-import type { BlockDetails, DeviceActionResult, GeneralSettings, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
+import type { BlockDetails, DeviceActionResult, GeneralSettings, IoSettings, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
 export * from "./generated-domain.ts";
 export * from "./generated-gateway-methods.ts";
 export * from "./generated-payloads.ts";
@@ -264,6 +264,12 @@ export interface GatewayTransport {
   inhibitedModules(): Promise<InhibitedModules>;
   tunerSettings(): Promise<TunerSettings>;
   generalSettings(): Promise<GeneralSettings>;
+  ioSettings(): Promise<IoSettings>;
+  setInputPort(inputPortId: number, levelDb: number | null, impedance: number | null, inputType: number | null, groundLift: number | null): Promise<DeviceActionResult>;
+  setOutputPort(outputPortId: number, level: number | null, groundLift: number | null, mute: boolean | null): Promise<DeviceActionResult>;
+  setUsbPort(level: number | null, headphonesSource: number | null, dryWet: number | null): Promise<DeviceActionResult>;
+  setMidiThru(enabled: boolean): Promise<DeviceActionResult>;
+  setOutputPairing(xlr12Linked: boolean | null, out34Linked: boolean | null): Promise<DeviceActionResult>;
   setGeneralInteger(setting: "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" | "holdTiming" | "midiChannel", value: number): Promise<DeviceActionResult>;
   setGeneralToggle(setting: "midiOverUsb" | "ignoreDuplicatePc" | "stompModeAutoAssign" | "swapTempoTunerAccess" | "disableInternetConnectionCheck" | "dynamicDelayCompensation" | "presetDimmed" | "midiClockIn" | "gigViewStompAccess", enabled: boolean): Promise<DeviceActionResult>;
   setSceneBypassBehavior(behavior: "alwaysOverwrite" | "nonstompOverwrite" | "neverOverwrite"): Promise<DeviceActionResult>;
