@@ -44,7 +44,7 @@ try {
     Invoke-Checked "Gateway surface coverage" { npm run gateway:coverage }
 
     foreach ($manifest in $rustManifests) {
-        Invoke-Checked "Rust tests: $manifest" { cargo test --manifest-path $manifest }
+        Invoke-Checked "Rust tests: $manifest" { cargo test --locked --manifest-path $manifest }
     }
 
     Invoke-Checked "Windows native shell check" {
@@ -53,7 +53,7 @@ try {
             # Compile the full shell without requiring release-only sidecars to
             # have been downloaded and staged by build-windows-installer.ps1.
             $env:TAURI_CONFIG = '{"bundle":{"externalBin":[]}}'
-            cargo check --manifest-path "apps/windows/src-tauri/Cargo.toml"
+            cargo check --locked --manifest-path "apps/windows/src-tauri/Cargo.toml"
         }
         finally {
             $env:TAURI_CONFIG = $previousTauriConfig

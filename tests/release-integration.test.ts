@@ -48,7 +48,9 @@ test("software parity compile-checks the Windows shell without release sidecars"
   const parity = script("verify-software-parity.ps1");
   assert.match(parity, /Windows native shell check/);
   assert.match(parity, /TAURI_CONFIG = '\{"bundle":\{"externalBin":\[\]\}\}'/);
-  assert.match(parity, /cargo check --manifest-path "apps\/windows\/src-tauri\/Cargo\.toml"/);
+  assert.match(parity, /cargo check --locked --manifest-path "apps\/windows\/src-tauri\/Cargo\.toml"/);
+  assert.match(parity, /cargo test --locked --manifest-path \$manifest/);
+  assert.match(readFileSync(new URL("../packages/rust/qc-windows-midi/Cargo.lock", import.meta.url), "utf8"), /name = "qc-windows-midi"/);
 });
 
 test("Android package, Gradle, and lockfile share one release version", () => {
