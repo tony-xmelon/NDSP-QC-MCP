@@ -1,5 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
+const androidPort = process.env.QC_ANDROID_TEST_PORT ?? "4173";
+const windowsPort = process.env.QC_WINDOWS_TEST_PORT ?? "1420";
+
 export default defineConfig({
   testDir: "./tests",
   testMatch: "ui-conformance.spec.ts",
@@ -16,14 +19,14 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run dev --workspace @ndsp-qc/android -- --host 127.0.0.1 --port 4173",
-      url: "http://127.0.0.1:4173",
-      reuseExistingServer: !process.env.CI
+      command: `npm run dev --workspace @ndsp-qc/android -- --host 127.0.0.1 --port ${androidPort}`,
+      url: `http://127.0.0.1:${androidPort}`,
+      reuseExistingServer: false
     },
     {
-      command: "npm run dev --workspace @ndsp-qc/windows",
-      url: "http://127.0.0.1:1420",
-      reuseExistingServer: !process.env.CI
+      command: `npm run dev --workspace @ndsp-qc/windows -- --port ${windowsPort}`,
+      url: `http://127.0.0.1:${windowsPort}`,
+      reuseExistingServer: false
     }
   ]
 });

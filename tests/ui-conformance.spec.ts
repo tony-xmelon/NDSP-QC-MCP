@@ -1,12 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+const androidUrl = `http://127.0.0.1:${process.env.QC_ANDROID_TEST_PORT ?? "4173"}`;
+const windowsUrl = `http://127.0.0.1:${process.env.QC_WINDOWS_TEST_PORT ?? "1420"}`;
 const surfaces = [
-  { name: "Android portrait", url: "http://127.0.0.1:4173", width: 393, height: 851, touchTargets: true, sceneControl: "Footswitch C" },
-  { name: "Android compact portrait", url: "http://127.0.0.1:4173", width: 360, height: 640, touchTargets: true, sceneControl: "Footswitch C" },
-  { name: "Android landscape", url: "http://127.0.0.1:4173", width: 800, height: 480, touchTargets: true, sceneControl: "Footswitch C" },
-  { name: "Windows minimum", url: "http://127.0.0.1:1420", width: 920, height: 720, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" },
-  { name: "Windows standard", url: "http://127.0.0.1:1420", width: 1280, height: 800, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" }
+  { name: "Android portrait", url: androidUrl, width: 393, height: 851, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Android compact portrait", url: androidUrl, width: 360, height: 640, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Android landscape", url: androidUrl, width: 800, height: 480, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Windows minimum", url: windowsUrl, width: 920, height: 720, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" },
+  { name: "Windows standard", url: windowsUrl, width: 1280, height: 800, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" }
 ] as const;
 
 async function viewportMetrics(page: Page) {
@@ -111,4 +113,15 @@ for (const surface of surfaces) {
     await bypass.click();
     await expect(bypass).toHaveAttribute("aria-pressed", initial ?? "false");
   });
+
+  test(`${surface.name} switches device mode through the shared screen menu`, async ({ page }) => {
+    await page.setViewportSize({ width: surface.width, height: surface.height });
+    await page.goto(surface.url);
+    const mode = page.getByRole("button", { name: /^Open mode menu; current mode/ });
+    await expect(mode).toBeVisible();
+    await mode.click();
+    await page.getByRole("menuitem", { name: "SCENE", exact: true }).click();
+    await expect(mode).toHaveAttribute("aria-label", "Open mode menu; current mode SCENE");
+  });
+
 }
