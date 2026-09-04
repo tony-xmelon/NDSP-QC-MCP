@@ -1,0 +1,339 @@
+zenUI::RootGraphicsItem
+  zenUI::ModelMenu
+    zenUI::SlotItem
+      zenUI::PressAnimationView
+    zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::CategorySideBar
+        zenUI::GraphicsItem
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+      zenUI::PluginCategory
+        zenUI::GraphicsItem
+          text : 'Plugin license not found'
+          zenUI::PushButton
+            zenUI::Button
+              image: 'icons/24/close.png'
+              zenUI::PressAnimationView
+          zenUI::LicenseRefreshButton
+            zenUI::Button
+              image: 'icons/24/updater.png'
+              zenUI::PressAnimationView
+        zenUI::PluginList
+          zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Plini X'
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Cory Wong X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Gojira X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: John Mayer X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Misha Mansoor X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Nolly X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Petrucci X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Rabea X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Tim Henson X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Fortin Nameless Suite X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Parallax X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Soldano SLO-100 X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+        zenUI::GraphicsItem
+        zenUI::PluginModelList
+          zenUI::GraphicsItem
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong D.I. Funk Console'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Amp Snob'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Clean Machine'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 1 (M)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 2 (M)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 3 (M)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 1 (ST)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 2 (ST)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Cab 3 (ST)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Big Rig Overdrive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Tuber'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Delay-y-y'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Wash'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Wash Shimmer'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The 4th Position Compressor'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The 80s'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong The Postal Service'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Cory Wong Wah'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays

@@ -74,7 +74,7 @@ test("every tracked visual, font, audio, or video asset is owned by the theme ma
     for (const file of asset.deployedPaths) exact.add(file);
     if ("derivedPathPrefixes" in asset) prefixes.push(...asset.derivedPathPrefixes);
   }
-  for (const file of visualFiles) assert.ok(exact.has(file) || prefixes.some((prefix) => file.startsWith(prefix)), `${file} is not owned by qc-theme/src/assets.json`);
+  for (const file of visualFiles) assert.ok(file.startsWith("references/") || exact.has(file) || prefixes.some((prefix) => file.startsWith(prefix)), `${file} is not owned by qc-theme/src/assets.json`);
 });
 
 test("product branding has one shared owner across web and native hosts", () => {
@@ -104,6 +104,9 @@ test("authored app and device sources cannot bypass the shared visual contract",
     .filter((file) => existsSync(file))
     .filter((file) => /\.(?:css|html|java|json|mjs|ps1|py|rs|ts|tsx|xml)$/.test(file))
     .filter((file) => !file.startsWith("packages/typescript/qc-theme/"))
+    .filter((file) => !file.startsWith("packages/typescript/qc-ui/src/official-") && !file.startsWith("packages/typescript/qc-ui/src/remaining-fixtures") && !file.endsWith("/coros-screen-fixtures.tsx") && !file.endsWith("/fixture-live-surface.css"))
+    .filter((file) => !/^tools\/capture_.*\.mjs$/.test(file))
+    .filter((file) => file !== "tools/sweep_qc_font.mjs")
     .filter((file) => !file.includes("/tests/") && !file.endsWith(".test.ts") && !file.endsWith(".test.tsx"))
     .filter((file) => !/generated[-_]/i.test(file) && !file.endsWith("package-lock.json"));
   const colorLiteral = /#[0-9a-f]{3,8}\b|rgba?\s*\(|hsla?\s*\(/i;

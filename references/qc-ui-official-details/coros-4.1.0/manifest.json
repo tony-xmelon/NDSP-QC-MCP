@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 1,
+  "corosVersion": "4.1.0",
+  "sourceType": "official-manual-detail",
+  "sourceUrl": "https://neuraldsp.com/manual/quad-cortex",
+  "fetchedAt": "2026-09-04T14:30:04.788792Z",
+  "assets": [
+    {
+      "id": "official-detail-power-on",
+      "label": "QC Power On 2",
+      "image": "official-detail-power-on.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6EDF85KkMbj0RcxLJOJBI7/265d301684d692486236dbee1cc113de/qc-power-on-2.svg",
+      "sha256": "51b9f3bf61c61ebb28b5b97ad4e46aa2ea2a0c123509964288de4492f8d99ab8",
+      "bytes": 21505,
+      "width": 1005,
+      "height": 244,
+      "viewBox": "0 0 1005 244",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "GL-01"
+      ]
+    },
+    {
+      "id": "official-detail-power-off",
+      "label": "QC Power Off",
+      "image": "official-detail-power-off.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/38jPRLiBm5BNCd6vxmT7JU/3b120635e8567791cda6f864d4b14212/qc-power-off.svg",
+      "sha256": "bbca083010e3e589589ae05e0e5eb435993d88973b961b26a5e56a233748f7a8",
+      "bytes": 1631,
+      "width": 1005,
+      "height": 157,
+      "viewBox": "0 0 1005 157",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "GL-02"
+      ]
+    },
+    {
+      "id": "official-detail-power-overlay",
+      "label": "Power Locking Overlay",
+      "image": "official-detail-power-overlay.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/ytRYEfn2dRs0fekRJIEGA/d8e03bd2ae0d17b09bb10447339269a4/power-locking-overlay.svg",
+      "sha256": "ed87df035e495757b25929764f4473588a55e497e12a8502a307ed82c1840b4e",
+      "bytes": 43205,
+      "width": 652,
+      "height": 93,
+      "viewBox": "0 0 652 93",
+      "evidenceScope": "overlay-fragment",
+      "states": [
+        "GL-03"
+      ]
+    },
+    {
+      "id": "official-detail-grid-scene-selector",
+      "label": "QC Grid Scene Selector",
+      "image": "official-detail-grid-scene-selector.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/2IeS3ifgJxtUYR04c5cGeg/0fc7149c51ef018fe074635ca43ffcf0/QC_Grid_Scene_Selector.svg",
+      "sha256": "433d0fe3e6e6df4ee8b83f6410f321a5b14245d01a900b9c13422f2d7c895d57",
+      "bytes": 90524,
+      "width": 800,
+      "height": 480,
+      "viewBox": "0 0 800 480",
+      "evidenceScope": "full-frame",
+      "states": [
+        "GL-07"
+      ]
+    },
+    {
+      "id": "official-detail-cpu-monitor-access",
+      "label": "QC CPU Mon Access",
+      "image": "official-detail-cpu-monitor-access.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5hPlQSuEdAPiXfOg8RTJf/6eed4328ee4550070e5ad8a6e85b5020/QC_CPU_Mon_Access.svg",
+      "sha256": "b0f0b3748c682b483e9bc9bcdf5476ef6f5c0a149c1303c9ec6f9d4d20d5cfba",
+      "bytes": 19876,
+      "width": 1005,
+      "height": 134,
+      "viewBox": "0 0 1005 134",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "GL-23"
+      ]
+    },
+    {
+      "id": "official-detail-io-settings-access",
+      "label": "QC IO Settings Access",
+      "image": "official-detail-io-settings-access.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/GF2kXuSgf5AVVKERJE78A/3f6f31d57cd696bf83f1b84c27f20092/qc-io-settings-access.svg",
+      "sha256": "abde31e0b8923326df87553e67615cf7f91b464659a336dfe46e1c8119a5b29c",
+      "bytes": 3763,
+      "width": 1005,
+      "height": 154,
+      "viewBox": "0 0 1005 154",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "IO-01"
+      ]
+    },
+    {
+      "id": "official-detail-parameter-editor-open",
+      "label": "QC Block Param Editor Action",
+      "image": "official-detail-parameter-editor-open.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/58D5RPbpmqXzm1z8ugm8hb/e6a1ac4c531d1ca698d3238bfb28d652/qc-block-param-editor-action.svg",
+      "sha256": "3be5f685f5772ba20bc2c2b044c97d172ff674d06efc2d615e8f7f0b49a5d2a6",
+      "bytes": 11150,
+      "width": 1005,
+      "height": 133,
+      "viewBox": "0 0 1005 133",
+      "evidenceScope": "interaction-sequence",
+      "states": [
+        "ED-02"
+      ]
+    },
+    {
+      "id": "official-detail-parameter-editor-cycle",
+      "label": "QC Param Editor Cycle",
+      "image": "official-detail-parameter-editor-cycle.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3YFzqrG6GPccSnKsXF5UhE/cc57c03edd456db6cd0832eca35cd78e/qc-param-editor-cycle.svg",
+      "sha256": "ccc7680840c9d971e1719d5ef871839315a6c69119261b3060e1a9dacef0fd81",
+      "bytes": 5031,
+      "width": 1005,
+      "height": 154,
+      "viewBox": "0 0 1005 154",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "ED-02"
+      ]
+    },
+    {
+      "id": "official-detail-parameter-editor-encoders",
+      "label": "QC Param Editor Encoders",
+      "image": "official-detail-parameter-editor-encoders.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5tDw3w1VFP9UUeJNn5nyUd/4482423a93737f9a947e193622e87447/qc-param-editor-encoders.svg",
+      "sha256": "eede8b340f64287b30e15b8ff0701f78e2ee4831a029ed8261b0d856f1c425b2",
+      "bytes": 8471,
+      "width": 1005,
+      "height": 160,
+      "viewBox": "0 0 1005 160",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "ED-02"
+      ]
+    },
+    {
+      "id": "official-detail-stomp-assignment",
+      "label": "QC Stomp Assignment 3",
+      "image": "official-detail-stomp-assignment.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/46SCbOEJ6Yui84jt4ZRoHc/5312fd1c174ea00b4e9ca44ddd7210ce/qc-stomp-assignment-3.svg",
+      "sha256": "4aa4eab43ce193c06604271a09f7706967b3120411c26f78f7013c3121c92cec",
+      "bytes": 5159,
+      "width": 652,
+      "height": 56,
+      "viewBox": "0 0 652 56",
+      "evidenceScope": "editor-fragment",
+      "states": [
+        "ED-09"
+      ]
+    },
+    {
+      "id": "official-detail-scene-assignment",
+      "label": "QC Scene Assigment",
+      "image": "official-detail-scene-assignment.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6uzUxZwI55w7w5V6UEwXBf/ea8d56197d03d312fcdcda55716c5db8/qc-scene-assigment.svg",
+      "sha256": "5b00101d528021d4a2233132dce6a1354f6db5f283024fc6c04e5e0312e6f6d7",
+      "bytes": 64402,
+      "width": 800,
+      "height": 283,
+      "viewBox": "0 0 800 283",
+      "evidenceScope": "editor-fragment",
+      "states": [
+        "ED-10"
+      ]
+    },
+    {
+      "id": "official-detail-expression-assignment",
+      "label": "QC Exp Pedal Assignment Action",
+      "image": "official-detail-expression-assignment.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3tKaXaACd4wQImKzEnc3sI/bb3e6a3fbc6399615f2ebed4dc13bb18/qc-exp-pedal-assignment-action.svg",
+      "sha256": "b796cf6257f508dcd4e20cd4debc73be9736657ece2ba3010a5d9da57c67584a",
+      "bytes": 43679,
+      "width": 1005,
+      "height": 165,
+      "viewBox": "0 0 1005 165",
+      "evidenceScope": "interaction-sequence",
+      "states": [
+        "ED-11"
+      ]
+    },
+    {
+      "id": "official-detail-directory-categories",
+      "label": "QC Directory Categories",
+      "image": "official-detail-directory-categories.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/fRgcYM8dMYQfrbcduX7bE/e3f0e41c619b97da346bda752927ff0b/QC_Directory_Categories.svg",
+      "sha256": "26fa6c1ec0a9a182a92ec978090ffd6a96906ff0a90f7161c9272e58d8f2d3f4",
+      "bytes": 2681,
+      "width": 1005,
+      "height": 142,
+      "viewBox": "0 0 1005 142",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-01"
+      ]
+    },
+    {
+      "id": "official-detail-directory-search",
+      "label": "QC Search",
+      "image": "official-detail-directory-search.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/7lmGGfWnJMX7ZZ7Wblli21/4e054cb6cbfd78bed55a1ae4b0a1fd8e/QC_Search.svg",
+      "sha256": "fc189233f5eeb6a5dbadfa4e29e979624b7a2f49006b2c03298cb54346705cea",
+      "bytes": 6001,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-07"
+      ]
+    },
+    {
+      "id": "official-detail-directory-sort",
+      "label": "QC Sorting",
+      "image": "official-detail-directory-sort.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5StsAjrxwbsIP8JclDArso/a3d7c1419130fc146c4318a4b76ce5ed/QC_Sorting.svg",
+      "sha256": "998c00e075094b56510aaf322fce9ca0372f32623ecb1ae70c7c7786e9130450",
+      "bytes": 3268,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-09"
+      ]
+    },
+    {
+      "id": "official-detail-directory-filter",
+      "label": "QC Funnel",
+      "image": "official-detail-directory-filter.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1iluhMOdQY7yRTQwdcwRYy/8a0e0b87c7fe1a6cd3729973c91cc294/QC_Funnel.svg",
+      "sha256": "7304415202a9aa0011609fa832fdc0865c574125d8c849eec01f0b9a6d84be8b",
+      "bytes": 5557,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-10"
+      ]
+    },
+    {
+      "id": "official-detail-directory-multiselect",
+      "label": "QC Multiselect",
+      "image": "official-detail-directory-multiselect.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6qumO35eNDKr8GdtLfJ3RK/6db3d77569c58bc37fd63076b265ddab/QC_Multiselect.svg",
+      "sha256": "dca587f17fca5f046175b91196d5eb60467b6d1ce3035e4516038e00c97f3fc8",
+      "bytes": 2891,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-11"
+      ]
+    },
+    {
+      "id": "official-detail-directory-copy",
+      "label": "QC Multiselect Copy",
+      "image": "official-detail-directory-copy.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1vGOZ9DS0ea7kacyaXtuSC/fd8808fcdb3bbcf2b38ba0264b95cf4a/QC_Multiselect_Copy.svg",
+      "sha256": "7b9ee942464609c2b889ebe16d2ed52460b97c068d436fe5f23c0dda4fe778a6",
+      "bytes": 3793,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DR-12"
+      ]
+    },
+    {
+      "id": "official-detail-directory-new-folder",
+      "label": "QC New Folder",
+      "image": "official-detail-directory-new-folder.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1PKvkYDU8kSGTBoJ5xoPd3/92f976d4f77668d1b3f86decf10438c0/QC_New_Folder.svg",
+      "sha256": "16e11c86cb6a949b68cd17563f0252ac754569c8944af0f2b3a964e4e1c2a513",
+      "bytes": 6401,
+      "width": 464,
+      "height": 60,
+      "viewBox": "0 0 464 60",
+      "evidenceScope": "menu-item",
+      "states": [
+        "DR-14"
+      ]
+    },
+    {
+      "id": "official-detail-capture-intro",
+      "label": "QC Capture Intro",
+      "image": "official-detail-capture-intro.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3gBh7Yiou3rLJblpsG9F6h/710df081f2d9bcd534681aa6e76d7a22/QC_Capture_Intro.svg",
+      "sha256": "0cdb199c0bbc878b2347b5099386ea772bb3c0401d5504b7629248f574946edd",
+      "bytes": 97532,
+      "width": 712,
+      "height": 437,
+      "viewBox": "0 0 712 437",
+      "evidenceScope": "hardware-diagram",
+      "states": [
+        "NC-01"
+      ]
+    },
+    {
+      "id": "official-detail-capture-access",
+      "label": "QC Capture V1 Access",
+      "image": "official-detail-capture-access.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3z6Q7feoNzt8k7C0rWYjam/3aeaed0b5c01a90b3d6669205720ab78/QC_Capture_V1_Access.svg",
+      "sha256": "690d74b7974832c8b781ded7bd7aa787c0b1375ac5f0811eae578390c09f26b6",
+      "bytes": 25159,
+      "width": 1005,
+      "height": 134,
+      "viewBox": "0 0 1005 134",
+      "evidenceScope": "interaction-sequence",
+      "states": [
+        "NC-01"
+      ]
+    },
+    {
+      "id": "official-detail-capture-routing-input-1",
+      "label": "QC Capture V1 Step 01",
+      "image": "official-detail-capture-routing-input-1.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4TrrqigBX1QgGKsbxOtvZ9/e7ba4e3e369fd8af2ef394e453788716/QC_Capture_V1_Step_01.svg",
+      "sha256": "6052434762c9ed418b80f286cf7030330fee769702ee8fb2eb628177f6d71c69",
+      "bytes": 59406,
+      "width": 800,
+      "height": 196,
+      "viewBox": "0 0 800 196",
+      "evidenceScope": "hardware-diagram",
+      "states": [
+        "NC-03"
+      ]
+    },
+    {
+      "id": "official-detail-capture-routing-input-2",
+      "label": "QC Capture V1 Step 02b",
+      "image": "official-detail-capture-routing-input-2.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5GXsQjV1gFsTDXJ7YgmfRG/3c0b22c1746093f96f11180147be436d/QC_Capture_V1_Step_02b.svg",
+      "sha256": "7d8ded635c6080b1bd1a02e44a342572e2d55810271403e192f11ddfe00e793c",
+      "bytes": 59486,
+      "width": 800,
+      "height": 196,
+      "viewBox": "0 0 800 196",
+      "evidenceScope": "hardware-diagram",
+      "states": [
+        "NC-03"
+      ]
+    },
+    {
+      "id": "official-detail-capture-routing-output",
+      "label": "QC Capture V1 Step 03",
+      "image": "official-detail-capture-routing-output.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/0Q015gZXfjQH7c6IaCauT/c1d0e6c93e395b68de83156f42444062/QC_Capture_V1_Step_03.svg",
+      "sha256": "bc0a80cc7abff0d09e0c68af8d3f09ae0f2b42b7ac41a9a845122c0b14c05705",
+      "bytes": 59976,
+      "width": 800,
+      "height": 196,
+      "viewBox": "0 0 800 196",
+      "evidenceScope": "hardware-diagram",
+      "states": [
+        "NC-03"
+      ]
+    },
+    {
+      "id": "official-detail-capture-routing-return",
+      "label": "QC Capture V1 Step 04",
+      "image": "official-detail-capture-routing-return.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4aJdN4EdlMyS23Q2qyDmrP/a7dff1e72c04af0c7c2f05262d89ece4/QC_Capture_V1_Step_04.svg",
+      "sha256": "fe112064969b266f9a744090c47fc64b489e53f514d99903498c1a98ae3f57c5",
+      "bytes": 59994,
+      "width": 800,
+      "height": 196,
+      "viewBox": "0 0 800 196",
+      "evidenceScope": "hardware-diagram",
+      "states": [
+        "NC-03"
+      ]
+    },
+    {
+      "id": "official-detail-plugin-refresh",
+      "label": "QC Plugin Refresh",
+      "image": "official-detail-plugin-refresh.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/59uoUJ6FII4mE0ACks51Yw/c11b465f7aa6da56b5fde2da3fab5e63/QC_Plugin_Refresh.svg",
+      "sha256": "7294570099253e96c2220dcd9677f7b83c84ba0b397dd2c9371dce4cff6ab9cb",
+      "bytes": 6553,
+      "width": 1005,
+      "height": 88,
+      "viewBox": "0 0 1005 88",
+      "evidenceScope": "navigation-control",
+      "states": [
+        "DB-08"
+      ]
+    },
+    {
+      "id": "official-detail-recovery-access",
+      "label": "QC Recovery Access",
+      "image": "official-detail-recovery-access.svg",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6hKIzQFaRZ7i0u9HuT3cOV/e61f915aa2f27516ca9a311177074f50/QC_Recovery_Access.svg",
+      "sha256": "eba5bf87b4cf244be7064fe1b7ba7a2ae0c3b61b2b209a995c0b9b3553fbd212",
+      "bytes": 1988,
+      "width": 1005,
+      "height": 160,
+      "viewBox": "0 0 1005 160",
+      "evidenceScope": "hardware-control",
+      "states": [
+        "RC-01"
+      ]
+    }
+  ]
+}

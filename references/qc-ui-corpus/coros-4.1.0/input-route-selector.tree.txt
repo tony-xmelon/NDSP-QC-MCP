@@ -1,0 +1,282 @@
+zenUI::RootGraphicsItem
+  zenUI::GraphicsItem
+    zenUI::Grid
+      zenUI::SplitCableHelper
+      zenUI::SplitCableHelper
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'Multi
+Out'
+          zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+      zenUI::SplitControlPointGrid
+    zenUI::GraphicsItem
+      zenUI::NavigationBar
+      zenUI::NavMenuBlock
+        zenUI::ModeButton
+          text : 'STOMP'
+          image: 'icons/navigationBar/modes/stomp.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/24/presetMenu.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/navigationBar/undo.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          zenUI::PressAnimationView
+        zenUI::SceneIndicator
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              text : 'A'
+        zenUI::Button
+          image: 'icons/navigationBar/save.png'
+          zenUI::PressAnimationView
+  zenUI::PortSelector
+    zenUI::GraphicsItem
+      zenUI::Table
+        zenUI::GraphicsItem
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'MONO'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Input 1'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/input.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Input 2'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/input.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Return 1'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/return.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Return 2'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/return.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 5'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 6'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 7'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 8'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'STEREO'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Input 1/2'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/stereo2.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Return 1/2'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/return.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 5/6'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'USB input 7/8'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/USB.png'
+          zenUI::TableCell
+            zenUI::GraphicsItem
+              text : 'Not In Use'
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/IO/empty.png'
+        zenUI::GraphicsItem
+    zenUI::InputPortItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+        text : 'In
+1'
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+        zenUI::GraphicsItem
+      zenUI::PressAnimationView

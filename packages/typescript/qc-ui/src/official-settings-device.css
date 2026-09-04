@@ -1,0 +1,24 @@
+@scope (.qc-screen-fixture-root) {
+.coros-settings-official.settings-device,.coros-settings-official.settings-device * { font-family: Roboto, Arial, sans-serif; }
+.qc-screen.coros-settings-official.settings-device { background: #101010; }
+.coros-settings-official.settings-device .settings-section,
+.coros-settings-official.settings-device .settings-done,
+.coros-settings-official.settings-device > main > nav,
+.coros-settings-official.settings-device > main > section,
+.coros-settings-official.settings-device > main > nav button { background: #282c28; }
+.coros-settings-official.settings-device > main > nav button.is-active,
+.coros-settings-official.settings-device .settings-device-detail > div label i { background: #181c18; }
+.coros-settings-official.settings-device .settings-device-detail > div { border-bottom-color: #101010; }
+.settings-device-detail > p { margin-bottom: 2cqw; }
+.settings-device-detail > small { line-height: 1.5; }
+.settings-device-detail > div { margin-top: 3cqw; }
+.settings-device-detail > div:first-of-type { margin-top: 4.5cqw; }
+.settings-device-detail > div + div { margin-top: 2.625cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div > b { left: .25cqw; width: 8.25cqw; height: 8.25cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div + div > b { top: .375cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div label { grid-template-rows: 3.375cqw 5.5cqw; font-size: 2cqw; }
+.settings-system-detail > div span,
+.settings-system-detail > div strong { position: relative; top: 1.375cqw; }
+.settings-system-detail > div i { top: 5.35cqw; }
+
+}

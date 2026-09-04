@@ -1,0 +1,37 @@
+@scope (.qc-screen-fixture-root) {
+.expression-bypass-official, .expression-bypass-official * { box-sizing: border-box; font-family: Arial, sans-serif; }
+.qc-screen.expression-bypass-official { position: absolute; inset: 0; display: block; overflow: hidden; background: #101010; color: #eee; font-weight: 400; container-type: inline-size; }
+.expression-bypass-official button { border: 0; color: inherit; font: inherit; }
+.expression-bypass-official > header { height: 7.5cqw; display: flex; gap: 2.25cqw; align-items: center; padding: 0 1cqw; }
+.expression-bypass-official > header button { height: 5.5cqw; border-radius: 1cqw; background: #282c28; font-size: 2.25cqw; }
+.expression-bypass-official > header button:first-child { width: 12.25cqw; font-size: 3cqw; }
+.expression-bypass-official > header button:nth-child(2), .expression-bypass-official > header button:nth-child(3) { width: 17cqw; }
+.expression-bypass-official > header button:nth-child(2) { border: 1px solid #40f860; color: #40f860; }
+.expression-bypass-official > header button:last-child { width: 12.25cqw; margin-left: auto; background: #213cff; font-size: 3cqw; }
+.expression-bypass-official > header button > svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.expression-bypass-official > p { height: 11cqw; margin: 0; padding: 1.25cqw 2cqw; font-size: 2.25cqw; line-height: 1.45; }
+.expression-switch-panel { height: 13.25cqw; margin: 0 1cqw; display: grid; grid-template-columns: repeat(5, 19.625cqw); overflow: hidden; border-radius: 1cqw 1cqw 0 0; background: #282c28; }
+.expression-switch-panel > section { position: relative; padding: 1.5cqw 1.25cqw; border-right: 1px solid #111; font-size: 2cqw; }
+.expression-switch-panel > section > span { display: block; }
+.expression-switch-panel > section > button { width: 8.25cqw; height: 5.5cqw; margin: 2cqw 0 0 4.25cqw; border-radius: 1cqw; background: #181c18; font-size: 3cqw; }
+.expression-switch-panel > section > button svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.expression-switch-panel label { display: grid; grid-template-columns: 4.75cqw 1fr; margin: .75cqw 0 0 .75cqw; color: #eee; line-height: 1.4; }
+.expression-switch-panel label b { font-weight: 400; }
+.expression-switch-panel > section:nth-child(2) label > i::after { margin-top: .25cqw; }
+.expression-switch-panel label > i { grid-row: 1 / 3; width: 2.75cqw; height: 5.75cqw; border-radius: 1.5cqw; background: #101210; }
+.expression-switch-panel label > i::after { content: ""; display: block; width: 2.25cqw; height: 2.25cqw; margin: 3.15cqw .25cqw .25cqw; border: .375cqw solid #40f860; border-radius: 50%; }
+.expression-switch-panel label small { color: #929692; font-size: 1.75cqw; }
+.expression-switch-panel .switch-delay b { display: block; margin-top: 5.5cqw; font-size: 2cqw; font-weight: 400; }
+.expression-switch-panel .switch-delay .capture-level-dial { right: 1.25cqw; bottom: 1.25cqw; width: 8.25cqw; height: 8.25cqw; }
+.expression-switch-panel .switch-latch { opacity: .35; }
+.expression-switch-panel .switch-latch > span { font-size: 1.75cqw; white-space: nowrap; }
+.expression-parameter-grid { height: 27cqw; margin: .375cqw 1cqw 1cqw; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: 13.5cqw 13.5cqw; overflow: hidden; border-radius: 0 0 1cqw 1cqw; background: #181c18; }
+.expression-parameter-grid section { padding: 1.5cqw 1.25cqw; border-right: 1px solid #111; border-bottom: 1px solid #111; font-size: 2cqw; }
+.expression-parameter-grid section:last-child { grid-column: 1; }
+.expression-parameter-grid section span { display: flex; justify-content: space-between; }
+.expression-parameter-grid section span b { width: 3cqw; height: 3cqw; color: #40f860; font-size: 2.5cqw; }
+.expression-parameter-grid section span b svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.expression-parameter-grid section button { width: 100%; height: 4.75cqw; margin-top: 2.375cqw; border-radius: .75cqw; background: #101210; font-size: 1.75cqw; }
+.expression-parameter-grid section:last-child button { margin-top: 2.75cqw; }
+
+}

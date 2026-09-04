@@ -1,0 +1,53 @@
+zenUI::RootGraphicsItem
+  zenUI::HybridModeConfigDialog
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/done.png'
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/info_gray.png'
+          zenUI::PressAnimationView
+    zenUI::HybridButtonContainer
+      text : 'Drag a Mode on top of another to create a Hybrid
+Mode. Use a long press to break a Hybrid Mode apart.'
+      zenUI::HybridConfigButton
+        zenUI::SubHybridConfigButton
+          text : 'Preset'
+          image: 'icons/navigationBar/modes/preset.png'
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/hybridConfig/swap-mode-b.png'
+          zenUI::PressAnimationView
+      zenUI::HybridConfigButton
+        zenUI::SubHybridConfigButton
+          text : 'Scene'
+          image: 'icons/navigationBar/modes/scene.png'
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/hybridConfig/swap-mode-b.png'
+          zenUI::PressAnimationView
+      zenUI::HybridConfigButton
+        zenUI::SubHybridConfigButton
+          text : 'Stomp'
+          image: 'icons/navigationBar/modes/stomp.png'
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::SubHybridConfigButton
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/hybridConfig/swap-mode-b.png'
+          zenUI::PressAnimationView
+    zenUI::GraphicsItem
+      text : 'Modes configuration'

@@ -1,0 +1,529 @@
+{
+  "schemaVersion": 1,
+  "corosVersion": "4.1.0",
+  "sourceType": "official-manual",
+  "sourceUrl": "https://neuraldsp.com/manual/quad-cortex",
+  "fetchedAt": "2026-09-04T04:46:28.608433Z",
+  "coordinateSpace": {
+    "width": 800,
+    "height": 480
+  },
+  "captures": [
+    {
+      "id": "official-tuner",
+      "label": "QC Tuner Menu 1",
+      "image": "official-tuner.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3DkXHDp6cvrB7LDwqR2Ln1/d781cb3701b298c9dc7f6c6555570e52/qc-tuner-menu-1.png",
+      "sha256": "dbcd91e7ed9403a7f4c316f90e24c0f0afc197bca7dd89d5f264ad32ed31cd5b",
+      "bytes": 17793,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+        "renderer": {
+          "screen": "tuner",
+          "tunerState": "official"
+        }
+    },
+    {
+      "id": "official-tempo",
+      "label": "QC Tempo Menu 1",
+      "image": "official-tempo.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1FrobYSwU1H6pIDho8yjJ0/8c492b4f79d2aee232f258ffd7629849/qc-tempo-menu-1.png",
+      "sha256": "3fa9f22181949684d4af8addfb76b139a71d4cd31d97bd05a1ffd70dc754ac5c",
+      "bytes": 28341,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "tempo"
+      }
+    },
+    {
+      "id": "official-modes-configuration",
+      "label": "QC Modes Config Menu 2",
+      "image": "official-modes-configuration.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/2BRlFvIBDICmtS3yVcH3ji/1c2b9c3404a5e3dc2756ba24ca6d12bf/qc-modes-config-menu-2.png",
+      "sha256": "f5c0630ff4629fc2f880067852a82aa21997fc825b536a76844235a83a11244e",
+      "bytes": 22809,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "modes-official"
+      }
+    },
+    {
+      "id": "official-gig-view-preset",
+      "label": "QC Gig View PRESET",
+      "image": "official-gig-view-preset.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4GSztWLs50Yg8FYpC87COd/3807aa54e3e3ca22328987ec28a2a8a9/qc-gig-view-preset.png",
+      "sha256": "f3987939f242741d9fc5044eff90cd8b8fa3f1de779a8fd2214e0cd2ce8d5e6d",
+      "bytes": 34717,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "gig-official-preset"
+      }
+    },
+    {
+      "id": "official-gig-view-scene",
+      "label": "QC Gig View SCENE",
+      "image": "official-gig-view-scene.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6iRhld4Ll64FQ3HlZhzvFE/2533b590dc928af263b068e672dd917e/qc-gig-view-scene.png",
+      "sha256": "bfb355080785a27417d630988f19937ebf0abf4cbee9e0cd69ec27d86a4baae6",
+      "bytes": 43739,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "gig-official-scene"
+      }
+    },
+    {
+      "id": "official-gig-view-stomp",
+      "label": "QC Gig View STOMP",
+      "image": "official-gig-view-stomp.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6hBpspzVsNv1F4kqz99vY3/81b04ce98ed247287bc107b81ea29dcd/qc-gig-view-stomp.png",
+      "sha256": "32a45aa54ae9ccd2d1e9f842d5c6289161713eb30a4a3a168a814c04ffb1a30b",
+      "bytes": 42259,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "gig-official-stomp"
+      }
+    },
+    {
+      "id": "official-gig-view-hybrid",
+      "label": "QC Gig View HYBRID",
+      "image": "official-gig-view-hybrid.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1z6dE7T1ctSKbfo7gSXnsn/e1ffe82bb728f62e1c3d047eb0cac8e7/qc-gig-view-hybrid.png",
+      "sha256": "a3c9e76afbc565c40031a3d6e1dcc409ee760cf78b8c8ec5aebf92b46af5a455",
+      "bytes": 45560,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "gig-official-hybrid"
+      }
+    },
+    {
+      "id": "official-io-settings-analog",
+      "label": "IO Settings Analog",
+      "image": "official-io-settings-analog.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6GrpqVwjPdxwkmlWh8ixJy/9f4c08252a47b90d9816b1b21d274f1f/io-settings-analog.png",
+      "sha256": "6b100808176d955584855a0280d5d650b20d873bab349c739ea68ec8c4f171c1",
+      "bytes": 40248,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "io-input"
+      }
+    },
+    {
+      "id": "official-io-settings-usb",
+      "label": "IO Settings USB",
+      "image": "official-io-settings-usb.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3SDLdOfOMOAQb3LW7ELQGc/edc68beec6dfae11c2896d29b3f125d0/io-settings-usb.png",
+      "sha256": "d516b06e61506686ee9dbe46004d7cc1557c5ac3dadf942da043b5f05e1af76d",
+      "bytes": 41975,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "io-usb"
+      }
+    },
+    {
+      "id": "official-global-eq",
+      "label": "QC IO GLOBAL EQ 2",
+      "image": "official-global-eq.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1i0XxIk1di0s9mvUdaxXzX/c68e7e8114cda3e16d0f16266dbd62c0/IO_Settings_Global_EQ.png",
+      "sha256": "de2ef72736bdeb17df250460b0d3693467842c61c91e3021ee705967be7468ae",
+      "bytes": 28151,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "global-eq"
+      }
+    },
+    {
+      "id": "official-grid-brit-2203",
+      "label": "QC 1A Brit 2203",
+      "image": "official-grid-brit-2203.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1sQ38yop5e2pKq1Pcs79yi/3d50f3ffd1d5cbea749f23febdd8b6f6/qc-1a-brit-2203.png",
+      "sha256": "83689916adad356b2fb10a476727a46a463157695431027c5a2e0c06cd4aca03",
+      "bytes": 63381,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "grid-official-brit"
+      }
+    },
+    {
+      "id": "official-empty-slot",
+      "label": "QC Empty Slot Tap",
+      "image": "official-empty-slot.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/54ZknwiiNI3s3Il08Ztphx/894b74479d666d26e593bb896c237bb2/qc-empty-slot-tap.png",
+      "sha256": "5f6ed49722c2d35f755e8d32102b8d219f8329c4cd5bdcedf99eb34f926f4614",
+      "bytes": 23008,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "empty-slot"
+      }
+    },
+    {
+      "id": "official-device-browser-amp",
+      "label": "QC Virtual Device List Amp",
+      "image": "official-device-browser-amp.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5Yiha24GoLZwDn3obxw1mW/aa5ed584e6e2194ef68aaa9d844efce3/qc-virtual-device-list-amp.png",
+      "sha256": "ca2b5318e654a15b27349e7e16bfbc5bbdfaa2fe48f219efe219d2b33582d28c",
+      "bytes": 24116,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "device-browser-amp-official"
+      }
+    },
+    {
+      "id": "official-device-presets",
+      "label": "DV Presets Screen 1",
+      "image": "official-device-presets.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/65iJbkzkFdCYoyNhkKRIsy/70bf4ba69165dc3d03d9d67689cb097e/DV_Presets_Screen_1.png",
+      "sha256": "7aa462c9bc01de624cedf59cf76bc111886788368d52edda6f9d20db039b2bdb",
+      "bytes": 33577,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "device-presets-official"
+      }
+    },
+    {
+      "id": "official-device-preset-actions",
+      "label": "VD Presets Cotextual Options",
+      "image": "official-device-preset-actions.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3KxS3Bmd4WcQrNHyARZsDm/c83b6b9b51fbf01d2d2854e3d97af020/VD_Presets_Cotextual_Options.png",
+      "sha256": "987b01409aaad576cb600a894fff42e437db2ef0e329a4d739f8f46be41cd00d",
+      "bytes": 28967,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "device-preset-actions-official"
+      }
+    },
+    {
+      "id": "official-expression-bypass",
+      "label": "QC Exp Bypass Menu",
+      "image": "official-expression-bypass.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4U9lUs6Jv2So0CdltgkePs/b3ffced7e69db653347e294f5b0a3779/qc-exp-bypass-menu.png",
+      "sha256": "2291d0a04955469000d2ad8248926d5fef0ed6cefae8b1acf0f8c3e1a0ddf02a",
+      "bytes": 32065,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "expression-bypass"
+      }
+    },
+    {
+      "id": "official-looper",
+      "label": "QC Looper X",
+      "image": "official-looper.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5RjW6GtStVenaJKzkToQST/effeb704edeb314fec6d0819b85948c4/QC_Looper_X.png",
+      "sha256": "6aec4dadbdcfca01e413719fad87a5abe455aa0044d761884ba13525ec20ae1d",
+      "bytes": 29794,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "looper-editor"
+      }
+    },
+    {
+      "id": "official-directory-presets",
+      "label": "QC Directory Presets",
+      "image": "official-directory-presets.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3WxVhfUG3ljIC4uVzvnudd/545e71d72d16bb85c110adad6bbcbd6b/QC_Directory_Presets.png",
+      "sha256": "1469fa9a2db73c2c64fca51da36ab2b3048bb5f7dcf99d277f5bf1228fdea7c9",
+      "bytes": 31700,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-presets"
+      }
+    },
+    {
+      "id": "official-directory-favorites",
+      "label": "QC Directory Fav Rec",
+      "image": "official-directory-favorites.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/33bZUTdoNZnqRhQxQerylC/738e4157b484eee1a63d8ba6ba16816a/Favorites___Recent_New_2026.png",
+      "sha256": "ef221aa67b456269836b57fa0ae9993b402372c4d2962e8d15a58d3c8df36080",
+      "bytes": 28446,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-favorites"
+      }
+    },
+    {
+      "id": "official-directory-captures",
+      "label": "QC Directory Captures",
+      "image": "official-directory-captures.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3RQN5M0n2ZG5jSPc56VeM2/d5cd03160bf6d198fe69561c4b3479e5/QC_Directory_Captures.png",
+      "sha256": "600aa665109e0a683a2439495cecf9f5330b52707e45036ee10b74715538e14f",
+      "bytes": 40247,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-captures"
+      }
+    },
+    {
+      "id": "official-directory-irs",
+      "label": "QC Directory IRs",
+      "image": "official-directory-irs.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6lEwpquAirZW4T1NGllQDX/323393b0fd9d9d8a82758b144e2d6353/QC_Directory_IRs.png",
+      "sha256": "6fb7d3b78d6c8ccb3b8694d229948d1a6c2a0b5ca54fe3e76d82e7d797a5fb19",
+      "bytes": 32851,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-irs"
+      }
+    },
+    {
+      "id": "official-directory-plugin-presets",
+      "label": "QC Plugin Presets New Logo",
+      "image": "official-directory-plugin-presets.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/32QKvRum0BidoBUpqd10Jg/92d2033f73be2ea1b07d72e24e12518d/QC_Plugin_Presets_New_Logo.png",
+      "sha256": "dcc6876d961f3f126399bbeb460bfa6bf12c06345083c616c69963ed2a1e1a92",
+      "bytes": 22056,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-plugins"
+      }
+    },
+    {
+      "id": "official-directory-search-results",
+      "label": "QC Search Results",
+      "image": "official-directory-search-results.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/2HUnAqKndLIjGVy7AmNVda/2080da3b4e79bfbecba12fa5486979bb/QC_Search_Results.png",
+      "sha256": "f64d928d74ff0bcac61feb591a97264f872e6558d0a8d3017bf7ce5d9cdb5523",
+      "bytes": 23448,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-search-results"
+      }
+    },
+    {
+      "id": "official-directory-nested",
+      "label": "QC Nested Folders",
+      "image": "official-directory-nested.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3RxYphKIgjPmdxhkfGAgtE/d3507456bd61dcdcefe2dbeead6f60ed/QC_Nested_Folders.png",
+      "sha256": "3e3a90823772a8e2af58d82f43ffb485d03c889dd522f407e9f5e42e24e70a04",
+      "bytes": 15113,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-nested"
+      }
+    },
+    {
+      "id": "official-directory-upload",
+      "label": "QC Upload Mode",
+      "image": "official-directory-upload.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/7InQ3a0uMsCeTz3cW1rkrh/cae9787d4e5421bf82a47c63a6d16a89/QC_Upload_Mode.png",
+      "sha256": "6234ec10cce43a324236d69b31aa394f5f14094d6ed047649063a709f3f4b189",
+      "bytes": 29305,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "directory-cloud-upload"
+      }
+    },
+    {
+      "id": "official-capture-settings",
+      "label": "QC Capture Settings",
+      "image": "official-capture-settings.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6AyB4i3UaRmr4mUgItXmdB/7b45606b3ed8540b67a030b3e08a103f/QC_Capture_Settings.png",
+      "sha256": "6f267009650b1b5247f2b7fc7ce333285f8ebcb484569f1aaa1be051b67d185b",
+      "bytes": 39324,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "capture-calibration"
+      }
+    },
+    {
+      "id": "official-capture-process",
+      "label": "QC Capture V1 Process",
+      "image": "official-capture-process.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4vmlwclqfZBSaygAQzigGC/d72789be0fa885b74b1c6f8fb50a6abf/QC_Capture_V1_Process.png",
+      "sha256": "1cdfb3462137384f0febeb5b115d7c2b0eae4209c75e2a03eac436a9771d3e95",
+      "bytes": 20998,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "capture-progress"
+      }
+    },
+    {
+      "id": "official-capture-ab-test",
+      "label": "QC Capture V1 AB Test",
+      "image": "official-capture-ab-test.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/6c5lUmMcoLSp2TyFEhybn9/9087fb7c6ba8cb3ca5dcd028499dc313/QC_Capture_V1_AB_Test.png",
+      "sha256": "5761ddc4f2761f9d51cb44e3d52874f274182ec5e7ae4058d761c8f331f80ba1",
+      "bytes": 22691,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "capture-result"
+      }
+    },
+    {
+      "id": "official-capture-metadata",
+      "label": "QC Capture V1 Metadata",
+      "image": "official-capture-metadata.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/2wrw9Ckp7wSOJdEKalplcO/c56907774fa4adcd1ecb6baf558a000c/QC_Capture_V1_Metadata.png",
+      "sha256": "f8fd72976e5e02ba8f19da5270bef125becc8998075e31c7ea62b847c994003c",
+      "bytes": 20649,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "capture-save"
+      }
+    },
+    {
+      "id": "official-plugin-devices",
+      "label": "QC Plugin Devices List",
+      "image": "official-plugin-devices.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3Mueend6rDxTpbSZehOez5/127baa63541b4bada24da4797eb98548/QC_Plugin_Devices_List.png",
+      "sha256": "1cd16e42600db7ff711bcbb65a1adc10e3db0304fbe74d3a991ab8c91e85daa1",
+      "bytes": 34684,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "plugin-devices-official"
+      }
+    },
+    {
+      "id": "official-plugin-folders",
+      "label": "QC Plugin Folders",
+      "image": "official-plugin-folders.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/4LG4coeIrNTHFkCA5lj4ba/069c188c9c5bba8ce8f97f725703f55b/QC_Plugin_Folders.png",
+      "sha256": "a34aa3547bd0dc9a760937b9c276a18d0ced09a3b5735243323b81416183dcc0",
+      "bytes": 13367,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "plugin-folders"
+      }
+    },
+    {
+      "id": "official-midi-settings",
+      "label": "QC MIDI Settings",
+      "image": "official-midi-settings.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/5zJM8yRqKQmQPwVyI0xpDp/6239f06f7a56c9e29a876c6274aa7542/QC_MIDI_Settings.png",
+      "sha256": "7d86152fa7d3d031cd12349d93c8fa1ff1df69bffee3a9b264973bbdcbfc0260",
+      "bytes": 38239,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "settings-midi"
+      }
+    },
+    {
+      "id": "official-midi-out",
+      "label": "QC MIDI Out",
+      "image": "official-midi-out.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/1vcoO3seZl97gPX2Q7OpSL/fc2c1b18bca9622c17738a76f6d8db11/QC_MIDI_Out.png",
+      "sha256": "8b06a998e08af873cdc184fa853f48c90f55489ff3e634a6b0168aa4f1abe174",
+      "bytes": 15852,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "midi-out"
+      }
+    },
+    {
+      "id": "official-settings-account",
+      "label": "QC Settings Account",
+      "image": "official-settings-account.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/7rIJcMUuxZmBi1FNaVCqP1/9343ce10540725fe3023eeb48c7a511d/QC_Settings_Account.png",
+      "sha256": "cf8f586b827edcc396bec074252a3d9573eb78204e9ea4b496df4c69b6ac3947",
+      "bytes": 25391,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "settings-account"
+      }
+    },
+    {
+      "id": "official-settings-system",
+      "label": "QC Settings System",
+      "image": "official-settings-system.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/370msUz1Kv5QtS8s8vyWrf/58016e5656fe734c6fe0574166402d84/QC_Settings_System.png",
+      "sha256": "84ac85416d3da0744c81e5a825a888269a169302c5cab873e57136e81b9221a4",
+      "bytes": 34573,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "settings-system"
+      }
+    },
+    {
+      "id": "official-settings-device",
+      "label": "QC Settings Device 2",
+      "image": "official-settings-device.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3PONpeXGhwJOZgVYe9aERM/50a4e5358b04a69c5608e02574980133/QC_Settings_Device_2.png",
+      "sha256": "d5c67b84cc315f896657fef5b95ad041becf90e238551225663d13bd070ff6a6",
+      "bytes": 44577,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex",
+      "renderer": {
+        "screen": "settings-device"
+      }
+    },
+    {
+      "id": "official-qcmini-support-settings-menu",
+      "label": "QCmini Support Settings Menu",
+      "image": "official-qcmini-support-settings-menu.png",
+      "sourceUrl": "https://images.ctfassets.net/8puu65w27ud0/3npKp80elRUu8k75USYksA/a6f73f8c4899e855284341a758153005/QCmini_Support_Settings_Menu.png",
+      "sha256": "b501be9c8b9dad8c05d44324e3c80858d15d3aafb73652b7588cda18c71d8b92",
+      "bytes": 35429,
+      "width": 800,
+      "height": 480,
+      "deviceVariant": "quad-cortex-mini"
+    }
+  ]
+}

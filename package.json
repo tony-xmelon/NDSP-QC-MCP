@@ -46,6 +46,8 @@
     "architecture:check": "node tools/verify-package-boundaries.mjs",
     "release:provenance": "node tools/release-provenance.mjs",
     "test:ui": "playwright test",
+    "verify:qc-corpora": "python tools/verify_qc_ui_corpus.py references/qc-ui-corpus/coros-4.1.0 && python tools/verify_qc_ui_corpus.py references/qc-ui-official-manual/coros-4.1.0 && python tools/verify_qc_official_detail_corpus.py references/qc-ui-official-details/coros-4.1.0",
+    "verify:qc-coverage": "node tools/verify_qc_screen_coverage.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

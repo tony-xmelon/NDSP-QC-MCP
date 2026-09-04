@@ -1,0 +1,71 @@
+zenUI::RootGraphicsItem
+  zenUI::MetronomeEditor
+    zenUI::PushButton
+      zenUI::Button
+        image: 'icons/24/check.png'
+        zenUI::PressAnimationView
+    zenUI::GraphicsItem
+    zenUI::SceneSelector
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+          image: 'icons/24/previous.png'
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+          image: 'icons/24/next.png'
+      zenUI::Button
+        zenUI::PressAnimationView
+      zenUI::Button
+        zenUI::SceneIndicator
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              text : 'A'
+        zenUI::PressAnimationView
+    zenUI::GraphicsItem
+      text : 'Tempo'
+    zenUI::GraphicsItem
+      text : '56'
+    zenUI::GraphicsItem
+      text : 'BPM = QUARTERS'
+    zenUI::SemiRoundedRect
+    zenUI::SemiRoundedRect
+    zenUI::MetronomeBeat
+      zenUI::Ellipse
+      zenUI::Ellipse
+      zenUI::PressAnimationView
+    zenUI::MetronomeBeat
+      zenUI::Ellipse
+      zenUI::PressAnimationView
+    zenUI::MetronomeBeat
+      zenUI::Ellipse
+      zenUI::PressAnimationView
+    zenUI::MetronomeBeat
+      zenUI::Ellipse
+      zenUI::PressAnimationView
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+    zenUI::ParameterControl
+    zenUI::Button
+      image: 'icons/24/info_gray.png'
+      zenUI::PressAnimationView
+    zenUI::MetronomeEditorOverlay

@@ -1,0 +1,120 @@
+zenUI::RootGraphicsItem
+  zenUI::GigView
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/check.png'
+          zenUI::PressAnimationView
+      zenUI::SceneIndicator
+        zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'A'
+        zenUI::Button
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+        text : '32H pyquadcortex scratch'
+    zenUI::PushButton
+      zenUI::Button
+        zenUI::PressAnimationView
+      zenUI::ModeButton
+        image: 'icons/navigationBar/modes/scene.png'
+        zenUI::PressAnimationView
+    zenUI::SceneGigView
+      zenUI::SceneGigViewButton
+        text : 'Default scene'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_dark.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene B'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene C'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene D'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene E'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene F'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene G'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::SceneGigViewButton
+        text : 'Scene H'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/swap_light.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/custom/copy_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView

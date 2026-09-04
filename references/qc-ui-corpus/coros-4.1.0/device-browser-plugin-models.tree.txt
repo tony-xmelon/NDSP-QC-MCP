@@ -1,0 +1,279 @@
+zenUI::RootGraphicsItem
+  zenUI::ModelMenu
+    zenUI::SlotItem
+      zenUI::PressAnimationView
+    zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::CategorySideBar
+        zenUI::GraphicsItem
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+      zenUI::PluginCategory
+        zenUI::GraphicsItem
+          text : 'Add device'
+          zenUI::PushButton
+            zenUI::Button
+              image: 'icons/24/close.png'
+              zenUI::PressAnimationView
+          zenUI::LicenseRefreshButton
+            zenUI::Button
+              image: 'icons/24/updater.png'
+              zenUI::PressAnimationView
+        zenUI::PluginList
+          zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Plini X'
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Cory Wong X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Gojira X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: John Mayer X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Misha Mansoor X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Nolly X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Petrucci X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Rabea X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Archetype: Tim Henson X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Fortin Nameless Suite X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Parallax X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+            zenUI::PluginListCell
+              zenUI::GraphicsItem
+                text : 'Soldano SLO-100 X'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+        zenUI::GraphicsItem
+        zenUI::PluginModelList
+          zenUI::GraphicsItem
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Clean'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Crunch'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Lead'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Cab (M)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Cab (ST)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Delay'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Pre Delay (M)'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Reverb'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Comp'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Octaver'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays
+            zenUI::PluginModelListCell
+              zenUI::GraphicsItem
+                text : 'Plini Chorus'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::ModelItemBasic
+                zenUI::PressAnimationView
+              zenUI::ModelItemOverlays

@@ -1,0 +1,48 @@
+zenUI::RootGraphicsItem
+  zenUI::GigView
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/check.png'
+          zenUI::PressAnimationView
+      zenUI::SceneIndicator
+        zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'A'
+        zenUI::Button
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+        text : '32H pyquadcortex scratch'
+    zenUI::PushButton
+      zenUI::Button
+        zenUI::PressAnimationView
+      zenUI::ModeButton
+        image: 'icons/navigationBar/modes/preset.png'
+        zenUI::PressAnimationView
+    zenUI::PresetGigView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'Unsaved'
+        zenUI::PressAnimationView
+      zenUI::PresetGigViewButton
+        text : 'pyquadcortex scratch'
+        zenUI::PressAnimationView

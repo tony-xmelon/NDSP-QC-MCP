@@ -1,0 +1,21 @@
+@scope (.qc-screen-fixture-root) {
+.qc-screen.coros-tuner.tuner-official { background: #101010; }
+.tuner-official > header button { background: #282c28; }
+.tuner-official .tuner-scale > b { background: #101010; }
+.tuner-official .tuner-scale > b::after { content: ""; position: absolute; left: -2px; top: 8px; width: 62px; height: 62px; border-radius: 50%; background: #00f800; }
+.tuner-official .tuner-reading { position: absolute; left: 50%; top: 2%; transform: translateX(-50%); color: #f8fcf8; font-size: 4.75cqw; font-weight: 400; }
+.tuner-official .tuner-left-arrow,
+.tuner-official .tuner-right-arrow { position: absolute; top: 0; color: #40f860; font-size: 6cqw; font-weight: 400; line-height: 1; }
+.tuner-official .tuner-left-arrow { left: 25%; }
+.tuner-official .tuner-right-arrow { right: 25%; }
+.tuner-official .tuner-flat,
+.tuner-official .tuner-note,
+.tuner-official .tuner-sharp { position: absolute; top: 70%; color: #8c908c; font-style: normal; font-weight: 400; }
+.tuner-official .tuner-flat { left: 3%; font-size: 4cqw; }
+.tuner-official .tuner-note { left: 50%; transform: translateX(-50%); color: #f8fcf8; font-size: 8cqw; line-height: .9; }
+.tuner-official .tuner-sharp { right: 3%; font-size: 4cqw; }
+.tuner-official > footer { background: #282c28; }
+.tuner-official .tuner-frequency > i { left: 9.125cqw; background: radial-gradient(circle at center, #282c28 0 63%, transparent 65%), conic-gradient(from 220deg, #40f860 0 42%, #101010 42%); }
+.tuner-official .tuner-frequency > i::after { content: ""; position: absolute; left: 50%; top: .4cqw; width: .25cqw; height: 3cqw; transform: translateX(-50%); background: #f8fcf8; }
+
+}

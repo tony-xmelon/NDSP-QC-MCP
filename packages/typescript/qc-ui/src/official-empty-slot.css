@@ -1,0 +1,32 @@
+@scope (.qc-screen-fixture-root) {
+.empty-slot-official, .empty-slot-official * { box-sizing: border-box; font-family: Roboto, Arial, sans-serif; }
+.qc-screen.empty-slot-official { position: absolute; inset: 0; display: grid; grid-template-columns: 50% 50%; grid-template-rows: 100%; overflow: hidden; background: #111511; color: #eee; container-type: inline-size; }
+.empty-slot-categories { position: relative; z-index: 2; grid-column: 1; grid-row: 1; overflow: hidden; padding-top: 1cqw; border-right: 1cqw solid #111; background: #151a16; }
+.empty-slot-categories::after { content: ""; position: absolute; right: 0; top: 1.75cqw; width: .5cqw; height: 18cqw; border-radius: .25cqw; background: #343934; }
+.empty-slot-categories button { position: relative; width: 100%; height: 9.75cqw; display: grid; grid-template-columns: 10.5cqw 1fr; align-items: center; padding: 0 2.25cqw; border: 0; background: transparent; color: #eee; text-align: left; font: 2cqw Roboto, Arial, sans-serif; }
+.empty-slot-categories button i { width: 8.5cqw; height: 8.5cqw; display: grid; place-items: center; border: .3cqw solid var(--device-color); border-radius: 1.75cqw; background: #080a08; color: #fff; }
+.empty-slot-categories button i svg { width: 62%; height: 62%; }
+.empty-slot-categories button span { position: relative; top: 1px; }
+.empty-slot-categories button b { position: absolute; right: 2cqw; top: 3.125cqw; padding: .75cqw 1.75cqw; border-radius: 2cqw; background: #f4d224; color: #111; font-size: 1.75cqw; font-weight: 400; }
+.empty-slot-grid { position: relative; z-index: 2; grid-column: 2; grid-row: 1; background: #404440; color: #a3a6a3; }
+.empty-slot-grid header { height: 12.5%; display: flex; align-items: center; justify-content: flex-end; gap: 3cqw; padding: 0 2cqw; font-size: 3cqw; }
+.empty-slot-grid header b { color: #b09e4b; }
+.empty-slot-grid header strong { font-size: 3cqw; }
+.empty-slot-grid header .empty-undo { position: absolute; left: 26.25cqw; top: 1.25cqw; }
+.empty-slot-grid header .empty-undo svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.empty-slot-grid header > b { position: absolute; left: 32cqw; top: 1.5cqw; }
+.empty-slot-grid header .empty-save { position: absolute; left: 38cqw; top: 1.25cqw; }
+.empty-slot-grid header .empty-save svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.empty-slot-grid header .empty-more { position: absolute; left: 45cqw; top: 1.25cqw; }
+.empty-slot-grid .empty-mode { position: absolute; z-index: 2; left: 32cqw; top: 6.5cqw; color: #aaaeaa; font-size: 3cqw; font-weight: 700; }
+.empty-slot-grid main { position: absolute; inset: 12.5% 0 0; background: transparent !important; }
+.empty-slot-grid main::before { content: ""; position: absolute; left: 0; right: 5.5cqw; top: 10.75cqw; border-top: 2px solid #aaa; }
+.empty-slot-grid main i { position: absolute; right: 1cqw; width: 5.5cqw; height: 9.5cqw; display: grid; place-items: center; border-radius: 1.5cqw; background: #404840; font-size: 4cqw; font-style: normal; }
+.empty-slot-grid main i:first-child { left: 22.5cqw; right: auto; top: 6.5cqw; background: #111; color: #bbb; }
+.empty-slot-grid main i:first-child { width: 8.75cqw; height: 8.75cqw; }
+.empty-slot-grid main i:nth-child(2) { top: 6.125cqw; font-size: 1.8cqw; text-align: center; }
+.empty-slot-grid main i:nth-child(3) { top: 17.875cqw; }
+.empty-slot-grid main i:nth-child(4) { top: 29.625cqw; }
+.empty-slot-grid main i:nth-child(5) { top: 41.375cqw; }
+
+}

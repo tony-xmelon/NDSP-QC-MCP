@@ -1,0 +1,267 @@
+zenUI::RootGraphicsItem
+  zenUI::ModelMenu
+    zenUI::SlotItem
+      zenUI::PressAnimationView
+    zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::CategorySideBar
+        zenUI::GraphicsItem
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+          zenUI::CategorySideBarCell
+            zenUI::GraphicsItem
+            zenUI::ModelItemBasic
+              zenUI::PressAnimationView
+      zenUI::GuitarBassCategory
+        zenUI::ModelList
+          zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Exotic Z Boost'
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : '81 Creations Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Brit Blues'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Brit Governor'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Chief BD2'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Chief DS1'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Chief MT'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Chief OD1'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Chief SD1'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Exotic'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Facial Fuzz'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Freeman BOD'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Fuzz Pi'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Green 808'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'MK3 Silicon Fuzz'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Myth Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'No-Bell OD1'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'OD250'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Obsessive Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Rage Booster'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Red Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Rodent Drive'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Thunderpaw'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+            zenUI::ModelListCell
+              zenUI::GraphicsItem
+                text : 'Vemural Ray'
+              zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+        zenUI::GraphicsItem
+        zenUI::ModelPresetPanel
+          zenUI::GraphicsItem
+          zenUI::TabBar
+          zenUI::ModelPresetList
+            zenUI::GraphicsItem
+        zenUI::TabBar
+        zenUI::PushButton
+          zenUI::Button
+            image: 'icons/24/close.png'
+            zenUI::PressAnimationView

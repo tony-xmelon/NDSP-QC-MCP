@@ -1,0 +1,119 @@
+zenUI::RootGraphicsItem
+  zenUI::DirectoryDialog
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/cabsim/close.png'
+          zenUI::PressAnimationView
+      zenUI::ComboBoxWithSelector
+        text : 'Presets'
+        image: 'icons/custom/down_triangle.png'
+        zenUI::GraphicsItem
+          image: 'icons/24/preset.png'
+        zenUI::PressAnimationView
+      zenUI::GraphicsItem
+        text : 'Save to...'
+    zenUI::FolderDirTable
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+    zenUI::BankTable
+    zenUI::BankSelectorPane
+      zenUI::GraphicsItem
+        zenUI::BankSelectorButton
+          text : '1'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '2'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '3'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '4'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '5'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '6'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '7'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '8'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '9'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '10'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '11'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '12'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '13'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '14'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '15'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '16'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '17'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '18'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '19'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '20'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '21'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '22'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '23'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '24'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '25'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '26'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '27'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '28'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '29'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '30'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '31'
+          zenUI::PressAnimationView
+        zenUI::BankSelectorButton
+          text : '32'
+          zenUI::PressAnimationView

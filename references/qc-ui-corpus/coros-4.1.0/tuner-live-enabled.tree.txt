@@ -1,0 +1,31 @@
+zenUI::RootGraphicsItem
+  zenUI::TunerDialog
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/done.png'
+          zenUI::PressAnimationView
+    zenUI::GraphicsItem
+    zenUI::GraphicsItem
+    zenUI::GraphicsItem
+    zenUI::GraphicsItem
+    zenUI::GraphicsItem
+      text : 'Tuner'
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+    zenUI::ComboBox
+      zenUI::Button
+        text : 'INPUT 1'
+        image: 'icons/16/down.png'
+        zenUI::PressAnimationView
+    zenUI::TunerMuteButton
+      text : 'MUTED'
+      zenUI::PressAnimationView
+    zenUI::ParameterControl
+    zenUI::GraphicsItem
+    zenUI::Ellipse
+    zenUI::GraphicsItem
+      text : '-50'
+    zenUI::GraphicsItem
+      text : '+50'

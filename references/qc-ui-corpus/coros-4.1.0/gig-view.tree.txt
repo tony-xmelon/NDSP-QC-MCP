@@ -1,0 +1,75 @@
+zenUI::RootGraphicsItem
+  zenUI::GigView
+    zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/check.png'
+          zenUI::PressAnimationView
+      zenUI::SceneIndicator
+        zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'A'
+        zenUI::Button
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+      zenUI::GraphicsItem
+        text : '32H pyquadcortex scratch'
+    zenUI::PushButton
+      zenUI::Button
+        zenUI::PressAnimationView
+      zenUI::ModeButton
+        image: 'icons/navigationBar/modes/stomp.png'
+        zenUI::PressAnimationView
+    zenUI::StompGigView
+      zenUI::StompGigViewButton
+        text : 'Simple Gate'
+        image: 'icons/virtual devices/utility.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : 'Chief DS1'
+        image: 'icons/virtual devices/overdrive.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : 'Digital Flanger'
+        image: 'icons/virtual devices/modulation.png'
+        zenUI::Button
+          image: 'icons/custom/edit_light.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : 'UK C30 TopBoost'
+        image: 'icons/virtual devices/AMP.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : '212 UK C30 65 (M)'
+        image: 'icons/virtual devices/cabsim.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : 'Parametric-8'
+        image: 'icons/virtual devices/EQ.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        text : 'Ambience'
+        image: 'icons/virtual devices/reverb.png'
+        zenUI::Button
+          image: 'icons/custom/edit_dark.png'
+          zenUI::PressAnimationView
+        zenUI::PressAnimationView
+      zenUI::StompGigViewButton
+        zenUI::PressAnimationView

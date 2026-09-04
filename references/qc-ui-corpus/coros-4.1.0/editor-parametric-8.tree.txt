@@ -1,0 +1,149 @@
+zenUI::RootGraphicsItem
+  zenUI::GraphicsItem
+    zenUI::GraphicsItem
+      zenUI::NavigationBar
+      zenUI::NavMenuBlock
+        zenUI::ModeButton
+          text : 'STOMP'
+          image: 'icons/navigationBar/modes/stomp.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/24/presetMenu.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/navigationBar/undo.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          zenUI::PressAnimationView
+        zenUI::SceneIndicator
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              text : 'A'
+        zenUI::Button
+          image: 'icons/navigationBar/save.png'
+          zenUI::PressAnimationView
+    zenUI::ParameterEditor
+      zenUI::GraphicsItem
+        zenUI::ModelEditor
+          zenUI::EQModelEditor
+            zenUI::GraphicsItem
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::Button
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+              zenUI::GraphicsItem
+              zenUI::ParameterControl
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+              zenUI::ParameterControl
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+              zenUI::ParameterControl
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+              zenUI::BypassButton
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+                    image: 'icons/24/bypass_white.png'
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+                text : 'BYPASS 1'
+              zenUI::EQBandButton
+                image: 'icons/custom/down_arrow.png'
+                zenUI::GraphicsItem
+                  image: 'icons/filter_type/lo_shelf.png'
+                zenUI::GraphicsItem
+                  text : 'LO SHELF'
+                zenUI::PressAnimationView
+              zenUI::GraphicsItem
+                text : 'TYPE'
+            zenUI::TabBar
+            zenUI::EQGraph
+              zenUI::GraphBackground
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+                    text : '100'
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+                    text : '1k'
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                  zenUI::GraphicsItem
+                    text : '10k'
+                zenUI::GraphicsItem
+              zenUI::EQTotalCurve
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+              zenUI::EQGraphControlPoint
+      zenUI::GraphicsItem
+        zenUI::PushButton
+          zenUI::Button
+            image: 'icons/24/done.png'
+            zenUI::PressAnimationView
+        zenUI::Button
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/24/presetMenu.png'
+          zenUI::PressAnimationView
+        zenUI::ParameterEditorTitle
+        zenUI::Button
+          zenUI::PressAnimationView
+        zenUI::BypassButton
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/24/bypass_white.png'
+          zenUI::PressAnimationView
+        zenUI::SceneSelector
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/24/previous.png'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/24/next.png'
+          zenUI::Button
+            zenUI::PressAnimationView
+          zenUI::Button
+            zenUI::SceneIndicator
+              zenUI::GraphicsItem
+                zenUI::GraphicsItem
+                  text : 'A'
+            zenUI::PressAnimationView
+        zenUI::GraphicsItem
+        zenUI::StompAssignButton
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              image: 'icons/navigationBar/modes/stomp.png'
+            zenUI::GraphicsItem
+              text : 'F'
+          zenUI::PressAnimationView

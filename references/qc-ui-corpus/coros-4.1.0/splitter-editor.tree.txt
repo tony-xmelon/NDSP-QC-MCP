@@ -1,0 +1,268 @@
+zenUI::RootGraphicsItem
+  zenUI::GraphicsItem
+    zenUI::Grid
+      zenUI::SplitCableHelper
+      zenUI::SplitCableHelper
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItem
+            zenUI::PressAnimationView
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+          zenUI::ModelItemOverlays
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'In
+1'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            text : 'Multi
+Out'
+          zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+      zenUI::Chain
+        zenUI::SplitControlPointEditModeArea
+        zenUI::InputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+            text : '
+'
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+            zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::OutputPortItem
+          zenUI::GraphicsItem
+            image: 'icons/24/plus.png'
+          zenUI::GraphicsItem
+          zenUI::PressAnimationView
+        zenUI::ChainCableHelper
+        zenUI::ChainItemContainer
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+          zenUI::SlotItem
+            zenUI::PressAnimationView
+      zenUI::SplitControlPointGrid
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPoint
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPoint
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPoint
+        zenUI::SplitControlPointSlot
+        zenUI::SplitControlPoint
+    zenUI::GraphicsItem
+      zenUI::NavigationBar
+      zenUI::NavMenuBlock
+        zenUI::ModeButton
+          text : 'STOMP'
+          image: 'icons/navigationBar/modes/stomp.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/24/presetMenu.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          image: 'icons/navigationBar/undo.png'
+          zenUI::PressAnimationView
+        zenUI::Button
+          zenUI::PressAnimationView
+        zenUI::SceneIndicator
+          zenUI::GraphicsItem
+            zenUI::GraphicsItem
+              text : 'A'
+        zenUI::Button
+          image: 'icons/navigationBar/save.png'
+          zenUI::PressAnimationView
+  zenUI::SMParamsEditor
+    zenUI::PushButton
+      zenUI::Button
+        image: 'icons/24/done.png'
+        zenUI::PressAnimationView
+    zenUI::BypassButton
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+          image: 'icons/24/muteNotSelected.png'
+      zenUI::PressAnimationView
+    zenUI::ContainerWithSplitter
+      zenUI::SceneSelector
+        zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            image: 'icons/24/previous.png'
+        zenUI::GraphicsItem
+          zenUI::GraphicsItem
+            image: 'icons/24/next.png'
+        zenUI::Button
+          zenUI::PressAnimationView
+        zenUI::Button
+          zenUI::SceneIndicator
+            zenUI::GraphicsItem
+              zenUI::GraphicsItem
+                text : 'A'
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+    zenUI::Button
+      image: 'icons/grid/quick2.png'
+      zenUI::PressAnimationView
+    zenUI::Button
+      image: 'icons/grid/quick1.png'
+      zenUI::PressAnimationView
+    zenUI::Button
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+          image: 'icons/24/presetMenu.png'
+      zenUI::PressAnimationView
+    zenUI::ParameterControl
+    zenUI::ParameterControl
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+    zenUI::ParameterControl
+      zenUI::GraphicsItem
+        zenUI::GraphicsItem
+    zenUI::ParameterControl

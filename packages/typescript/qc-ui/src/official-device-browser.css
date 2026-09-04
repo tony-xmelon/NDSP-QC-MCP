@@ -1,0 +1,78 @@
+@scope (.qc-screen-fixture-root) {
+.device-browser-official, .device-browser-official * { box-sizing: border-box; font-family: Arial, sans-serif; }
+.device-browser-official:not(.is-plugins),
+.device-browser-official:not(.is-plugins) * { font-family: Roboto, Arial, sans-serif; }
+.qc-screen.device-browser-official { position: absolute; inset: 0; display: grid; grid-template-columns: 50% 50%; grid-template-rows: 100%; overflow: hidden; background: #181c18; color: #eee; container-type: inline-size; }
+.device-browser-official > main { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: 12.875cqw 37.125cqw; grid-template-rows: 100%; overflow: hidden; background: #181c18; }
+.device-browser-official nav { padding-top: 1.125cqw; }
+.device-browser-official nav button { width: 100%; height: 9.75cqw; display: grid; place-items: center; border: 0; background: transparent; color: #eee; }
+.device-browser-official nav i { width: 8.25cqw; height: 8.25cqw; display: grid; place-items: center; border: .3cqw solid transparent; border-radius: 1.75cqw; }
+.device-browser-official nav button.is-active i { border-color: #ff3037; background: #102818; }
+.device-browser-official.is-plugins nav button.is-active i { border-color: #2df36a; }
+.device-browser-official nav svg { width: 60%; height: 60%; }
+.device-browser-list { overflow: hidden; background: #282c28; }
+.device-browser-list header { height: 7.5cqw; display: flex; align-items: center; color: #929692; font-size: 2.25cqw; }
+.device-browser-list header button { width: 12.5cqw; height: 6.5cqw; border: 0; border-radius: 1cqw 1cqw 0 0; background: #171b18; color: #929692; font: 2cqw Arial, sans-serif; }
+.device-browser-official:not(.is-plugins) .device-browser-list header button { font-family: Roboto, Arial, sans-serif; }
+.device-browser-official:not(.is-plugins) .device-browser-list header button { position: relative; top: .5cqw; }
+.device-browser-official:not(.is-plugins) .device-browser-list header button:nth-child(2) { margin-left: .625cqw; }
+.device-browser-list header button.is-active { background: #282c28; color: #eee; }
+.device-browser-list header b { padding-left: 2cqw; font-weight: 400; }
+.device-browser-list header i { width: 8.25cqw; height: 5.5cqw; margin-left: auto; margin-right: 1cqw; display: grid; place-items: center; border-radius: 1cqw; background: #171b18; color: #eee; font-size: 3cqw; font-style: normal; }
+.device-browser-list header i svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.device-browser-list > button { width: 100%; height: 7.5cqw; padding: 0 2cqw; border: 0; background: transparent; color: #eee; text-align: left; font: 2cqw Arial, sans-serif; }
+.device-browser-official:not(.is-plugins) .device-browser-list > button { font-family: Roboto, Arial, sans-serif; font-size: 2.125cqw; }
+.device-browser-list > button b { color: #f4d224; }
+.device-browser-official:not(.is-plugins) .device-browser-list > button { position: relative; top: 1px; }
+.device-browser-official.is-plugins .device-browser-list > button { padding-left: .875cqw; position: relative; top: 1px; }
+.device-browser-official.is-plugins .device-browser-list > button b { margin-right: 0; }
+.device-browser-official.is-plugins .device-browser-list header b,
+.device-browser-official.is-plugins .device-browser-list header i { position: relative; top: 1px; }
+.device-browser-grid { position: relative; grid-column: 2; grid-row: 1; overflow: hidden; background: #404440; color: #808880; }
+.device-browser-grid header { height: 12.5%; display: flex; justify-content: flex-end; align-items: center; gap: 3cqw; padding: 0 2cqw; font-size: 3cqw; }
+.device-browser-grid header em { margin-right: auto; margin-left: -2.5cqw; color: #a2a5a2; font-size: 7cqw; font-style: normal; }
+.device-browser-grid header b { color: #b09d48; }
+.device-browser-grid header .amp-undo { position: absolute; left: 26.25cqw; }
+.device-browser-grid header > b { position: absolute; left: 32cqw; }
+.device-browser-grid header .amp-save { position: absolute; left: 38cqw; }
+.device-browser-grid header .amp-more { position: absolute; left: 45cqw; }
+.device-browser-grid header .amp-status { position: absolute; right: 1cqw; top: 0; width: 1.25cqw; height: 1.25cqw; border-radius: 50%; background: #58a364; }
+.device-browser-grid header span > svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.device-browser-grid header .plugin-undo { position: absolute; left: 26.25cqw; top: 1.25cqw; }
+.device-browser-grid header > b { position: absolute; left: 32cqw; top: 1.5cqw; }
+.device-browser-grid header .plugin-save { position: absolute; left: 38cqw; top: 1.25cqw; }
+.device-browser-grid header .plugin-more { position: absolute; left: 45cqw; top: 1.25cqw; }
+.device-browser-grid header .plugin-mode { position: absolute; left: 32cqw; top: 7.5cqw; color: #aaaeaa; font-size: 3cqw; }
+.device-browser-grid header .plugin-mode { display: flex; align-items: center; gap: 1.5cqw; }
+.device-browser-grid header .plugin-mode-matrix { width: 3cqw; height: 3cqw; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; }
+.device-browser-grid header .plugin-mode-matrix i { width: auto; height: auto; display: grid; place-items: center; border-radius: 0; background: #aaaeaa; color: #404440; font: 700 1.1cqw/1 Arial, sans-serif; }
+.device-browser-grid header .plugin-mode svg,.device-browser-grid .amp-mode svg { width: 3cqw; height: 3cqw; fill: currentColor; stroke: none; vertical-align: middle; }
+.device-browser-grid .amp-mode { position: absolute; z-index: 2; left: 32cqw; top: 6.5cqw; color: #aaaeaa; font-size: 3cqw; font-weight: 700; }
+.device-browser-grid main { position: absolute; inset: 12.5% 0 0; background: transparent !important; }
+.device-browser-grid main::before { content: ""; position: absolute; left: 0; right: 5.5cqw; top: 10.75cqw; border-top: 2px solid #aaa; }
+.device-browser-grid.is-plugins main::after,
+.device-browser-official.is-plugins .device-browser-grid main::after { content: ""; position: absolute; left: 0; right: 5.5cqw; top: 34.25cqw; border-top: 2px solid #aaa; }
+.device-browser-grid main i { position: absolute; right: 1cqw; width: 5.5cqw; height: 9.5cqw; display: grid; place-items: center; border-radius: 1.5cqw; background: #424742; font-size: 4cqw; font-style: normal; }
+.device-browser-official:not(.is-plugins) .device-browser-grid main i:not(:first-of-type) { background: #404840; }
+.device-browser-grid main i:first-of-type { left: 22.5cqw; right: auto; top: 6.5cqw; width: 8.75cqw; height: 8.75cqw; background: #111; }
+.device-browser-official.is-plugins .device-browser-grid main i:first-of-type { top: 18.25cqw; }
+.device-browser-grid main i:nth-of-type(2) { top: 6.5cqw; font-size: 1.8cqw; text-align: center; }
+.device-browser-grid main i:nth-of-type(3) { top: 18.25cqw; }
+.device-browser-grid main i:nth-of-type(4) { top: 30cqw; }
+.device-browser-official.is-plugins .device-browser-grid main i:nth-of-type(4) { font-size: 1.8cqw; text-align: center; }
+.device-browser-grid main i:nth-of-type(5) { top: 41.75cqw; }
+.device-browser-official:not(.is-plugins) .device-browser-grid main i:nth-of-type(2) { top: 6.125cqw; }
+.device-browser-official:not(.is-plugins) .device-browser-grid main i:nth-of-type(3) { top: 17.875cqw; }
+.device-browser-official:not(.is-plugins) .device-browser-grid main i:nth-of-type(4) { top: 29.625cqw; }
+.device-browser-official:not(.is-plugins) .device-browser-grid main i:nth-of-type(5) { top: 41.375cqw; }
+.device-browser-grid .grid-block { position: absolute; z-index: 1; top: 7cqw; width: 8cqw; height: 8cqw; display: grid; place-items: center; border: .25cqw solid #777; border-radius: 1.5cqw; background: #343934; color: #8b8f8b; font-size: 3.5cqw; }
+.device-browser-grid .grid-block svg { width: 70%; height: 70%; }
+.device-browser-grid .grid-block.b1 { left: 1.375cqw; border-color: #537b63; }
+.device-browser-grid .grid-block.b2 { left: 12.125cqw; border-color: #b35656; }
+.device-browser-grid .grid-block.b3 { left: 22.875cqw; }
+.device-browser-grid .grid-block.b4 { left: 33.625cqw; border-color: #70669b; }
+.device-browser-grid .grid-block.b5 { left: 1.375cqw; top: 30.5cqw; border-color: #537b63; }
+.device-browser-grid .grid-block.b6 { left: 12.125cqw; top: 30.5cqw; border-color: #4e9a89; }
+.device-browser-grid .grid-block.b7 { left: 33.625cqw; top: 30.5cqw; border-color: #a35b5b; }
+
+}

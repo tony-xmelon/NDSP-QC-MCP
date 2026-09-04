@@ -5,6 +5,7 @@ import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc
 import { QC_BRAND, QC_COLORS, QC_TYPOGRAPHY, QC_VISUAL_ASSETS, REFERENCE_BLOCK_ICONS } from "@ndsp-qc/theme";
 import { blockUsesActiveFill, officialBlockVisual, pluginBadge } from "./block-visuals";
 import { CorOsParameterEditor, type CorOsParameterEditorProps } from "./parameter-editor";
+import { CorOsScreenFixture, fixtureSnapshot, type CorOsScreenView } from "./coros-screen-fixtures";
 import { parameterEditorAccent, parameterEditorControlSlots, parameterEditorPageSize } from "./parameter-model";
 import { QcDirectoryIcon, QcHardwareIcon, QcModeGlyph, QcRouteGlyph, QcScreenHeaderGlyph, QcUiIcon } from "./theme-icons";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
@@ -12,6 +13,7 @@ import "./surface-shell.css";
 import "./live-surface.css";
 
 export type { CorOsContextAction } from "./coros-ui";
+export type { CorOsScreenView } from "./coros-screen-fixtures";
 
 export type HardwareAction = QcSurfaceAction;
 
@@ -64,6 +66,8 @@ interface QuadCortexSurfaceProps {
   savePreset?: CorOsSavePresetState;
   parameterEditor?: CorOsParameterEditorProps;
   onContextAction?: (action: CorOsContextAction) => void;
+  screenView?: CorOsScreenView;
+  onCloseScreen?: () => void;
 }
 
 const officialBlockSprite = QC_VISUAL_ASSETS.blockSprite.url;
@@ -464,7 +468,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
 
 function controlByRole(controls: HardwareControl[], role: string) { return controls.find((control) => control.role === role); }
 
-export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin, onAction, onOpenPreset, onUndo, canUndo, undoLabel, onSave, onOpenRouting, onRefresh, presetDirectory, routingPicker, savePreset, parameterEditor, onContextAction }: QuadCortexSurfaceProps) {
+export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin, onAction, onOpenPreset, onUndo, canUndo, undoLabel, onSave, onOpenRouting, onRefresh, presetDirectory, routingPicker, savePreset, parameterEditor, onContextAction, screenView = "grid", onCloseScreen }: QuadCortexSurfaceProps) {
   const scenes = formFactor.controls.filter((control) => control.group === "scene");
   const bankUp = controlByRole(formFactor.controls, "bank:up")!;
   const bankDown = controlByRole(formFactor.controls, "bank:down")!;
@@ -491,6 +495,8 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
   const parameterLed = (slot: number, fallback: { active: boolean; assigned: boolean; color: string }) => parameterLeds?.[slot] ?? fallback;
   const navigationLedColor = QC_COLORS.hardware.whiteLed;
   const bankDownLed = parameterLed(4, { active: false, assigned: false, color: navigationLedColor });
+  const displaySnapshot = fixtureSnapshot(screenView, snapshot);
+  const fixtureOnly = screenView !== "grid";
   const svgCropStyle = skin.svgAsset ? {
     width: `${skin.svgAsset.sourceWidth / skin.svgAsset.crop.width * 100}%`,
     left: `${-skin.svgAsset.crop.x / skin.svgAsset.crop.width * 100}%`,
@@ -501,7 +507,10 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <div className="chassis-edge" aria-hidden="true" />
     <MasterVolume value={snapshot.masterVolume} onAction={onAction} />
     <div className="device-plate"><QcHardwareIcon kind="brand-pulse" className="pulse-mark" /><span>{QC_BRAND.deviceWordmark}</span><small>{QC_BRAND.surfaceCaption}</small></div>
-    <div className="qc-screen-bezel"><CorOsGrid snapshot={snapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} presetDirectory={presetDirectory} routingPicker={routingPicker} savePreset={savePreset} onContextAction={onContextAction} />{parameterEditor && <CorOsParameterEditor {...parameterEditor} />}</div>
+    <div className="qc-screen-bezel">{fixtureOnly
+      ? <div className="qc-screen-fixture-root"><CorOsScreenFixture view={screenView} snapshot={displaySnapshot} onClose={onCloseScreen} /></div>
+      : <><CorOsGrid snapshot={displaySnapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} presetDirectory={presetDirectory} routingPicker={routingPicker} savePreset={savePreset} onContextAction={onContextAction} />{parameterEditor && <CorOsParameterEditor {...parameterEditor} />}</>}
+    </div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact active={Boolean(parameterEditor)} assigned={Boolean(parameterEditor)} accent={navigationLedColor} onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>
     <div className="footswitch-deck">
       <div className="footswitch-row">{scenes.slice(0, 4).map((control, index) => { const led = parameterLed(index, leds[index]); return <HardwareSwitch key={control.id} role={control.role} label={control.label} active={led.active} assigned={led.assigned} accent={led.color} onAction={onAction} />; })}<HardwareSwitch role={bankDown.role} label="BANK DOWN" active={bankDownLed.active} assigned={bankDownLed.assigned} accent={bankDownLed.color} onAction={onAction} /></div>

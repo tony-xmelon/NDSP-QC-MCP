@@ -1,0 +1,121 @@
+@scope (.qc-screen-fixture-root) {
+.directory-official, .directory-official * { box-sizing: border-box; font-family: Arial, sans-serif; }
+.qc-screen.directory-official { position: absolute; inset: 0; display: block; overflow: hidden; background: #101010; color: #eee; container-type: inline-size; }
+.directory-official button { border: 0; color: inherit; font: inherit; }
+.directory-official svg { width: 3cqw; height: 3cqw; fill: currentColor; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.directory-official > header { height: 7.5cqw; display: flex; align-items: center; gap: 1cqw; padding: 0 1cqw; }
+.directory-official > header button { width: 8.25cqw; height: 5.5cqw; border-radius: 1cqw; background: #282c28; font-size: 3cqw; }
+.directory-official > header .directory-official-category { width: 32cqw; display: flex; align-items: center; gap: 1.5cqw; padding: 0 2cqw; text-align: left; font-size: 2cqw; }
+.directory-official > header .directory-official-category b { margin-left: auto; font-size: 1.75cqw; }
+.directory-official > header span { flex: 1; }
+.directory-official > header button:last-child { width: 12.25cqw; }
+.directory-official > main { height: 51.5cqw; display: grid; grid-template-columns: 32cqw 65cqw; gap: 1cqw; padding: 0 1cqw 1cqw; }
+.directory-official nav, .directory-official-list { overflow: hidden; border-radius: 1cqw; background: #282c28; }
+.directory-official nav button { width: 100%; height: 7.5cqw; display: grid; grid-template-columns: 5cqw 1fr 4cqw; align-items: center; padding: 0 2cqw; background: transparent; text-align: left; font-size: 2cqw; }
+.directory-official nav button.is-active { background: #181c18; color: #2df36a; }
+.directory-official nav button.is-child { width: calc(100% - 2cqw); margin-left: 2cqw; }
+.directory-official nav button.is-muted { color: #929692; }
+.directory-official nav button b { font-size: 3cqw; font-weight: 400; }
+.directory-official nav button small { color: #929692; font-size: 1.75cqw; }
+.directory-presets-official nav button,
+.directory-upload-official nav button { grid-template-columns: 4.625cqw 1fr 4cqw; }
+.directory-presets-official nav button small,
+.directory-upload-official nav button small { justify-self: end; }
+.directory-official-list > button { width: 100%; height: 7.5cqw; display: grid; grid-template-columns: 1fr 8cqw; align-items: center; padding: 0 2cqw; border-bottom: 1px solid #151815; background: transparent; text-align: left; font-size: 2cqw; }
+.directory-official-list > button span small { display: block; margin-top: .75cqw; color: #929692; font-size: 1.75cqw; }
+.directory-official-list > button > b { color: #929692; font-weight: 400; text-align: center; }
+.directory-official-list > button > i { display: flex; gap: .75cqw; font-style: normal; }
+.directory-official-list > button > i b { width: 8.25cqw; height: 5.5cqw; display: grid; place-items: center; border-radius: 1cqw; background: #181c18; font-size: 3cqw; }
+.directory-favorites-official > header .favorite-tab { width: 10.5cqw; font-size: 3cqw; }
+.directory-favorites-official > header .favorite-tab + .favorite-tab { margin-left: -.5cqw; }
+.directory-favorites-official > header .favorite-sort { margin-left: 1.25cqw; }
+.directory-favorites-official > header button:last-child { margin-left: 1.25cqw; }
+.directory-favorites-official .directory-official-list { position: relative; }
+.directory-favorites-official .directory-official-list > button { grid-template-columns: 1fr 17.25cqw 3.75cqw; }
+.directory-irs-official .directory-official-list > button { grid-template-columns: 1fr 17.25cqw; padding-right: 1cqw; }
+.directory-irs-official .directory-official-list > button > i > b:first-child > span { width: 3cqw; height: 3cqw; display: grid; place-items: center; border-radius: 50%; background: #2df36a; color: #071008; font-size: 2cqw; }
+.directory-irs-official .directory-official-list > button > i > b svg { width: 3cqw; height: 3cqw; fill: none; color: #d8dcda; }
+.directory-favorites-official .directory-favorite-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; color: #929692; font-size: 1cqw; }
+.directory-captures-official .directory-official-list { position: relative; }
+.directory-captures-official .directory-official-list > button { padding-right: 6.625cqw; }
+.directory-captures-official nav button.is-child { grid-template-columns: 4.75cqw 1fr 0; }
+.directory-captures-official .directory-capture-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; background: #282c28; color: #929692; font-size: 1cqw; }
+.directory-nested-official > header .directory-nested-back { width: 12.25cqw; }
+.directory-nested-official > header .directory-official-category { width: 18.75cqw; }
+.directory-nested-official > header button:last-child { margin-left: 1.25cqw; }
+.directory-nested-official > main nav { position: relative; }
+.directory-nested-official > main nav::after { content: ""; position: absolute; left: 2.125cqw; top: 7.5cqw; width: 1.25cqw; height: 33.75cqw; border-left: 2px solid #59605a; border-bottom: 2px solid #59605a; border-radius: 0 0 0 1cqw; pointer-events: none; }
+.directory-nested-official nav .directory-nested-root { color: #2df36a; }
+.directory-nested-official nav .directory-nested-root span { line-height: 1.35; }
+.directory-nested-official nav .directory-nested-root small { display: block; color: #929692; }
+.directory-nested-official nav button b { color: #eee; }
+.directory-nested-official nav button b svg { fill: none; }
+.directory-nested-official nav button.is-child { width: calc(100% - 2cqw); margin-left: 2cqw; grid-template-columns: 4.625cqw 1fr; }
+.directory-nested-official nav button.is-child { position: relative; }
+.directory-nested-official nav button.is-child::before { content: ""; position: absolute; left: 0; top: 0; width: 1.75cqw; height: 3.75cqw; border-bottom: 2px solid #59605a; border-radius: 0 0 0 1cqw; }
+.directory-nested-official > main nav::after { border-bottom: 0; border-radius: 0; }
+.directory-nested-official .directory-official-list { position: relative; }
+.directory-nested-official .directory-official-list > button { grid-template-columns: 1fr 8cqw; padding-right: 6.625cqw; }
+.directory-nested-official .directory-nested-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; color: #929692; font-size: 1cqw; }
+.directory-official.is-plugins .directory-official-list { display: grid; place-items: center; background: #181c18; color: #090b09; font-size: 12cqw; }
+.directory-official.is-plugins > header .plugin-refresh { width: 12.25cqw; background: #181c18; }
+.directory-official.is-plugins > header .plugin-refresh svg,
+.directory-official.is-plugins > header button:nth-last-child(2) svg,
+.directory-official.is-plugins > header button:last-child svg { display: none; }
+.directory-official.is-plugins > header .plugin-refresh::after { content: "↻"; }
+.directory-official.is-plugins > header button:nth-last-child(2)::after { content: "⌕"; }
+.directory-official.is-plugins > header button:last-child::after { content: "✓"; }
+.directory-official.is-plugins nav button { grid-template-columns: 4.625cqw 1fr; }
+.directory-official.is-plugins nav button b svg,
+.directory-official:not(.directory-nested-official) nav button.is-child b svg { fill: none; }
+.directory-official.is-plugins .plugin-directory-logo { width: 13.125cqw; height: 15.5cqw; fill: none; stroke: #101010; stroke-width: 14; stroke-linecap: butt; stroke-linejoin: miter; transform: translate(-.375cqw, -.625cqw); }
+.directory-search-official > header { gap: .5cqw; }
+.directory-search-official > header .directory-search-field { width: 23cqw; margin: 0 1.75cqw 0 0; display: flex; align-items: center; justify-content: flex-start; gap: 1.125cqw; padding: 0 1.25cqw; font-size: 2.25cqw; }
+.directory-search-official > header .directory-search-field svg { width: 2.5cqw; height: 2.5cqw; }
+.directory-search-official > header .directory-search-field > span { flex: 0 0 auto; }
+.directory-search-official > header .directory-search-tab { width: 12.625cqw; font-size: 2cqw; }
+.directory-search-official > header .directory-search-tab.is-active { width: 12.375cqw; }
+.directory-search-official > header .directory-search-tab.is-active { background: #b0b0b0; color: #333; }
+.directory-search-official > header button:last-child { margin-left: 1.75cqw; }
+.directory-search-official > main { display: block; height: 51.5cqw; padding: 0 1cqw 1cqw; }
+.directory-search-official .directory-official-list { height: 100%; border-radius: 1cqw; }
+.directory-search-official .directory-official-list > header { height: 5.5cqw; display: flex; align-items: center; padding: 0 2cqw; background: #4b4d4b; font-size: 1.75cqw; }
+.directory-search-official .directory-official-list > header b { margin-left: auto; font-size: 3cqw; }
+.directory-search-official .directory-official-list > button { grid-template-columns: 1fr 5cqw; }
+.directory-upload-official > header .directory-official-category { color: #344037; }
+.directory-upload-official > header .is-cloud { border: 1px solid #2df36a; color: #2df36a; }
+.directory-upload-official > header .is-cloud svg { color: #eee; }
+.directory-upload-official > main { grid-template-columns: 32cqw 14.125cqw 49.875cqw; }
+.directory-upload-official .directory-upload-banks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 6.625cqw; gap: .875cqw; background: transparent; }
+.directory-upload-official .directory-upload-banks button { border-radius: 1cqw; background: #282c28; font-size: 2cqw; }
+.directory-upload-official .directory-upload-banks button:first-child { color: #2df36a; }
+.directory-upload-official .directory-official-list > button { grid-template-columns: 1fr 8.25cqw; }
+.directory-upload-official .directory-official-list > button b { width: 8.25cqw; height: 4.75cqw; display: grid; place-items: center; border-radius: 1cqw; background: #181c18; color: #eee; font-size: 3cqw; }
+.directory-upload-official .directory-official-list > button b svg { width: 3.25cqw; height: 3.25cqw; }
+.directory-upload-official nav button.is-active b { color: #eee; }
+.directory-upload-official nav button.is-active .folder-number { fill: #202421; }
+.directory-upload-official .directory-official-list .cloud-upload-arrow { stroke: #181c18; }
+.directory-presets-official > main { grid-template-columns: 32cqw 14cqw 50cqw; }
+.directory-presets-official .directory-preset-banks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 6.625cqw; gap: .875cqw; background: transparent; }
+.directory-presets-official .directory-preset-banks button { border-radius: 1cqw; background: #282c28; font-size: 2cqw; }
+.directory-presets-official .directory-preset-banks button:first-child { color: #2df36a; }
+.directory-presets-official > header > button:not(.directory-official-category):not(:last-child) { transform: translateX(-1.25cqw); }
+.directory-presets-official nav button.is-active b { color: #eee; }
+.directory-presets-official nav button.is-active .folder-number { fill: #202421 !important; stroke: none; }
+.directory-upload-official nav button.is-active .folder-number { fill: #202421 !important; stroke: none; }
+.directory-official-list > button > span,
+.directory-official-list > button > b,
+.directory-official-list > button > i { position: relative; top: 1px; }
+.directory-upload-official .directory-official-list > button > span,
+.directory-upload-official .directory-official-list > button > b,
+.directory-upload-official .directory-official-list > button > i { top: 0; }
+.directory-presets-official .directory-official-list > button { grid-template-columns: 1fr 3cqw; border-bottom: 0; }
+.directory-presets-official .directory-official-list > button:first-child { background: #202420; }
+.directory-upload-official > header .is-cloud { width: 12.25cqw; }
+.directory-upload-official > header button:nth-last-child(2) { transform: translateX(-1.25cqw); }
+.directory-upload-official .directory-upload-banks button, .directory-presets-official .directory-preset-banks button { width: auto; height: auto; margin: 0; padding: 0; grid-template-columns: 1fr; place-items: center; text-align: center; }
+.directory-upload-official .directory-official-list > button, .directory-presets-official .directory-official-list > button { height: 6.375cqw; }
+.directory-upload-official .directory-official-list > button { height: 6.375cqw; padding-right: 1cqw; }
+.directory-upload-official .directory-official-list > button { border-bottom: 0; }
+
+}

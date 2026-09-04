@@ -1,0 +1,23 @@
+<svg width="1005" height="157" viewBox="0 0 1005 157" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1005" height="157" fill="white"/>
+<rect x="5.5" y="3.5" width="239" height="153" rx="7.5" fill="#7B7B7B"/>
+<rect x="5.5" y="3.5" width="239" height="153" rx="7.5" stroke="#474646"/>
+<rect x="5.5" y="3.5" width="239" height="153" rx="7.5" stroke="black" stroke-opacity="0.2"/>
+<rect x="69.5" y="16.5" width="114" height="63" rx="2.5" fill="black" stroke="#393838"/>
+<circle cx="36.5" cy="47.5" r="15" fill="#7B7B7B" stroke="#474646"/>
+<circle cx="229" cy="48" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="21" cy="142" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="21" cy="102" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="229" cy="142" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="229" cy="102" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="125" cy="142" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="125" cy="102" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="177" cy="142" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="177" cy="102" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="73" cy="142" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="73" cy="102" r="8.5" fill="white" stroke="#474646"/>
+<circle cx="36" cy="21" r="8" fill="#04FF2D" stroke="#007513" stroke-width="2"/>
+<circle cx="36" cy="21" r="11.5" stroke="#04FF2D" stroke-opacity="0.91" stroke-width="3"/>
+<circle cx="36" cy="21" r="15.5" stroke="#04FF2D" stroke-opacity="0.48" stroke-width="3"/>
+<circle cx="36" cy="21" r="19.5" stroke="#04FF2D" stroke-opacity="0.23" stroke-width="3"/>
+</svg>

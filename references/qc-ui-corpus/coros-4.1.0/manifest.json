@@ -1,0 +1,1235 @@
+{
+  "schemaVersion": 1,
+  "corosVersion": "4.1.0",
+  "coordinateSpace": {
+    "width": 800,
+    "height": 480
+  },
+  "createdAt": "2026-09-03T18:55:48.410557Z",
+  "captures": [
+    {
+      "id": "grid-base",
+      "label": "Grid \u2014 clean, Scene A, STOMP",
+      "screen": "grid",
+      "image": "grid-base.png",
+      "graphicsTree": "grid-base.tree.txt",
+      "sha256": "cea104622a3fdeef2f5d1577a875fb4568a61eac867911a1209fe9073ad79188",
+      "bytes": 23326,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:56:37.597840Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 760,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "grid-scene-selector",
+      "label": "Grid scene selector open",
+      "screen": "scene-selector",
+      "image": "grid-scene-selector.png",
+      "graphicsTree": "grid-scene-selector.tree.txt",
+      "sha256": "18b81cf2103451755a93859c707e9412ac3ca77f80a4f019bcf26436face72fd",
+      "bytes": 32685,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:56:49.467609Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 669,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "grid-context-menu",
+      "label": "Grid contextual menu",
+      "screen": "grid-context-menu",
+      "image": "grid-context-menu.png",
+      "graphicsTree": "grid-context-menu.tree.txt",
+      "sha256": "b881849c6b0c457c31bc0134270df83654f84bc0af6b85ac2c51caa1d318b899",
+      "bytes": 28467,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:57:07.042329Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 669,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "preset-directory",
+      "label": "Preset Directory \u2014 current setlist",
+      "screen": "directory",
+      "image": "preset-directory.png",
+      "graphicsTree": "preset-directory.tree.txt",
+      "sha256": "2973d67661a29dc1bf68fbc23a2d9857147697df05dfbad1b92e25c7efff03fc",
+      "bytes": 37992,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:57:36.624621Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 300,
+          "y": 40
+        },
+        {
+          "type": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "input-route-selector",
+      "label": "Row 1 input route selector",
+      "screen": "route-selector",
+      "image": "input-route-selector.png",
+      "graphicsTree": "input-route-selector.tree.txt",
+      "sha256": "5984afc5da807b3ce9b83dccb77b5ae0b707b9094d7a155d301b151f1a996754",
+      "bytes": 29806,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:57:58.681072Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 744,
+          "y": 30
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 30,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.6
+        }
+      ]
+    },
+    {
+      "id": "output-route-selector",
+      "label": "Row 1 output route selector",
+      "screen": "route-selector",
+      "image": "output-route-selector.png",
+      "graphicsTree": "output-route-selector.tree.txt",
+      "sha256": "a3436b36a20d4bb8d3ae4a96d7b59767e91afd7b320c19a07b4be15fad61fdea",
+      "bytes": 28881,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:58:20.601845Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 30,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 770,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.6
+        }
+      ]
+    },
+    {
+      "id": "device-browser-root",
+      "label": "Add device \u2014 category browser",
+      "screen": "device-browser",
+      "image": "device-browser-root.png",
+      "graphicsTree": "device-browser-root.tree.txt",
+      "sha256": "cfa26e3d4732e2e25afeeaa316eb18e33c40e68c967e6e4deb6e9f4b35692282",
+      "bytes": 29095,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:58:39.893831Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 770,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "device-browser-models",
+      "label": "Add device \u2014 Overdrive models",
+      "screen": "device-browser",
+      "image": "device-browser-models.png",
+      "graphicsTree": "device-browser-models.tree.txt",
+      "sha256": "75b1fa3fcc55e16fbf895ef4a4785869562aaa271cc5832205a38ee815cd202f",
+      "bytes": 33266,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:58:59.638486Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 520,
+          "y": 360
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "device-browser-models-clean",
+      "label": "Add device \u2014 Overdrive models, clean",
+      "screen": "device-browser",
+      "image": "device-browser-models-clean.png",
+      "graphicsTree": "device-browser-models-clean.tree.txt",
+      "sha256": "08ceb01774e3450c3784be48ed9a1e50886e4b653a5b3607233dd6a3c9721b2c",
+      "bytes": 30518,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:59:19.557363Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 40
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-simple-gate",
+      "label": "Parameter editor \u2014 Simple Gate",
+      "screen": "parameter-editor",
+      "image": "editor-simple-gate.png",
+      "graphicsTree": "editor-simple-gate.tree.txt",
+      "sha256": "72808de11e4b997f94bb14d50298bde076a513962b77297371bccf88bafa9d39",
+      "bytes": 32747,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:59:57.297667Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 357,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 98,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-chief-ds1",
+      "label": "Parameter editor \u2014 Chief DS1",
+      "screen": "parameter-editor",
+      "image": "editor-chief-ds1.png",
+      "graphicsTree": "editor-chief-ds1.tree.txt",
+      "sha256": "0c3035eaf3b86ae284ec5c7b87e422425d8e40da35cd11e7f25ad122ab4296b7",
+      "bytes": 35142,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T18:59:59.343004Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 760,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 184,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-digital-flanger",
+      "label": "Parameter editor \u2014 Digital Flanger",
+      "screen": "parameter-editor",
+      "image": "editor-digital-flanger.png",
+      "graphicsTree": "editor-digital-flanger.tree.txt",
+      "sha256": "2442b8f80ce9db65032b2b57c1b373601b7cfc34bb324108a76b06859a0caf7e",
+      "bytes": 46003,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:00:01.471787Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 760,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 273,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-ukc30-topboost",
+      "label": "Parameter editor \u2014 UK C30 TopBoost",
+      "screen": "parameter-editor",
+      "image": "editor-ukc30-topboost.png",
+      "graphicsTree": "editor-ukc30-topboost.tree.txt",
+      "sha256": "71336e003d202aac30d35be2b19e60fa2c7cf4003ce1e23ddb8015e1620edecd",
+      "bytes": 41681,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:00:03.559359Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 760,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-ukc30-cab",
+      "label": "Parameter editor \u2014 212 UK C30 65 (M)",
+      "screen": "parameter-editor",
+      "image": "editor-ukc30-cab.png",
+      "graphicsTree": "editor-ukc30-cab.tree.txt",
+      "sha256": "e8b9e5f6cb5822e63d9f451f92829ead9f3a93abbfd6f596180dda8a0395e18a",
+      "bytes": 30525,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:00:05.521507Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 760,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "tap",
+          "x": 448,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-parametric-8",
+      "label": "Parameter editor \u2014 Parametric-8",
+      "screen": "parameter-editor",
+      "image": "editor-parametric-8.png",
+      "graphicsTree": "editor-parametric-8.tree.txt",
+      "sha256": "4aed413f02025df747691f036b8f026de2d57236fcb4d77a6ce8c9d0a06270ff",
+      "bytes": 24010,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:00:44.193049Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 744,
+          "y": 30
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 528,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "editor-ambience",
+      "label": "Parameter editor \u2014 Ambience",
+      "screen": "parameter-editor",
+      "image": "editor-ambience.png",
+      "graphicsTree": "editor-ambience.tree.txt",
+      "sha256": "8a5c8d7dbce5efb38d93da3d92b81373c53cd31ec0edc691bdda38cf17c888c4",
+      "bytes": 41460,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:01:15.136272Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 744,
+          "y": 30
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 616,
+          "y": 147
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "gig-view",
+      "label": "Gig View",
+      "screen": "gig-view",
+      "image": "gig-view.png",
+      "graphicsTree": "gig-view.tree.txt",
+      "sha256": "9761f9aaaaa557046936b893aa89743cd7c18518c1bdb8c765aa6745a696f938",
+      "bytes": 49077,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:01:33.912670Z",
+      "actions": [
+        {
+          "type": "showTuner",
+          "shown": false
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "showGigView",
+          "shown": true
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "grid-restored",
+      "label": "Grid restored after modal views",
+      "screen": "grid",
+      "image": "grid-restored.png",
+      "graphicsTree": "grid-restored.tree.txt",
+      "sha256": "cea104622a3fdeef2f5d1577a875fb4568a61eac867911a1209fe9073ad79188",
+      "bytes": 23326,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:01:35.492160Z",
+      "actions": [
+        {
+          "type": "showGigView",
+          "shown": false
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "grid-scene-b",
+      "label": "Grid \u2014 Scene B selected",
+      "screen": "grid",
+      "image": "grid-scene-b.png",
+      "graphicsTree": "grid-scene-b.tree.txt",
+      "sha256": "44aa5c34d48c94b355542ef0544225eacfa43edb3f3a083b4c43ceab990ef79e",
+      "bytes": 23373,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:06:04.853416Z",
+      "actions": [
+        {
+          "type": "selectScene",
+          "scene": 1
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "grid-scene-a-restored",
+      "label": "Grid \u2014 Scene A restored",
+      "screen": "grid",
+      "image": "grid-scene-a-restored.png",
+      "graphicsTree": "grid-scene-a-restored.tree.txt",
+      "sha256": "d3f6bffb411b9168700d70a556db5de7a1bceb075de56e349ee587b5d0545a3a",
+      "bytes": 23440,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:06:06.758785Z",
+      "actions": [
+        {
+          "type": "selectScene",
+          "scene": 0
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "tuner",
+      "label": "Tuner",
+      "screen": "tuner",
+      "image": "tuner.png",
+      "graphicsTree": "tuner.tree.txt",
+      "sha256": "ac994c861d1def52f6b13219984681f96013ae01d2af502e1c06b2cd0b32e503",
+      "bytes": 16130,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T19:54:47.143176Z",
+      "actions": [
+        {
+          "type": "midiControlChange",
+          "controller": 45,
+          "value": 127
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "gig-view-preset",
+      "label": "Gig View PRESET mode",
+      "screen": "gig-view",
+      "image": "gig-view-preset.png",
+      "graphicsTree": "gig-view-preset.tree.txt",
+      "sha256": "6fd7b230c220b731f58499e3bfd355c254e82c143e5f1f94db0f2b9bc6d3fd3d",
+      "bytes": 27008,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T20:12:27.948904Z",
+      "actions": [
+        {
+          "type": "midiControlChange",
+          "controller": 47,
+          "value": 0
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "showGigView",
+          "shown": true
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "gig-view-scene",
+      "label": "Gig View SCENE mode",
+      "screen": "gig-view",
+      "image": "gig-view-scene.png",
+      "graphicsTree": "gig-view-scene.tree.txt",
+      "sha256": "c019188ea096d5b3fb241a9b733ba2ee3d3722b558b60471d8320380898c5445",
+      "bytes": 41631,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T20:12:30.448137Z",
+      "actions": [
+        {
+          "type": "showGigView",
+          "shown": false
+        },
+        {
+          "type": "wait",
+          "seconds": 0.3
+        },
+        {
+          "type": "midiControlChange",
+          "controller": 47,
+          "value": 1
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "showGigView",
+          "shown": true
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "modes-configuration",
+      "label": "Modes Configuration",
+      "screen": "modes-configuration",
+      "image": "modes-configuration.png",
+      "graphicsTree": "modes-configuration.tree.txt",
+      "sha256": "d2c393ac50fe1b697f9dbd9525a64d4eff28f369943dfdddb0703778bd222a41",
+      "bytes": 18426,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T20:18:12.759145Z",
+      "actions": [
+        {
+          "type": "hold",
+          "x": 700,
+          "y": 70,
+          "duration": 0.9
+        },
+        {
+          "type": "wait",
+          "seconds": 0.7
+        }
+      ]
+    },
+    {
+      "id": "save-as-editor",
+      "label": "Save As editor",
+      "screen": "save-as-editor",
+      "image": "save-as-editor.png",
+      "graphicsTree": "save-as-editor.tree.txt",
+      "sha256": "13d60a6b8f487282cc1243c11ddaf549a8e1916004627ea0cfa2a3587c85dcb1",
+      "bytes": 34689,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T20:27:40.083408Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.4
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 166
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "edit-details-editor",
+      "label": "Edit Details editor",
+      "screen": "preset-name-editor",
+      "image": "edit-details-editor.png",
+      "graphicsTree": "edit-details-editor.tree.txt",
+      "sha256": "f3d6a99922dcd02e0f7bce853d69da78a19e0b1a679ad540c98d626e3a40ceac",
+      "bytes": 28535,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T21:02:59.285301Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.4
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 226
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "copy-scene-destination",
+      "label": "Copy Scene destination",
+      "screen": "scene-destination",
+      "image": "copy-scene-destination.png",
+      "graphicsTree": "copy-scene-destination.tree.txt",
+      "sha256": "bafc06e2ac5f348a08ad688be070a0c328175438264952195d2de44353fc3dc9",
+      "bytes": 18310,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T23:09:39.881750Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.4
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 286
+        },
+        {
+          "type": "wait",
+          "seconds": 0.6
+        }
+      ]
+    },
+    {
+      "id": "swap-scene-destination",
+      "label": "Swap Scene destination",
+      "screen": "scene-destination",
+      "image": "swap-scene-destination.png",
+      "graphicsTree": "swap-scene-destination.tree.txt",
+      "sha256": "2f4b65d8e6fc091bff467c4cd8086a0c1feafed2cafd6a977f791ed7a090d132",
+      "bytes": 18165,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-03T23:11:16.266227Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.7
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 345
+        },
+        {
+          "type": "wait",
+          "seconds": 1.5
+        }
+      ]
+    },
+    {
+      "id": "preset-midi-out",
+      "label": "Preset MIDI Out settings",
+      "screen": "midi-out",
+      "image": "preset-midi-out.png",
+      "graphicsTree": "preset-midi-out.tree.txt",
+      "sha256": "1c921944efd08eccca3a99767dc79414ffac8a4b1f00ccd78ed2bcc35c2fe6bb",
+      "bytes": 17419,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T00:32:50.389287Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 766,
+          "y": 25
+        },
+        {
+          "type": "wait",
+          "seconds": 0.4
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 406
+        },
+        {
+          "type": "wait",
+          "seconds": 0.7
+        }
+      ]
+    },
+    {
+      "id": "device-browser-plugin-list",
+      "label": "Plugin device list and license state",
+      "screen": "device-browser",
+      "image": "device-browser-plugin-list.png",
+      "graphicsTree": "device-browser-plugin-list.tree.txt",
+      "sha256": "eda1ce759b02e8c3ded3108254938f8345487e63dd7df5e5899af566b4238d0b",
+      "bytes": 32129,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T00:48:25.894271Z",
+      "actions": [
+        {
+          "type": "showGigView",
+          "shown": true
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "midiControlChange",
+          "controller": 45,
+          "value": 127
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "midiControlChange",
+          "controller": 45,
+          "value": 127
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "showGigView",
+          "shown": false
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "tap",
+          "x": 742,
+          "y": 30
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "showGigView",
+          "shown": false
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        },
+        {
+          "type": "tap",
+          "x": 451,
+          "y": 47
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "device-browser-plugin-models",
+      "label": "Plugin model list - Archetype Plini X",
+      "screen": "device-browser",
+      "image": "device-browser-plugin-models.png",
+      "graphicsTree": "device-browser-plugin-models.tree.txt",
+      "sha256": "3906683e675ca225e222baea404a29f656fd1e410574af761a9ddd97040aa9f7",
+      "bytes": 41646,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T01:03:09.298051Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 451,
+          "y": 47
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 80
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "device-presets-exotic-z-boost",
+      "label": "Virtual Device Presets - Exotic Z Boost",
+      "screen": "device-browser",
+      "image": "device-presets-exotic-z-boost.png",
+      "graphicsTree": "device-presets-exotic-z-boost.tree.txt",
+      "sha256": "c0a442e5692789c64a6069e8f9899f24474a92fa3d1f8873323a54c0d1c84e26",
+      "bytes": 31582,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T01:29:48.427495Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 451,
+          "y": 359
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 772,
+          "y": 90
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "device-browser-plugin-locked",
+      "label": "Locked plugin - license not found",
+      "screen": "device-browser",
+      "image": "device-browser-plugin-locked.png",
+      "graphicsTree": "device-browser-plugin-locked.tree.txt",
+      "sha256": "29563a4dd2b1bf8644fc253968524e20d6a32e751d2396c8f27d9e7f6513617d",
+      "bytes": 49587,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T01:41:22.182527Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 600,
+          "y": 150
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "device-preset-actions",
+      "label": "Virtual Device Preset actions",
+      "screen": "device-browser",
+      "image": "device-preset-actions.png",
+      "graphicsTree": "device-preset-actions.tree.txt",
+      "sha256": "9d720b4c18837bf8f53cf2a7c384df635461502442f95c9d12039aba27baa7e0",
+      "bytes": 26167,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T01:53:23.868925Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 361,
+          "y": 241
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 451,
+          "y": 359
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 772,
+          "y": 90
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 772,
+          "y": 90
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "device-presets-user",
+      "label": "Virtual Device Presets - User tab",
+      "screen": "device-browser",
+      "image": "device-presets-user.png",
+      "graphicsTree": "device-presets-user.tree.txt",
+      "sha256": "20d2bf9735e44af227f220e1329019bb1f58c211332fae7a870e97dff6e9ebb5",
+      "bytes": 23594,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T01:54:52.360628Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 250,
+          "y": 35
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 556,
+          "y": 35
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "tempo-metronome",
+      "label": "Tempo and Metronome",
+      "screen": "tempo",
+      "image": "tempo-metronome.png",
+      "graphicsTree": "tempo-metronome.tree.txt",
+      "sha256": "da9a3c22002063e17d2357ad4062086306faa6946e076bae3e5d1b3ca78618ff",
+      "bytes": 29931,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T02:32:43.578234Z",
+      "actions": []
+    },
+    {
+      "id": "tuner-live-enabled",
+      "label": "Tuner with Live Tuner enabled",
+      "screen": "tuner",
+      "image": "tuner-live-enabled.png",
+      "graphicsTree": "tuner-live-enabled.tree.txt",
+      "sha256": "2adbfa2c0c0ecf142bded05715d74adbe82c63002678101acd46d4be9d251a28",
+      "bytes": 16168,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T02:46:55.380074Z",
+      "actions": [
+        {
+          "type": "midiControlChange",
+          "controller": 45,
+          "value": 127
+        },
+        {
+          "type": "wait",
+          "seconds": 0.5
+        },
+        {
+          "type": "tap",
+          "x": 506,
+          "y": 422
+        },
+        {
+          "type": "wait",
+          "seconds": 0.4
+        }
+      ]
+    },
+    {
+      "id": "gig-view-live-tuner",
+      "label": "Gig View Live Tuner",
+      "screen": "gig-view",
+      "image": "gig-view-live-tuner.png",
+      "graphicsTree": "gig-view-live-tuner.tree.txt",
+      "sha256": "89ebb3b5ff148f7db2f320e46603a54157f62bf6cda5e495a21e053e8e338e37",
+      "bytes": 49150,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T02:48:24.567179Z",
+      "actions": []
+    },
+    {
+      "id": "splitter-editor",
+      "label": "Splitter parameter editor",
+      "screen": "splitter-editor",
+      "image": "splitter-editor.png",
+      "graphicsTree": "splitter-editor.tree.txt",
+      "sha256": "d9f23dc92f5daeb0f5ee5331a2ebf8fc1520c59a3a5da040f4e226be430ca924",
+      "bytes": 37667,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T07:21:09.925795Z",
+      "actions": [
+        {
+          "type": "hold",
+          "x": 400,
+          "y": 147,
+          "duration": 0.8
+        },
+        {
+          "type": "wait",
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "id": "mixer-editor",
+      "label": "Mixer parameter editor",
+      "screen": "mixer-editor",
+      "image": "mixer-editor.png",
+      "graphicsTree": "mixer-editor.tree.txt",
+      "sha256": "d251c1a628d66ed9b1a59965651173adcfbcc784369d84d6294793c26151854a",
+      "bytes": 32214,
+      "width": 800,
+      "height": 480,
+      "capturedAt": "2026-09-04T07:17:46.060288Z",
+      "actions": [
+        {
+          "type": "tap",
+          "x": 740,
+          "y": 135
+        },
+        {
+          "type": "wait",
+          "seconds": 0.7
+        }
+      ]
+    }
+  ]
+}

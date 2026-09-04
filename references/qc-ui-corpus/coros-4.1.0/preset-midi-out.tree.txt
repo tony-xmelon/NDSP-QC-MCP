@@ -1,0 +1,31 @@
+zenUI::RootGraphicsItem
+  zenUI::MidiMatrixDialog
+    zenUI::GraphicsItem
+      text : 'Preset MIDI Out settings'
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/24/done.png'
+          zenUI::PressAnimationView
+      zenUI::GraphicsItem
+      zenUI::PushButton
+        zenUI::Button
+          image: 'icons/navigationBar/delete.png'
+          zenUI::PressAnimationView
+    zenUI::PushButton
+      zenUI::Button
+        text : 'ON PRESET LOAD
+MESSAGE'
+        zenUI::PressAnimationView
+    zenUI::PushButton
+      zenUI::Button
+        image: 'midi_assets/exp_pedal_not_assigned_regular.png'
+        zenUI::PressAnimationView
+    zenUI::PushButton
+      zenUI::Button
+        image: 'midi_assets/exp_pedal_not_assigned_regular.png'
+        zenUI::PressAnimationView
+    zenUI::GraphicsItem
+    zenUI::GraphicsItem
+      text : 'EXP 1'
+    zenUI::GraphicsItem
+      text : 'EXP 2'

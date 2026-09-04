@@ -1,0 +1,37 @@
+@scope (.qc-screen-fixture-root) {
+.plugin-folders-official, .plugin-folders-official * { box-sizing: border-box; font-family: Roboto, Arial, sans-serif; }
+.qc-screen.plugin-folders-official { position: absolute; inset: 0; display: block; overflow: hidden; background: #101010; color: #eee; container-type: inline-size; }
+.plugin-folders-official button { border: 0; color: inherit; font: inherit; }
+.plugin-folders-official > header { height: 7.5cqw; display: flex; align-items: center; gap: 1cqw; padding: 0 1cqw; }
+.plugin-folders-official > header button { height: 5.5cqw; border-radius: 1cqw; background: #282c28; font-size: 2.25cqw; }
+.plugin-folders-official > header button:first-child { width: 12.25cqw; font-size: 3cqw; }
+.plugin-folders-official > header button:nth-child(2) { width: 18.75cqw; }
+.plugin-folders-official > header span { flex: 1; }
+.plugin-folders-official > header button:nth-last-child(3), .plugin-folders-official > header button:nth-last-child(2) { width: 8.25cqw; font-size: 3cqw; }
+.plugin-folders-official > header button:last-child { width: 12.25cqw; font-size: 3cqw; }
+.plugin-folders-official > header button > svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.plugin-folders-official > header .plugin-folder-category { display: grid; grid-template-columns: 3cqw 1fr 2cqw; align-items: center; column-gap: 2.25cqw; padding: 0 1.5cqw; text-align: left; }
+.plugin-folders-official > header .plugin-folder-category svg { width: 3cqw; height: 3cqw; }
+.plugin-folders-official > header .plugin-folder-category svg g { fill: currentColor; transform-box: fill-box; transform-origin: center; transform: scale(1.5); }
+.plugin-folders-official > header .plugin-folder-category small { font-size: 1.75cqw; }
+.plugin-folders-official > header button:nth-last-child(3), .plugin-folders-official > header button:nth-last-child(2) { transform: translateX(-1.25cqw); }
+.plugin-folders-official > main { height: 51.5cqw; display: grid; grid-template-columns: 32cqw 65cqw; gap: 1cqw; padding: 0 1cqw 1cqw; }
+.plugin-folders-official nav, .plugin-folders-official main > section { overflow: hidden; border-radius: 1cqw; background: #282c28; }
+.plugin-folders-official nav { position: relative; }
+.plugin-folders-official nav::before { content: ""; position: absolute; left: 2cqw; top: 7.5cqw; width: 2cqw; height: 19cqw; border-left: 1px solid #4a504b; border-bottom: 1px solid #4a504b; border-radius: 0 0 0 1cqw; pointer-events: none; }
+.plugin-folders-official nav button { width: 100%; height: 7.5cqw; display: grid; grid-template-columns: 4.75cqw 1fr 3cqw; align-items: center; padding: 0 2cqw; background: transparent; text-align: left; font-size: 2cqw; }
+.plugin-folders-official nav button:first-child { height: 7.5cqw; background: #181c18; }
+.plugin-folders-official nav button:first-child span { color: #2df36a; }
+.plugin-folders-official nav button:first-child small { display: block; color: #929692; font-size: 1.75cqw; }
+.plugin-folders-official nav button:nth-child(n+2) { margin-left: 2cqw; width: calc(100% - 2cqw); }
+.plugin-folders-official nav button b { font-size: 3cqw; font-weight: 400; }
+.plugin-folders-official nav button b svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.plugin-folders-official main > section button { width: 100%; height: 7.5cqw; display: grid; grid-template-columns: 1fr 6.5cqw 8.25cqw; align-items: center; padding: 0 1cqw 0 2cqw; border-bottom: 1px solid #182018; background: transparent; text-align: left; font-size: 2cqw; }
+.plugin-folders-official main > section button > span,
+.plugin-folders-official main > section button > i { position: relative; top: 2px; }
+.plugin-folders-official main > section button > i { color: #929692; font-style: normal; text-align: center; }
+.plugin-folders-official main > section button span small { display: block; margin-top: .75cqw; color: #929692; font-size: 1.75cqw; }
+.plugin-folders-official main > section button b { height: 5.5cqw; display: grid; place-items: center; border-radius: 1cqw; background: #181c18; font-size: 3cqw; }
+.plugin-folders-official main > section button b svg { width: 3cqw; height: 3cqw; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+}

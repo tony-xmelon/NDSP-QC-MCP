@@ -51,6 +51,7 @@ diagnostics/
 *.qcw
 .codex-remote-attachments/
 artifacts/
+.artifacts/
 tmp/
 
 # Generated contract clients

@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, coros410FixtureSnapshot, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsScreenView } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcUsbNative, subscribeRelayState, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -13,6 +13,15 @@ type AndroidAttachment = { name: string; mediaType: "image/png"; data: string };
 
 const formFactor = formFactors[0];
 const skin = skins.find((entry) => entry.id === "official-svg") ?? skins[0];
+const fixtureParams = new URLSearchParams(window.location.search);
+const fixtureScreenView = fixtureParams.get("screen") as CorOsScreenView | null;
+const corpusFixtureEnabled = fixtureParams.get("fixture") === "coros410";
+const fixtureMode = fixtureParams.get("mode");
+const fixtureTempo = Number(fixtureParams.get("tempo"));
+const fixtureInitialSnapshot = corpusFixtureEnabled ? coros410FixtureSnapshot(demoSnapshot, {
+  ...(Number.isFinite(fixtureTempo) && fixtureTempo > 0 ? { tempo: fixtureTempo } : {}),
+  ...(["PRESET", "SCENE", "STOMP", "HYBRID"].includes(fixtureMode ?? "") ? { mode: fixtureMode as "PRESET" | "SCENE" | "STOMP" | "HYBRID" } : {})
+}) : demoSnapshot;
 const sceneFootswitches = Array.from({ length: QC_SCENE_COUNT }, (_, index) => ({ index, label: sceneLetter(index) }));
 const androidGeminiModels: ReadonlyArray<{ id: AndroidGeminiModel; label: string }> = [
   { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash" },
@@ -43,6 +52,7 @@ export function App() {
     snapshot, snapshotRef, setSnapshot, updateSnapshot,
     resetCommands, reconcileFrame, runAssistantCommand
   } = qcController;
+  useEffect(() => { if (corpusFixtureEnabled) setSnapshot(fixtureInitialSnapshot); }, [setSnapshot]);
   const qcTransport = useMemo(() => createAndroidQcTransport(() => snapshotRef.current), [snapshotRef]);
   const [selectedBlockId, setSelectedBlockId] = useState("");
   const editor = useBlockEditorSession();
@@ -84,8 +94,8 @@ export function App() {
     editor,
     selectedBlockId,
     setSelectedBlockId,
-    connected: usbConnected,
-    demo: !native,
+    connected: corpusFixtureEnabled || usbConnected,
+    demo: corpusFixtureEnabled || !native,
     pending: devicePending,
     setPending: setDevicePending,
     prompts: browserWorkflowPrompts,
@@ -448,6 +458,7 @@ export function App() {
 
     <section className="mobile-screen" aria-label="Quad Cortex display">
       <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin}
+        screenView={fixtureScreenView ?? undefined}
         onAction={handleSurfaceAction} onOpenPreset={() => void presetWorkflow.openDirectory()} onUndo={() => void deviceHistory.undo()} canUndo={Boolean(deviceHistory.undoEntry)} undoLabel={deviceHistory.undoEntry?.label}
         onSave={presetWorkflow.openSave} onOpenRouting={routingWorkflow.openPicker} onRefresh={() => void presetWorkflow.refresh()}
         savePreset={presetWorkflow.saveProps} presetDirectory={presetWorkflow.directoryProps} routingPicker={routingWorkflow.pickerProps}

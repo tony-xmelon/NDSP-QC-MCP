@@ -1,0 +1,90 @@
+@scope (.qc-screen-fixture-root) {
+.qc-screen.coros-io-settings { background: #101010; }
+.coros-io-settings > header .io-global-eq { background: #181c18; }
+.coros-io-settings > header { padding-left: 1.25cqw; font-size: 2.25cqw; }
+.coros-io-settings > header .io-global-eq { font-size: 1.75cqw; }
+.coros-io-settings.is-input > header .io-global-eq { width: 13.625cqw; height: 5.5cqw; border-radius: 1cqw; }
+.coros-io-settings.is-usb > header .io-global-eq { width: 13.625cqw; height: 5.5cqw; border-radius: 1cqw; }
+.coros-io-settings > header button:last-child { background: #282c28; }
+.coros-io-settings .io-ports { background: #101010; }
+.coros-io-settings .io-editor { background: #282c28; }
+.io-ports { position: relative; grid-template-columns: repeat(12, 1fr); align-items: stretch; padding: 0 1cqw; }
+.io-ports button { position: relative; height: 100%; display: block; font-size: 1.5cqw; }
+.io-ports button > span { position: absolute; left: -1cqw; right: -1cqw; top: .25cqw; text-align: center; white-space: nowrap; }
+.io-ports button > span.io-headphone-label { display: grid; place-items: center; }
+.io-ports button > span.io-headphone-label svg { width: 2.5cqw; height: 2.5cqw; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.io-ports button > i { position: absolute; left: 50%; top: 4.5cqw; width: 5cqw; height: 5cqw; margin-left: -2.5cqw; }
+.io-ports button.is-paired > i + i { top: 11.875cqw; }
+.io-ports button > small { position: absolute; left: -1.5cqw; right: -1.5cqw; bottom: .25cqw; font-size: 1.5cqw; text-align: center; white-space: nowrap; }
+.coros-io-settings.is-usb .io-ports > button:nth-child(1)::after,
+.coros-io-settings.is-usb .io-ports > button:nth-child(3)::after,
+.coros-io-settings.is-usb .io-ports > button:nth-child(4)::after { content: ""; position: absolute; left: calc(50% - 1px); top: 10.75cqw; width: 2px; height: 4.625cqw; background: #626762; }
+.io-ports button:nth-child(1) > small,
+.io-ports button:nth-child(3) > small,
+.io-ports button:nth-child(4) > small { top: 17cqw; bottom: auto; }
+.io-ports button:nth-child(2) > small,
+.io-ports button:nth-child(8) > small,
+.io-ports button:nth-child(9) > small,
+.io-ports button:nth-child(10) > small { top: 19.25cqw; bottom: auto; }
+.io-ports button:nth-child(5) > small,
+.io-ports button:nth-child(6) > small { top: 14.375cqw; bottom: auto; }
+.io-ports button:nth-child(7) > small { left: 0; right: 0; top: 18.75cqw; bottom: auto; white-space: normal; }
+.io-ports button.is-square > i { width: 4.5cqw; height: 4.5cqw; margin-left: -2.25cqw; }
+.io-ports button.is-input > i { top: 6.5cqw; width: 8.25cqw; height: 8.25cqw; margin-left: -4.125cqw; }
+.io-ports button.is-input > span { top: 2.5cqw; color: #eee; font-size: 1.5cqw; }
+.io-ports button.is-combo > i:first-of-type { top: 3.25cqw; width: 7.25cqw; height: 7.25cqw; margin-left: -3.625cqw; }
+.io-ports .io-input-selectors { position: absolute; right: 1.5cqw; bottom: .5cqw; width: 17cqw; height: 6cqw; display: grid; grid-template-columns: 1fr 1fr; gap: .75cqw; }
+.io-ports .io-input-selectors button { height: 6cqw; border-radius: 1cqw; background: #282c28; color: #eee; font-size: 2cqw; text-align: center; }
+.io-ports .io-input-selectors button + button { background: #181c18; color: #929692; }
+.io-ports button.is-midi > i { top: 4.5cqw; }
+.io-ports button > i > svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.io-ports button > i > svg .port-hole { fill: currentColor; stroke: none; }
+.io-ports button > i > svg .usb-port-core { fill: currentColor; stroke: none; }
+.io-ports button:nth-child(12) > i { color: #f8fcf8; }
+.io-ports button:nth-child(12).is-active > i { border-color: #40f860; color: #40f860; }
+.io-ports button:nth-child(12) .port-core { fill: currentColor; stroke: none; }
+.io-ports button:nth-child(12) .port-hole { fill: #101010; stroke: none; }
+.io-ports button:nth-child(2) { transform: translateX(-.625cqw); }
+.io-ports button:nth-child(3) { transform: translateX(-1.25cqw); }
+.io-ports button:nth-child(4) { transform: translateX(-1.625cqw); }
+.io-ports button:nth-child(5) { transform: translateX(-1.25cqw); }
+.io-ports button:nth-child(6), .io-ports button:nth-child(7) { transform: translateX(-.375cqw); }
+.io-ports button:nth-child(8) { transform: translateX(-1.125cqw); }
+.io-ports button:nth-child(9) { transform: translateX(-1.75cqw); }
+.io-ports button:nth-child(10), .io-ports button:nth-child(11) { transform: translateX(-2.375cqw); }
+.io-ports button:nth-child(12) { transform: translateX(-1.875cqw); }
+.coros-io-settings .io-editor { transform: translateY(-.25cqw); }
+.io-editor section > span, .io-level-meter > span { font-size: 2cqw; }
+.io-editor .io-dial-wrap { inset: 5cqw 1cqw auto; height: 8cqw; }
+.io-editor .io-dial { width: 7.875cqw; height: 7.875cqw; }
+.io-editor.is-usb .io-dial-wrap { inset: 4.75cqw 1cqw auto; }
+.io-editor.is-usb .io-dial { width: 7.5cqw; height: 7.5cqw; }
+.io-editor.is-usb > section:first-child .io-dial { background: radial-gradient(circle at center, #282c28 0 68%, transparent 70%), conic-gradient(from 220deg, #40f860 0 83%, #101010 83%); }
+.io-editor.is-usb > section:nth-child(2) .io-dial { background: #282c28; }
+.io-editor.is-usb > section:nth-child(2) .io-dial::after { content: ""; position: absolute; right: -.125cqw; bottom: .25cqw; width: .75cqw; height: .75cqw; border-radius: 50%; background: #40f860; }
+.io-editor .io-dial { background: radial-gradient(circle at center, #282c28 0 68%, transparent 70%), conic-gradient(from 220deg, #40f860 0 46%, #101010 46%); }
+.io-editor .io-dial b { height: 3cqw; }
+.io-editor.is-analog > section:nth-child(1) .io-dial b { transform: rotate(-90deg); }
+.io-editor.is-analog > section:nth-child(2) .io-dial b { transform: rotate(105deg); }
+.io-editor.is-usb .io-dial b { transform: rotate(135deg); }
+.io-editor .io-dial-wrap > strong { font-size: 1.75cqw; }
+.io-editor .io-dial-wrap > strong { bottom: 1.4cqw; }
+.io-editor.is-analog > section:nth-child(2) .io-dial { right: -.5cqw; }
+.io-meter-grid > span { padding-left: 1.125cqw; }
+.io-meter-grid b { position: relative; top: .375cqw; font-size: 2cqw; }
+.io-meter-grid i { position: absolute; right: 2cqw; top: 1.5cqw; width: 2.75cqw; height: 2.75cqw; display: grid; place-items: center; margin: 0; border-radius: 50%; background: #101210; color: #282d29; font-size: 1.5cqw; }
+.io-meter-grid small { position: relative; top: .25cqw; display: block; margin-top: 1cqw; font-size: 1.75cqw; white-space: nowrap; }
+.io-meter-grid em { height: 2.5cqw; margin-top: 1cqw; margin-right: .375cqw; background: linear-gradient(90deg,#151716 88%,#0b0c0c 88%); }
+.io-meter-grid em + em { height: 2cqw; margin-top: .375cqw; }
+.io-meter-grid > span:nth-child(n+5) em { position: relative; top: -.125cqw; }
+.io-level-meter strong { font-size: 2cqw; }
+.io-editor.is-analog .io-level-meter i { height: 2cqw; margin-top: 2.875cqw; }
+.io-editor.is-analog .io-switch label { height: 3.125cqw; margin-left: 1.125cqw; gap: 2.125cqw; font-size: 2cqw; }
+.io-editor.is-analog .io-switch label i { width: 2.5cqw; height: 2.5cqw; }
+.io-editor.is-analog .io-switch label i.is-active { border-width: .375cqw; }
+.io-editor.is-analog .io-switch label:first-of-type { margin-top: 2.5cqw; }
+.io-editor.is-analog .io-level-meter::after { content: ""; position: absolute; left: 19.5cqw; top: 1.75cqw; width: 1px; height: 10cqw; background: #171918; }
+.io-editor.is-analog .io-level-meter strong { position: relative; top: 1.25cqw; }
+.io-editor.is-analog .io-level-meter > i { width: 17.625%; }
+
+}
