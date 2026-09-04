@@ -50,6 +50,63 @@ export interface GeneralSettings {
   holdTimingMs?: number;
 }
 
+export interface InputPortSettings {
+  inputPortId: number;
+  level?: number;
+  impedance?: number;
+  inputType?: number;
+  groundLift?: number;
+  plugged?: boolean;
+}
+
+export interface OutputPortSettings {
+  outputPortId: number;
+  level?: number;
+  groundLift?: number;
+  muted?: boolean;
+  plugged?: boolean;
+}
+
+export interface HeadphonesFeed {
+  outputPortId: number;
+  level: number;
+}
+
+export interface HeadphonesSettings {
+  feeds: HeadphonesFeed[];
+  level?: number;
+  plugged?: boolean;
+}
+
+export interface UsbPortSettings {
+  level?: number;
+  headphonesSource?: number;
+  plugged?: boolean;
+  dryWet?: number;
+}
+
+export interface ExpressionPortSettings {
+  expressionPortId: number;
+  plugged?: boolean;
+  level?: number;
+  calibrating?: boolean;
+}
+
+export interface MidiPortSettings {
+  thru?: number;
+}
+
+export interface IoSettings {
+  inputs: InputPortSettings[];
+  outputs: OutputPortSettings[];
+  expressionPorts: ExpressionPortSettings[];
+  headphones?: HeadphonesSettings;
+  usb?: UsbPortSettings;
+  midi?: MidiPortSettings;
+  xlr12Linked?: boolean;
+  out34Linked?: boolean;
+}
+
 export interface BypassExpression {
   pedal: number;
   minimum: number;

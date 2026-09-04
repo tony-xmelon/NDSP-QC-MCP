@@ -155,6 +155,30 @@ pub enum DeviceOperation {
         cab: [bool; 4],
         ir: [bool; 4],
     },
+    ReadIoSettings,
+    SetInputPort {
+        input_port_id: u32,
+        level: Option<f32>,
+        impedance: Option<f32>,
+        input_type: Option<f32>,
+        ground_lift: Option<f32>,
+    },
+    SetOutputPort {
+        output_port_id: u32,
+        level: Option<f32>,
+        ground_lift: Option<f32>,
+        mute: Option<bool>,
+    },
+    SetUsbPort {
+        level: Option<f32>,
+        headphones_source: Option<f32>,
+        dry_wet: Option<f32>,
+    },
+    SetMidiThru(bool),
+    SetOutputPairing {
+        xlr12_linked: Option<bool>,
+        out34_linked: Option<bool>,
+    },
     SetDeviceName(String),
     Undo,
     Redo,
@@ -314,6 +338,30 @@ impl DeviceOperation {
             }
             Self::ReadVersion => vec![read_version()],
             Self::ReadTuner => vec![read_tuner()],
+            Self::ReadIoSettings => vec![read(3)],
+            Self::SetInputPort {
+                input_port_id,
+                level,
+                impedance,
+                input_type,
+                ground_lift,
+            } => set_input_port(input_port_id, level, impedance, input_type, ground_lift),
+            Self::SetOutputPort {
+                output_port_id,
+                level,
+                ground_lift,
+                mute,
+            } => set_output_port(output_port_id, level, ground_lift, mute),
+            Self::SetUsbPort {
+                level,
+                headphones_source,
+                dry_wet,
+            } => set_usb_port(level, headphones_source, dry_wet),
+            Self::SetMidiThru(enabled) => vec![set_midi_thru(enabled)],
+            Self::SetOutputPairing {
+                xlr12_linked,
+                out34_linked,
+            } => vec![set_output_pairing(xlr12_linked, out34_linked)],
             Self::SetDeviceName(name) => vec![set_device_name(name)],
             Self::Undo => vec![undo()],
             Self::Redo => vec![redo()],
@@ -1181,6 +1229,17 @@ pub fn set_scene_bypass_behavior(behavior: i32) -> OutboundMessage {
     )
 }
 
+fn io_update(settings: pa::PortSettings) -> OutboundMessage {
+    OutboundMessage::encoded(
+        3,
+        pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(settings)),
+            ..Default::default()
+        },
+    )
+}
+
 pub fn set_master_volume_assignment(
     out12: bool,
     out34: bool,
@@ -1223,6 +1282,149 @@ pub fn set_global_bypass(cab: [bool; 4], ir: [bool; 4]) -> OutboundMessage {
             global_bypass_ir: Some(
                 pa::general_settings_message::GlobalBypassIr::GlobalBypassIr(rows(ir)),
             ),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_input_port(
+    input_port_id: u32,
+    level: Option<f32>,
+    impedance: Option<f32>,
+    input_type: Option<f32>,
+    ground_lift: Option<f32>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    for field in [
+        level.map(|value| ("level", value)),
+        impedance.map(|value| ("impedance", value)),
+        input_type.map(|value| ("inputType", value)),
+        ground_lift.map(|value| ("groundLift", value)),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let mut port = pa::InputPortSettings {
+            input_port_id,
+            ..Default::default()
+        };
+        match field {
+            ("level", value) => port.level = Some(pa::input_port_settings::Level::Level(value)),
+            ("impedance", value) => {
+                port.input_zmode = Some(pa::input_port_settings::InputZmode::InputZmode(value))
+            }
+            ("inputType", value) => {
+                port.input_type = Some(pa::input_port_settings::InputType::InputType(value))
+            }
+            ("groundLift", value) => {
+                port.ground_lift = Some(pa::input_port_settings::GroundLift::GroundLift(value))
+            }
+            _ => unreachable!(),
+        }
+        messages.push(io_update(pa::PortSettings {
+            in_port: vec![port],
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_output_port(
+    output_port_id: u32,
+    level: Option<f32>,
+    ground_lift: Option<f32>,
+    mute: Option<bool>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    if let Some(value) = level {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                level: Some(pa::output_port_settings::Level::Level(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    if let Some(value) = ground_lift {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                ground_lift: Some(pa::output_port_settings::GroundLift::GroundLift(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    if let Some(value) = mute {
+        messages.push(io_update(pa::PortSettings {
+            out_port: vec![pa::OutputPortSettings {
+                output_port_id,
+                mute: Some(pa::output_port_settings::Mute::Mute(value)),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_usb_port(
+    level: Option<f32>,
+    headphones_source: Option<f32>,
+    dry_wet: Option<f32>,
+) -> Vec<OutboundMessage> {
+    let mut messages = Vec::new();
+    for field in [
+        level.map(|value| ("level", value)),
+        headphones_source.map(|value| ("headphonesSource", value)),
+        dry_wet.map(|value| ("dryWet", value)),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let mut port = pa::UsbPortSettings::default();
+        match field {
+            ("level", value) => port.level = Some(pa::usb_port_settings::Level::Level(value)),
+            ("headphonesSource", value) => {
+                port.hp_select = Some(pa::usb_port_settings::HpSelect::HpSelect(value))
+            }
+            ("dryWet", value) => port.dry_wet = Some(pa::usb_port_settings::DryWet::DryWet(value)),
+            _ => unreachable!(),
+        }
+        messages.push(io_update(pa::PortSettings {
+            usb_port: Some(pa::port_settings::UsbPort::UsbPort(port)),
+            ..Default::default()
+        }));
+    }
+    messages
+}
+
+pub fn set_midi_thru(enabled: bool) -> OutboundMessage {
+    io_update(pa::PortSettings {
+        midi_port: Some(pa::port_settings::MidiPort::MidiPort(
+            pa::MidiPortSettings {
+                midi_thru: Some(pa::midi_port_settings::MidiThru::MidiThru(if enabled {
+                    1.0
+                } else {
+                    0.0
+                })),
+            },
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn set_output_pairing(
+    xlr12_linked: Option<bool>,
+    out34_linked: Option<bool>,
+) -> OutboundMessage {
+    OutboundMessage::encoded(
+        3,
+        pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            xlr1_2_linked: xlr12_linked.map(pa::io_settings_message::Xlr12Linked::Xlr12Linked),
+            out3_4_linked: out34_linked.map(pa::io_settings_message::Out34Linked::Out34Linked),
             ..Default::default()
         },
     )
@@ -1492,6 +1694,84 @@ mod tests {
         let grid = pa::GridMessage::decode(bypass.payload.as_slice()).unwrap();
         let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
         assert!(preset.bypass[0].col_bypass[0].scene_bypass[0].bypass);
+    }
+
+    #[test]
+    fn io_port_updates_send_exactly_one_field_per_message() {
+        let messages = set_input_port(2, Some(0.4), Some(0.875), Some(0.5), Some(0.0));
+        assert_eq!(messages.len(), 4);
+        for message in messages {
+            assert_eq!(message.message_type, 3);
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            assert_eq!(settings.in_port.len(), 1);
+            let port = &settings.in_port[0];
+            assert_eq!(port.input_port_id, 2);
+            let populated = [
+                port.level.is_some(),
+                port.input_zmode.is_some(),
+                port.input_type.is_some(),
+                port.ground_lift.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1);
+        }
+
+        let messages = set_output_port(1, Some(0.25), Some(1.0), Some(true));
+        assert_eq!(messages.len(), 3);
+        for message in messages {
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            let port = &settings.out_port[0];
+            let populated = [
+                port.level.is_some(),
+                port.ground_lift.is_some(),
+                port.mute.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1, "QC drops some coalesced I/O fields");
+        }
+
+        let messages = set_usb_port(Some(0.2), Some(0.5), Some(1.0));
+        assert_eq!(messages.len(), 3);
+        for message in messages {
+            let decoded = pa::IoSettingsMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+            let pa::port_settings::UsbPort::UsbPort(port) = settings.usb_port.unwrap();
+            let populated = [
+                port.level.is_some(),
+                port.hp_select.is_some(),
+                port.dry_wet.is_some(),
+            ]
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+            assert_eq!(populated, 1);
+        }
+    }
+
+    #[test]
+    fn io_midi_and_pairing_shapes_match_hardware_verified_upstream() {
+        let midi = set_midi_thru(true);
+        let decoded = pa::IoSettingsMessage::decode(midi.payload.as_slice()).unwrap();
+        let pa::io_settings_message::Settings::Settings(settings) = decoded.settings.unwrap();
+        let pa::port_settings::MidiPort::MidiPort(midi) = settings.midi_port.unwrap();
+        assert!(matches!(
+            midi.midi_thru,
+            Some(pa::midi_port_settings::MidiThru::MidiThru(1.0))
+        ));
+
+        let pairing = set_output_pairing(None, Some(false));
+        let decoded = pa::IoSettingsMessage::decode(pairing.payload.as_slice()).unwrap();
+        assert!(decoded.xlr1_2_linked.is_none());
+        assert!(matches!(
+            decoded.out3_4_linked,
+            Some(pa::io_settings_message::Out34Linked::Out34Linked(false))
+        ));
     }
 
     #[test]

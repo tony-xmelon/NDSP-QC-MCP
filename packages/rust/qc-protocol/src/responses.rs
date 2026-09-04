@@ -2,7 +2,9 @@
 //! of the continuous preset-state stream.
 
 use crate::generated_payloads::{
-    GeneralSettings, GlobalBypassRows, MasterVolumeAssignment, TunerSettings,
+    ExpressionPortSettings, GeneralSettings, GlobalBypassRows, HeadphonesFeed, HeadphonesSettings,
+    InputPortSettings, IoSettings, MasterVolumeAssignment, MidiPortSettings, OutputPortSettings,
+    TunerSettings, UsbPortSettings,
 };
 use crate::proto::cortex_protobuf_v2 as pa;
 use prost::Message;
@@ -337,6 +339,138 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
     })
 }
 
+pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeError> {
+    let message = pa::IoSettingsMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "I/O settings action is not UPDATE",
+        ));
+    }
+    let settings = message
+        .settings
+        .map(|pa::io_settings_message::Settings::Settings(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("I/O settings"))?;
+    if settings.in_port.is_empty() {
+        return Err(ResponseDecodeError::Incomplete("input ports"));
+    }
+
+    let inputs = settings
+        .in_port
+        .into_iter()
+        .map(|port| InputPortSettings {
+            input_port_id: port.input_port_id,
+            level: port
+                .level
+                .map(|pa::input_port_settings::Level::Level(value)| value),
+            impedance: port
+                .input_zmode
+                .map(|pa::input_port_settings::InputZmode::InputZmode(value)| value),
+            input_type: port
+                .input_type
+                .map(|pa::input_port_settings::InputType::InputType(value)| value),
+            ground_lift: port
+                .ground_lift
+                .map(|pa::input_port_settings::GroundLift::GroundLift(value)| value),
+            plugged: port
+                .plugged
+                .map(|pa::input_port_settings::Plugged::Plugged(value)| value),
+        })
+        .collect();
+    let outputs = settings
+        .out_port
+        .into_iter()
+        .map(|port| OutputPortSettings {
+            output_port_id: port.output_port_id,
+            level: port
+                .level
+                .map(|pa::output_port_settings::Level::Level(value)| value),
+            ground_lift: port
+                .ground_lift
+                .map(|pa::output_port_settings::GroundLift::GroundLift(value)| value),
+            muted: port
+                .mute
+                .map(|pa::output_port_settings::Mute::Mute(value)| value),
+            plugged: port
+                .plugged
+                .map(|pa::output_port_settings::Plugged::Plugged(value)| value),
+        })
+        .collect();
+    let expression_ports = settings
+        .exp_port
+        .into_iter()
+        .map(|port| ExpressionPortSettings {
+            expression_port_id: port.exp_port_id,
+            plugged: port
+                .plugged
+                .map(|pa::exp_port_settings::Plugged::Plugged(value)| value),
+            level: port
+                .level
+                .map(|pa::exp_port_settings::Level::Level(value)| value),
+            calibrating: port
+                .calibrating
+                .map(|pa::exp_port_settings::Calibrating::Calibrating(value)| value),
+        })
+        .collect();
+    let headphones =
+        settings.hp_port.map(
+            |pa::port_settings::HpPort::HpPort(port)| HeadphonesSettings {
+                feeds: port
+                    .hp_feed
+                    .into_iter()
+                    .map(|feed| HeadphonesFeed {
+                        output_port_id: feed.output_port_id,
+                        level: feed.level,
+                    })
+                    .collect(),
+                level: port
+                    .level
+                    .map(|pa::headphones_settings::Level::Level(value)| value),
+                plugged: port
+                    .plugged
+                    .map(|pa::headphones_settings::Plugged::Plugged(value)| value),
+            },
+        );
+    let usb = settings.usb_port.map(
+        |pa::port_settings::UsbPort::UsbPort(port)| UsbPortSettings {
+            level: port
+                .level
+                .map(|pa::usb_port_settings::Level::Level(value)| value),
+            headphones_source: port
+                .hp_select
+                .map(|pa::usb_port_settings::HpSelect::HpSelect(value)| value),
+            plugged: port
+                .plugged
+                .map(|pa::usb_port_settings::Plugged::Plugged(value)| value),
+            dry_wet: port
+                .dry_wet
+                .map(|pa::usb_port_settings::DryWet::DryWet(value)| value),
+        },
+    );
+    let midi =
+        settings.midi_port.map(
+            |pa::port_settings::MidiPort::MidiPort(port)| MidiPortSettings {
+                thru: port
+                    .midi_thru
+                    .map(|pa::midi_port_settings::MidiThru::MidiThru(value)| value),
+            },
+        );
+
+    Ok(IoSettings {
+        inputs,
+        outputs,
+        expression_ports,
+        headphones,
+        usb,
+        midi,
+        xlr12_linked: message
+            .xlr1_2_linked
+            .map(|pa::io_settings_message::Xlr12Linked::Xlr12Linked(value)| value),
+        out34_linked: message
+            .out3_4_linked
+            .map(|pa::io_settings_message::Out34Linked::Out34Linked(value)| value),
+    })
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -474,6 +608,86 @@ mod tests {
         assert_eq!(settings.hold_timing_index, Some(3));
         assert_eq!(settings.hold_timing_ms, Some(800));
         assert_eq!(settings.master_volume_assignment.unwrap().send12, true);
+    }
+
+    #[test]
+    fn io_settings_preserve_every_sparse_port_field() {
+        let payload = pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(
+                pa::PortSettings {
+                    in_port: vec![pa::InputPortSettings {
+                        input_port_id: 1,
+                        level: Some(pa::input_port_settings::Level::Level(0.5)),
+                        input_zmode: Some(pa::input_port_settings::InputZmode::InputZmode(0.75)),
+                        plugged: Some(pa::input_port_settings::Plugged::Plugged(true)),
+                        ..Default::default()
+                    }],
+                    out_port: vec![pa::OutputPortSettings {
+                        output_port_id: 4,
+                        mute: Some(pa::output_port_settings::Mute::Mute(true)),
+                        ..Default::default()
+                    }],
+                    hp_port: Some(pa::port_settings::HpPort::HpPort(pa::HeadphonesSettings {
+                        hp_feed: vec![pa::HeadphonesFeedLevel {
+                            level: 0.25,
+                            output_port_id: 4,
+                        }],
+                        level: Some(pa::headphones_settings::Level::Level(0.6)),
+                        plugged: Some(pa::headphones_settings::Plugged::Plugged(true)),
+                    })),
+                    usb_port: Some(pa::port_settings::UsbPort::UsbPort(pa::UsbPortSettings {
+                        hp_select: Some(pa::usb_port_settings::HpSelect::HpSelect(0.5)),
+                        dry_wet: Some(pa::usb_port_settings::DryWet::DryWet(1.0)),
+                        ..Default::default()
+                    })),
+                    midi_port: Some(pa::port_settings::MidiPort::MidiPort(
+                        pa::MidiPortSettings {
+                            midi_thru: Some(pa::midi_port_settings::MidiThru::MidiThru(1.0)),
+                        },
+                    )),
+                    exp_port: vec![pa::ExpPortSettings {
+                        exp_port_id: 0,
+                        level: Some(pa::exp_port_settings::Level::Level(0.33)),
+                        calibrating: Some(pa::exp_port_settings::Calibrating::Calibrating(false)),
+                        ..Default::default()
+                    }],
+                },
+            )),
+            xlr1_2_linked: Some(pa::io_settings_message::Xlr12Linked::Xlr12Linked(true)),
+            out3_4_linked: Some(pa::io_settings_message::Out34Linked::Out34Linked(false)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+
+        let settings = decode_io_settings(&payload).unwrap();
+        assert_eq!(settings.inputs[0].input_port_id, 1);
+        assert_eq!(settings.inputs[0].level, Some(0.5));
+        assert_eq!(settings.inputs[0].impedance, Some(0.75));
+        assert_eq!(settings.inputs[0].plugged, Some(true));
+        assert_eq!(settings.outputs[0].muted, Some(true));
+        assert_eq!(
+            settings.headphones.as_ref().unwrap().feeds[0].output_port_id,
+            4
+        );
+        assert_eq!(settings.usb.as_ref().unwrap().dry_wet, Some(1.0));
+        assert_eq!(settings.midi.as_ref().unwrap().thru, Some(1.0));
+        assert_eq!(settings.expression_ports[0].level, Some(0.33));
+        assert_eq!(settings.xlr12_linked, Some(true));
+        assert_eq!(settings.out34_linked, Some(false));
+
+        let incomplete = pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(
+                pa::PortSettings::default(),
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_io_settings(&incomplete),
+            Err(ResponseDecodeError::Incomplete("input ports"))
+        ));
     }
 
     #[test]

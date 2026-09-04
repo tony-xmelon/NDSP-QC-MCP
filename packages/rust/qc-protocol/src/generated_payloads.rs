@@ -87,6 +87,103 @@ pub struct GeneralSettings {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct InputPortSettings {
+    pub input_port_id: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub impedance: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_type: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ground_lift: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugged: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputPortSettings {
+    pub output_port_id: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ground_lift: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub muted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugged: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadphonesFeed {
+    pub output_port_id: u32,
+    pub level: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadphonesSettings {
+    pub feeds: Vec<HeadphonesFeed>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugged: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsbPortSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headphones_source: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugged: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dry_wet: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionPortSettings {
+    pub expression_port_id: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugged: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calibrating: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MidiPortSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thru: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IoSettings {
+    pub inputs: Vec<InputPortSettings>,
+    pub outputs: Vec<OutputPortSettings>,
+    pub expression_ports: Vec<ExpressionPortSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headphones: Option<HeadphonesSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usb: Option<UsbPortSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi: Option<MidiPortSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub xlr12_linked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out34_linked: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BypassExpression {
     pub pedal: u32,
     pub minimum: f32,

@@ -9,7 +9,8 @@ use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
     decode_captured_screen, decode_device_identity, decode_general_settings,
-    decode_inhibited_modules, decode_preset_screenshot, decode_tuner_settings, PngImage,
+    decode_inhibited_modules, decode_io_settings, decode_preset_screenshot, decode_tuner_settings,
+    PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -533,6 +534,7 @@ pub enum GatewayResponseProjection {
     DeviceIdentity,
     TunerSettings,
     GeneralSettings,
+    IoSettings,
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -567,6 +569,10 @@ impl GatewayResponseProjection {
             .map_err(|error| error.to_string()),
             Self::GeneralSettings => serde_json::to_value(
                 decode_general_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::IoSettings => serde_json::to_value(
+                decode_io_settings(payload).map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -650,6 +656,12 @@ pub fn plan_gateway_read(
             response_type: 9,
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::GeneralSettings,
+        }),
+        "device.ioSettings" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadIoSettings,
+            response_type: 3,
+            timeout_ms: 10_000,
+            projection: GatewayResponseProjection::IoSettings,
         }),
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
@@ -1231,6 +1243,20 @@ fn normalized(params: &Value, field: &str) -> Result<f32, String> {
         .ok_or_else(|| format!("{field} must be a number from zero through one"))
 }
 
+fn optional_normalized(params: &Value, field: &str) -> Result<Option<f32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(_) => normalized(params, field).map(Some),
+    }
+}
+
+fn optional_boolean(params: &Value, field: &str) -> Result<Option<bool>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(_) => boolean(params, field).map(Some),
+    }
+}
+
 fn midi_out_messages(params: &Value) -> Result<Vec<MidiOutMessage>, String> {
     let values = params
         .get("messages")
@@ -1345,6 +1371,73 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             Ok(DeviceOperation::SetGlobalBypass {
                 cab: rows("cab")?,
                 ir: rows("ir")?,
+            })
+        }
+        "setInputPort" => {
+            let input_port_id = bounded_u32(params, "inputPortId", 14)?;
+            if input_port_id == 0 {
+                return Err("inputPortId must identify a real input port (1 through 14)".into());
+            }
+            let level = optional_normalized(params, "level")?;
+            let impedance = optional_normalized(params, "impedance")?;
+            let input_type = optional_normalized(params, "inputType")?;
+            let ground_lift = optional_normalized(params, "groundLift")?;
+            if level.is_none()
+                && impedance.is_none()
+                && input_type.is_none()
+                && ground_lift.is_none()
+            {
+                return Err("setInputPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetInputPort {
+                input_port_id,
+                level,
+                impedance,
+                input_type,
+                ground_lift,
+            })
+        }
+        "setOutputPort" => {
+            let output_port_id = bounded_u32(params, "outputPortId", 22)?;
+            if output_port_id == 0 {
+                return Err("outputPortId must identify a real output port (1 through 22)".into());
+            }
+            let level = optional_normalized(params, "level")?;
+            let ground_lift = optional_normalized(params, "groundLift")?;
+            let mute = optional_boolean(params, "mute")?;
+            if level.is_none() && ground_lift.is_none() && mute.is_none() {
+                return Err("setOutputPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetOutputPort {
+                output_port_id,
+                level,
+                ground_lift,
+                mute,
+            })
+        }
+        "setUsbPort" => {
+            let level = optional_normalized(params, "level")?;
+            let headphones_source = optional_normalized(params, "headphonesSource")?;
+            let dry_wet = optional_normalized(params, "dryWet")?;
+            if level.is_none() && headphones_source.is_none() && dry_wet.is_none() {
+                return Err("setUsbPort needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetUsbPort {
+                level,
+                headphones_source,
+                dry_wet,
+            })
+        }
+        "setMidiThru" => Ok(DeviceOperation::SetMidiThru(boolean(params, "enabled")?)),
+        "setOutputPairing" => {
+            let xlr12_linked = optional_boolean(params, "xlr12Linked")?;
+            let out34_linked = optional_boolean(params, "out34Linked")?;
+            if xlr12_linked.is_none() && out34_linked.is_none() {
+                return Err("setOutputPairing needs xlr12Linked or out34Linked".into());
+            }
+            Ok(DeviceOperation::SetOutputPairing {
+                xlr12_linked,
+                out34_linked,
             })
         }
         "addBlock" => Ok(DeviceOperation::AddBlock {
@@ -1717,6 +1810,12 @@ fn verification_for_operation(
         | DeviceOperation::SetSceneBypassBehavior(_)
         | DeviceOperation::SetMasterVolumeAssignment { .. }
         | DeviceOperation::SetGlobalBypass { .. }
+        | DeviceOperation::ReadIoSettings
+        | DeviceOperation::SetInputPort { .. }
+        | DeviceOperation::SetOutputPort { .. }
+        | DeviceOperation::SetUsbPort { .. }
+        | DeviceOperation::SetMidiThru(_)
+        | DeviceOperation::SetOutputPairing { .. }
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -1748,6 +1847,24 @@ pub fn plan_gateway_write(
             GatewayWritePlan {
                 write: PlannedWrite::HidOperation(operation(operation_name, params)?),
                 detail: "Global device setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setInputPort"
+        | "device.setOutputPort"
+        | "device.setUsbPort"
+        | "device.setMidiThru"
+        | "device.setOutputPairing" => {
+            let operation_name = match method {
+                "device.setInputPort" => "setInputPort",
+                "device.setOutputPort" => "setOutputPort",
+                "device.setUsbPort" => "setUsbPort",
+                "device.setMidiThru" => "setMidiThru",
+                _ => "setOutputPairing",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: "Global I/O setting sent to the Quad Cortex".into(),
                 verification: GatewayVerification::None,
             }
         }
