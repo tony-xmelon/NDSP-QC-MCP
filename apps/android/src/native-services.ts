@@ -1,6 +1,6 @@
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { createGatewayClientTransport, type GatewayTransport, type PresetSnapshot } from "@ndsp-qc/client";
-import { createQcGatewayTransport, type AssistantAccessMode, type PublicRelayState, type PublicRelayStatus, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
+import { createQcGatewayTransport, type AssistantAccessMode, type PublicRelayPort, type PublicRelayState, type PublicRelayStatus, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
 
 export type { QcStateUpdate } from "@ndsp-qc/core";
 
@@ -55,6 +55,23 @@ export const GeminiNative = registerPlugin<GeminiNativePlugin>("Gemini");
 export const QcUsbNative = registerPlugin<QcUsbNativePlugin>("QcUsb");
 export const VoiceInputNative = registerPlugin<VoiceInputNativePlugin>("VoiceInput");
 export const QcRelayNative = registerPlugin<QcRelayNativePlugin>("QcRelay");
+
+export const publicRelay: PublicRelayPort = {
+  status: () => QcRelayNative.status(),
+  async pair(endpoint, pairingCode, deviceName = "QC Control on Android") {
+    await QcRelayNative.pair({ endpoint, pairingCode, deviceName });
+    return QcRelayNative.status();
+  },
+  start: () => QcRelayNative.start(),
+  async unpair() {
+    await QcRelayNative.unpair();
+    return QcRelayNative.status();
+  },
+  async setAccessMode(mode) {
+    await QcRelayNative.setAccessMode({ mode });
+    return QcRelayNative.status();
+  }
+};
 
 export const androidGatewayTransport = createGatewayClientTransport<GatewayTransport>(
   (method, params) => QcUsbNative.gatewayInvoke({ method, params }) as Promise<never>,

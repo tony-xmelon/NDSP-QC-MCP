@@ -5,7 +5,7 @@ import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, pars
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
-import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative } from "./native-services";
+import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcRelayNative, QcUsbNative, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
 type AndroidGeminiModel = GeminiModelId;
@@ -212,13 +212,13 @@ export function App() {
     if (!native) return;
     let cancelled = false;
     const listener = QcRelayNative.addListener("relayState", ({ state }) => !cancelled && setRelayState(state));
-    void QcRelayNative.status().then((status) => {
+    void publicRelay.status().then((status) => {
       if (cancelled) return;
       setRelayPaired(status.paired);
       setRelayState(status.state);
       setControlAccessMode(status.accessMode);
       writeAssistantAccessMode(window.localStorage, status.accessMode);
-      if (status.paired && status.state === "stopped") void QcRelayNative.start();
+      if (status.paired && status.state === "stopped") void publicRelay.start();
     }).catch(() => {});
     return () => { cancelled = true; void listener.then((value) => value.remove()); };
   }, [native]);
@@ -418,15 +418,15 @@ export function App() {
     if (!native) return;
     if (relayPaired) {
       if (!window.confirm("Unpair this phone from the remote QC relay?")) return;
-      await QcRelayNative.unpair(); setRelayPaired(false); setRelayState("stopped"); return;
+      const status = await publicRelay.unpair(); setRelayPaired(status.paired); setRelayState(status.state); return;
     }
     const endpoint = window.prompt("Secure relay URL (https://…)", "https://")?.trim();
     if (!endpoint) return;
     const pairingCode = window.prompt("One-time pairing code")?.trim();
     if (!pairingCode) return;
     try {
-      await QcRelayNative.pair({ endpoint, pairingCode });
-      setRelayPaired(true); setRelayState("connecting");
+      const status = await publicRelay.pair(endpoint, pairingCode);
+      setRelayPaired(status.paired); setRelayState(status.state);
       appendAssistant("Phone paired. The secure remote relay is connecting in the background.");
     } catch (error) { appendAssistant(error instanceof Error ? error.message : "Relay pairing failed."); }
   };
@@ -437,7 +437,7 @@ export function App() {
     writeAssistantAccessMode(window.localStorage, mode);
     if (!native) return;
     try {
-      await QcRelayNative.setAccessMode({ mode });
+      await publicRelay.setAccessMode(mode);
       appendAssistant(`Assistant and remote access changed to ${mode}. Guarded confirmations still apply; manual controls remain available.`);
     } catch (error) {
       setControlAccessMode(previous);

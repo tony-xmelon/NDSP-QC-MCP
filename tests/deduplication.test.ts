@@ -539,7 +539,7 @@ test("the outbound relay contract has one platform-neutral owner", () => {
   assert.match(relay, /export interface PublicRelayStatus/);
   assert.match(relay, /export interface PublicRelayPort/);
   assert.match(windows, /publicRelay: PublicRelayPort/);
-  assert.match(android, /Promise<PublicRelayStatus>/);
+  assert.match(android, /publicRelay: PublicRelayPort/);
   for (const adapter of [windows, android]) {
     assert.doesNotMatch(adapter, /type PublicRelayState\s*=/);
     assert.doesNotMatch(adapter, /interface PublicRelayStatus/);

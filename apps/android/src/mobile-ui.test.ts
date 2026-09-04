@@ -90,6 +90,8 @@ test("assistant and relay access defaults to full control and enforces four tier
   assert.match(primitivesSource, /value: "modify", label: "Modify"/);
   assert.match(servicesSource, /type PublicRelayState, type PublicRelayStatus/);
   assert.match(servicesSource, /setAccessMode\(options: \{ mode: AssistantAccessMode \}\)/);
+  assert.match(servicesSource, /publicRelay: PublicRelayPort/);
+  assert.match(appSource, /publicRelay\.pair\(endpoint, pairingCode\)/);
   assert.match(policySource, /getString\(MODE, FULL\)/);
   assert.match(policySource, /GeneratedRemoteActions\.isPerformance/);
   assert.match(policySource, /GeneratedRemoteActions\.isModify/);
