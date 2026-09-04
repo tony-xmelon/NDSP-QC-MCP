@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const javaSource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java", import.meta.url), "utf8");
+const usbProfileSource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java", import.meta.url), "utf8");
 const servicesSource = readFileSync(new URL("./native-services.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const liveStateSource = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
@@ -203,7 +204,8 @@ test("Android persists completed native backups without blocking USB reads", () 
   assert.match(javaSource, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
   assert.match(javaSource, /Environment\.DIRECTORY_DOWNLOADS \+ "\/QC Control"/);
   assert.match(javaSource, /metadataIo\.execute\(\(\) -> \{[\s\S]*saveBackupDocument/);
-  assert.match(javaSource, /32 \* 1024 \* 1024/);
+  assert.match(javaSource, /QcUsbProfile\.BACKUP_MAXIMUM_DOCUMENT_BYTES/);
+  assert.match(usbProfileSource, /BACKUP_MAXIMUM_DOCUMENT_BYTES = 33554432/);
   assert.doesNotMatch(javaSource, /pending\.result\.complete\(JSObject\.fromJSONObject\(\(org\.json\.JSONObject\) update\.get\("backup"\)\)\)/);
 });
 
@@ -211,10 +213,13 @@ test("Android and Windows apply the same safe native-backup retry boundary", () 
   const windowsUsb = readFileSync(new URL("../../../services/device-broker/src/usb.rs", import.meta.url), "utf8");
   assert.match(rustAndroidSource, /"started": started/);
   assert.match(rustAndroidSource, /"ignoredPrefixChunks": ignored_prefix_chunks/);
-  assert.match(javaSource, /scheduleBackupWatchdog\(pending, 25_000\)/);
+  assert.match(javaSource, /scheduleBackupWatchdog\(pending, QcUsbProfile\.BACKUP_FIRST_CHUNK_TIMEOUT_MS\)/);
+  assert.match(usbProfileSource, /BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L/);
+  assert.match(usbProfileSource, /BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L/);
   assert.match(javaSource, /operation\.started[\s\S]*partial document was discarded/);
-  assert.match(javaSource, /operation\.attempts >= 3/);
-  assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*MAX_ATTEMPTS/);
+  assert.match(javaSource, /operation\.attempts >= QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
+  assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 3/);
+  assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(windowsUsb, /partial document was discarded and was not combined with a retry/);
 });
 
