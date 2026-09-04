@@ -32,7 +32,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Android app version." }
     npm run android:sync
     if ($LASTEXITCODE -ne 0) { throw "Capacitor sync failed with exit code $LASTEXITCODE." }
-    & ".\android\gradlew.bat" -p ".\android" assembleDebug
+    & ".\android\gradlew.bat" -p ".\android" assembleDebug lintDebug
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed with exit code $LASTEXITCODE." }
 }
 finally {
