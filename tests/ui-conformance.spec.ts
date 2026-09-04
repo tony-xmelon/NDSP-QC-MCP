@@ -125,3 +125,16 @@ for (const surface of surfaces) {
   });
 
 }
+
+for (const host of [{ name: "Android", url: androidUrl }, { name: "Windows", url: windowsUrl }]) {
+  test(`${host.name} lazy-loads the shared CorOS reference screens`, async ({ page }) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    await page.setViewportSize({ width: 800, height: 480 });
+    await page.goto(`${host.url}?fixture=coros410&screen=tempo&tempo=137`);
+    const tempoScreen = page.getByRole("region", { name: "Tempo and Metronome" });
+    await expect(tempoScreen).toBeVisible();
+    await expect(tempoScreen.getByText("137", { exact: true })).toBeVisible();
+    expect(runtimeErrors).toEqual([]);
+  });
+}

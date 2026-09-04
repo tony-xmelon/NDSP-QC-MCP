@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { QC_GRID_COLUMNS, QC_GRID_ROWS, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot } from "@ndsp-qc/client";
 import { footswitchLeds, routePickerGroup, routePickerLabel, sceneLetter as sceneLabel, type QcSurfaceAction } from "@ndsp-qc/core";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_COLORS, QC_TYPOGRAPHY, QC_VISUAL_ASSETS, REFERENCE_BLOCK_ICONS } from "@ndsp-qc/theme";
 import { blockUsesActiveFill, officialBlockVisual, pluginBadge } from "./block-visuals";
 import { CorOsParameterEditor, type CorOsParameterEditorProps } from "./parameter-editor";
-import { CorOsScreenFixture, fixtureSnapshot, type CorOsScreenView } from "./coros-screen-fixtures";
+import { fixtureSnapshot, type CorOsScreenView } from "./coros-screen-fixture-data";
 import { parameterEditorAccent, parameterEditorControlSlots, parameterEditorPageSize } from "./parameter-model";
 import { QcDirectoryIcon, QcHardwareIcon, QcModeGlyph, QcRouteGlyph, QcScreenHeaderGlyph, QcUiIcon } from "./theme-icons";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
 import "./surface-shell.css";
 import "./live-surface.css";
 
+const CorOsScreenFixture = lazy(() => import("./coros-screen-fixtures").then((module) => ({ default: module.CorOsScreenFixture })));
+
 export type { CorOsContextAction } from "./coros-ui";
-export type { CorOsScreenView } from "./coros-screen-fixtures";
+export type { CorOsScreenView } from "./coros-screen-fixture-data";
 
 export type HardwareAction = QcSurfaceAction;
 
@@ -508,7 +510,7 @@ export function QuadCortexSurface({ formFactor, snapshot, selectedBlockId, skin,
     <MasterVolume value={snapshot.masterVolume} onAction={onAction} />
     <div className="device-plate"><QcHardwareIcon kind="brand-pulse" className="pulse-mark" /><span>{QC_BRAND.deviceWordmark}</span><small>{QC_BRAND.surfaceCaption}</small></div>
     <div className="qc-screen-bezel">{fixtureOnly
-      ? <div className="qc-screen-fixture-root"><CorOsScreenFixture view={screenView} snapshot={displaySnapshot} onClose={onCloseScreen} /></div>
+      ? <div className="qc-screen-fixture-root"><Suspense fallback={null}><CorOsScreenFixture view={screenView} snapshot={displaySnapshot} onClose={onCloseScreen} /></Suspense></div>
       : <><CorOsGrid snapshot={displaySnapshot} selectedBlockId={selectedBlockId} onAction={onAction} onOpenPreset={onOpenPreset} onUndo={onUndo} canUndo={canUndo} undoLabel={undoLabel} onSave={onSave} onOpenRouting={onOpenRouting} onRefresh={onRefresh} presetDirectory={presetDirectory} routingPicker={routingPicker} savePreset={savePreset} onContextAction={onContextAction} />{parameterEditor && <CorOsParameterEditor {...parameterEditor} />}</>}
     </div>
     <div className="screen-nav-control"><span className="nav-arrow nav-arrow-up" /><HardwareSwitch role={bankUp.role} label="BANK UP" compact active={Boolean(parameterEditor)} assigned={Boolean(parameterEditor)} accent={navigationLedColor} onAction={onAction} /><span className="nav-arrow nav-arrow-down" /></div>

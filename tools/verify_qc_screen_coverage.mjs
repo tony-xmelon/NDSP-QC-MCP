@@ -9,6 +9,7 @@ const officialDetails = readJson("references/qc-ui-official-details/coros-4.1.0/
 const inventory = readFileSync("docs/qc-screen-inventory.md", "utf8");
 const surface = [
   "packages/typescript/qc-ui/src/quad-cortex-surface.tsx",
+  "packages/typescript/qc-ui/src/coros-screen-fixture-data.ts",
   "packages/typescript/qc-ui/src/coros-screen-fixtures.tsx"
 ].map((path) => readFileSync(path, "utf8")).join("\n");
 const smokeCapture = readFileSync("tools/capture_qc_manual_reference_ui.mjs", "utf8");

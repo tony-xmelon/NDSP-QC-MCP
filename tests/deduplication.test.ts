@@ -69,6 +69,15 @@ test("shared UI exclusively owns dirty-title and parameter-screen rendering", ()
   assert.doesNotMatch(android, /function CorOsGrid|function CorOsParameterEditor/);
 });
 
+test("reference-only CorOS screens are lazy-loaded outside the production startup bundle", () => {
+  const surface = source("packages/typescript/qc-ui/src/quad-cortex-surface.tsx");
+  const barrel = source("packages/typescript/qc-ui/src/index.ts");
+  assert.match(surface, /lazy\(\(\) => import\("\.\/coros-screen-fixtures"\)/);
+  assert.doesNotMatch(surface, /import \{ CorOsScreenFixture/);
+  assert.match(barrel, /coros410FixtureSnapshot.*coros-screen-fixture-data/);
+  assert.doesNotMatch(barrel, /coros410FixtureSnapshot.*coros-screen-fixtures/);
+});
+
 test("one shared controller owns parameter editor details, drafts, and paging", () => {
   const controller = source("packages/typescript/qc-ui/src/use-block-editor-session.ts");
   assert.match(controller, /reduceBlockEditorSession/);
