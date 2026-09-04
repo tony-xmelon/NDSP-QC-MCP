@@ -98,4 +98,17 @@ for (const surface of surfaces) {
     await expect.poll(async () => surface.touchTargets ? tempo.getAttribute("aria-label") : tempo.getAttribute("style"))
       .not.toBe(before);
   });
+
+  test(`${surface.name} preserves rapid consecutive bypass changes`, async ({ page }) => {
+    await page.setViewportSize({ width: surface.width, height: surface.height });
+    await page.goto(surface.url);
+    await page.locator(".coros-vector-block-hit").first().click();
+    const bypass = page.locator(".parameter-bypass");
+    await expect(bypass).toBeVisible();
+    const initial = await bypass.getAttribute("aria-pressed");
+    await bypass.click();
+    await expect(bypass).toHaveAttribute("aria-pressed", initial === "true" ? "false" : "true");
+    await bypass.click();
+    await expect(bypass).toHaveAttribute("aria-pressed", initial ?? "false");
+  });
 }
