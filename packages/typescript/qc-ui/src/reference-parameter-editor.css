@@ -1,3 +1,5 @@
+.qc-screen-fixture-root.is-live-grid { position: absolute; inset: 0; }
+
 @scope (.qc-screen-fixture-root.is-live-grid) {
 .coros-screen-dimmer { position: absolute; z-index: 20; inset: 0; background: #a7a7a766; }
 .coros-vector-screen .vector-scene-dropdown { left: 56.75%; right: auto; top: 9.17%; box-sizing: border-box; width: 29%; height: 86.67%; padding: 0; border-radius: 9px; background: #303332; box-shadow: none; }
