@@ -1,10 +1,10 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { appendConversationMessage, assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -53,12 +53,12 @@ export function App() {
   const editor = useBlockEditorSession();
   const { details: blockDetails } = editor;
   const [devicePending, setDevicePending] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ConversationMessage<AndroidAttachment>[]>([
-    { id: 1, role: "assistant", text: "Ready. Connect the Quad Cortex by USB, type a request, or use the microphone to speak." }
-  ]);
+  const conversation = useAssistantConversation<AndroidAttachment>({
+    initialMessages: [{ id: 1, role: "assistant", text: "Ready. Connect the Quad Cortex by USB, type a request, or use the microphone to speak." }],
+    maximumInputLength: 2000
+  });
+  const { input: message, setInput: setMessage, messages, pending: busy } = conversation;
   const [usbState, setUsbState] = useState<UsbState>(native ? "searching" : "absent");
-  const [busy, setBusy] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AndroidGeminiModel>(() => {
     const saved = window.localStorage.getItem(androidModelStorageKey);
     return androidGeminiModels.some((model) => model.id === saved) ? saved as AndroidGeminiModel : "gemini-3.7-flash";
@@ -71,11 +71,10 @@ export function App() {
   const [relayPaired, setRelayPaired] = useState(false);
   const [controlAccessMode, setControlAccessMode] = useState<ControlAccessMode>(storedControlAccessMode);
   const [workflowPanel, setWorkflowPanel] = useState<"block" | "add" | "routing" | "scene" | null>(null);
-  const nextMessageId = useRef(2);
   const connectInFlight = useRef(false);
   const presetSynchronized = useRef(false);
   const usbSessionReady = useRef(false);
-  const appendAssistant = useCallback((text: string, attachments?: AndroidAttachment[]) => setMessages((current) => appendConversationMessage(current, nextMessageId.current++, "assistant", text, attachments)), []);
+  const appendAssistant = useCallback((text: string, attachments?: AndroidAttachment[]) => conversation.append("assistant", text, attachments), [conversation.append]);
   const workflowPrompts = useMemo(() => ({
     confirm: (message: string) => window.confirm(message),
     prompt: (message: string, initialValue: string) => window.prompt(message, initialValue)
@@ -378,20 +377,17 @@ export function App() {
   };
 
   const sendInput = async (input: string) => {
-    const trimmed = input.trim().slice(0, 2000);
-    if (!trimmed || busy) return;
-    setMessage("");
-    setMessages((current) => appendConversationMessage(current, nextMessageId.current++, "user", trimmed));
-    setBusy(true);
+    const submission = conversation.begin(input);
+    if (!submission) return;
     try {
-      if (/^(usb\s+)?(diagnostics?|status)$/i.test(trimmed)) appendAssistant(await usbDiagnostics());
+      if (/^(usb\s+)?(diagnostics?|status)$/i.test(submission.promptText)) appendAssistant(await usbDiagnostics());
       else {
-        const response = await askGemini(trimmed);
+        const response = await askGemini(submission.promptText);
         appendAssistant(response.text, response.attachments);
       }
     }
-    catch { appendAssistant(await localFallback(trimmed)); }
-    finally { setBusy(false); }
+    catch { appendAssistant(await localFallback(submission.promptText)); }
+    finally { conversation.finish(submission.token); }
   };
 
   const submit = (event: FormEvent) => { event.preventDefault(); void sendInput(message); };

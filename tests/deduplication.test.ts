@@ -438,7 +438,9 @@ test("ModelRepo projection and conversational control no longer have platform co
   assert.match(windows, /runToolConversation/);
   assert.match(windows, /<ChatDock/);
   assert.match(windows, /<MenuBar/);
-  assert.match(android, /appendConversationMessage/);
+  assert.match(android, /useAssistantConversation/);
+  assert.match(windows, /useAssistantConversation/);
+  assert.match(source("packages/typescript/qc-ui/src/use-assistant-conversation.ts"), /appendConversationMessage/);
   assert.doesNotMatch(windows, /function CollapsibleQcResult/);
   assert.doesNotMatch(windows, /function (?:MenuBar|ConnectionBadge|ChatStatusBadge)/);
   assert.throws(() => source("services/device-gateway/src/qc_device_gateway/parameter_scales.py"));

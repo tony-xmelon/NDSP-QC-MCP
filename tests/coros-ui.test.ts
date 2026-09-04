@@ -421,10 +421,11 @@ test("slow model requests remain cancellable without blocking hardware controls"
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8") + readFileSync(new URL("../apps/windows/src/menu-bar.tsx", import.meta.url), "utf8");
   const dockSource = readFileSync(new URL("../apps/windows/src/chat-dock.tsx", import.meta.url), "utf8");
   const chatSource = readFileSync(new URL("../apps/windows/src-tauri/src/chat.rs", import.meta.url), "utf8");
-  assert.match(appSource, /\[assistantPending, setAssistantPending\]/);
+  assert.match(appSource, /pending: assistantPending/);
   assert.match(appSource, /MODEL THINKING/);
   assert.match(dockSource, /props\.assistantPending && props\.canCancel \? props\.onCancel : props\.onSend/);
-  assert.match(appSource, /setAssistantPending\(true\)/);
+  assert.match(appSource, /conversation\.begin\(text, submittedAttachments\)/);
+  assert.match(appSource, /conversation\.cancel\(\)/);
   assert.doesNotMatch(appSource, /const submitAssistantText[\s\S]*?setCommandPending\(true\)[\s\S]*?const cancelAssistantRequest/);
   assert.match(chatSource, /ANTIGRAVITY_MIN_TIMEOUT_MS: u64 = 180_000/);
   assert.match(chatSource, /\.arg\("--print-timeout"\)/);

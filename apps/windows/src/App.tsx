@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { appendConversationMessage, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useContinuousControlWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles, type ControlAccessMode, type PublicRelayStatus } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -78,13 +78,12 @@ export function App() {
   const [dialog, setDialog] = useState<DialogName>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("model");
   const [chatOpen, setChatOpen] = useState(true);
-  const [message, setMessage] = useState("");
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
-  const [messages, setMessages] = useState<ConversationEntry[]>([]);
+  const conversation = useAssistantConversation<ChatAttachment>();
+  const { input: message, setInput: setMessage, messages, pending: assistantPending } = conversation;
   const [pendingAssistantAction, setPendingAssistantAction] = useState<PendingAssistantAction>();
   const [listening, setListening] = useState(false);
   const [commandPending, setCommandPending] = useState(false);
-  const [assistantPending, setAssistantPending] = useState(false);
   const [modelWarming, setModelWarming] = useState(false);
   const [modelSwitching, setModelSwitching] = useState(false);
   const [chatStatus, setChatStatus] = useState<"checking" | "online" | "offline" | "error">("checking");
@@ -133,7 +132,6 @@ export function App() {
   const liveSyncFailures = useRef(0);
   const nativeStateSequence = useRef(0);
   const nativeStateAvailable = useRef(false);
-  const conversationSequence = useRef(0);
   const chatRequestId = useRef<string | undefined>(undefined);
   const modelWarmupPromise = useRef<Promise<void> | undefined>(undefined);
   const undoPresetContext = useRef(`${demoSnapshot.setlistKey}:${demoSnapshot.presetPosition}`);
@@ -1076,8 +1074,7 @@ export function App() {
   };
 
   const appendMessage = (role: ConversationEntry["role"], text: string, attachments?: ChatAttachment[]) => {
-    const id = ++conversationSequence.current;
-    setMessages((current) => appendConversationMessage(current, id, role, text, attachments));
+    conversation.append(role, text, attachments);
   };
 
   const addChatAttachmentFiles = async (files: File[]) => {
@@ -1248,15 +1245,12 @@ export function App() {
   };
 
   const submitAssistantText = async (text: string) => {
-    const trimmed = text.trim();
     const submittedAttachments = chatAttachments;
-    if ((!trimmed && !submittedAttachments.length) || assistantPending) return;
-    const promptText = trimmed || "Please analyze the attached file.";
-    appendMessage("user", promptText, submittedAttachments);
-    setMessage("");
+    const submission = conversation.begin(text, submittedAttachments);
+    if (!submission) return;
+    const { promptText } = submission;
     setChatAttachments([]);
     setPendingAssistantAction(undefined);
-    setAssistantPending(true);
     setNotice(chatStatus === "online" ? "Thinking with the conversational model…" : "Checking available offline QC commands…");
     try {
       if (chatStatus === "online") {
@@ -1316,7 +1310,7 @@ export function App() {
       }
     } finally {
       chatRequestId.current = undefined;
-      setAssistantPending(false);
+      conversation.finish(submission.token);
     }
   };
 
@@ -1325,7 +1319,7 @@ export function App() {
     if (!requestId) return;
     chatRequestId.current = undefined;
     void modelChat.cancel(requestId).catch(() => undefined);
-    setAssistantPending(false);
+    conversation.cancel();
     setNotice("Assistant response cancelled.");
   };
 
