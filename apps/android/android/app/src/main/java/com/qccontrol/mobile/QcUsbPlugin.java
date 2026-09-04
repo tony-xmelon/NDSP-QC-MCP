@@ -306,9 +306,9 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
-        pendingOperations.timeout(pending, 60_000, keepalive,
-            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 60 seconds."));
-        scheduleBackupWatchdog(pending, 25_000);
+        pendingOperations.timeout(pending, QcUsbProfile.BACKUP_TOTAL_TIMEOUT_MS, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within " + (QcUsbProfile.BACKUP_TOTAL_TIMEOUT_MS / 1000) + " seconds."));
+        scheduleBackupWatchdog(pending, QcUsbProfile.BACKUP_FIRST_CHUNK_TIMEOUT_MS);
         return result;
     }
 
@@ -317,7 +317,7 @@ public class QcUsbPlugin extends Plugin {
             if (pendingBackup != pending || pending.result.isDone()) return;
             PendingBackup operation = pending.operation;
             long now = System.currentTimeMillis();
-            long stallLimit = operation.started ? 15_000 : 25_000;
+            long stallLimit = operation.started ? QcUsbProfile.BACKUP_STREAM_STALL_TIMEOUT_MS : QcUsbProfile.BACKUP_FIRST_CHUNK_TIMEOUT_MS;
             long idle = now - operation.lastActivityAt;
             if (idle < stallLimit) {
                 scheduleBackupWatchdog(pending, stallLimit - idle);
@@ -329,7 +329,7 @@ public class QcUsbPlugin extends Plugin {
                     "READBACK_TIMEOUT", "The native backup stream stalled after " + operation.chunks + " chunks; the partial document was discarded."));
                 return;
             }
-            if (operation.attempts >= 3) {
+            if (operation.attempts >= QcUsbProfile.BACKUP_MAXIMUM_ATTEMPTS) {
                 pendingBackup = null;
                 if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
                     "READBACK_TIMEOUT", "No native backup document started after " + operation.attempts + " requests and " + operation.ignoredPrefixChunks + " stale chunks."));
@@ -345,7 +345,7 @@ public class QcUsbPlugin extends Plugin {
                     pending.result.completeExceptionally(error);
                 }
             });
-            scheduleBackupWatchdog(pending, 25_000);
+            scheduleBackupWatchdog(pending, QcUsbProfile.BACKUP_FIRST_CHUNK_TIMEOUT_MS);
         }, Math.max(1, delayMs), TimeUnit.MILLISECONDS);
     }
 
@@ -354,7 +354,7 @@ public class QcUsbPlugin extends Plugin {
         if (safeName.isEmpty()) safeName = "QC Device Backup";
         String fileName = safeName.endsWith(".json") ? safeName : safeName + ".json";
         byte[] bytes = document.toString().getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > 32 * 1024 * 1024) throw new Exception("The native backup exceeds the 32 MiB safety limit.");
+        if (bytes.length > QcUsbProfile.BACKUP_MAXIMUM_DOCUMENT_BYTES) throw new Exception("The native backup exceeds the 32 MiB safety limit.");
 
         String path;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

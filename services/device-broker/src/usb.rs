@@ -395,12 +395,11 @@ impl QcUsb {
     /// produces no traffic. Once a document starts, a stall is terminal: two
     /// attempts are never spliced into one backup.
     pub fn create_backup(&mut self, timeout: Duration) -> Result<BackupTransfer, UsbError> {
-        const FIRST_CHUNK_TIMEOUT: Duration = Duration::from_secs(25);
-        const STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(15);
-        const MAX_ATTEMPTS: usize = 3;
+        let first_chunk_timeout = Duration::from_millis(profile::BACKUP_FIRST_CHUNK_TIMEOUT_MS);
+        let stream_stall_timeout = Duration::from_millis(profile::BACKUP_STREAM_STALL_TIMEOUT_MS);
 
         let deadline = Instant::now() + timeout;
-        let mut first_chunk_deadline = (Instant::now() + FIRST_CHUNK_TIMEOUT).min(deadline);
+        let mut first_chunk_deadline = (Instant::now() + first_chunk_timeout).min(deadline);
         let mut progress_deadline = deadline;
         let mut attempts = 1_usize;
         let mut assembler = BackupAssembler::default();
@@ -432,7 +431,7 @@ impl QcUsb {
                 )));
             }
             if !assembler.started() && now >= first_chunk_deadline {
-                if attempts >= MAX_ATTEMPTS {
+                if attempts >= profile::BACKUP_MAXIMUM_ATTEMPTS {
                     return Err(UsbError::BackupTimeout(format!(
                         "no JSON document start arrived after {attempts} request(s); ignored {} stale chunk(s) and {} stale terminator(s)",
                         assembler.ignored_prefix_chunks(),
@@ -442,7 +441,7 @@ impl QcUsb {
                 attempts += 1;
                 self.flight.event(format!("backup-request-{attempts}"));
                 self.send_command(commands::create_local_backup());
-                first_chunk_deadline = (Instant::now() + FIRST_CHUNK_TIMEOUT).min(deadline);
+                first_chunk_deadline = (Instant::now() + first_chunk_timeout).min(deadline);
                 continue;
             }
 
@@ -480,11 +479,11 @@ impl QcUsb {
             }
             let now = Instant::now();
             if assembler.chunks() > previous_chunks {
-                progress_deadline = (now + STREAM_STALL_TIMEOUT).min(deadline);
+                progress_deadline = (now + stream_stall_timeout).min(deadline);
             } else if !was_started && assembler.ignored_prefix_chunks() > previous_ignored {
                 // Traffic from an earlier uncorrelated transfer is still being
                 // drained. Do not inject duplicate CREATE requests into it.
-                first_chunk_deadline = (now + FIRST_CHUNK_TIMEOUT).min(deadline);
+                first_chunk_deadline = (now + first_chunk_timeout).min(deadline);
             }
         }
     }

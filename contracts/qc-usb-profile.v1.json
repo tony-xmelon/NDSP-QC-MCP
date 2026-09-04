@@ -13,6 +13,11 @@
   "initialSyncTimeoutMs": 2000,
   "presetSyncTimeoutMs": 15000,
   "commandConfirmationTimeoutMs": 3000,
+  "backupTotalTimeoutMs": 120000,
+  "backupFirstChunkTimeoutMs": 25000,
+  "backupStreamStallTimeoutMs": 15000,
+  "backupMaximumAttempts": 3,
+  "backupMaximumDocumentBytes": 33554432,
   "midi": {
     "footswitchBaseController": 35,
     "tapTempoController": 44,

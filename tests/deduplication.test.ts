@@ -456,6 +456,30 @@ test("ModelRepo projection and conversational control no longer have platform co
   assert.throws(() => source("services/device-gateway/src/qc_device_gateway/parameter_scales.py"));
 });
 
+test("one generated profile owns native backup limits across both hosts", () => {
+  const contract = JSON.parse(source("contracts/qc-usb-profile.v1.json"));
+  const javaProfile = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java");
+  const rustProfile = source("packages/rust/qc-protocol/src/profile.rs");
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  const windowsUsb = source("services/device-broker/src/usb.rs");
+  const windowsRpc = source("services/device-broker/src/rpc.rs");
+  const responses = source("packages/rust/qc-protocol/src/responses.rs");
+  for (const value of [contract.backupTotalTimeoutMs, contract.backupFirstChunkTimeoutMs, contract.backupStreamStallTimeoutMs, contract.backupMaximumAttempts, contract.backupMaximumDocumentBytes]) {
+    assert.match(javaProfile, new RegExp(`= ${value}(?:L)?;`));
+    assert.match(rustProfile, new RegExp(`= ${value};`));
+  }
+  assert.match(android, /QcUsbProfile\.BACKUP_TOTAL_TIMEOUT_MS/);
+  assert.match(android, /QcUsbProfile\.BACKUP_FIRST_CHUNK_TIMEOUT_MS/);
+  assert.match(android, /QcUsbProfile\.BACKUP_STREAM_STALL_TIMEOUT_MS/);
+  assert.match(android, /QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
+  assert.match(android, /QcUsbProfile\.BACKUP_MAXIMUM_DOCUMENT_BYTES/);
+  assert.match(windowsUsb, /profile::BACKUP_FIRST_CHUNK_TIMEOUT_MS/);
+  assert.match(windowsUsb, /profile::BACKUP_STREAM_STALL_TIMEOUT_MS/);
+  assert.match(windowsUsb, /profile::BACKUP_MAXIMUM_ATTEMPTS/);
+  assert.match(windowsRpc, /profile::BACKUP_TOTAL_TIMEOUT_MS/);
+  assert.match(responses, /profile::BACKUP_MAXIMUM_DOCUMENT_BYTES/);
+});
+
 test("connection presentation and transitions have one shared app workflow", () => {
   const workflow = source("packages/typescript/qc-ui/src/use-qc-connection-workflow.ts");
   const windows = source("apps/windows/src/App.tsx");

@@ -1,10 +1,13 @@
 //! Platform-neutral decoding for correlated device replies that are not part
 //! of the continuous preset-state stream.
 
-use crate::generated_payloads::{
-    GeneralSettings, GlobalBypassRows, MasterVolumeAssignment, TunerSettings,
+use crate::{
+    generated_payloads::{
+        GeneralSettings, GlobalBypassRows, MasterVolumeAssignment, TunerSettings,
+    },
+    profile,
+    proto::cortex_protobuf_v2 as pa,
 };
-use crate::proto::cortex_protobuf_v2 as pa;
 use prost::Message;
 use serde::Serialize;
 use thiserror::Error;
@@ -121,7 +124,7 @@ impl BackupAssembler {
 
         self.chunks += 1;
         self.document.push_str(&chunk);
-        if self.document.len() > 32 * 1024 * 1024 {
+        if self.document.len() > profile::BACKUP_MAXIMUM_DOCUMENT_BYTES {
             self.reset();
             return Err(ResponseDecodeError::OversizedBackup);
         }

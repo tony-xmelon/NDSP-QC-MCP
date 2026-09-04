@@ -5,7 +5,7 @@ use qc_device_runtime::request::{
     GatewayTransactionState, GatewayVerification, GatewayWritePlan, PlannedWrite,
     PresetMutationPlan,
 };
-use qc_protocol::domain;
+use qc_protocol::{domain, profile};
 use qc_protocol::responses::decode_tempo_clock;
 use qc_windows_midi::PerformanceMidi;
 use serde::{Deserialize, Serialize};
@@ -1116,7 +1116,7 @@ fn gateway_rename_current_preset(
 
 fn gateway_create_backup(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let name = required_text(params, "name")?;
-    let raw = controller.create_backup(Duration::from_secs(120))?;
+    let raw = controller.create_backup(Duration::from_millis(profile::BACKUP_TOTAL_TIMEOUT_MS))?;
     finalize_device_backup(&raw, &name)
 }
 
