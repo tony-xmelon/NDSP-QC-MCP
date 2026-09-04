@@ -84,8 +84,34 @@ export function currentReleaseCandidates() {
   });
 }
 
+export function verifyReleaseBundle() {
+  const candidates = currentReleaseCandidates();
+  if (!candidates.length) throw new Error("No release candidates from the current clean source commit are staged.");
+  const manifestPath = resolve(repositoryRoot, "artifacts", "release-manifest.json");
+  const sbomPath = resolve(repositoryRoot, "artifacts", "sbom.cdx.json");
+  if (!existsSync(manifestPath) || !existsSync(sbomPath)) throw new Error("Release manifest or SBOM is missing.");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const sourceCommit = gitOutput(["rev-parse", "HEAD"]);
+  if (manifest.source?.commit !== sourceCommit || manifest.source?.dirty !== false) {
+    throw new Error("Release manifest does not identify the current clean source commit.");
+  }
+  if (manifest.sbom?.sha256 !== createHash("sha256").update(readFileSync(sbomPath)).digest("hex")) {
+    throw new Error("Release SBOM no longer matches the manifest.");
+  }
+  const records = manifest.artifacts ?? [];
+  if (records.length !== candidates.length) throw new Error("Release manifest and staged candidate counts differ.");
+  for (const candidate of candidates) {
+    const portablePath = candidate.slice(repositoryRoot.length + 1).replaceAll("\\", "/");
+    const record = records.find((entry) => entry.path === portablePath);
+    if (!record || record.size !== statSync(candidate).size || record.sha256 !== sha256File(candidate)) {
+      throw new Error(`Release manifest does not match staged candidate: ${candidate}`);
+    }
+  }
+  return candidates;
+}
+
 function usage() {
-  throw new Error("Usage: node tools/release-candidates.mjs stage <windows|android> <artifact> | list");
+  throw new Error("Usage: node tools/release-candidates.mjs stage <windows|android> <artifact> | list | verify");
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
@@ -94,6 +120,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     console.log(stageReleaseCandidate(platform, source));
   } else if (command === "list" && !platform && !source) {
     for (const artifact of currentReleaseCandidates()) console.log(artifact);
+  } else if (command === "verify" && !platform && !source) {
+    for (const artifact of verifyReleaseBundle()) console.log(artifact);
   } else {
     usage();
   }

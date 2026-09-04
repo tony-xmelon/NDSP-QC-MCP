@@ -132,6 +132,9 @@ Packaging stages the exact APK under `artifacts/android` with source-commit and
 SHA-256 metadata. If a Windows installer from the same clean commit has also
 been staged, the generated release manifest and SBOM cover both applications.
 Artifacts from an older commit or with changed bytes are excluded automatically.
+Run `android:prepare:firebase` first, test that staged APK, and collect both
+hardware reports. The publish command verifies and uploads those same bytes; it
+does not rebuild the APK after physical validation.
 
 `apps/android/package.json` is the Android version source. Increment it with
 `npm run version:android:patch` (or `:minor` / `:major`), or set an explicit

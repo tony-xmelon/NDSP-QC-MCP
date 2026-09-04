@@ -4,7 +4,7 @@ import test from "node:test";
 
 const script = (name: string) => readFileSync(new URL(`../scripts/${name}`, import.meta.url), "utf8");
 
-test("Android builds and Firebase publishing emit provenance for the exact APK", () => {
+test("Android preparation emits provenance and Firebase publishes the verified staged APK", () => {
   const build = script("build-android-debug.ps1");
   const publish = script("publish-android-firebase.ps1");
   assert.match(build, /release-candidates\.mjs"\) stage android \$builtApkPath/);
@@ -13,18 +13,19 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   assert.match(build, /lib\/x86_64\/libqc_android\.so/);
   assert.match(build, /assembleDebug lintDebug/);
   assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-provenance.mjs"));
-  assert.match(publish, /release-candidates\.mjs"\) stage android \$builtApkPath/);
-  assert.match(publish, /release-provenance\.mjs"\) @releaseArtifacts/);
+  assert.match(publish, /if \(\$PrepareOnly\)[\s\S]*npm run android:build:debug/);
+  assert.match(publish, /release-candidates\.mjs"\) verify/);
+  assert.doesNotMatch(publish, /release-candidates\.mjs"\) stage/);
+  assert.doesNotMatch(publish, /release-provenance\.mjs/);
   assert.match(publish, /\[string\]\$Testers = "prezimir@gmail\.com"/);
   assert.match(publish, /google-services\.json/);
   assert.match(publish, /capacitor\.config\.ts/);
   assert.match(publish, /package_name -eq \$androidAppId/);
   assert.match(publish, /client_info\.mobilesdk_app_id/);
   assert.doesNotMatch(publish, /\$firebaseAppId = "1:/);
-  assert.ok(publish.indexOf("release-provenance.mjs") < publish.indexOf("appdistribution:distribute"));
   assert.match(publish, /\[switch\]\$PrepareOnly/);
   assert.match(publish, /verify-hardware-release\.mjs/);
-  assert.ok(publish.indexOf("if ($PrepareOnly)") < publish.indexOf("verify-hardware-release.mjs"));
+  assert.ok(publish.indexOf("release-candidates.mjs\") verify") < publish.indexOf("verify-hardware-release.mjs"));
   assert.ok(publish.indexOf("verify-hardware-release.mjs") < publish.indexOf("appdistribution:distribute"));
   const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(rootPackage.scripts["android:prepare:firebase"], /-PrepareOnly/);
@@ -59,10 +60,11 @@ test("both app builds preserve only same-source staged release candidates", () =
   assert.match(candidates, /sourceDirty === false/);
   assert.match(candidates, /metadata\.sourceCommit === expected\.sourceCommit/);
   assert.match(candidates, /metadata\.sha256 === expected\.sha256/);
-  for (const build of [script("build-android-debug.ps1"), script("build-windows-installer.ps1"), script("publish-android-firebase.ps1")]) {
+  for (const build of [script("build-android-debug.ps1"), script("build-windows-installer.ps1")]) {
     assert.match(build, /release-candidates\.mjs"\) list/);
     assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
   }
+  assert.match(script("publish-android-firebase.ps1"), /release-candidates\.mjs"\) verify/);
 });
 
 test("packaged Windows gateway verification follows the generated contract", () => {
@@ -89,10 +91,22 @@ test("Windows installer verifies every downloaded executable dependency", () => 
 });
 
 test("both distribution paths require a clean full software parity preflight", () => {
-  for (const build of [script("build-windows-installer.ps1"), script("publish-android-firebase.ps1")]) {
-    assert.match(build, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
-    assert.ok(build.indexOf("verify-software-parity.ps1") < build.indexOf("release-provenance.mjs"));
-  }
+  const installer = script("build-windows-installer.ps1");
+  const publish = script("publish-android-firebase.ps1");
+  assert.match(installer, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
+  assert.ok(installer.indexOf("verify-software-parity.ps1") < installer.indexOf("release-provenance.mjs"));
+  assert.match(publish, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
+  assert.ok(publish.indexOf("verify-software-parity.ps1") < publish.indexOf("release-candidates.mjs\") verify"));
+});
+
+test("Firebase publishing never rebuilds the hardware-tested candidate", () => {
+  const publish = script("publish-android-firebase.ps1");
+  const prepareBranch = publish.slice(publish.indexOf("if ($PrepareOnly)"), publish.indexOf("else {", publish.indexOf("if ($PrepareOnly)")));
+  const publishBranch = publish.slice(publish.indexOf("else {", publish.indexOf("if ($PrepareOnly)")));
+  assert.match(prepareBranch, /android:build:debug/);
+  assert.doesNotMatch(publishBranch, /android:build:debug|assembleDebug|Copy-Item/);
+  assert.ok(publishBranch.indexOf("release-candidates.mjs\") verify") < publishBranch.indexOf("verify-hardware-release.mjs"));
+  assert.ok(publishBranch.indexOf("verify-hardware-release.mjs") < publishBranch.indexOf("appdistribution:distribute"));
 });
 
 test("software parity lint-checks all Rust targets without release sidecars", () => {
