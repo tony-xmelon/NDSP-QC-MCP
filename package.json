@@ -39,9 +39,14 @@
     "test:parity:software": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-software-parity.ps1",
     "architecture:check": "node tools/verify-package-boundaries.mjs",
     "release:provenance": "node tools/release-provenance.mjs",
+    "test:ui": "playwright test",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1"
   }
 }

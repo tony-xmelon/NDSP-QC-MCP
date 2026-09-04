@@ -10,6 +10,7 @@
 html, body, #root { width: 100%; min-width: 0; height: 100%; margin: 0; overflow: hidden; }
 button, input, select { font: inherit; }
 button { touch-action: manipulation; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #70d6ff; outline-offset: 2px; }
 
 .android-app {
   width: 100%;
@@ -74,6 +75,11 @@ button { touch-action: manipulation; }
 }
 .mobile-screen .qc-screen { border-radius: 7px; }
 .mobile-screen .preset-title.is-dirty { font-style: italic; font-weight: 500; }
+.mobile-screen .preset-title-hit { right: 100px; width: auto; }
+.mobile-screen .undo-hit { left: auto; right: 75px; width: 25px; }
+.mobile-screen .scene-hit { left: auto; right: 50px; width: 25px; }
+.mobile-screen .save-hit { left: auto; right: 25px; width: 25px; }
+.mobile-screen .more-hit { left: auto; right: 0; width: 25px; }
 
 .quick-controls { min-height: 104px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(48px, 1fr)); gap: 6px; }
 .quick-controls button { min-width: 0; min-height: 48px; display: grid; place-items: center; align-content: center; gap: 1px; padding: 3px; border: 1px solid var(--qc-palette-2a2e34); border-radius: 11px; background: linear-gradient(180deg, var(--qc-palette-171a1f), var(--qc-palette-101216)); color: var(--qc-palette-d9dde1); box-shadow: inset 0 1px var(--qc-palette-ffffff0d), 0 2px 5px var(--qc-palette-0006); }
@@ -144,6 +150,10 @@ button { touch-action: manipulation; }
 
 @keyframes pulse { to { opacity: .38; } }
 @keyframes tempo-flash { 0%, 18% { opacity: 1; } 19%, 100% { opacity: .3; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
 
 @media (orientation: landscape) and (max-height: 800px) {
   .android-app { grid-template-columns: minmax(420px, 1.25fr) minmax(300px, .75fr); grid-template-rows: auto auto auto minmax(0, 1fr); gap: 8px 12px; }

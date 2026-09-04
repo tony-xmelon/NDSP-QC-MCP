@@ -145,7 +145,7 @@ function HardwareSwitch({ role, label, active, assigned = false, accent, compact
   return <button
     className={`hardware-switch${active ? " is-active" : ""}${pressed ? " is-pressed" : ""}${assigned ? " is-assigned" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)", "--tempo-period": tempoPeriodMs ? `${tempoPeriodMs}ms` : undefined, "--tempo-phase-delay": tempoPhaseMs !== undefined ? `${-tempoPhaseMs}ms` : undefined } as CSSProperties}
-    aria-label={`${label} encoder footswitch`} aria-pressed={Boolean(active || pressed)} aria-valuetext={`${encoderValue} percent`}
+    aria-label={`${label} encoder footswitch; encoder ${encoderValue} percent`} aria-pressed={Boolean(active || pressed)}
     title={`${label}: tap to press; drag vertically, use the mouse wheel, or press arrow keys to rotate`}
     onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); drag.current = { pointerId: event.pointerId, lastY: event.clientY, rotated: false }; setPressed(true); }}
     onPointerMove={(event) => {
@@ -178,7 +178,7 @@ function MasterVolume({ value, onAction }: { value: number; onAction: (action: H
   const angle = -135 + value * 2.7;
   return <div className="master-volume">
     <button className="power-button" aria-label="Power and lock menu" onClick={() => onAction({ kind: "switch", role: "power", phase: "release" })}><svg className="power-icon" viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg></button>
-    <button className="volume-knob" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-valuetext={`${value} percent`} title={`Master Volume ${value}; drag vertically, use the mouse wheel, or press arrow keys`} onPointerDown={(event) => {
+    <button className="volume-knob" role="slider" aria-orientation="vertical" style={{ "--volume-angle": `${angle}deg` } as CSSProperties} aria-label="Master volume knob" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-valuetext={`${value} percent`} title={`Master Volume ${value}; drag vertically, use the mouse wheel, or press arrow keys`} onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       drag.current = { pointerId: event.pointerId, lastY: event.clientY };
     }} onPointerMove={(event) => {
@@ -333,7 +333,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const color = kind === "S" ? QC_COLORS.category.equalizer : QC_COLORS.category.synth;
     const node = kind === "S" ? "splitter" : "mixer";
     const selected = selectedBlockId === `routing-${row}-${node}`;
-    return <g>
+    return <g key={`${kind}-${row}`}>
       {selected && <circle cx={x} cy={y} r="18" fill="none" stroke={QC_COLORS.captured.primaryText} strokeWidth="2" />}
       <circle cx={x} cy={y} r="15" fill={QC_COLORS.captured.screen} stroke="none" />
       <circle cx={x} cy={y} r="13" fill={color} stroke="none" />

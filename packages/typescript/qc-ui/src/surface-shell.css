@@ -613,14 +613,14 @@
   cursor: pointer;
   pointer-events: auto;
 }
-.vector-action-hit { top: 1.5%; height: 8%; }
+.vector-action-hit { top: 1.5%; min-width: 24px; min-height: 24px; height: 8%; }
 .preset-title-hit { left: 1%; width: 73.5%; height: 17%; }
 .undo-hit { left: 75.8%; width: 5%; }
 .scene-hit { left: 81.7%; width: 4.5%; }
 .save-hit { left: 87.8%; width: 5%; }
 .more-hit { left: 93.5%; width: 4%; }
 .mode-hit { top: 10.5%; left: 81%; width: 16%; height: 8%; }
-.vector-route-hit { position: absolute; z-index: 7; width: 6%; height: 18%; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
+.vector-route-hit { position: absolute; z-index: 7; min-width: 24px; width: 6%; height: 18%; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
 .input-route-hit { left: 1%; }
 .output-route-hit { right: 1%; }
 .coros-vector-block-hit { width: 8.7%; height: 14.6%; transform: translate(-50%, -50%); border-radius: 12%; }

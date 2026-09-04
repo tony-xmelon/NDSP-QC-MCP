@@ -18,6 +18,8 @@ node_modules/
 .turbo/
 coverage/
 *.tsbuildinfo
+playwright-report/
+test-results/
 
 # Tauri / Rust
 target/

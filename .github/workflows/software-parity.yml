@@ -46,3 +46,9 @@ jobs:
 
       - name: Verify shared contracts, apps, and native runtimes
         run: npm run test:parity:software
+
+      - name: Install browser for responsive and accessibility checks
+        run: npx playwright install chromium
+
+      - name: Verify responsive layouts and accessibility
+        run: npm run test:ui

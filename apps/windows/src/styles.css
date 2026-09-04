@@ -320,6 +320,10 @@ select { min-width: 128px; padding: 6px 26px 6px 8px; color: var(--qc-palette-d9
 
 @keyframes pulse { 50% { box-shadow: 0 0 20px var(--qc-palette-ff695b99); } }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 @media (max-height: 850px) {
   .workspace { padding-block: 10px; }
   .qc-chassis { max-height: none; }
