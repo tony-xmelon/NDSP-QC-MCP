@@ -141,6 +141,7 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
   const dispatch = source("services/device-gateway/src/qc_device_gateway/generated_gateway_dispatch.py");
   const pythonClient = source("packages/python/qc-gateway-client/src/qc_gateway_client/generated_gateway_methods.py");
   const rust = source("apps/windows/src-tauri/src/generated_gateway.rs");
+  const tauriHost = source("apps/windows/src-tauri/src/lib.rs");
   const java = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedGatewayMethods.java");
   const transport = source("apps/windows/src/tauri-transport.ts");
   assert.ok(contract.methods.length >= 37, "the generated gateway must retain the complete baseline API");
@@ -150,6 +151,8 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
     assert.match(pythonClient, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(rust, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(java, new RegExp(method.rpc.replace(".", "\\.")));
+    assert.match(tauriHost, new RegExp(`async fn ${method.tauri}\\b`), `${method.rpc} must have a thin Windows adapter`);
+    assert.match(tauriHost, new RegExp(`\\b${method.tauri},`), `${method.rpc} must be registered with Tauri`);
   }
   assert.match(transport, /createGatewayClientTransport<GatewayTransport>/);
   assert.match(source("packages/python/qc-gateway-client/src/qc_gateway_client/client.py"), /method not in GATEWAY_METHODS/);

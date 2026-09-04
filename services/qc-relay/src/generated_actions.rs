@@ -526,6 +526,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: &["confirm_persistent_write"],
     },
     ActionPolicy {
+        name: "duplicate_setlist",
+        rpc: "device.duplicateSetlist",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
         name: "delete_preset",
         rpc: "device.deletePreset",
         class: ActionClass::PersistentWrite,

@@ -75,9 +75,9 @@ Explicit disconnect/reconnect, a privacy-safe connection
 log, current-device details, and an allowlisted redacted diagnostics export are
 available from the application menus. State-changing commands use expected-state guards,
 value readback, and dirty-state verification. Local `.qcw` workspace snapshots
-can be saved and reopened without touching the hardware. Persistent device
-Save As is available only through a separate destination review and final
-confirmation; global-setting writes remain locked. The chat dock now supports a
+can be saved and reopened without touching the hardware. Persistent preset,
+library, and global-setting writes require explicit review and confirmation.
+The chat dock now supports a
 configurable OpenAI Responses-compatible conversational model, supplies current
 QC context as untrusted data, and exposes an allowlisted set of typed device
 tools. Read tools can be followed by a natural answer; performance actions
@@ -97,7 +97,8 @@ through the same guarded typed-command path.
 
 The public MCP and remote-control services are implemented in Rust, with the
 legacy Python server retained only as a compatibility oracle. Neither deployed
-path exposes raw HID, protobuf, arbitrary JSON-RPC, or global-setting access.
+path exposes raw HID, protobuf, or arbitrary JSON-RPC; global-setting mutations
+remain typed, allowlisted, and confirmation-gated.
 See [Chat and MCP setup](docs/CHAT_AND_MCP.md).
 
 The Android client is available as a branded Firebase App Distribution build.
@@ -106,8 +107,8 @@ phone-first layout. Android owns a direct USB-host HID session with the Quad
 Cortex (USB permission is requested on first attachment), uses Firebase AI
 Logic with Gemini 3.7 Flash without embedding a personal Gemini key, and sends
 Android speech-recognition transcripts through the same chat/action path. The
-hardware-safe action allowlist supports scene and preset navigation,
-selected-block bypass, tuner, Gig View, and physical-control tap tempo. Live USB messages populate the
+generated hardware-safe action allowlist is shared with Windows and covers the
+contracted read, performance, edit, library, and confirmed system surface. Live USB messages populate the
 preset grid, routes, scene metadata, setlist position, dirty state, and master
 volume.
 Firebase App Check uses Play Integrity, with

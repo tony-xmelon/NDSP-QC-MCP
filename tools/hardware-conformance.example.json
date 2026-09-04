@@ -33,6 +33,20 @@
     "moveColumn": 7,
     "footswitch": 7
   },
+  "library": {
+    "pinnedModelId": 1,
+    "capture": {
+      "key": "REPLACE_WITH_CAPTURE_KEY",
+      "name": "REPLACE_WITH_CAPTURE_NAME",
+      "modelId": 1
+    },
+    "ir": {
+      "key": "REPLACE_WITH_IR_KEY",
+      "name": "REPLACE_WITH_IR_NAME",
+      "modelId": 1,
+      "slot": 0
+    }
+  },
   "routing": {
     "row": 3,
     "testInputId": 1,

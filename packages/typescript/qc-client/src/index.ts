@@ -303,6 +303,7 @@ export interface GatewayTransport {
   loadIr(row: number, column: number, key: string, name: string, slot: number, modelId: number | null): Promise<DeviceActionResult>;
   createSetlist(name: string): Promise<DeviceActionResult>;
   deleteSetlist(name: string): Promise<DeviceActionResult>;
+  duplicateSetlist(sourceSetlistKey: string, destinationName: string, limit: number | null, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   deletePreset(setlistKey: string, name: string): Promise<DeviceActionResult>;
   movePreset(setlistKey: string, name: string, position: number): Promise<DeviceActionResult>;
   setGeneralInteger(setting: "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" | "holdTiming" | "midiChannel", value: number): Promise<DeviceActionResult>;

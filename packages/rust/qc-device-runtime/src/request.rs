@@ -556,6 +556,16 @@ pub struct PresetMutationStage {
     pub write: PlannedWrite,
     pub verification: GatewayVerification,
     pub timeout_ms: u64,
+    pub settle_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetMutationRecord {
+    pub setlist_key: String,
+    pub position: u32,
+    pub name: String,
+    pub instrument: i32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -566,6 +576,7 @@ pub struct PresetMutationPlan {
     pub setlist_key: String,
     pub position: u32,
     pub instrument: i32,
+    pub saved_presets: Vec<PresetMutationRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -883,6 +894,7 @@ fn save_stage(
         verification: verification_for_operation(&operation, &Value::Null, None),
         write: PlannedWrite::HidOperation(operation),
         timeout_ms: 15_000,
+        settle_ms: 0,
     }
 }
 
@@ -934,6 +946,12 @@ pub fn plan_preset_mutation(
                 .entry(&setlist_key, before.preset_position)
                 .map(|entry| entry.instrument)
                 .unwrap_or(0);
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: setlist_key.clone(),
+                position,
+                name: name.clone(),
+                instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![save_stage(&setlist_key, position, &name, instrument)],
                 detail: format!("Saved and verified {name}"),
@@ -941,6 +959,7 @@ pub fn plan_preset_mutation(
                 setlist_key,
                 position,
                 instrument,
+                saved_presets,
             })
         }
         "device.renameCurrentPreset" => {
@@ -960,6 +979,12 @@ pub fn plan_preset_mutation(
                 .entry(&before.setlist_key, before.preset_position)
                 .map(|entry| entry.instrument)
                 .unwrap_or(0);
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: before.setlist_key.clone(),
+                position: before.preset_position,
+                name: name.clone(),
+                instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![save_stage(
                     &before.setlist_key,
@@ -972,6 +997,7 @@ pub fn plan_preset_mutation(
                 setlist_key: before.setlist_key.clone(),
                 position: before.preset_position,
                 instrument,
+                saved_presets,
             })
         }
         "device.copyPreset" => {
@@ -1022,6 +1048,12 @@ pub fn plan_preset_mutation(
                 name: Some(source.name.clone()),
                 require_clean: false,
             };
+            let saved_presets = vec![PresetMutationRecord {
+                setlist_key: destination_key.clone(),
+                position: destination_position,
+                name: source.name.clone(),
+                instrument: source.instrument,
+            }];
             Ok(PresetMutationPlan {
                 stages: vec![
                     PresetMutationStage {
@@ -1032,6 +1064,7 @@ pub fn plan_preset_mutation(
                         }),
                         verification: source_verification,
                         timeout_ms: 40_000,
+                        settle_ms: 0,
                     },
                     save_stage(
                         &destination_key,
@@ -1045,6 +1078,99 @@ pub fn plan_preset_mutation(
                 setlist_key: destination_key,
                 position: destination_position,
                 instrument: source.instrument,
+                saved_presets,
+            })
+        }
+        "device.duplicateSetlist" => {
+            let source_key = required_text(params, "sourceSetlistKey")?
+                .trim_end_matches('/')
+                .to_string();
+            let destination_name =
+                validate_setlist_name(required_text(params, "destinationName")?)?;
+            let destination_key = format!("/media/p4/Presets/{destination_name}");
+            if source_key == destination_key {
+                return Err("The source and destination setlists are identical.".into());
+            }
+            if library.folders().iter().any(|folder| {
+                folder.key.trim_end_matches('/') == destination_key
+                    || folder.name.eq_ignore_ascii_case(&destination_name)
+            }) {
+                return Err("The destination setlist already exists.".into());
+            }
+            let mut entries = library
+                .list(&source_key, before)
+                .ok_or_else(|| {
+                    "The source setlist has not been loaded from the Quad Cortex.".to_string()
+                })?
+                .presets
+                .into_iter()
+                .filter(|entry| entry.name != "Unsaved")
+                .collect::<Vec<_>>();
+            entries.sort_by_key(|entry| entry.position);
+            let limit = match params.get("limit") {
+                None | Some(Value::Null) => entries.len(),
+                Some(value) => value
+                    .as_u64()
+                    .and_then(|value| usize::try_from(value).ok())
+                    .filter(|value| *value <= 256)
+                    .ok_or_else(|| {
+                        "limit must be null or an integer from 0 through 256".to_string()
+                    })?,
+            };
+            entries.truncate(limit);
+
+            let mut stages = vec![PresetMutationStage {
+                write: PlannedWrite::HidOperation(DeviceOperation::CreateSetlist {
+                    name: destination_name.clone(),
+                }),
+                verification: GatewayVerification::None,
+                timeout_ms: 0,
+                settle_ms: 3_000,
+            }];
+            let mut saved_presets = Vec::with_capacity(entries.len());
+            for (destination_position, entry) in entries.into_iter().enumerate() {
+                let destination_position = u32::try_from(destination_position)
+                    .map_err(|_| "The source setlist contains too many presets".to_string())?;
+                stages.push(PresetMutationStage {
+                    write: PlannedWrite::HidCommand(DeviceCommand::SetlistPosition {
+                        is_factory: source_key.starts_with("/opt/"),
+                        setlist_key: source_key.clone(),
+                        position: entry.position,
+                    }),
+                    verification: GatewayVerification::Preset {
+                        setlist_key: source_key.clone(),
+                        position: entry.position,
+                        name: Some(entry.name.clone()),
+                        require_clean: false,
+                    },
+                    timeout_ms: 40_000,
+                    settle_ms: 0,
+                });
+                stages.push(save_stage(
+                    &destination_key,
+                    destination_position,
+                    &entry.name,
+                    entry.instrument,
+                ));
+                saved_presets.push(PresetMutationRecord {
+                    setlist_key: destination_key.clone(),
+                    position: destination_position,
+                    name: entry.name,
+                    instrument: entry.instrument,
+                });
+            }
+            let copied = saved_presets.len();
+            Ok(PresetMutationPlan {
+                stages,
+                detail: format!(
+                    "Created {destination_name} and copied {copied} preset{}",
+                    if copied == 1 { "" } else { "s" }
+                ),
+                saved_name: destination_name,
+                setlist_key: destination_key,
+                position: copied.saturating_sub(1) as u32,
+                instrument: saved_presets.last().map_or(0, |entry| entry.instrument),
+                saved_presets,
             })
         }
         _ => Err(format!(
@@ -1100,6 +1226,18 @@ fn writable_setlist_key(params: &Value, field: &str) -> Result<String, String> {
         return Err(format!("{field} must identify a writable user setlist"));
     }
     Ok(key.trim_end_matches('/').to_string())
+}
+
+fn validate_setlist_name(name: String) -> Result<String, String> {
+    if name.trim() != name
+        || name.chars().count() > 64
+        || name.chars().any(char::is_control)
+        || name.contains(['/', '\\'])
+        || matches!(name.as_str(), "." | ".." | "My Presets")
+    {
+        return Err("setlist name must be 1-64 visible characters without slashes and cannot name a built-in setlist".into());
+    }
+    Ok(name)
 }
 
 pub fn expected_position(params: &Value) -> Result<u32, String> {
@@ -1714,15 +1852,7 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             })
         }
         "createSetlist" | "deleteSetlist" => {
-            let name = required_text(params, "name")?;
-            if name.trim() != name
-                || name.chars().count() > 64
-                || name.chars().any(char::is_control)
-                || name.contains(['/', '\\'])
-                || matches!(name.as_str(), "." | ".." | "My Presets")
-            {
-                return Err("setlist name must be 1-64 visible characters without slashes and cannot name a built-in setlist".into());
-            }
+            let name = validate_setlist_name(required_text(params, "name")?)?;
             if operation == "createSetlist" {
                 Ok(DeviceOperation::CreateSetlist { name })
             } else {
@@ -3374,6 +3504,116 @@ mod tests {
         assert_eq!(copy.stages.len(), 2);
         assert_eq!(copy.saved_name, "Source");
         assert_eq!(copy.instrument, 3);
+
+        let duplicate = plan_preset_mutation(
+            "device.duplicateSetlist",
+            &json!({
+                "sourceSetlistKey": "/media/p4/Presets/Live",
+                "destinationName": "Live Copy",
+                "limit": null,
+                "expectedPresetName": "Current",
+                "expectedPosition": 8
+            }),
+            Some(&snapshot),
+            &library,
+        )
+        .unwrap();
+        assert_eq!(duplicate.stages.len(), 5);
+        assert_eq!(duplicate.stages[0].settle_ms, 3_000);
+        assert!(matches!(
+            duplicate.stages[0].write,
+            PlannedWrite::HidOperation(DeviceOperation::CreateSetlist { ref name })
+                if name == "Live Copy"
+        ));
+        assert_eq!(duplicate.saved_presets.len(), 2);
+        assert_eq!(duplicate.saved_presets[0].name, "Current");
+        assert_eq!(duplicate.saved_presets[0].position, 0);
+        assert_eq!(duplicate.saved_presets[1].name, "Source");
+        assert_eq!(duplicate.saved_presets[1].position, 1);
+        assert!(plan_preset_mutation(
+            "device.duplicateSetlist",
+            &json!({
+                "sourceSetlistKey": "/media/p4/Presets/Live",
+                "destinationName": "My Presets",
+                "limit": 1,
+                "expectedPresetName": "Current",
+                "expectedPosition": 8
+            }),
+            Some(&snapshot),
+            &library,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn native_library_reads_and_writes_are_planned_with_strict_guards() {
+        let recents = plan_gateway_read("device.recents", &Value::Null, 81).unwrap();
+        assert_eq!(recents.response_type, 20);
+        assert!(matches!(
+            recents.operation,
+            DeviceOperation::ReadRecentsFavorites {
+                favorites: false,
+                request_id: 81
+            }
+        ));
+        let favorites = plan_gateway_read("device.favorites", &Value::Null, 82).unwrap();
+        assert!(matches!(
+            favorites.operation,
+            DeviceOperation::ReadRecentsFavorites {
+                favorites: true,
+                request_id: 82
+            }
+        ));
+        let captures = plan_gateway_read("device.captures", &Value::Null, 83).unwrap();
+        assert!(matches!(
+            captures.operation,
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 2, request_id: 83 }
+                if folder_key == "local_nc_root"
+        ));
+        let irs =
+            plan_gateway_read("device.irs", &json!({"folder": "factory_ir_root"}), 84).unwrap();
+        assert!(matches!(
+            irs.operation,
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 1, request_id: 84 }
+                if folder_key == "factory_ir_root"
+        ));
+
+        assert!(plan_gateway_write(
+            "device.deletePreset",
+            &json!({"setlistKey": "/opt/Presets/Factory", "name": "Factory"}),
+            None,
+        )
+        .is_err());
+        let capture = plan_gateway_write(
+            "device.loadCapture",
+            &json!({
+                "row": 1, "column": 2, "key": "capture/", "name": "Crunch",
+                "modelId": null, "expectedPresetName": "Current"
+            }),
+            Some(&GatewaySnapshot {
+                preset_name: "Current".into(),
+                ..GatewaySnapshot::default()
+            }),
+        )
+        .unwrap();
+        assert!(matches!(
+            capture.write,
+            PlannedWrite::HidOperation(DeviceOperation::LoadCapture {
+                row: 1, column: 2, ref key, ref name, model_id: None
+            }) if key == "capture/" && name == "Crunch"
+        ));
+        assert!(plan_gateway_write(
+            "device.loadIr",
+            &json!({
+                "row": 1, "column": 2, "key": "ir/key", "name": "Room",
+                "slot": 2, "modelId": null, "expectedPresetName": "Current"
+            }),
+            Some(&GatewaySnapshot {
+                preset_name: "Current".into(),
+                ..GatewaySnapshot::default()
+            }),
+        )
+        .is_err());
     }
 
     #[test]

@@ -320,6 +320,9 @@ async function main() {
       let folders = await transport.call("list_preset_folders", { refresh: true });
       const slots = await transport.call("list_preset_slots", {});
       const models = await transport.call("list_models", { query: null });
+      const pinned = await transport.call("list_pinned_models", {});
+      const captures = await transport.call("list_captures", {});
+      const irs = await transport.call("list_irs", { folder: null });
       let presets = await transport.call("list_presets", { refresh: false, setlist_key: snapshot.setlistKey });
       const screen = await transport.call("capture_screen", {});
       const libraryDeadline = Date.now() + 10000;
@@ -343,7 +346,12 @@ async function main() {
         folders: redactEvidence(folders.folders ?? []),
         scratchPresetCandidates: redactEvidence((presets.presets ?? []).filter((preset) => preset.name && !/^Unsaved$/i.test(preset.name)).slice(0, 30)),
         candidateDisposableSlots: redactEvidence(emptySlots),
-        modelCount: models.models?.length ?? 0
+        modelCount: models.models?.length ?? 0,
+        suggestedLibraryFixtures: {
+          pinnedModelId: pinned.models?.[0] ?? models.models?.[0]?.id,
+          capture: redactEvidence(captures.entries?.[0]),
+          ir: redactEvidence(irs.entries?.[0])
+        }
       }, null, 2));
     } finally {
       await transport.close().catch(() => {});
@@ -370,6 +378,8 @@ async function main() {
   let originalIoSettings;
   let originalGlobalEq;
   let originalModeCycle;
+  let originalFavorites;
+  let originalPinnedModels;
   let transportStarted = false;
   let deviceAuthorized = false;
   let firstScreenTapSent = false;
@@ -464,6 +474,46 @@ async function main() {
       value = await transport.call("get_mode_cycle", {});
       if (predicate(value)) return value;
       await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForFavorites = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_favorites", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPinnedModels = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_pinned_models", {});
+      if (predicate(value)) return value;
+      await sleep(500);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPresetFolders = async (predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_preset_folders", { refresh: true });
+      if (predicate(value)) return value;
+      await sleep(1000);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForPresets = async (setlistKey, predicate, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("list_presets", { refresh: true, setlist_key: setlistKey });
+      if (predicate(value)) return value;
+      await sleep(1000);
     } while (Date.now() < deadline);
     return value;
   };
@@ -571,6 +621,13 @@ async function main() {
       "Mode cycle did not include one through three slots."
     ));
     await call("get_looper_status", {}, (value) => assert(value && typeof value === "object", "Looper status is invalid."));
+    await call("list_recents", {}, (value) => assert(Array.isArray(value.entries), "Recent preset list is invalid."));
+    originalFavorites = await call("list_favorites", {}, (value) => assert(Array.isArray(value.entries), "Favorite preset list is invalid."));
+    originalPinnedModels = await call("list_pinned_models", {}, (value) => assert(
+      Array.isArray(value.models) && Array.isArray(value.captures), "Pinned model list is invalid."
+    ));
+    await call("list_captures", {}, (value) => assert(Array.isArray(value.entries), "Capture library list is invalid."));
+    await call("list_irs", { folder: null }, (value) => assert(Array.isArray(value.entries), "IR library list is invalid."));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
       const screenPath = resolve(root, config.discoveryScreenPath);
@@ -818,6 +875,34 @@ async function main() {
       await call("remove_block", { row: temp.row, column: temp.moveColumn, expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => !value.blocks.some((block) => block.row === temp.row && block.column === temp.moveColumn));
 
+      const capture = config.library.capture;
+      await call("load_capture", {
+        row: temp.row, column: temp.addColumn, key: capture.key, name: capture.name,
+        model_id: capture.modelId, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === capture.modelId));
+      await transport.call("remove_block", {
+        row: temp.row, column: temp.addColumn, expected_model_id: capture.modelId,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn));
+
+      const ir = config.library.ir;
+      await call("load_ir", {
+        row: temp.row, column: temp.addColumn, key: ir.key, name: ir.name,
+        slot: ir.slot, model_id: ir.modelId, expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === ir.modelId));
+      await transport.call("remove_block", {
+        row: temp.row, column: temp.addColumn, expected_model_id: ir.modelId,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+        (block) => block.row === temp.row && block.column === temp.addColumn));
+
       const route = currentSnapshot.routes.find((candidate) => candidate.row === config.routing.row);
       assert(route && Number.isInteger(route.inputId) && Number.isInteger(route.outputId), "Configured route has no restorable input/output IDs.");
       await call("set_chain_input", { row: route.row, input_id: config.routing.testInputId, expected_input_id: route.inputId, expected_preset_name: currentSnapshot.presetName });
@@ -1014,6 +1099,83 @@ async function main() {
       assert(JSON.stringify(modeCycle.slots) === JSON.stringify(testCycle), "Mode cycle did not read back.");
       await transport.call("set_mode_cycle", { slots: originalModeCycle.slots, confirm_persistent_write: true });
 
+      const scratchFolder = folders.folders.find(
+        (folder) => folder.key?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, ""));
+      assert(scratchFolder, "Scratch preset setlist metadata is unavailable for Favorites conformance.");
+      const originallyFavorite = originalFavorites.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, ""));
+      await call("set_favorite", {
+        name: currentSnapshot.presetName, folder_key: config.scratchPreset.setlistKey,
+        folder_name: scratchFolder.name, is_factory: Boolean(scratchFolder.isFactory),
+        favorite: !originallyFavorite, confirm_persistent_write: true
+      });
+      let favorites = await waitForFavorites((value) => value.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === !originallyFavorite);
+      assert(favorites.entries.some((entry) => entry.name === currentSnapshot.presetName
+        && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === !originallyFavorite,
+      "Favorite mutation did not read back.");
+      await transport.call("set_favorite", {
+        name: currentSnapshot.presetName, folder_key: config.scratchPreset.setlistKey,
+        folder_name: scratchFolder.name, is_factory: Boolean(scratchFolder.isFactory),
+        favorite: originallyFavorite, confirm_persistent_write: true
+      });
+      favorites = await waitForFavorites((value) => value.entries.some((entry) =>
+        entry.name === currentSnapshot.presetName
+          && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === originallyFavorite);
+      assert(favorites.entries.some((entry) => entry.name === currentSnapshot.presetName
+        && entry.folderKey?.replace(/\/$/, "") === config.scratchPreset.setlistKey.replace(/\/$/, "")) === originallyFavorite,
+      "Favorite restoration did not read back.");
+
+      const pinnedModelId = config.library.pinnedModelId;
+      const originallyPinned = originalPinnedModels.models.includes(pinnedModelId);
+      await call("set_model_pinned", {
+        model_id: pinnedModelId, pinned: !originallyPinned, confirm_persistent_write: true
+      });
+      let pinned = await waitForPinnedModels((value) => value.models.includes(pinnedModelId) === !originallyPinned);
+      assert(pinned.models.includes(pinnedModelId) === !originallyPinned, "Pinned-model mutation did not read back.");
+      await transport.call("set_model_pinned", {
+        model_id: pinnedModelId, pinned: originallyPinned, confirm_persistent_write: true
+      });
+      pinned = await waitForPinnedModels((value) => value.models.includes(pinnedModelId) === originallyPinned);
+      assert(pinned.models.includes(pinnedModelId) === originallyPinned, "Pinned-model restoration did not read back.");
+
+      const emptySetlistName = uniqueName(config.persistent.namePrefix, "empty");
+      await call("create_setlist", { name: emptySetlistName, confirm_persistent_write: true });
+      let setlists = await waitForPresetFolders((value) => value.folders.some((folder) => folder.name === emptySetlistName));
+      assert(setlists.folders.some((folder) => folder.name === emptySetlistName), "Created setlist did not appear in the device library.");
+      await call("delete_setlist", { name: emptySetlistName, confirm_persistent_write: true });
+      setlists = await waitForPresetFolders((value) => !value.folders.some((folder) => folder.name === emptySetlistName));
+      assert(!setlists.folders.some((folder) => folder.name === emptySetlistName), "Deleted setlist remained in the device library.");
+
+      const duplicateName = uniqueName(config.persistent.namePrefix, "copy");
+      const duplicated = await call("duplicate_setlist", {
+        source_setlist_key: config.scratchPreset.setlistKey,
+        destination_name: duplicateName,
+        limit: 1,
+        expected_preset_name: currentSnapshot.presetName,
+        expected_position: currentSnapshot.presetPosition,
+        confirm_persistent_write: true
+      });
+      currentSnapshot = resultSnapshot(duplicated) ?? await snapshot();
+      const duplicateKey = `/media/p4/Presets/${duplicateName}`;
+      const duplicatePresets = await waitForPresets(duplicateKey, (value) => value.presets.some(
+        (preset) => preset.position === 0 && preset.name === currentSnapshot.presetName));
+      assert(duplicatePresets.presets.some((preset) => preset.position === 0), "Duplicated setlist did not contain its copied preset.");
+      await transport.call("recall_preset", {
+        setlist_key: config.scratchPreset.setlistKey,
+        position: config.scratchPreset.position,
+        expected_preset_name: currentSnapshot.presetName,
+        expected_position: currentSnapshot.presetPosition
+      });
+      currentSnapshot = await waitForSnapshot((value) =>
+        value.setlistKey === config.scratchPreset.setlistKey
+          && value.presetPosition === config.scratchPreset.position);
+      await transport.call("delete_setlist", { name: duplicateName, confirm_persistent_write: true });
+      setlists = await waitForPresetFolders((value) => !value.folders.some((folder) => folder.name === duplicateName));
+      assert(!setlists.folders.some((folder) => folder.name === duplicateName), "Duplicated setlist was not deleted during restoration.");
+
       const nameA = uniqueName(config.persistent.namePrefix, "A");
       const nameRenamed = uniqueName(config.persistent.namePrefix, "R");
       report.disposableSlotsModified = [config.persistent.slotA, config.persistent.slotB];
@@ -1044,6 +1206,32 @@ async function main() {
         confirm_overwrite: true, confirm_persistent_write: true
       });
       currentSnapshot = resultSnapshot(copied) ?? await snapshot();
+      await call("delete_preset", {
+        setlist_key: config.persistent.slotA.setlistKey,
+        name: nameRenamed,
+        confirm_persistent_write: true
+      });
+      let destinationPresets = await waitForPresets(config.persistent.slotA.setlistKey,
+        (value) => !value.presets.some((preset) => preset.name === nameRenamed));
+      assert(!destinationPresets.presets.some((preset) => preset.name === nameRenamed), "Deleted preset remained in its setlist.");
+      await call("move_preset", {
+        setlist_key: config.persistent.slotB.setlistKey,
+        name: copySource.name,
+        position: config.persistent.slotA.position,
+        confirm_persistent_write: true
+      });
+      destinationPresets = await waitForPresets(config.persistent.slotB.setlistKey,
+        (value) => value.presets.some((preset) => preset.name === copySource.name && preset.position === config.persistent.slotA.position));
+      assert(destinationPresets.presets.some((preset) => preset.name === copySource.name
+        && preset.position === config.persistent.slotA.position), "Moved preset did not read back at its destination.");
+      await call("delete_preset", {
+        setlist_key: config.persistent.slotB.setlistKey,
+        name: copySource.name,
+        confirm_persistent_write: true
+      });
+      destinationPresets = await waitForPresets(config.persistent.slotB.setlistKey,
+        (value) => !value.presets.some((preset) => preset.name === copySource.name));
+      assert(!destinationPresets.presets.some((preset) => preset.name === copySource.name), "Moved preset was not deleted during restoration.");
     }
 
     if (enabledHazards.has("system")) {

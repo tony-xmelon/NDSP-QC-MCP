@@ -2530,4 +2530,153 @@ mod tests {
         assert_eq!(read_mode_cycle().message_type, 14);
         assert_eq!(read_looper_status().message_type, 28);
     }
+
+    #[test]
+    fn library_reads_and_mutations_use_the_verified_file_protocol() {
+        let recents = read_recents_favorites(false, 91);
+        assert_eq!(recents.message_type, 20);
+        let decoded = pa::RecentsFavoritesMessage::decode(recents.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
+        assert!(!decoded.is_favorites);
+        assert!(matches!(
+            decoded.request_id,
+            Some(pa::recents_favorites_message::RequestId::RequestId(91))
+        ));
+
+        let favorite = set_favorite(
+            "Stage".into(),
+            "/media/p4/Presets/Live".into(),
+            "Live".into(),
+            false,
+            true,
+        );
+        let decoded = pa::RecentsFavoritesMessage::decode(favorite.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Create as i32);
+        assert!(decoded.is_favorites);
+        assert_eq!(decoded.items[0].name, "Stage");
+
+        let unfavorite = set_favorite(
+            "Stage".into(),
+            "/media/p4/Presets/Live".into(),
+            "Live".into(),
+            false,
+            false,
+        );
+        let decoded = pa::RecentsFavoritesMessage::decode(unfavorite.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Delete as i32);
+
+        let pinned = set_model_pinned(12_345, true);
+        let decoded = pa::PinnedModelsMessage::decode(pinned.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Create as i32);
+        assert_eq!(decoded.models, vec![12_345]);
+        let pinned = set_model_pinned(12_345, false);
+        let decoded = pa::PinnedModelsMessage::decode(pinned.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Delete as i32);
+        assert_eq!(decoded.models, vec![12_345]);
+
+        let listing = read_library_files("local_ir_root".into(), 1, 92);
+        let decoded = pa::FileMessage::decode(listing.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
+        assert!(matches!(
+            decoded.request_id,
+            Some(pa::file_message::RequestId::RequestId(92))
+        ));
+        assert!(matches!(
+            decoded.r#type,
+            Some(pa::file_message::Type::Type(1))
+        ));
+
+        for (message, action) in [
+            (
+                create_setlist("Tour".into()),
+                pa::message_action::Enum::Create,
+            ),
+            (
+                delete_setlist("Tour".into()),
+                pa::message_action::Enum::Delete,
+            ),
+        ] {
+            let decoded = pa::FileMessage::decode(message.payload.as_slice()).unwrap();
+            assert_eq!(decoded.action, action as i32);
+            let pa::file_message::Folder::Folder(folder) = decoded.folder.unwrap();
+            assert_eq!(
+                folder.key,
+                Some(pa::folder_info::Key::Key("/media/p4/Presets/Tour".into()))
+            );
+        }
+
+        let moved = move_preset("/media/p4/Presets/Live".into(), "Stage".into(), 17);
+        let decoded = pa::FileMessage::decode(moved.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Move as i32);
+        let pa::file_message::Folder::Folder(source) = decoded.folder.unwrap();
+        assert_eq!(
+            source.files[0].key,
+            Some(pa::product_data::Key::Key(
+                "/media/p4/Presets/Live/Stage.pb".into()
+            ))
+        );
+        let pa::file_message::ToFolder::ToFolder(destination) = decoded.to_folder.unwrap();
+        assert_eq!(
+            destination.files[0].index,
+            Some(pa::product_data::Index::Index(17))
+        );
+
+        let deleted = delete_preset("/media/p4/Presets/Live".into(), "Stage".into());
+        let decoded = pa::FileMessage::decode(deleted.payload.as_slice()).unwrap();
+        let pa::file_message::Folder::Folder(folder) = decoded.folder.unwrap();
+        assert_eq!(
+            folder.files[0].key,
+            Some(pa::product_data::Key::Key(
+                "/media/p4/Presets/Live/Stage.pb".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn capture_and_ir_loads_compose_model_and_text_updates_in_order() {
+        fn text_update(message: &OutboundMessage) -> (u32, String) {
+            assert_eq!(message.message_type, 1);
+            let grid = pa::GridMessage::decode(message.payload.as_slice()).unwrap();
+            let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+            let parameter = &preset.chains[0].models[0].params[0];
+            let value = parameter.param_values[0].value.as_ref().unwrap();
+            let param_value::Value::StringValue(value) = value else {
+                panic!("expected text parameter update")
+            };
+            let Some(param::Index::Index(index)) = parameter.index else {
+                panic!("expected parameter index")
+            };
+            (index, value.clone())
+        }
+
+        let capture = DeviceOperation::LoadCapture {
+            row: 1,
+            column: 2,
+            key: "capture/".into(),
+            name: "Crunch".into(),
+            model_id: Some(14_000),
+        }
+        .encode();
+        assert_eq!(capture.len(), 2);
+        let grid = pa::GridMessage::decode(capture[0].payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(model) = grid.preset.unwrap();
+        assert_eq!(
+            model.chains[0].models[0].hash,
+            Some(model::Hash::Hash(14_000))
+        );
+        assert_eq!(text_update(&capture[1]), (5, "capture/Crunch".into()));
+
+        let ir = DeviceOperation::LoadIr {
+            row: 2,
+            column: 3,
+            key: "ir/key".into(),
+            name: "Room".into(),
+            slot: 1,
+            model_id: None,
+        }
+        .encode();
+        assert_eq!(ir.len(), 2);
+        assert_eq!(text_update(&ir[0]), (10, "ir/key".into()));
+        assert_eq!(text_update(&ir[1]), (23, "Room".into()));
+    }
 }

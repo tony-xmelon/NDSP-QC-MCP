@@ -45,6 +45,7 @@ final class GeneratedGatewayMethods {
         "device.loadIr",
         "device.createSetlist",
         "device.deleteSetlist",
+        "device.duplicateSetlist",
         "device.deletePreset",
         "device.movePreset",
         "device.setGeneralInteger",
@@ -148,6 +149,7 @@ final class GeneratedGatewayMethods {
             case "device.loadIr": return "PLANNED_WRITE";
             case "device.createSetlist": return "PLANNED_WRITE";
             case "device.deleteSetlist": return "PLANNED_WRITE";
+            case "device.duplicateSetlist": return "PERSISTENT_WRITE";
             case "device.deletePreset": return "PLANNED_WRITE";
             case "device.movePreset": return "PLANNED_WRITE";
             case "device.setGeneralInteger": return "PLANNED_WRITE";

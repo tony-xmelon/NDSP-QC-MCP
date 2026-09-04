@@ -94,6 +94,7 @@ export const CASES = Object.freeze({
   set_model_pinned: { phase: "persistent", hazard: "persistent" },
   create_setlist: { phase: "persistent", hazard: "persistent" },
   delete_setlist: { phase: "persistent", hazard: "persistent" },
+  duplicate_setlist: { phase: "persistent", hazard: "persistent" },
   delete_preset: { phase: "persistent", hazard: "persistent" },
   move_preset: { phase: "persistent", hazard: "persistent" }
 });
@@ -115,6 +116,14 @@ const requiredFixturePaths = [
   "temporaryBlock.addColumn",
   "temporaryBlock.moveColumn",
   "temporaryBlock.footswitch",
+  "library.pinnedModelId",
+  "library.capture.key",
+  "library.capture.name",
+  "library.capture.modelId",
+  "library.ir.key",
+  "library.ir.name",
+  "library.ir.modelId",
+  "library.ir.slot",
   "routing.row",
   "routing.testInputId",
   "routing.testOutputId",
@@ -165,6 +174,20 @@ export function validateConfig(config, { requireAll = false } = {}) {
   if (config.transport.kind === "mcp-http" && !config.transport.endpoint) throw new Error("mcp-http requires transport.endpoint.");
   const missing = requiredFixturePaths.filter((path) => atPath(config, path) === undefined || atPath(config, path) === "");
   if (requireAll && missing.length) throw new Error(`Full physical coverage requires config values: ${missing.join(", ")}`);
+  if (requireAll) {
+    if (!Number.isInteger(config.library.pinnedModelId) || config.library.pinnedModelId < 0) {
+      throw new Error("library.pinnedModelId must be a non-negative integer.");
+    }
+    if (!Number.isInteger(config.library.capture.modelId) || config.library.capture.modelId < 0) {
+      throw new Error("library.capture.modelId must be a non-negative integer.");
+    }
+    if (!Number.isInteger(config.library.ir.modelId) || config.library.ir.modelId < 0) {
+      throw new Error("library.ir.modelId must be a non-negative integer.");
+    }
+    if (![0, 1].includes(config.library.ir.slot)) {
+      throw new Error("library.ir.slot must be 0 or 1.");
+    }
+  }
   return missing;
 }
 

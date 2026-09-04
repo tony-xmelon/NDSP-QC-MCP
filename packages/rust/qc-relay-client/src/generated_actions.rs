@@ -87,6 +87,7 @@ const ALLOWED: &[&str] = &[
     "device.loadIr",
     "device.createSetlist",
     "device.deleteSetlist",
+    "device.duplicateSetlist",
     "device.deletePreset",
     "device.movePreset",
     "device.setGeneralInteger",

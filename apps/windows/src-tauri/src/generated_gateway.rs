@@ -41,6 +41,7 @@ pub mod rpc {
     pub const LOAD_IR: &str = "device.loadIr";
     pub const CREATE_SETLIST: &str = "device.createSetlist";
     pub const DELETE_SETLIST: &str = "device.deleteSetlist";
+    pub const DUPLICATE_SETLIST: &str = "device.duplicateSetlist";
     pub const DELETE_PRESET: &str = "device.deletePreset";
     pub const MOVE_PRESET: &str = "device.movePreset";
     pub const SET_GENERAL_INTEGER: &str = "device.setGeneralInteger";

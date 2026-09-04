@@ -846,7 +846,7 @@ mod tests {
         );
         assert_eq!(settings.hold_timing_index, Some(3));
         assert_eq!(settings.hold_timing_ms, Some(800));
-        assert_eq!(settings.master_volume_assignment.unwrap().send12, true);
+        assert!(settings.master_volume_assignment.unwrap().send12);
     }
 
     #[test]
@@ -1125,5 +1125,70 @@ mod tests {
         assert_eq!(looper.progress, Some(0.5));
         assert_eq!(looper.in_reverse, Some(1));
         assert_eq!(looper.one_shot_play, Some(true));
+    }
+
+    #[test]
+    fn library_replies_are_correlated_and_preserve_device_metadata() {
+        let recents = pa::RecentsFavoritesMessage {
+            action: pa::message_action::Enum::Update as i32,
+            request_id: Some(pa::recents_favorites_message::RequestId::RequestId(71)),
+            // Favorites replies observed on-device can omit the flag, leaving
+            // its protobuf default false. Request correlation is authoritative.
+            is_favorites: false,
+            items: vec![pa::RecentsFavoritesItem {
+                name: "Stage".into(),
+                folder_key: "/media/p4/Presets/Live".into(),
+                folder_name: "Live".into(),
+                is_factory: false,
+                is_plugin: true,
+            }],
+        }
+        .encode_to_vec();
+        let entries = decode_recents_favorites(&recents, 71).unwrap();
+        assert_eq!(entries.entries.len(), 1);
+        assert_eq!(entries.entries[0].name, "Stage");
+        assert!(entries.entries[0].is_plugin);
+        assert!(matches!(
+            decode_recents_favorites(&recents, 72),
+            Err(ResponseDecodeError::Mismatch(_))
+        ));
+
+        let pinned = pa::PinnedModelsMessage {
+            models: vec![42, 84],
+            captures: vec!["capture-a".into()],
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let pinned = decode_pinned_models(&pinned).unwrap();
+        assert_eq!(pinned.models, vec![42, 84]);
+        assert_eq!(pinned.captures, vec!["capture-a"]);
+
+        let files = pa::FileMessage {
+            action: pa::message_action::Enum::Update as i32,
+            request_id: Some(pa::file_message::RequestId::RequestId(73)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key("local_ir_root".into())),
+                name: Some(pa::folder_info::Name::Name("Impulse Responses".into())),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key("ir/key".into())),
+                    name: Some(pa::product_data::Name::Name("Room".into())),
+                    index: Some(pa::product_data::Index::Index(4)),
+                    instrument: Some(pa::product_data::Instrument::Instrument(2)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let entries = decode_library_files(&files, 73, "local_ir_root").unwrap();
+        assert_eq!(entries.entries[0].key, "ir/key");
+        assert_eq!(entries.entries[0].position, Some(4));
+        assert_eq!(entries.entries[0].instrument, Some(2));
+        assert!(matches!(
+            decode_library_files(&files, 73, "another-folder"),
+            Err(ResponseDecodeError::Mismatch(_))
+        ));
     }
 }

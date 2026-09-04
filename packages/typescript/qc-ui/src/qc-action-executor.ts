@@ -415,6 +415,7 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   }
   if (call.name === "set_favorite" || call.name === "set_model_pinned"
     || call.name === "create_setlist" || call.name === "delete_setlist"
+    || call.name === "duplicate_setlist"
     || call.name === "delete_preset" || call.name === "move_preset") {
     confirmation(call, "confirm_persistent_write");
     if (call.name === "set_favorite") return actionResult(await gateway.setFavorite(
@@ -427,6 +428,11 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     ));
     if (call.name === "create_setlist") return actionResult(await gateway.createSetlist(stringArgument(call, "name")));
     if (call.name === "delete_setlist") return actionResult(await gateway.deleteSetlist(stringArgument(call, "name")));
+    if (call.name === "duplicate_setlist") return actionResult(await gateway.duplicateSetlist(
+      stringArgument(call, "source_setlist_key"), stringArgument(call, "destination_name"),
+      nullableIntegerArgument(call, "limit"), stringArgument(call, "expected_preset_name"),
+      integerArgument(call, "expected_position")
+    ));
     if (call.name === "delete_preset") return actionResult(await gateway.deletePreset(
       stringArgument(call, "setlist_key"), stringArgument(call, "name")
     ));

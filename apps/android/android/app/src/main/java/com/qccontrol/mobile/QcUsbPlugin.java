@@ -556,7 +556,15 @@ public class QcUsbPlugin extends Plugin {
         QcNativeStateDecoder.PlannedGatewayWrite write = new QcNativeStateDecoder.PlannedGatewayWrite(
             workflow.detail, stage.verificationJson, false, 0, 0, stage.messages);
         return executeRelayPlan(write, stage.timeoutMs)
+            .thenCompose(ignored -> settleGatewayStage(stage.settleMs))
             .thenCompose(ignored -> executeRelayWorkflow(workflow, stageIndex + 1));
+    }
+
+    private CompletableFuture<Void> settleGatewayStage(long settleMs) {
+        if (settleMs <= 0) return CompletableFuture.completedFuture(null);
+        CompletableFuture<Void> settled = new CompletableFuture<>();
+        keepalive.schedule(() -> settled.complete(null), settleMs, TimeUnit.MILLISECONDS);
+        return settled;
     }
 
     private interface RelayJsonRead { org.json.JSONObject get() throws Exception; }

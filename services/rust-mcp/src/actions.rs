@@ -1235,6 +1235,32 @@ pub static ACTIONS: &[ActionSpec] = &[
         ],
     },
     ActionSpec {
+        name: "duplicate_setlist",
+        rpc: "device.duplicateSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Create a user setlist and copy source presets through the verified recall-and-save workflow.",
+        properties: &[
+            p!("source_setlist_key", TEXT),
+            p!("destination_name", Kind::VisibleString { max_chars: 64 }),
+            p!(
+                "limit",
+                Kind::NullableInteger {
+                    min: 0,
+                    max: Some(256)
+                }
+            ),
+            p!("expected_preset_name", TEXT),
+            p!(
+                "expected_position",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(255)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "delete_preset",
         rpc: "device.deletePreset",
         classification: Classification::PersistentWrite,

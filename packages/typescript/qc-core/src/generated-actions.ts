@@ -3411,6 +3411,64 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "duplicate_setlist",
+    "rpc": "device.duplicateSetlist",
+    "classification": "persistent-write",
+    "description": "Create a user setlist and copy its source presets through the shared recall-and-save workflow after explicit confirmation.",
+    "properties": {
+      "source_setlist_key": "string",
+      "destination_name": "string",
+      "limit": "nullable-integer",
+      "expected_preset_name": "string",
+      "expected_position": "integer",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "source_setlist_key",
+      "destination_name",
+      "limit",
+      "expected_preset_name",
+      "expected_position",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source_setlist_key": {
+          "type": "string"
+        },
+        "destination_name": {
+          "type": "string"
+        },
+        "limit": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        },
+        "expected_position": {
+          "type": "integer"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_setlist_key",
+        "destination_name",
+        "limit",
+        "expected_preset_name",
+        "expected_position",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "delete_preset",
     "rpc": "device.deletePreset",
     "classification": "persistent-write",

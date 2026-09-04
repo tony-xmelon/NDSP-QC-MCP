@@ -516,6 +516,12 @@ SHARED_QC_ACTIONS = {
     "access": "full",
     "description": "Delete a named user setlist and its contents after explicit confirmation."
   },
+  "duplicate_setlist": {
+    "rpc": "device.duplicateSetlist",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Create a user setlist and copy its source presets through the shared recall-and-save workflow after explicit confirmation."
+  },
   "delete_preset": {
     "rpc": "device.deletePreset",
     "classification": "persistent-write",
