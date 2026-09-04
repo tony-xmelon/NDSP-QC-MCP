@@ -7,12 +7,11 @@ const script = (name: string) => readFileSync(new URL(`../scripts/${name}`, impo
 test("Android preparation emits provenance and Firebase publishes the verified staged APK", () => {
   const build = script("build-android-debug.ps1");
   const publish = script("publish-android-firebase.ps1");
-  assert.match(build, /release-candidates\.mjs"\) stage android \$builtApkPath/);
-  assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
+  assert.match(build, /release-candidates\.mjs"\) finalize android \$builtApkPath/);
   assert.match(build, /lib\/arm64-v8a\/libqc_android\.so/);
   assert.match(build, /lib\/x86_64\/libqc_android\.so/);
   assert.match(build, /assembleDebug lintDebug/);
-  assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-provenance.mjs"));
+  assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-candidates.mjs"));
   assert.match(publish, /if \(\$PrepareOnly\)[\s\S]*npm run android:build:debug/);
   assert.match(publish, /release-candidates\.mjs"\) verify/);
   assert.doesNotMatch(publish, /release-candidates\.mjs"\) stage/);
@@ -44,8 +43,7 @@ test("release provenance fingerprints the executable app parity contract", () =>
 test("Windows installer builds checksum their external Cargo target artifact", () => {
   const build = script("build-windows-installer.ps1");
   assert.match(build, /release\\bundle\\nsis/);
-  assert.match(build, /release-candidates\.mjs"\) stage windows \$windowsInstallers\[0\]/);
-  assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
+  assert.match(build, /release-candidates\.mjs"\) finalize windows \$windowsInstallers\[0\]/);
   assert.match(build, /tauri\.conf\.json/);
   assert.match(build, /\$tauriConfig\.productName/);
   assert.match(build, /\$tauriConfig\.version/);
@@ -53,17 +51,17 @@ test("Windows installer builds checksum their external Cargo target artifact", (
   assert.doesNotMatch(build, /-Filter "\*\.exe"/);
 });
 
-test("both app builds preserve only same-source staged release candidates", () => {
+test("one shared finalizer preserves only same-source staged release candidates", () => {
   const candidates = readFileSync(new URL("../tools/release-candidates.mjs", import.meta.url), "utf8");
   assert.match(candidates, /gitOutput\(\["rev-parse", "HEAD"\]\)/);
   assert.match(candidates, /gitOutput\(\["status", "--porcelain"\]\)/);
   assert.match(candidates, /sourceDirty === false/);
   assert.match(candidates, /metadata\.sourceCommit === expected\.sourceCommit/);
   assert.match(candidates, /metadata\.sha256 === expected\.sha256/);
-  for (const build of [script("build-android-debug.ps1"), script("build-windows-installer.ps1")]) {
-    assert.match(build, /release-candidates\.mjs"\) list/);
-    assert.match(build, /release-provenance\.mjs"\) @releaseArtifacts/);
-  }
+  assert.match(candidates, /export function finalizeReleaseCandidate/);
+  assert.match(candidates, /generateReleaseProvenance\(\{ artifacts: candidates \}\)/);
+  assert.match(script("build-android-debug.ps1"), /release-candidates\.mjs"\) finalize android/);
+  assert.match(script("build-windows-installer.ps1"), /release-candidates\.mjs"\) finalize windows/);
   assert.match(script("publish-android-firebase.ps1"), /release-candidates\.mjs"\) verify/);
 });
 
@@ -94,7 +92,7 @@ test("both distribution paths require a clean full software parity preflight", (
   const installer = script("build-windows-installer.ps1");
   const publish = script("publish-android-firebase.ps1");
   assert.match(installer, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
-  assert.ok(installer.indexOf("verify-software-parity.ps1") < installer.indexOf("release-provenance.mjs"));
+  assert.ok(installer.indexOf("verify-software-parity.ps1") < installer.indexOf("release-candidates.mjs\") finalize"));
   assert.match(publish, /verify-software-parity\.ps1"\) -BuildApps -RequireClean/);
   assert.ok(publish.indexOf("verify-software-parity.ps1") < publish.indexOf("release-candidates.mjs\") verify"));
 });

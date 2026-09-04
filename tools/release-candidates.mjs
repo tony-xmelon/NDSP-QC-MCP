@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { generateReleaseProvenance } from "./release-provenance.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -110,14 +111,24 @@ export function verifyReleaseBundle() {
   return candidates;
 }
 
+export function finalizeReleaseCandidate(platform, source) {
+  const targetPath = stageReleaseCandidate(platform, source);
+  const candidates = currentReleaseCandidates();
+  if (!candidates.includes(targetPath)) throw new Error(`Staged ${platform} candidate could not be enumerated.`);
+  generateReleaseProvenance({ artifacts: candidates });
+  return targetPath;
+}
+
 function usage() {
-  throw new Error("Usage: node tools/release-candidates.mjs stage <windows|android> <artifact> | list | verify");
+  throw new Error("Usage: node tools/release-candidates.mjs finalize <windows|android> <artifact> | stage <windows|android> <artifact> | list | verify");
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const [command, platform, source] = process.argv.slice(2);
   if (command === "stage" && platform && source) {
     console.log(stageReleaseCandidate(platform, source));
+  } else if (command === "finalize" && platform && source) {
+    console.log(finalizeReleaseCandidate(platform, source));
   } else if (command === "list" && !platform && !source) {
     for (const artifact of currentReleaseCandidates()) console.log(artifact);
   } else if (command === "verify" && !platform && !source) {
