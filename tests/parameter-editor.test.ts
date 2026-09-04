@@ -55,7 +55,7 @@ test("rotary switches use discrete CorOS dots and dependency dimming leaves the 
   assert.match(editorSource, /Array\.from\(\{ length: rotaryStepCount \}/);
   assert.match(editorSource, /index === optionIndex \? " is-filled is-current"/);
   assert.doesNotMatch(editorSource, /index <= optionIndex/, "a rotary switch highlights only its selected dot, not a progress range");
-  assert.match(css, /\.is-rotary-switch \.parameter-knob \{ background: transparent; \}/);
+  assert.match(css, /\.is-rotary-switch \.parameter-knob \{ background: var\(--qc-transparent\); \}/);
   assert.match(css, /\.parameter-step-dot \{[^}]*border-radius: 50%/);
   assert.match(css, /\.coros-parameter\.is-disabled > \* \{ opacity: \.55; \}/);
   assert.match(css, /\.parameter-knob:disabled \{ opacity: 1; \}/, "disabled dependency opacity is applied once at the cell-content level");
@@ -183,10 +183,13 @@ test("editor-only styling and assignments follow the hardware rules", () => {
 
 test("parameter scene navigation uses the QC reference double chevrons", () => {
   const editorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/parameter-editor.tsx", import.meta.url), "utf8");
-  assert.match(editorSource, /M11 4 3 12l8 8zM21 4l-8 8 8 8z/);
-  assert.match(editorSource, /m13 4 8 8-8 8zM3 4l8 8-8 8z/);
-  assert.doesNotMatch(editorSource, /M15\.8 3\.8 7\.6 12/);
-  assert.doesNotMatch(editorSource, /m8\.2 3\.8 8\.2 8\.2/);
+  const iconSource = readFileSync(new URL("../packages/typescript/qc-ui/src/theme-icons.tsx", import.meta.url), "utf8");
+  assert.match(editorSource, /QcEditorIcon kind="scene-previous"/);
+  assert.match(editorSource, /QcEditorIcon kind="scene-next"/);
+  assert.match(iconSource, /M11 4 3 12l8 8zM21 4l-8 8 8 8z/);
+  assert.match(iconSource, /m13 4 8 8-8 8zM3 4l8 8-8 8z/);
+  assert.doesNotMatch(iconSource, /M15\.8 3\.8 7\.6 12/);
+  assert.doesNotMatch(iconSource, /m8\.2 3\.8 8\.2 8\.2/);
 });
 
 test("parameter header displays canonical QC device-type names verbatim", () => {

@@ -201,7 +201,7 @@ test("Android relay has exact gateway parity with Windows", () => {
 
 test("Android persists completed native backups without blocking USB reads", () => {
   assert.match(javaSource, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
-  assert.match(javaSource, /Environment\.DIRECTORY_DOWNLOADS \+ "\/QC Control"/);
+  assert.match(javaSource, /R\.string\.download_folder/);
   assert.match(javaSource, /metadataIo\.execute\(\(\) -> \{[\s\S]*saveBackupDocument/);
   assert.match(javaSource, /32 \* 1024 \* 1024/);
   assert.doesNotMatch(javaSource, /pending\.result\.complete\(JSObject\.fromJSONObject\(\(org\.json\.JSONObject\) update\.get\("backup"\)\)\)/);

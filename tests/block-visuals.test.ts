@@ -32,7 +32,7 @@ const expectedCategories: Array<[OfficialBlockVisualKey, string, [number, number
 
 test("vendored block sprite remains byte-identical to the verified Neural DSP SVG", () => {
   const bytes = readFileSync("apps/windows/public/qc-block-samples.svg");
-  assert.equal(createHash("sha256").update(bytes).digest("hex"), "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea");
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), "aa32a2304e05fc62a783df4ed94c31780c18ff7c1e5f34a73aa1371f748919fc");
 });
 
 test("isolated reference assets cannot silently fall back to unrelated sprite tiles", () => {

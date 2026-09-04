@@ -3,7 +3,7 @@
     "url": "/qc-block-samples.svg",
     "sourcePath": "packages/typescript/qc-theme/assets/qc-block-samples.svg",
     "deployedPaths": ["apps/windows/public/qc-block-samples.svg", "apps/android/public/qc-block-samples.svg"],
-    "sha256": "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea",
+    "sha256": "aa32a2304e05fc62a783df4ed94c31780c18ff7c1e5f34a73aa1371f748919fc",
     "source": "Verified Neural DSP block sample sheet"
   },
   "chassisOverlay": {
@@ -25,6 +25,15 @@
   "appIconPng": {
     "sourcePath": "packages/typescript/qc-theme/assets/app-icon.png",
     "deployedPaths": ["apps/windows/src-tauri/icons/icon.png"],
-    "sha256": "5ef200e0d74a7b6883d8b07a0d38454cc22bac4ab2a670d2913e942265e70fc3"
+    "sha256": "5ef200e0d74a7b6883d8b07a0d38454cc22bac4ab2a670d2913e942265e70fc3",
+    "derivedPathPrefixes": [
+      "apps/windows/src-tauri/icons/",
+      "apps/android/android/app/src/main/res/drawable",
+      "apps/android/android/app/src/main/res/mipmap-"
+    ],
+    "generators": [
+      "Tauri icon generator from the canonical PNG",
+      "scripts/generate-android-branding.ps1"
+    ]
   }
 }

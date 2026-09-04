@@ -1,0 +1,12 @@
+{
+  "appName": "QC Control",
+  "appWordmark": "QC CONTROL",
+  "deviceName": "Quad Cortex",
+  "deviceWordmark": "QUADCORTEX",
+  "surfaceCaption": "CONTROL SURFACE",
+  "companionCaption": "QUAD CORTEX COMPANION",
+  "androidPackage": "com.qccontrol.mobile",
+  "windowsIdentifier": "com.tonyxmelon.qcvoicecontrol",
+  "windowsShortDescription": "Safe desktop control for Neural DSP Quad Cortex",
+  "windowsLongDescription": "Unofficial Windows controller for a connected Neural DSP Quad Cortex with guarded live controls, workspaces, typed commands, and explicit device-save confirmation."
+}

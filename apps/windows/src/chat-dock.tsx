@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ClipboardEventHandler, type ReactNode, type RefObject } from "react";
 import type { ConversationMessage } from "@ndsp-qc/core";
-import { MicrophoneIcon } from "@ndsp-qc/ui";
+import { MicrophoneIcon, QcUiIcon } from "@ndsp-qc/ui";
 import type { ChatAttachment } from "./model-chat";
 
 const attachmentTypes = "image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/wav,audio/aiff,audio/aac,audio/ogg,audio/flac,audio/m4a,audio/opus,audio/webm,video/mp4,video/mpeg,video/quicktime,video/avi,video/webm,video/wmv,video/3gpp,application/pdf,.txt,.md,.markdown,.csv,.json,.xml,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.css,.html,.htm,.py,.rs,.toml";
@@ -65,7 +65,7 @@ export function ChatDock(props: ChatDockProps) {
     <div ref={props.conversationRef} className="conversation-preview" aria-live="polite" onScroll={props.onScroll} onWheel={props.onUserScroll} onTouchMove={props.onUserScroll} onPointerDown={props.onUserScroll}>
       {props.messages.map((item) => <div className={`${item.role}-message`} key={item.id}>
         {item.role !== "tool" && <span>{item.role.toUpperCase()}</span>}
-        {item.attachments?.length ? <div className="chat-message-attachments">{item.attachments.map((attachment, index) => attachment.mediaType.startsWith("image/") ? <img key={`${attachment.name}-${index}`} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} /> : <span className="chat-file-chip" key={`${attachment.name}-${index}`}>▤ {attachment.name}</span>)}</div> : null}
+        {item.attachments?.length ? <div className="chat-message-attachments">{item.attachments.map((attachment, index) => attachment.mediaType.startsWith("image/") ? <img key={`${attachment.name}-${index}`} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} /> : <span className="chat-file-chip" key={`${attachment.name}-${index}`}><QcUiIcon kind="file" /> {attachment.name}</span>)}</div> : null}
         {item.role === "tool" ? <CollapsibleQcResult text={item.text} /> : item.text}
       </div>)}
     </div>
@@ -74,13 +74,13 @@ export function ChatDock(props: ChatDockProps) {
       <textarea ref={props.inputRef} value={props.value} onChange={(event) => props.onValueChange(event.target.value)} onPaste={props.onPaste} onKeyDown={(event) => {
         if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); props.onSend(); }
       }} placeholder="Ask about this preset or describe a change…" rows={1} />
-      {props.attachments.length > 0 && <div className="composer-attachments" aria-label="Attached files">{props.attachments.map((attachment, index) => <div className="composer-file" key={`${attachment.name}-${index}`}>{attachment.mediaType.startsWith("image/") ? <img src={`data:${attachment.mediaType};base64,${attachment.data}`} alt="" /> : <span className="composer-file-icon">▤</span>}<span>{attachment.name}</span><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => props.onRemoveAttachment(index)}>×</button></div>)}</div>}
+      {props.attachments.length > 0 && <div className="composer-attachments" aria-label="Attached files">{props.attachments.map((attachment, index) => <div className="composer-file" key={`${attachment.name}-${index}`}>{attachment.mediaType.startsWith("image/") ? <img src={`data:${attachment.mediaType};base64,${attachment.data}`} alt="" /> : <span className="composer-file-icon"><QcUiIcon kind="file" /></span>}<span>{attachment.name}</span><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => props.onRemoveAttachment(index)}><QcUiIcon kind="close" /></button></div>)}</div>}
       <div className="composer-actions">
         <input ref={props.attachmentInputRef} className="visually-hidden" type="file" accept={attachmentTypes} multiple onChange={(event) => { props.onFiles(Array.from(event.target.files ?? [])); event.currentTarget.value = ""; }} />
         <select className="composer-model-select" aria-label="Conversational model" title="Conversational model" value={props.modelValue} disabled={props.modelDisabled} onChange={(event) => props.onSelectModel(event.target.value)}>{props.modelOptions}</select>
-        <button type="button" className={`composer-tool${props.attachments.length ? " is-active" : ""}`} title="Attach files" aria-label="Attach files" onClick={() => props.attachmentInputRef.current?.click()} disabled={props.assistantPending || props.attachments.length >= 3}>＋</button>
+        <button type="button" className={`composer-tool${props.attachments.length ? " is-active" : ""}`} title="Attach files" aria-label="Attach files" onClick={() => props.attachmentInputRef.current?.click()} disabled={props.assistantPending || props.attachments.length >= 3}><QcUiIcon kind="attachment" /></button>
         <button className={`mic-button${props.listening ? " is-listening" : ""}`} onClick={props.onToggleMicrophone} aria-pressed={props.listening} title="Push to talk" disabled={props.assistantPending}><MicrophoneIcon /><span>{props.listening ? "STOP" : "VOICE"}</span></button>
-        <button className="send-button" onClick={props.assistantPending && props.canCancel ? props.onCancel : props.onSend} disabled={props.assistantPending ? !props.canCancel : !props.value.trim() && !props.attachments.length} aria-label={props.assistantPending && props.canCancel ? "Cancel assistant response" : "Send message"}>{props.assistantPending && props.canCancel ? "■" : "↵"}</button>
+        <button className="send-button" onClick={props.assistantPending && props.canCancel ? props.onCancel : props.onSend} disabled={props.assistantPending ? !props.canCancel : !props.value.trim() && !props.attachments.length} aria-label={props.assistantPending && props.canCancel ? "Cancel assistant response" : "Send message"}><QcUiIcon kind={props.assistantPending && props.canCancel ? "stop" : "send"} /></button>
       </div>
     </div>
     <div className="safety-copy chat-quota-footer" title={props.usageTitle}>

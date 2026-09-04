@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { appendConversationMessage, assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -446,7 +446,7 @@ export function App() {
 
   return <main className="android-app">
     <header className="mobile-header">
-      <div className="mobile-brand"><AppMark /><span><strong>QC Control</strong><small>{snapshot.presetLocation} · {snapshot.presetName}</small></span></div>
+      <div className="mobile-brand"><AppMark /><span><strong>{QC_BRAND.appName}</strong><small>{snapshot.presetLocation} · {snapshot.presetName}</small></span></div>
       <div className="connection-pills">
         <button className={`connection-pill relay-${relayState}`} onClick={() => void configureRelay()} aria-label={relayPaired ? "Remote relay settings" : "Pair remote relay"}><i /> {relayState === "connected" ? "REMOTE" : relayPaired ? "RELAY" : "PAIR"}</button>
         <button className={`connection-pill ${usbState}`} onClick={() => void connectUsb()} aria-label="Connect Quad Cortex over USB"><i /> {usbLabel}</button>
@@ -471,14 +471,14 @@ export function App() {
         key={label}
       ><i className="control-led" aria-hidden="true" /><span>{label}</span></button>)}
       <div className="navigation-controls" aria-label="Preset navigation">
-        <button className="preset-control control-up" onClick={() => void movePreset(-1)} aria-label="Previous preset"><span>↑</span><small>UP</small></button>
-        <button className="preset-control control-down" onClick={() => void movePreset(1)} aria-label="Next preset"><span>↓</span><small>DOWN</small></button>
+        <button className="preset-control control-up" onClick={() => void movePreset(-1)} aria-label="Previous preset"><span><QcUiIcon kind="up" /></span><small>UP</small></button>
+        <button className="preset-control control-down" onClick={() => void movePreset(1)} aria-label="Next preset"><span><QcUiIcon kind="down" /></span><small>DOWN</small></button>
       </div>
       <button className={`tempo-control${snapshot.tempoLedEnabled ? " is-active" : ""}`} style={{ "--tempo-bpm": snapshot.tempo } as CSSProperties} onClick={() => void tapTempo()} aria-label={`Tap tempo, ${snapshot.tempo} BPM`}><i className="control-led" aria-hidden="true" /><span>{snapshot.tempo}</span><small>TEMPO</small></button>
     </nav>
 
     <nav className="workflow-actions" aria-label="Preset editing workflows">
-      <button disabled={usbState !== "connected" || devicePending} onClick={() => void gridWorkflow.openAdd()}>＋ BLOCK</button>
+      <button disabled={usbState !== "connected" || devicePending} onClick={() => void gridWorkflow.openAdd()}><QcUiIcon kind="add" /> BLOCK</button>
       <button disabled={!blockDetails || devicePending} onClick={() => setWorkflowPanel("block")}>EDIT BLOCK</button>
       <button disabled={usbState !== "connected" || devicePending} onClick={routingWorkflow.open}>ROUTING</button>
       <button disabled={usbState !== "connected" || devicePending} onClick={sceneWorkflow.open}>SCENES</button>
@@ -512,14 +512,14 @@ export function App() {
       </div>
       <form className="message-composer" onSubmit={submit}>
         <button className={`voice-button ${voiceState !== "idle" ? "is-listening" : ""}`} type="button" disabled={!native || busy} onClick={() => void toggleVoice()} aria-label="Speak a command"><MicrophoneIcon /></button>
-        <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder={voiceState !== "idle" ? "Listening…" : "Ask QC Control…"} aria-label="Message QC Control" />
-        <button className="send-button" type="submit" disabled={!message.trim() || busy} aria-label="Send message">↑</button>
+        <input value={message} onChange={(event) => setMessage(event.target.value)} placeholder={voiceState !== "idle" ? "Listening…" : `Ask ${QC_BRAND.appName}…`} aria-label={`Message ${QC_BRAND.appName}`} />
+        <button className="send-button" type="submit" disabled={!message.trim() || busy} aria-label="Send message"><QcUiIcon kind="send" /></button>
       </form>
     </section>
 
     {workflowPanel && <div className="mobile-workflow-backdrop" role="presentation" onClick={() => setWorkflowPanel(null)}>
       <section className="mobile-workflow-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onClick={(event) => event.stopPropagation()}>
-        <button className="mobile-workflow-close" aria-label="Close" onClick={() => setWorkflowPanel(null)}>×</button>
+        <button className="mobile-workflow-close" aria-label="Close" onClick={() => setWorkflowPanel(null)}><QcUiIcon kind="close" /></button>
         {workflowPanel === "routing" && <RoutingEditor snapshot={snapshot} drafts={routingWorkflow.drafts} pending={devicePending} setDrafts={routingWorkflow.setDrafts} applyRoute={(row, side) => void routingWorkflow.applyRoute(row, side)} applySplitRoute={(row) => void routingWorkflow.applySplit(row)} />}
         {workflowPanel === "block" && <GridManagementPanel snapshot={snapshot} details={blockDetails} loading={gridWorkflow.detailsLoading} pending={devicePending} moveDestination={gridWorkflow.moveDestination} setMoveDestination={gridWorkflow.setMoveDestination} footswitchDraft={gridWorkflow.footswitchDraft} setFootswitchDraft={gridWorkflow.setFootswitchDraft} move={() => void gridWorkflow.move()} assignFootswitch={() => void gridWorkflow.assignFootswitch()} remove={() => void gridWorkflow.remove()} />}
         {workflowPanel === "add" && <AddBlockPanel snapshot={snapshot} filteredModels={gridWorkflow.filteredModels} loading={gridWorkflow.modelsLoading} pending={devicePending} modelFilter={gridWorkflow.modelFilter} setModelFilter={gridWorkflow.setModelFilter} addCell={gridWorkflow.addCell} setAddCell={gridWorkflow.setAddCell} addModelId={gridWorkflow.addModelId} setAddModelId={gridWorkflow.setAddModelId} add={() => void gridWorkflow.add()} cancel={() => setWorkflowPanel(null)} />}

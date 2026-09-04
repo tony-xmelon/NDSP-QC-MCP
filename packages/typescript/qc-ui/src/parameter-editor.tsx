@@ -4,7 +4,7 @@ import { sceneLetter } from "@ndsp-qc/core";
 import { QC_COLORS } from "@ndsp-qc/theme";
 import { parameterControlKind, parameterDisplay, parameterEditorAccent, parameterEditorFamily, parameterEditorIsFullScreen, parameterEditorPageCount, parameterEditorPageSize, parameterEditorPageSlots, parameterEditorTabs, parameterNormalizedValue, parameterRealValue, parameterStep, type ParameterEditorFamily } from "./parameter-model";
 import { parameterContextMenuItems, type ParameterEditorContextAction } from "./parameter-menu";
-import { QcEditorIcon } from "./theme-icons";
+import { QcEditorIcon, QcUiIcon } from "./theme-icons";
 
 export type { ParameterEditorContextAction } from "./parameter-menu";
 
@@ -92,10 +92,10 @@ function ParameterControl({ parameter, value, slot, accent, disabled, onDraftCha
   const switchThumbTop = 5 + (switchOptions.length <= 1 ? 0 : (switchOptions.length - 1 - switchIndex) * 47 / (switchOptions.length - 1));
   const controlDisabled = Boolean(disabled || !parameter.writable || parameter.enabled === false);
   const rotaryStepCount = rotarySwitch ? Math.max(2, parameter.options.length || parameter.steps || 2) : 0;
-  const encoderLabel = ["A", "B", "C", "D", "▼", "E", "F", "G", "H", "T"][slot];
+  const encoderLabel = ["A", "B", "C", "D", undefined, "E", "F", "G", "H", "T"][slot];
   return <div className={`coros-parameter${meter ? " is-meter" : fader ? " is-fader" : switchControl ? ` is-switch is-${switchOptions.length}-way` : toggleButton ? " is-button" : renderedKind === "select" ? " is-dropdown" : " is-knob"}${rotarySwitch ? " is-rotary-switch" : ""}${ledBacked ? " has-led" : ""}${parameter.sceneMode ? " is-scene" : ""}${controlDisabled ? " is-disabled" : ""}`}>
     <span className="parameter-name">{parameter.name}</span>
-    {parameter.expression != null && parameter.expression > 0 && <span className="parameter-expression" title={`Assigned to Expression Pedal ${parameter.expression}${parameter.expressionMinimum != null && parameter.expressionMaximum != null ? ` (${Math.round(parameter.expressionMinimum * 100)}–${Math.round(parameter.expressionMaximum * 100)}%)` : ""}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h12l-1.6-8.4H8.1L6 18Zm2.2-8.4 1-3.6h5.7l1.5 3.6M9 21h6" /></svg><b>EXP {parameter.expression}</b></span>}
+    {parameter.expression != null && parameter.expression > 0 && <span className="parameter-expression" title={`Assigned to Expression Pedal ${parameter.expression}${parameter.expressionMinimum != null && parameter.expressionMaximum != null ? ` (${Math.round(parameter.expressionMinimum * 100)}–${Math.round(parameter.expressionMaximum * 100)}%)` : ""}`}><QcEditorIcon kind="assignment-expression" /><b>EXP {parameter.expression}</b></span>}
     {meter ? <div className="parameter-gr-meter" role="meter" aria-label={parameter.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localValue * 100)} style={{ "--meter-level": `${localValue * 100}%` } as CSSProperties}><span /></div> : fader ? <button className="parameter-fader" disabled={controlDisabled} aria-label={`${parameter.name}: ${parameterDisplay(parameter, localValue)}`} style={{ "--parameter-position": `${localValue * 100}%`, "--parameter-accent": accent } as CSSProperties} onPointerDown={(event) => {
       event.currentTarget.setPointerCapture?.(event.pointerId);
       drag.current = { pointerId: event.pointerId, y: event.clientY };
@@ -114,7 +114,7 @@ function ParameterControl({ parameter, value, slot, accent, disabled, onDraftCha
     }} onKeyUp={(event) => { if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(event.key)) finish(); }}>{rotarySwitch && <span className="parameter-step-dots" aria-hidden="true">{Array.from({ length: rotaryStepCount }, (_, index) => <i key={index} className={`parameter-step-dot${index === optionIndex ? " is-filled is-current" : ""}`} style={{ "--parameter-dot-angle": `${-135 + index * 270 / (rotaryStepCount - 1)}deg` } as CSSProperties} />)}</span>}<span className="parameter-knob-cap"><i /></span></button>}
     {ledBacked && <i className={`parameter-signal-led${(parameter.ledValue ?? 0) > .02 ? " is-active" : ""}`} aria-hidden="true" />}
     <strong className="parameter-value">{parameterDisplay(parameter, localValue)}</strong>
-    <small className="parameter-encoder">{encoderLabel}</small>
+    <small className="parameter-encoder">{encoderLabel ?? <QcUiIcon kind="down" />}</small>
   </div>;
 }
 
@@ -211,7 +211,7 @@ function EqBandBypassControl({ band, drafts, accent, disabled, onDraftChange, on
   const bypassed = parameter ? (drafts[parameter.index] ?? parameter.normalizedValue ?? 0) >= .5 : false;
   return <div className="coros-parameter eq-bypass-control">
     <span className="parameter-name">BYPASS {band.number}</span>
-    <button className={bypassed ? "" : "is-on"} disabled={disabled || !parameter?.writable} aria-label={`${bypassed ? "Enable" : "Bypass"} EQ band ${band.number}`} onClick={() => { if (!parameter) return; const next = bypassed ? 0 : 1; onDraftChange(parameter, next); onCommit(parameter, next); }}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v12M8.5 7.7a11 11 0 1 0 15 0" /></svg></button>
+    <button className={bypassed ? "" : "is-on"} disabled={disabled || !parameter?.writable} aria-label={`${bypassed ? "Enable" : "Bypass"} EQ band ${band.number}`} onClick={() => { if (!parameter) return; const next = bypassed ? 0 : 1; onDraftChange(parameter, next); onCommit(parameter, next); }}><QcEditorIcon kind="band-power" /></button>
   </div>;
 }
 
@@ -305,8 +305,8 @@ function IrLoaderChannel({ base, allParameters, drafts, accent, disabled, onDraf
       </div>
       <div className="ir-loader-name"><small>{base === 0 ? "ROTATE TOP RIGHT SWITCH" : "IMPULSE RESPONSE"}</small><strong title={impulseName}>{impulseName}</strong></div>
       <div className="ir-loader-arrows">
-        <button disabled={disabled || !impulse?.writable || impulse.options.length < 2} aria-label="Previous impulse response" onClick={() => selectImpulse(-1)}>↑</button>
-        <button disabled={disabled || !impulse?.writable || impulse.options.length < 2} aria-label="Next impulse response" onClick={() => selectImpulse(1)}>↓</button>
+        <button disabled={disabled || !impulse?.writable || impulse.options.length < 2} aria-label="Previous impulse response" onClick={() => selectImpulse(-1)}><QcUiIcon kind="up" /></button>
+        <button disabled={disabled || !impulse?.writable || impulse.options.length < 2} aria-label="Next impulse response" onClick={() => selectImpulse(1)}><QcUiIcon kind="down" /></button>
       </div>
     </div>
     <div className="ir-loader-controls">{controls.map((parameter, slot) => <ParameterControl key={parameter.index} parameter={parameter} value={drafts[parameter.index] ?? parameter.normalizedValue ?? 0} slot={slot} accent={accent} disabled={disabled} onDraftChange={onDraftChange} onCommit={onCommit} />)}</div>
@@ -334,7 +334,7 @@ function FamilyWidget({ family, name, availableSlots }: { family: ParameterEdito
   }
   if (family === "synth" && availableSlots >= 3) {
     return <div className="parameter-family-widget synth-sections" style={{ "--widget-span": availableSlots } as CSSProperties} aria-label="Synth signal sections">
-      <span>ARPEGGIATOR</span><b>›</b><span>OSCILLATOR</span><b>›</b><span>FILTER</span><svg viewBox="0 0 80 32" aria-hidden="true"><path d="M2 16h11l7-12 14 24L48 4l7 12h23"/></svg>
+      <span>ARPEGGIATOR</span><b><QcUiIcon kind="next" /></b><span>OSCILLATOR</span><b><QcUiIcon kind="next" /></b><span>FILTER</span><QcEditorIcon kind="waveform" />
     </div>;
   }
   return null;
@@ -413,9 +413,9 @@ function CabChannel({ side, allParameters, drafts, accent, disabled, onDraftChan
     <div className="cab-channel-footer">
       <button className={`cab-phase${phaseValue >= .5 ? " is-active" : ""}`} disabled={disabled || !phase?.writable} aria-label={`Invert microphone ${side + 1} phase`} aria-pressed={phaseValue >= .5} onClick={() => setBinary(phase, phaseValue >= .5 ? 0 : 1)}>Ø</button>
       <div className="cab-microphone-selector">
-        <button disabled={disabled || !microphone?.writable || microphone.options.length < 2} aria-label={`Previous microphone for slot ${side + 1}`} onClick={() => selectMicrophone(-1)}>‹</button>
+        <button disabled={disabled || !microphone?.writable || microphone.options.length < 2} aria-label={`Previous microphone for slot ${side + 1}`} onClick={() => selectMicrophone(-1)}><QcUiIcon kind="previous" /></button>
         <strong title={microphoneName}>{cabMicrophoneLabel(microphoneName)}</strong>
-        <button disabled={disabled || !microphone?.writable || microphone.options.length < 2} aria-label={`Next microphone for slot ${side + 1}`} onClick={() => selectMicrophone(1)}>›</button>
+        <button disabled={disabled || !microphone?.writable || microphone.options.length < 2} aria-label={`Next microphone for slot ${side + 1}`} onClick={() => selectMicrophone(1)}><QcUiIcon kind="next" /></button>
       </div>
       <button className={`cab-channel-power${bypassValue < .5 ? " is-active" : ""}`} disabled={disabled || !bypass?.writable} aria-label={`${bypassValue >= .5 ? "Enable" : "Disable"} cab microphone ${side + 1}`} aria-pressed={bypassValue < .5} onClick={() => setBinary(bypass, bypassValue >= .5 ? 0 : 1)}>⏻</button>
     </div>
@@ -481,15 +481,15 @@ export function CorOsParameterEditor(props: CorOsParameterEditorProps) {
     <header className="parameter-editor-header">
       <button className="parameter-more" disabled={Boolean(routingNode)} aria-label={routingNode ? "Routing node options unavailable" : "Device contextual menu"} aria-expanded={routingNode ? false : menuOpen} onClick={() => { onFootswitchAssignmentStart(false); setMenuOpen((open) => !open); }}><i /><i /><i /></button>
       <button className="parameter-device-name"><small>{editorCategoryLabel(details.category)}</small><strong style={{ color: accent }}>{details.name}</strong></button>
-      <button className={`parameter-footswitch${footswitch === undefined ? "" : " is-assigned"}${footswitchAssignmentPending ? " is-assigning" : ""}`} disabled={Boolean(routingNode)} aria-label={routingNode ? `${details.name} has no footswitch assignment` : footswitchAssignmentPending ? "Waiting for a footswitch assignment" : footswitch === undefined ? "Assign a footswitch" : `Assigned to footswitch ${sceneLetter(footswitch)}`} aria-pressed={footswitchAssignmentPending} onClick={() => { setMenuOpen(false); onFootswitchAssignmentStart(!footswitchAssignmentPending); }}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 22h14M11 22l1.6-7h6.8l1.6 7M13.5 15l1-5h3l1 5" /></svg><span>{routingNode ? "–" : footswitchAssignmentPending ? "?" : footswitch === undefined ? "–" : sceneLetter(footswitch)}</span></button>
+      <button className={`parameter-footswitch${footswitch === undefined ? "" : " is-assigned"}${footswitchAssignmentPending ? " is-assigning" : ""}`} disabled={Boolean(routingNode)} aria-label={routingNode ? `${details.name} has no footswitch assignment` : footswitchAssignmentPending ? "Waiting for a footswitch assignment" : footswitch === undefined ? "Assign a footswitch" : `Assigned to footswitch ${sceneLetter(footswitch)}`} aria-pressed={footswitchAssignmentPending} onClick={() => { setMenuOpen(false); onFootswitchAssignmentStart(!footswitchAssignmentPending); }}><QcEditorIcon kind="footswitch" /><span>{routingNode ? "–" : footswitchAssignmentPending ? "?" : footswitch === undefined ? "–" : sceneLetter(footswitch)}</span></button>
       <div className="parameter-scene" aria-label="Scene selector">
-        <button aria-label="Previous scene" onClick={() => onSceneSelect((activeScene - 1 + Math.max(1, scenes.length)) % Math.max(1, scenes.length))}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 3 12l8 8zM21 4l-8 8 8 8z" /></svg></button>
+        <button aria-label="Previous scene" onClick={() => onSceneSelect((activeScene - 1 + Math.max(1, scenes.length)) % Math.max(1, scenes.length))}><QcEditorIcon kind="scene-previous" /></button>
         <button aria-label={`Scene ${sceneLetter(activeScene)}${footswitch === undefined ? "" : `, footswitch ${sceneLetter(footswitch)}`}`} onClick={() => onSceneSelect((activeScene + 1) % Math.max(1, scenes.length))}><span>{sceneLetter(activeScene)}</span></button>
-        <button aria-label="Next scene" onClick={() => onSceneSelect((activeScene + 1) % Math.max(1, scenes.length))}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 4 8 8-8 8zM3 4l8 8-8 8z" /></svg></button>
+        <button aria-label="Next scene" onClick={() => onSceneSelect((activeScene + 1) % Math.max(1, scenes.length))}><QcEditorIcon kind="scene-next" /></button>
       </div>
       <i className="parameter-header-divider" aria-hidden="true" />
-      <button className={`parameter-bypass${bypassed ? " is-bypassed" : ""}`} disabled={Boolean(routingNode)} aria-label={routingNode ? `${details.name} bypass is controlled by routing` : bypassed ? "Activate device" : "Bypass device"} aria-pressed={routingNode ? undefined : bypassed} onClick={onToggleBypass}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v12M8.5 7.7a11 11 0 1 0 15 0" /></svg></button>
-      <button className="parameter-close" aria-label="Close parameter editor" onClick={onClose}><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m8 16.5 5.2 5.1L24.5 10" /></svg></button>
+      <button className={`parameter-bypass${bypassed ? " is-bypassed" : ""}`} disabled={Boolean(routingNode)} aria-label={routingNode ? `${details.name} bypass is controlled by routing` : bypassed ? "Activate device" : "Bypass device"} aria-pressed={routingNode ? undefined : bypassed} onClick={onToggleBypass}><QcEditorIcon kind="bypass" /></button>
+      <button className="parameter-close" aria-label="Close parameter editor" onClick={onClose}><QcEditorIcon kind="confirm" /></button>
       {!routingNode && menuOpen && <div className="parameter-context-menu" role="menu" aria-label="Device contextual menu">
         {contextItems.map((item) => <button key={item.action} role="menuitem" className={`${item.action === "remove" ? "is-danger" : ""}${item.separatorBefore ? " has-separator" : ""}`} disabled={item.disabled || contextActionEnabled?.[item.action] === false} onClick={() => runContextAction(item.action)}><QcEditorIcon kind={item.icon}/><span>{item.label}</span></button>)}
       </div>}

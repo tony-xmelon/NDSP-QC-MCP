@@ -4,6 +4,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $androidRoot = Join-Path $repoRoot "apps\android\android\app\src\main\res"
 $sourceIcon = Join-Path $repoRoot "packages\typescript\qc-theme\assets\app-icon.png"
 $nativeTheme = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\native-theme.json") -Raw | ConvertFrom-Json
+$brand = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\brand.json") -Raw | ConvertFrom-Json
 
 Add-Type -AssemblyName System.Drawing
 
@@ -57,15 +58,15 @@ try {
 
         $brandSize = [Math]::Max(10, [int]($shortEdge * 0.055))
         $captionSize = [Math]::Max(7, [int]($shortEdge * 0.024))
-        $brandFont = [System.Drawing.Font]::new("Segoe UI", $brandSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-        $captionFont = [System.Drawing.Font]::new("Segoe UI", $captionSize, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+        $brandFont = [System.Drawing.Font]::new($nativeTheme.android.splashFontFamily, $brandSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $captionFont = [System.Drawing.Font]::new($nativeTheme.android.splashFontFamily, $captionSize, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
         $center = [System.Drawing.StringFormat]::new()
         $center.Alignment = [System.Drawing.StringAlignment]::Center
         $brandBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($nativeTheme.android.splashText))
         $captionBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($nativeTheme.android.splashCaption))
         $textTop = $logoTop + $logoSize + [int]($shortEdge * 0.045)
-        $graphics.DrawString("QC CONTROL", $brandFont, $brandBrush, [System.Drawing.RectangleF]::new(0, $textTop, $width, $brandSize * 1.35), $center)
-        $graphics.DrawString("QUAD CORTEX COMPANION", $captionFont, $captionBrush, [System.Drawing.RectangleF]::new(0, $textTop + $brandSize * 1.5, $width, $captionSize * 1.4), $center)
+        $graphics.DrawString($brand.appWordmark, $brandFont, $brandBrush, [System.Drawing.RectangleF]::new(0, $textTop, $width, $brandSize * 1.35), $center)
+        $graphics.DrawString($brand.companionCaption, $captionFont, $captionBrush, [System.Drawing.RectangleF]::new(0, $textTop + $brandSize * 1.5, $width, $captionSize * 1.4), $center)
         $brandFont.Dispose(); $captionFont.Dispose(); $center.Dispose(); $brandBrush.Dispose(); $captionBrush.Dispose()
         Save-Png $bitmap $graphics $_.FullName
     }
@@ -74,4 +75,4 @@ finally {
     $icon.Dispose()
 }
 
-Write-Output "Generated Android launcher and splash assets from the QC Control master icon."
+Write-Output "Generated Android launcher and splash assets from the $($brand.appName) master icon."

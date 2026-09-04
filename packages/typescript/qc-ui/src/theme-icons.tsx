@@ -5,6 +5,40 @@ export type QcDirectoryIconName = "grid" | "download" | "cloud" | "folder" | "ne
 export type QcEditorIconName = "save" | "change" | "copy" | "paste" | "reset" | "defaults" | "expression" | "looper" | "mute" | "remove" | "assignment-expression" | "band-power" | "footswitch" | "scene-previous" | "scene-next" | "bypass" | "confirm" | "waveform";
 export type QcHardwareIconName = "power" | "brand-pulse";
 export type QcScreenHeaderGlyphName = "undo" | "save" | "menu";
+export type QcUiIconName = "add" | "subtract" | "previous" | "next" | "up" | "down" | "more" | "check" | "close" | "backspace" | "microphone" | "attachment" | "file" | "send" | "stop" | "save-as" | "edit" | "midi" | "favorite" | "delete" | "capture" | "tempo" | "cpu" | "settings";
+
+/** Shared app/CorOS glyph vocabulary. Text characters must not be used as icons. */
+export function QcUiIcon({ kind, className }: { kind: QcUiIconName; className?: string }) {
+  const classes = `qc-ui-icon${className ? ` ${className}` : ""}`;
+  if (kind === "add") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg>;
+  if (kind === "subtract") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" /></svg>;
+  if (kind === "previous") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>;
+  if (kind === "next") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>;
+  if (kind === "up") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m5 15 7-7 7 7" /></svg>;
+  if (kind === "down") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7" /></svg>;
+  if (kind === "more") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>;
+  if (kind === "check") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6" /></svg>;
+  if (kind === "close") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19" /></svg>;
+  if (kind === "backspace") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m3 12 5-7h13v14H8zM12 9l5 6m0-6-5 6" /></svg>;
+  if (kind === "microphone") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><rect x="8.25" y="2.5" width="7.5" height="13" rx="3.75" /><path d="M5.5 11.25v.75a6.5 6.5 0 0 0 13 0v-.75M12 18.5v3M8.75 21.5h6.5" /></svg>;
+  if (kind === "attachment") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m8 12 6.7-6.7a3 3 0 0 1 4.3 4.2l-8.5 8.6a5 5 0 0 1-7.1-7.1l8-8" /></svg>;
+  if (kind === "file") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5zM15 3v5h4M8 12h8M8 16h8" /></svg>;
+  if (kind === "send") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m5 14 7-7 7 7M12 7v12" /></svg>;
+  if (kind === "stop") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><rect className="qc-ui-icon-fill" x="6" y="6" width="12" height="12" rx="1" /></svg>;
+  if (kind === "save-as") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v15H5zM8 3v6h8V3M8 16h5M14 18l5-5m-5 0h5v5" /></svg>;
+  if (kind === "edit") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m5 19 1-4L16 5l3 3L9 18zM14 7l3 3" /></svg>;
+  if (kind === "midi") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M7 15V9l5 5 5-5v6" /></svg>;
+  if (kind === "favorite") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" /></svg>;
+  if (kind === "delete") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7M10 11v6m4-6v6" /></svg>;
+  if (kind === "capture") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 9-8 9-8-9zM9 12h6" /></svg>;
+  if (kind === "tempo") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4v12a4 4 0 1 1-2-3.5V6l7-2v3z" /></svg>;
+  if (kind === "cpu") return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4M10 10h4v4h-4z" /></svg>;
+  return <svg className={classes} viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" /></svg>;
+}
+
+export function MicrophoneIcon({ className }: { className?: string }) {
+  return <QcUiIcon kind="microphone" className={className} />;
+}
 
 export function QcHardwareIcon({ kind, className }: { kind: QcHardwareIconName; className?: string }) {
   if (kind === "power") return <svg className={className} viewBox="3 2 18 20" aria-hidden="true"><path d="M12 3v8M7.3 6.4a7.5 7.5 0 1 0 9.4 0" /></svg>;
