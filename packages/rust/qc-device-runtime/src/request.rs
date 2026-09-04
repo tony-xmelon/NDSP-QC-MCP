@@ -9,8 +9,9 @@ use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
     decode_captured_screen, decode_device_identity, decode_general_settings, decode_global_eq,
-    decode_inhibited_modules, decode_io_settings, decode_looper_status, decode_mode_cycle,
-    decode_preset_screenshot, decode_tuner_settings, PngImage,
+    decode_inhibited_modules, decode_io_settings, decode_library_files, decode_looper_status,
+    decode_mode_cycle, decode_pinned_models, decode_preset_screenshot, decode_recents_favorites,
+    decode_tuner_settings, PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -577,6 +578,14 @@ pub enum GatewayResponseProjection {
     GlobalEq,
     ModeCycle,
     LooperStatus,
+    RecentsFavorites {
+        request_id: u64,
+    },
+    PinnedModels,
+    LibraryFiles {
+        request_id: u64,
+        folder_key: String,
+    },
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -627,6 +636,23 @@ impl GatewayResponseProjection {
             }
             Self::LooperStatus => serde_json::to_value(
                 decode_looper_status(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::RecentsFavorites { request_id } => serde_json::to_value(
+                decode_recents_favorites(payload, *request_id)
+                    .map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::PinnedModels => serde_json::to_value(
+                decode_pinned_models(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::LibraryFiles {
+                request_id,
+                folder_key,
+            } => serde_json::to_value(
+                decode_library_files(payload, *request_id, folder_key)
+                    .map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -735,6 +761,50 @@ pub fn plan_gateway_read(
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::LooperStatus,
         }),
+        "device.recents" | "device.favorites" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadRecentsFavorites {
+                favorites: method == "device.favorites",
+                request_id,
+            },
+            response_type: 20,
+            timeout_ms: if method == "device.favorites" {
+                20_000
+            } else {
+                10_000
+            },
+            projection: GatewayResponseProjection::RecentsFavorites { request_id },
+        }),
+        "device.pinnedModels" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadPinnedModels,
+            response_type: 54,
+            timeout_ms: 8_000,
+            projection: GatewayResponseProjection::PinnedModels,
+        }),
+        "device.captures" | "device.irs" => {
+            let folder_key = if method == "device.captures" {
+                "local_nc_root".to_string()
+            } else {
+                params
+                    .get("folder")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or("local_ir_root")
+                    .to_string()
+            };
+            Ok(GatewayReadPlan {
+                operation: DeviceOperation::ReadLibraryFiles {
+                    folder_key: folder_key.clone(),
+                    file_type: if method == "device.captures" { 2 } else { 1 },
+                    request_id,
+                },
+                response_type: 4,
+                timeout_ms: 30_000,
+                projection: GatewayResponseProjection::LibraryFiles {
+                    request_id,
+                    folder_key,
+                },
+            })
+        }
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
             response_type: 42,
@@ -1010,6 +1080,26 @@ pub fn optional_i32(params: &Value, field: &str) -> Result<Option<i32>, String> 
             .map(Some)
             .ok_or_else(|| format!("{field} must be null or an integer")),
     }
+}
+
+fn optional_positive_u32(params: &Value, field: &str) -> Result<Option<u32>, String> {
+    match params.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .and_then(|value| u32::try_from(value).ok())
+            .filter(|value| *value > 0)
+            .map(Some)
+            .ok_or_else(|| format!("{field} must be null or a positive integer")),
+    }
+}
+
+fn writable_setlist_key(params: &Value, field: &str) -> Result<String, String> {
+    let key = required_text(params, field)?;
+    if !key.starts_with("/media/p4/Presets/") || key.contains("..") {
+        return Err(format!("{field} must identify a writable user setlist"));
+    }
+    Ok(key.trim_end_matches('/').to_string())
 }
 
 pub fn expected_position(params: &Value) -> Result<u32, String> {
@@ -1589,6 +1679,80 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             }
             Ok(DeviceOperation::SetModeCycle(slots))
         }
+        "setFavorite" => {
+            let name = required_text(params, "name")?;
+            let folder_key = required_text(params, "folderKey")?;
+            let folder_name = params
+                .get("folderName")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    folder_key
+                        .trim_end_matches('/')
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or_default()
+                        .to_string()
+                });
+            Ok(DeviceOperation::SetFavorite {
+                name,
+                folder_key,
+                folder_name,
+                is_factory: boolean(params, "isFactory")?,
+                favorite: boolean(params, "favorite")?,
+            })
+        }
+        "setModelPinned" => {
+            let model_id = bounded_u32(params, "modelId", u32::MAX)?;
+            if model_id == 0 {
+                return Err("modelId must be a positive integer".into());
+            }
+            Ok(DeviceOperation::SetModelPinned {
+                model_id,
+                pinned: boolean(params, "pinned")?,
+            })
+        }
+        "createSetlist" | "deleteSetlist" => {
+            let name = required_text(params, "name")?;
+            if name.trim() != name
+                || name.chars().count() > 64
+                || name.chars().any(char::is_control)
+                || name.contains(['/', '\\'])
+                || matches!(name.as_str(), "." | ".." | "My Presets")
+            {
+                return Err("setlist name must be 1-64 visible characters without slashes and cannot name a built-in setlist".into());
+            }
+            if operation == "createSetlist" {
+                Ok(DeviceOperation::CreateSetlist { name })
+            } else {
+                Ok(DeviceOperation::DeleteSetlist { name })
+            }
+        }
+        "deletePreset" => Ok(DeviceOperation::DeletePreset {
+            setlist_key: writable_setlist_key(params, "setlistKey")?,
+            name: required_text(params, "name")?,
+        }),
+        "movePreset" => Ok(DeviceOperation::MovePreset {
+            setlist_key: writable_setlist_key(params, "setlistKey")?,
+            name: required_text(params, "name")?,
+            position: bounded_u32(params, "position", 255)?,
+        }),
+        "loadCapture" => Ok(DeviceOperation::LoadCapture {
+            row: row()?,
+            column: column("column")?,
+            key: required_text(params, "key")?,
+            name: required_text(params, "name")?,
+            model_id: optional_positive_u32(params, "modelId")?,
+        }),
+        "loadIr" => Ok(DeviceOperation::LoadIr {
+            row: row()?,
+            column: column("column")?,
+            key: required_text(params, "key")?,
+            name: required_text(params, "name")?,
+            slot: bounded_u32(params, "slot", 1)?,
+            model_id: optional_positive_u32(params, "modelId")?,
+        }),
         "addBlock" => Ok(DeviceOperation::AddBlock {
             row: row()?,
             column: column("column")?,
@@ -1971,6 +2135,17 @@ fn verification_for_operation(
         | DeviceOperation::ReadModeCycle
         | DeviceOperation::SetModeCycle(_)
         | DeviceOperation::ReadLooperStatus
+        | DeviceOperation::ReadRecentsFavorites { .. }
+        | DeviceOperation::SetFavorite { .. }
+        | DeviceOperation::ReadPinnedModels
+        | DeviceOperation::SetModelPinned { .. }
+        | DeviceOperation::ReadLibraryFiles { .. }
+        | DeviceOperation::CreateSetlist { .. }
+        | DeviceOperation::DeleteSetlist { .. }
+        | DeviceOperation::DeletePreset { .. }
+        | DeviceOperation::MovePreset { .. }
+        | DeviceOperation::LoadCapture { .. }
+        | DeviceOperation::LoadIr { .. }
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -2041,6 +2216,30 @@ pub fn plan_gateway_write(
                     "Global EQ setting sent to the Quad Cortex"
                 }
                 .into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setFavorite"
+        | "device.setModelPinned"
+        | "device.createSetlist"
+        | "device.deleteSetlist"
+        | "device.deletePreset"
+        | "device.movePreset"
+        | "device.loadCapture"
+        | "device.loadIr" => {
+            let operation_name = match method {
+                "device.setFavorite" => "setFavorite",
+                "device.setModelPinned" => "setModelPinned",
+                "device.createSetlist" => "createSetlist",
+                "device.deleteSetlist" => "deleteSetlist",
+                "device.deletePreset" => "deletePreset",
+                "device.movePreset" => "movePreset",
+                "device.loadCapture" => "loadCapture",
+                _ => "loadIr",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: format!("{operation_name} sent to the Quad Cortex"),
                 verification: GatewayVerification::None,
             }
         }

@@ -245,6 +245,20 @@ export interface MasterVolumeState {
   value: number;
 }
 
+export interface LibraryEntry {
+  name: string;
+  key: string;
+  folderKey?: string;
+  folderName?: string;
+  position?: number;
+  instrument?: number;
+  isFactory: boolean;
+  isPlugin: boolean;
+}
+
+export interface LibraryEntries { entries: LibraryEntry[]; }
+export interface PinnedModels { models: number[]; captures: string[]; }
+
 export type LaneControl = "inputGate" | "laneOutput";
 
 export interface GatewayTransport {
@@ -278,6 +292,19 @@ export interface GatewayTransport {
   setModeCycle(slots: number[]): Promise<DeviceActionResult>;
   looperStatus(): Promise<LooperStatus>;
   controlLooper(command: string, value: number | null): Promise<DeviceActionResult>;
+  recents(): Promise<LibraryEntries>;
+  favorites(): Promise<LibraryEntries>;
+  setFavorite(name: string, folderKey: string, folderName: string, isFactory: boolean, favorite: boolean): Promise<DeviceActionResult>;
+  pinnedModels(): Promise<PinnedModels>;
+  setModelPinned(modelId: number, pinned: boolean): Promise<DeviceActionResult>;
+  captures(): Promise<LibraryEntries>;
+  loadCapture(row: number, column: number, key: string, name: string, modelId: number | null): Promise<DeviceActionResult>;
+  irs(folder: string | null): Promise<LibraryEntries>;
+  loadIr(row: number, column: number, key: string, name: string, slot: number, modelId: number | null): Promise<DeviceActionResult>;
+  createSetlist(name: string): Promise<DeviceActionResult>;
+  deleteSetlist(name: string): Promise<DeviceActionResult>;
+  deletePreset(setlistKey: string, name: string): Promise<DeviceActionResult>;
+  movePreset(setlistKey: string, name: string, position: number): Promise<DeviceActionResult>;
   setGeneralInteger(setting: "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" | "holdTiming" | "midiChannel", value: number): Promise<DeviceActionResult>;
   setGeneralToggle(setting: "midiOverUsb" | "ignoreDuplicatePc" | "stompModeAutoAssign" | "swapTempoTunerAccess" | "disableInternetConnectionCheck" | "dynamicDelayCompensation" | "presetDimmed" | "midiClockIn" | "gigViewStompAccess", enabled: boolean): Promise<DeviceActionResult>;
   setSceneBypassBehavior(behavior: "alwaysOverwrite" | "nonstompOverwrite" | "neverOverwrite"): Promise<DeviceActionResult>;

@@ -162,6 +162,57 @@ pub enum DeviceOperation {
     ReadModeCycle,
     SetModeCycle(Vec<u32>),
     ReadLooperStatus,
+    ReadRecentsFavorites {
+        favorites: bool,
+        request_id: u64,
+    },
+    SetFavorite {
+        name: String,
+        folder_key: String,
+        folder_name: String,
+        is_factory: bool,
+        favorite: bool,
+    },
+    ReadPinnedModels,
+    SetModelPinned {
+        model_id: u32,
+        pinned: bool,
+    },
+    ReadLibraryFiles {
+        folder_key: String,
+        file_type: i32,
+        request_id: u64,
+    },
+    CreateSetlist {
+        name: String,
+    },
+    DeleteSetlist {
+        name: String,
+    },
+    DeletePreset {
+        setlist_key: String,
+        name: String,
+    },
+    MovePreset {
+        setlist_key: String,
+        name: String,
+        position: u32,
+    },
+    LoadCapture {
+        row: u32,
+        column: u32,
+        key: String,
+        name: String,
+        model_id: Option<u32>,
+    },
+    LoadIr {
+        row: u32,
+        column: u32,
+        key: String,
+        name: String,
+        slot: u32,
+        model_id: Option<u32>,
+    },
     SetInputPort {
         input_port_id: u32,
         level: Option<f32>,
@@ -351,6 +402,71 @@ impl DeviceOperation {
             Self::ReadModeCycle => vec![read_mode_cycle()],
             Self::SetModeCycle(slots) => vec![set_mode_cycle(&slots)],
             Self::ReadLooperStatus => vec![read_looper_status()],
+            Self::ReadRecentsFavorites {
+                favorites,
+                request_id,
+            } => vec![read_recents_favorites(favorites, request_id)],
+            Self::SetFavorite {
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                favorite,
+            } => vec![set_favorite(
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                favorite,
+            )],
+            Self::ReadPinnedModels => vec![read_pinned_models()],
+            Self::SetModelPinned { model_id, pinned } => {
+                vec![set_model_pinned(model_id, pinned)]
+            }
+            Self::ReadLibraryFiles {
+                folder_key,
+                file_type,
+                request_id,
+            } => vec![read_library_files(folder_key, file_type, request_id)],
+            Self::CreateSetlist { name } => vec![create_setlist(name)],
+            Self::DeleteSetlist { name } => vec![delete_setlist(name)],
+            Self::DeletePreset { setlist_key, name } => vec![delete_preset(setlist_key, name)],
+            Self::MovePreset {
+                setlist_key,
+                name,
+                position,
+            } => vec![move_preset(setlist_key, name, position)],
+            Self::LoadCapture {
+                row,
+                column,
+                key,
+                name,
+                model_id,
+            } => {
+                let mut messages = Vec::new();
+                if let Some(model_id) = model_id {
+                    messages.push(set_block(row, column, model_id));
+                }
+                messages.push(set_parameter_text(row, column, 5, format!("{key}{name}")));
+                messages
+            }
+            Self::LoadIr {
+                row,
+                column,
+                key,
+                name,
+                slot,
+                model_id,
+            } => {
+                let mut messages = Vec::new();
+                if let Some(model_id) = model_id {
+                    messages.push(set_block(row, column, model_id));
+                }
+                let (path_index, name_index) = if slot == 0 { (2, 22) } else { (10, 23) };
+                messages.push(set_parameter_text(row, column, path_index, key));
+                messages.push(set_parameter_text(row, column, name_index, name));
+                messages
+            }
             Self::SetInputPort {
                 input_port_id,
                 level,
@@ -581,6 +697,168 @@ pub fn set_mode_cycle(slots: &[u32]) -> OutboundMessage {
 
 pub fn read_looper_status() -> OutboundMessage {
     read(28)
+}
+
+pub fn read_recents_favorites(favorites: bool, request_id: u64) -> OutboundMessage {
+    OutboundMessage::encoded(
+        20,
+        pa::RecentsFavoritesMessage {
+            action: pa::message_action::Enum::Read as i32,
+            request_id: Some(pa::recents_favorites_message::RequestId::RequestId(
+                request_id,
+            )),
+            is_favorites: favorites,
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_favorite(
+    name: String,
+    folder_key: String,
+    folder_name: String,
+    is_factory: bool,
+    favorite: bool,
+) -> OutboundMessage {
+    OutboundMessage::encoded(
+        20,
+        pa::RecentsFavoritesMessage {
+            action: if favorite {
+                pa::message_action::Enum::Create as i32
+            } else {
+                pa::message_action::Enum::Delete as i32
+            },
+            is_favorites: true,
+            items: vec![pa::RecentsFavoritesItem {
+                name,
+                folder_key,
+                folder_name,
+                is_factory,
+                is_plugin: false,
+            }],
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_pinned_models() -> OutboundMessage {
+    read(54)
+}
+
+pub fn set_model_pinned(model_id: u32, pinned: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        54,
+        pa::PinnedModelsMessage {
+            action: if pinned {
+                pa::message_action::Enum::Create as i32
+            } else {
+                pa::message_action::Enum::Delete as i32
+            },
+            models: vec![model_id],
+            ..Default::default()
+        },
+    )
+}
+
+pub fn read_library_files(folder_key: String, file_type: i32, request_id: u64) -> OutboundMessage {
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Read as i32,
+            request_id: Some(pa::file_message::RequestId::RequestId(request_id)),
+            r#type: Some(pa::file_message::Type::Type(file_type)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(folder_key)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn create_setlist(name: String) -> OutboundMessage {
+    let key = format!("/media/p4/Presets/{name}");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Create as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(key)),
+                name: Some(pa::folder_info::Name::Name(name)),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn delete_setlist(name: String) -> OutboundMessage {
+    let key = format!("/media/p4/Presets/{name}");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Delete as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(key)),
+                name: Some(pa::folder_info::Name::Name(name)),
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn delete_preset(setlist_key: String, name: String) -> OutboundMessage {
+    let file_key = format!("{setlist_key}/{name}.pb");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Delete as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key)),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key(file_key)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn move_preset(setlist_key: String, name: String, position: u32) -> OutboundMessage {
+    let source_key = format!("{setlist_key}/{name}.pb");
+    OutboundMessage::encoded(
+        4,
+        pa::FileMessage {
+            action: pa::message_action::Enum::Move as i32,
+            r#type: Some(pa::file_message::Type::Type(0)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key.clone())),
+                is_factory: Some(pa::folder_info::IsFactory::IsFactory(false)),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key(source_key)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            to_folder: Some(pa::file_message::ToFolder::ToFolder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key(setlist_key)),
+                files: vec![pa::ProductData {
+                    index: Some(pa::product_data::Index::Index(position as i32)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        },
+    )
 }
 
 pub fn connection(connected: bool) -> OutboundMessage {

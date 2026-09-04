@@ -450,6 +450,84 @@ SHARED_QC_ACTIONS = {
     "access": "performance",
     "description": "Control Looper X through its documented MIDI CC interface."
   },
+  "list_recents": {
+    "rpc": "device.recents",
+    "classification": "read",
+    "access": "read-only",
+    "description": "List recently used presets with authoritative folder metadata."
+  },
+  "list_favorites": {
+    "rpc": "device.favorites",
+    "classification": "read",
+    "access": "read-only",
+    "description": "List favorite presets using request correlation even when the reply omits its favorites flag."
+  },
+  "set_favorite": {
+    "rpc": "device.setFavorite",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Add or remove one exact device library entry from Favorites after explicit confirmation."
+  },
+  "list_pinned_models": {
+    "rpc": "device.pinnedModels",
+    "classification": "read",
+    "access": "read-only",
+    "description": "List model IDs and capture keys pinned in the device model browser."
+  },
+  "set_model_pinned": {
+    "rpc": "device.setModelPinned",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Pin or unpin one model ID after explicit confirmation."
+  },
+  "list_captures": {
+    "rpc": "device.captures",
+    "classification": "read",
+    "access": "read-only",
+    "description": "List loadable Neural Captures with their content keys and names."
+  },
+  "load_capture": {
+    "rpc": "device.loadCapture",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Place or retarget a Neural Capture block using a device library key and name."
+  },
+  "list_irs": {
+    "rpc": "device.irs",
+    "classification": "read",
+    "access": "read-only",
+    "description": "List loadable Impulse Responses from the whole library or a selected device folder."
+  },
+  "load_ir": {
+    "rpc": "device.loadIr",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Place or retarget an IR Loader and set one of its two IR slots by key and name."
+  },
+  "create_setlist": {
+    "rpc": "device.createSetlist",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Create a user setlist after explicit confirmation."
+  },
+  "delete_setlist": {
+    "rpc": "device.deleteSetlist",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Delete a named user setlist and its contents after explicit confirmation."
+  },
+  "delete_preset": {
+    "rpc": "device.deletePreset",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Delete a named preset from a writable user setlist after explicit confirmation."
+  },
+  "move_preset": {
+    "rpc": "device.movePreset",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Move a named preset to another slot in its user setlist after explicit confirmation."
+  },
   "set_general_integer": {
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

@@ -76,6 +76,19 @@ const ALLOWED: &[&str] = &[
     "device.setModeCycle",
     "device.looperStatus",
     "device.controlLooper",
+    "device.recents",
+    "device.favorites",
+    "device.setFavorite",
+    "device.pinnedModels",
+    "device.setModelPinned",
+    "device.captures",
+    "device.loadCapture",
+    "device.irs",
+    "device.loadIr",
+    "device.createSetlist",
+    "device.deleteSetlist",
+    "device.deletePreset",
+    "device.movePreset",
     "device.setGeneralInteger",
     "device.setGeneralToggle",
     "device.setSceneBypassBehavior",
@@ -105,6 +118,11 @@ const READ_ONLY: &[&str] = &[
     "device.globalEq",
     "device.modeCycle",
     "device.looperStatus",
+    "device.recents",
+    "device.favorites",
+    "device.pinnedModels",
+    "device.captures",
+    "device.irs",
 ];
 
 const PERFORMANCE: &[&str] = &[
@@ -151,6 +169,8 @@ const MODIFY: &[&str] = &[
     "device.savePresetAs",
     "device.renameCurrentPreset",
     "device.copyPreset",
+    "device.loadCapture",
+    "device.loadIr",
 ];
 
 pub(crate) fn contains(method: &str) -> bool {

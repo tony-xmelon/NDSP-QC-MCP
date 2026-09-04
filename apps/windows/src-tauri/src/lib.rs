@@ -1227,6 +1227,81 @@ async fn control_looper(
 }
 
 #[tauri::command]
+async fn recents(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::RECENTS).await
+}
+
+#[tauri::command]
+async fn favorites(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::FAVORITES).await
+}
+
+#[tauri::command]
+async fn set_favorite(app: AppHandle, name: String, folder_key: String, folder_name: String, is_factory: bool, favorite: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_FAVORITE, json!({
+        "name": name, "folderKey": folder_key, "folderName": folder_name,
+        "isFactory": is_factory, "favorite": favorite,
+    })).await
+}
+
+#[tauri::command]
+async fn pinned_models(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::PINNED_MODELS).await
+}
+
+#[tauri::command]
+async fn set_model_pinned(app: AppHandle, model_id: u32, pinned: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_MODEL_PINNED, json!({ "modelId": model_id, "pinned": pinned })).await
+}
+
+#[tauri::command]
+async fn captures(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::CAPTURES).await
+}
+
+#[tauri::command]
+async fn load_capture(app: AppHandle, row: u32, column: u32, key: String, name: String, model_id: Option<u32>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::LOAD_CAPTURE, json!({
+        "row": row, "column": column, "key": key, "name": name, "modelId": model_id,
+    })).await
+}
+
+#[tauri::command]
+async fn irs(app: AppHandle, folder: Option<String>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::IRS, json!({ "folder": folder })).await
+}
+
+#[tauri::command]
+async fn load_ir(app: AppHandle, row: u32, column: u32, key: String, name: String, slot: u32, model_id: Option<u32>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::LOAD_IR, json!({
+        "row": row, "column": column, "key": key, "name": name,
+        "slot": slot, "modelId": model_id,
+    })).await
+}
+
+#[tauri::command]
+async fn create_setlist(app: AppHandle, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::CREATE_SETLIST, json!({ "name": name })).await
+}
+
+#[tauri::command]
+async fn delete_setlist(app: AppHandle, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::DELETE_SETLIST, json!({ "name": name })).await
+}
+
+#[tauri::command]
+async fn delete_preset(app: AppHandle, setlist_key: String, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::DELETE_PRESET, json!({ "setlistKey": setlist_key, "name": name })).await
+}
+
+#[tauri::command]
+async fn move_preset(app: AppHandle, setlist_key: String, name: String, position: u32) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::MOVE_PRESET, json!({
+        "setlistKey": setlist_key, "name": name, "position": position,
+    })).await
+}
+
+#[tauri::command]
 async fn set_general_integer(app: AppHandle, setting: String, value: i32) -> Result<Value, String> {
     background_gateway_request_params(
         app,
@@ -2648,6 +2723,19 @@ pub fn run() {
             set_mode_cycle,
             looper_status,
             control_looper,
+            recents,
+            favorites,
+            set_favorite,
+            pinned_models,
+            set_model_pinned,
+            captures,
+            load_capture,
+            irs,
+            load_ir,
+            create_setlist,
+            delete_setlist,
+            delete_preset,
+            move_preset,
             set_general_integer,
             set_general_toggle,
             set_scene_bypass_behavior,

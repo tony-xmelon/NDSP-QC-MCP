@@ -81,6 +81,19 @@ final class GeneratedRemoteActions {
         "device.setModeCycle",
         "device.looperStatus",
         "device.controlLooper",
+        "device.recents",
+        "device.favorites",
+        "device.setFavorite",
+        "device.pinnedModels",
+        "device.setModelPinned",
+        "device.captures",
+        "device.loadCapture",
+        "device.irs",
+        "device.loadIr",
+        "device.createSetlist",
+        "device.deleteSetlist",
+        "device.deletePreset",
+        "device.movePreset",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",
@@ -109,7 +122,12 @@ final class GeneratedRemoteActions {
         "device.ioSettings",
         "device.globalEq",
         "device.modeCycle",
-        "device.looperStatus"
+        "device.looperStatus",
+        "device.recents",
+        "device.favorites",
+        "device.pinnedModels",
+        "device.captures",
+        "device.irs"
     };
 
     private static final String[] PERFORMANCE = {
@@ -155,7 +173,9 @@ final class GeneratedRemoteActions {
         "device.setChainSplit",
         "device.savePresetAs",
         "device.renameCurrentPreset",
-        "device.copyPreset"
+        "device.copyPreset",
+        "device.loadCapture",
+        "device.loadIr"
     };
 
     private static final String[] REQUIRES_CONFIRMATION = {
@@ -181,6 +201,12 @@ final class GeneratedRemoteActions {
         "device.setGlobalEqBand",
         "device.setGlobalEqOutput",
         "device.setModeCycle",
+        "device.setFavorite",
+        "device.setModelPinned",
+        "device.createSetlist",
+        "device.deleteSetlist",
+        "device.deletePreset",
+        "device.movePreset",
         "device.setGeneralInteger",
         "device.setGeneralToggle",
         "device.setSceneBypassBehavior",

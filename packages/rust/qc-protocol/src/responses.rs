@@ -44,6 +44,32 @@ pub struct InhibitedModules {
     pub global_eq: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryEntry {
+    pub name: String,
+    pub key: String,
+    pub folder_key: Option<String>,
+    pub folder_name: Option<String>,
+    pub position: Option<u32>,
+    pub instrument: Option<i32>,
+    pub is_factory: bool,
+    pub is_plugin: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryEntries {
+    pub entries: Vec<LibraryEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedModels {
+    pub models: Vec<u32>,
+    pub captures: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PngImage {
     pub bytes: Vec<u8>,
@@ -189,6 +215,129 @@ pub fn decode_device_identity(payload: &[u8]) -> Result<DeviceIdentity, Response
         app_fw_version,
         custom_name,
         device_type,
+    })
+}
+
+pub fn decode_recents_favorites(
+    payload: &[u8],
+    request_id: u64,
+) -> Result<LibraryEntries, ResponseDecodeError> {
+    let message = pa::RecentsFavoritesMessage::decode(payload)?;
+    let actual_id = message
+        .request_id
+        .map(|pa::recents_favorites_message::RequestId::RequestId(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete(
+            "recents/favorites request_id",
+        ))?;
+    if actual_id != request_id {
+        return Err(ResponseDecodeError::Mismatch(
+            "recents/favorites request_id does not match",
+        ));
+    }
+    Ok(LibraryEntries {
+        entries: message
+            .items
+            .into_iter()
+            .map(|item| LibraryEntry {
+                key: item.folder_key.clone(),
+                name: item.name,
+                folder_key: Some(item.folder_key),
+                folder_name: Some(item.folder_name),
+                position: None,
+                instrument: None,
+                is_factory: item.is_factory,
+                is_plugin: item.is_plugin,
+            })
+            .collect(),
+    })
+}
+
+pub fn decode_pinned_models(payload: &[u8]) -> Result<PinnedModels, ResponseDecodeError> {
+    let message = pa::PinnedModelsMessage::decode(payload)?;
+    Ok(PinnedModels {
+        models: message.models,
+        captures: message.captures,
+    })
+}
+
+pub fn decode_library_files(
+    payload: &[u8],
+    request_id: u64,
+    folder_key: &str,
+) -> Result<LibraryEntries, ResponseDecodeError> {
+    let message = pa::FileMessage::decode(payload)?;
+    let actual_id = message
+        .request_id
+        .map(|pa::file_message::RequestId::RequestId(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing request_id"))?;
+    if actual_id != request_id {
+        return Err(ResponseDecodeError::Mismatch(
+            "file listing request_id does not match",
+        ));
+    }
+    let folder = message
+        .folder
+        .map(|pa::file_message::Folder::Folder(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing folder"))?;
+    let actual_key = folder
+        .key
+        .map(|pa::folder_info::Key::Key(value)| value)
+        .ok_or(ResponseDecodeError::Incomplete("file listing folder key"))?;
+    if actual_key.trim_end_matches('/') != folder_key.trim_end_matches('/') {
+        return Err(ResponseDecodeError::Mismatch(
+            "file listing folder does not match",
+        ));
+    }
+    let is_factory = folder
+        .is_factory
+        .map(|pa::folder_info::IsFactory::IsFactory(value)| value)
+        .unwrap_or(false);
+    let folder_name = folder
+        .name
+        .map(|pa::folder_info::Name::Name(value)| value)
+        .unwrap_or_else(|| {
+            actual_key
+                .trim_end_matches('/')
+                .rsplit('/')
+                .next()
+                .unwrap_or_default()
+                .to_string()
+        });
+    Ok(LibraryEntries {
+        entries: folder
+            .files
+            .into_iter()
+            .filter_map(|file| {
+                let key = file
+                    .key
+                    .map(|pa::product_data::Key::Key(value)| value)
+                    .unwrap_or_default();
+                let name = file
+                    .name
+                    .map(|pa::product_data::Name::Name(value)| value)
+                    .unwrap_or_default();
+                if key.is_empty() && name.is_empty() {
+                    return None;
+                }
+                let position = file
+                    .index
+                    .map(|pa::product_data::Index::Index(value)| value)
+                    .and_then(|value| u32::try_from(value).ok());
+                let instrument = file
+                    .instrument
+                    .map(|pa::product_data::Instrument::Instrument(value)| value);
+                Some(LibraryEntry {
+                    name,
+                    key,
+                    folder_key: Some(actual_key.clone()),
+                    folder_name: Some(folder_name.clone()),
+                    position,
+                    instrument,
+                    is_factory,
+                    is_plugin: false,
+                })
+            })
+            .collect(),
     })
 }
 

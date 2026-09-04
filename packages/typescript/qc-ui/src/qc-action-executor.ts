@@ -257,6 +257,19 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (call.name === "get_looper_status") {
     return { detail: "Read the current Looper X transport state.", data: await gateway.looperStatus() };
   }
+  if (call.name === "list_recents" || call.name === "list_favorites" || call.name === "list_pinned_models" || call.name === "list_captures" || call.name === "list_irs") {
+    let data: unknown;
+    if (call.name === "list_recents") data = await gateway.recents();
+    else if (call.name === "list_favorites") data = await gateway.favorites();
+    else if (call.name === "list_pinned_models") data = await gateway.pinnedModels();
+    else if (call.name === "list_captures") data = await gateway.captures();
+    else {
+      const folder = call.arguments.folder;
+      if (folder !== null && typeof folder !== "string") throw new Error("list_irs returned an invalid folder.");
+      data = await gateway.irs(folder as string | null);
+    }
+    return { detail: `Read ${call.name.replaceAll("_", " ")} from the Quad Cortex.`, data };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -400,6 +413,27 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
       stringArgument(call, "command"), nullableIntegerArgument(call, "value")
     ));
   }
+  if (call.name === "set_favorite" || call.name === "set_model_pinned"
+    || call.name === "create_setlist" || call.name === "delete_setlist"
+    || call.name === "delete_preset" || call.name === "move_preset") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_favorite") return actionResult(await gateway.setFavorite(
+      stringArgument(call, "name"), stringArgument(call, "folder_key"),
+      stringArgument(call, "folder_name"), booleanArgument(call, "is_factory"),
+      booleanArgument(call, "favorite")
+    ));
+    if (call.name === "set_model_pinned") return actionResult(await gateway.setModelPinned(
+      integerArgument(call, "model_id"), booleanArgument(call, "pinned")
+    ));
+    if (call.name === "create_setlist") return actionResult(await gateway.createSetlist(stringArgument(call, "name")));
+    if (call.name === "delete_setlist") return actionResult(await gateway.deleteSetlist(stringArgument(call, "name")));
+    if (call.name === "delete_preset") return actionResult(await gateway.deletePreset(
+      stringArgument(call, "setlist_key"), stringArgument(call, "name")
+    ));
+    return actionResult(await gateway.movePreset(
+      stringArgument(call, "setlist_key"), stringArgument(call, "name"), integerArgument(call, "position")
+    ));
+  }
   if (call.name === "undo_device" || call.name === "redo_device") {
     confirmation(call, "confirm_risky_operation");
     return actionResult(call.name === "undo_device" ? await gateway.undo() : await gateway.redo());
@@ -419,6 +453,17 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   }
 
   assertExpectedString(call, "expected_preset_name", snapshot.presetName);
+
+  if (call.name === "load_capture") return actionResult(await gateway.loadCapture(
+    integerArgument(call, "row"), integerArgument(call, "column"),
+    stringArgument(call, "key"), stringArgument(call, "name"),
+    nullableIntegerArgument(call, "model_id")
+  ));
+  if (call.name === "load_ir") return actionResult(await gateway.loadIr(
+    integerArgument(call, "row"), integerArgument(call, "column"),
+    stringArgument(call, "key"), stringArgument(call, "name"),
+    integerArgument(call, "slot"), nullableIntegerArgument(call, "model_id")
+  ));
 
   if (call.name === "select_scene") return actionResult(await gateway.selectScene(integerArgument(call, "scene"), snapshot.presetName));
   if (call.name === "copy_scene") return actionResult(await gateway.copyScene(integerArgument(call, "from_scene"), integerArgument(call, "to_scene"), booleanArgument(call, "swap"), snapshot.presetName));

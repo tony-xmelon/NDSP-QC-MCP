@@ -84,8 +84,8 @@ fn handle(
         "system.status" => Ok(json!({
             "platform": "Rust device gateway",
             "gatewayAvailable": true,
-            "gatewayApiVersion": 12,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "nativeGlobalEq", "nativeModeCycle", "nativeLooper", "hostMidiPerformance"],
+            "gatewayApiVersion": 13,
+            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "nativeGlobalEq", "nativeModeCycle", "nativeLooper", "nativeLibraryManagement", "hostMidiPerformance"],
             "message": "Shared Rust QC engine active"
         })),
         "device.status" => {
@@ -119,9 +119,14 @@ fn handle(
         "device.ioSettings" => {
             execute_gateway_read(controller, "device.ioSettings", &request.params)
         }
-        "device.globalEq" | "device.modeCycle" | "device.looperStatus" => {
-            execute_gateway_read(controller, &request.method, &request.params)
-        }
+        "device.globalEq"
+        | "device.modeCycle"
+        | "device.looperStatus"
+        | "device.recents"
+        | "device.favorites"
+        | "device.pinnedModels"
+        | "device.captures"
+        | "device.irs" => execute_gateway_read(controller, &request.method, &request.params),
         "device.setInputPort"
         | "device.setOutputPort"
         | "device.setUsbPort"
@@ -133,6 +138,14 @@ fn handle(
         | "device.setGlobalEqBand"
         | "device.setGlobalEqOutput"
         | "device.setModeCycle" => gateway_operation(controller, &request.params, &request.method),
+        "device.setFavorite"
+        | "device.setModelPinned"
+        | "device.createSetlist"
+        | "device.deleteSetlist"
+        | "device.deletePreset"
+        | "device.movePreset"
+        | "device.loadCapture"
+        | "device.loadIr" => gateway_operation(controller, &request.params, &request.method),
         "device.setGeneralInteger"
         | "device.setGeneralToggle"
         | "device.setSceneBypassBehavior"
@@ -1386,7 +1399,7 @@ mod tests {
             },
         );
         assert_eq!(response["result"]["platform"], "Rust device gateway");
-        assert_eq!(response["result"]["gatewayApiVersion"], 12);
+        assert_eq!(response["result"]["gatewayApiVersion"], 13);
         assert_eq!(response["result"]["gatewayAvailable"], true);
         assert!(response["result"]["capabilities"]
             .as_array()

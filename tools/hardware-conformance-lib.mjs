@@ -24,6 +24,11 @@ export const CASES = Object.freeze({
   get_global_eq: { phase: "read", hazard: "read" },
   get_mode_cycle: { phase: "read", hazard: "read" },
   get_looper_status: { phase: "read", hazard: "read" },
+  list_recents: { phase: "read", hazard: "read" },
+  list_favorites: { phase: "read", hazard: "read" },
+  list_pinned_models: { phase: "read", hazard: "read" },
+  list_captures: { phase: "read", hazard: "read" },
+  list_irs: { phase: "read", hazard: "read" },
   get_preset_screenshot: { phase: "read", hazard: "read" },
   capture_screen: { phase: "read", hazard: "read" },
   preview_parameter: { phase: "modify", hazard: "live" },
@@ -58,6 +63,8 @@ export const CASES = Object.freeze({
   move_block: { phase: "modify", hazard: "live" },
   add_block: { phase: "modify", hazard: "live" },
   remove_block: { phase: "modify", hazard: "live" },
+  load_capture: { phase: "modify", hazard: "live" },
+  load_ir: { phase: "modify", hazard: "live" },
   set_block_footswitch: { phase: "modify", hazard: "live" },
   set_stomp_momentary: { phase: "modify", hazard: "live" },
   set_stomp_label: { phase: "modify", hazard: "live" },
@@ -82,7 +89,13 @@ export const CASES = Object.freeze({
   set_global_eq_bypassed: { phase: "persistent", hazard: "persistent" },
   set_global_eq_band: { phase: "persistent", hazard: "persistent" },
   set_global_eq_output: { phase: "persistent", hazard: "persistent" },
-  set_mode_cycle: { phase: "persistent", hazard: "persistent" }
+  set_mode_cycle: { phase: "persistent", hazard: "persistent" },
+  set_favorite: { phase: "persistent", hazard: "persistent" },
+  set_model_pinned: { phase: "persistent", hazard: "persistent" },
+  create_setlist: { phase: "persistent", hazard: "persistent" },
+  delete_setlist: { phase: "persistent", hazard: "persistent" },
+  delete_preset: { phase: "persistent", hazard: "persistent" },
+  move_preset: { phase: "persistent", hazard: "persistent" }
 });
 
 const requiredFixturePaths = [

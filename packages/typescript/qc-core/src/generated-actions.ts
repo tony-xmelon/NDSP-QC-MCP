@@ -3039,6 +3039,458 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "list_recents",
+    "rpc": "device.recents",
+    "classification": "read",
+    "description": "List recently used presets with authoritative folder metadata.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_favorites",
+    "rpc": "device.favorites",
+    "classification": "read",
+    "description": "List favorite presets using request correlation even when the reply omits its favorites flag.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_favorite",
+    "rpc": "device.setFavorite",
+    "classification": "persistent-write",
+    "description": "Add or remove one exact device library entry from Favorites after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "folder_key": "string",
+      "folder_name": "string",
+      "is_factory": "boolean",
+      "favorite": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "folder_key",
+      "folder_name",
+      "is_factory",
+      "favorite",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "folder_key": {
+          "type": "string"
+        },
+        "folder_name": {
+          "type": "string"
+        },
+        "is_factory": {
+          "type": "boolean"
+        },
+        "favorite": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "folder_key",
+        "folder_name",
+        "is_factory",
+        "favorite",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_pinned_models",
+    "rpc": "device.pinnedModels",
+    "classification": "read",
+    "description": "List model IDs and capture keys pinned in the device model browser.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_model_pinned",
+    "rpc": "device.setModelPinned",
+    "classification": "persistent-write",
+    "description": "Pin or unpin one model ID after explicit confirmation.",
+    "properties": {
+      "model_id": "integer",
+      "pinned": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "model_id",
+      "pinned",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "integer"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_id",
+        "pinned",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_captures",
+    "rpc": "device.captures",
+    "classification": "read",
+    "description": "List loadable Neural Captures with their content keys and names.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_capture",
+    "rpc": "device.loadCapture",
+    "classification": "live-write",
+    "description": "Place or retarget a Neural Capture block using a device library key and name.",
+    "properties": {
+      "row": "grid-row",
+      "column": "grid-column",
+      "key": "string",
+      "name": "string",
+      "model_id": "nullable-integer",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "key",
+      "name",
+      "model_id",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "key",
+        "name",
+        "model_id",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_irs",
+    "rpc": "device.irs",
+    "classification": "read",
+    "description": "List loadable Impulse Responses from the whole library or a selected device folder.",
+    "properties": {
+      "folder": "nullable-string"
+    },
+    "required": [
+      "folder"
+    ],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_ir",
+    "rpc": "device.loadIr",
+    "classification": "live-write",
+    "description": "Place or retarget an IR Loader and set one of its two IR slots by key and name.",
+    "properties": {
+      "row": "grid-row",
+      "column": "grid-column",
+      "key": "string",
+      "name": "string",
+      "slot": "integer",
+      "model_id": "nullable-integer",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "column",
+      "key",
+      "name",
+      "slot",
+      "model_id",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "key",
+        "name",
+        "slot",
+        "model_id",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_setlist",
+    "rpc": "device.createSetlist",
+    "classification": "persistent-write",
+    "description": "Create a user setlist after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_setlist",
+    "rpc": "device.deleteSetlist",
+    "classification": "persistent-write",
+    "description": "Delete a named user setlist and its contents after explicit confirmation.",
+    "properties": {
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_preset",
+    "rpc": "device.deletePreset",
+    "classification": "persistent-write",
+    "description": "Delete a named preset from a writable user setlist after explicit confirmation.",
+    "properties": {
+      "setlist_key": "string",
+      "name": "string",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setlist_key",
+      "name",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setlist_key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setlist_key",
+        "name",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "move_preset",
+    "rpc": "device.movePreset",
+    "classification": "persistent-write",
+    "description": "Move a named preset to another slot in its user setlist after explicit confirmation.",
+    "properties": {
+      "setlist_key": "string",
+      "name": "string",
+      "position": "integer",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setlist_key",
+      "name",
+      "position",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setlist_key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setlist_key",
+        "name",
+        "position",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "set_general_integer",
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

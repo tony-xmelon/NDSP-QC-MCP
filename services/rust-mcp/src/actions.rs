@@ -1120,6 +1120,150 @@ pub static ACTIONS: &[ActionSpec] = &[
         ],
     },
     ActionSpec {
+        name: "list_recents",
+        rpc: "device.recents",
+        classification: Classification::Read,
+        description: "List recently used presets with authoritative folder metadata.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "list_favorites",
+        rpc: "device.favorites",
+        classification: Classification::Read,
+        description: "List favorite presets using correlated replies.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_favorite",
+        rpc: "device.setFavorite",
+        classification: Classification::PersistentWrite,
+        description: "Add or remove one exact device library entry from Favorites after explicit confirmation.",
+        properties: &[
+            p!("name", TEXT),
+            p!("folder_key", TEXT),
+            p!("folder_name", TEXT),
+            p!("is_factory", BOOL),
+            p!("favorite", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "list_pinned_models",
+        rpc: "device.pinnedModels",
+        classification: Classification::Read,
+        description: "List models and captures pinned in the device browser.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_model_pinned",
+        rpc: "device.setModelPinned",
+        classification: Classification::PersistentWrite,
+        description: "Pin or unpin one model ID after explicit confirmation.",
+        properties: &[
+            p!("model_id", Kind::Integer { min: 1, max: None }),
+            p!("pinned", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "list_captures",
+        rpc: "device.captures",
+        classification: Classification::Read,
+        description: "List loadable Neural Captures.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "load_capture",
+        rpc: "device.loadCapture",
+        classification: Classification::LiveWrite,
+        description: "Place or retarget a Neural Capture block by library key and name.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", GRID_COLUMN),
+            p!("key", TEXT),
+            p!("name", TEXT),
+            p!("model_id", Kind::NullableInteger { min: 1, max: None }),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "list_irs",
+        rpc: "device.irs",
+        classification: Classification::Read,
+        description: "List loadable Impulse Responses.",
+        properties: &[p!("folder", Kind::NullableString)],
+    },
+    ActionSpec {
+        name: "load_ir",
+        rpc: "device.loadIr",
+        classification: Classification::LiveWrite,
+        description: "Place or retarget an IR Loader slot by library key and name.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("column", GRID_COLUMN),
+            p!("key", TEXT),
+            p!("name", TEXT),
+            p!(
+                "slot",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(1)
+                }
+            ),
+            p!("model_id", Kind::NullableInteger { min: 1, max: None }),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "create_setlist",
+        rpc: "device.createSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Create a user setlist after explicit confirmation.",
+        properties: &[
+            p!("name", Kind::VisibleString { max_chars: 64 }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "delete_setlist",
+        rpc: "device.deleteSetlist",
+        classification: Classification::PersistentWrite,
+        description: "Delete a user setlist and its contents after explicit confirmation.",
+        properties: &[
+            p!("name", Kind::VisibleString { max_chars: 64 }),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "delete_preset",
+        rpc: "device.deletePreset",
+        classification: Classification::PersistentWrite,
+        description: "Delete a named preset from a user setlist after explicit confirmation.",
+        properties: &[
+            p!("setlist_key", TEXT),
+            p!("name", TEXT),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "move_preset",
+        rpc: "device.movePreset",
+        classification: Classification::PersistentWrite,
+        description: "Move a named preset to another slot after explicit confirmation.",
+        properties: &[
+            p!("setlist_key", TEXT),
+            p!("name", TEXT),
+            p!(
+                "position",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(255)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "set_general_integer",
         rpc: "device.setGeneralInteger",
         classification: Classification::PersistentWrite,
