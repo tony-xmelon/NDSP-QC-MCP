@@ -40,6 +40,7 @@
     "architecture:check": "node tools/verify-package-boundaries.mjs",
     "release:provenance": "node tools/release-provenance.mjs",
     "test:ui": "playwright test",
+    "security:audit": "npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {
