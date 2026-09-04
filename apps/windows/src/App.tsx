@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent 
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles, type ControlAccessMode, type PublicRelayStatus } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -63,7 +63,7 @@ const modelQuotaLabel = (modelId: string, quota?: ChatQuota) => {
   return group?.remainingFraction === undefined ? "quota unavailable" : `${Math.round(group.remainingFraction * 100)}% remaining`;
 };
 export function App() {
-  const [connection, setConnection] = useState(initialConnection);
+  const { connection, setConnection } = useQcConnectionWorkflow(initialConnection);
   const [syncProgress, setSyncProgress] = useState<number | null>(null);
   const [runtime, setRuntime] = useState<RuntimeStatus>();
   const qcController = useQcController(demoSnapshot);

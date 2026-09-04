@@ -54,3 +54,5 @@ export { resolveAssistantParameterEdit } from "./assistant-parameter-edit";
 export type { AssistantParameterEdit } from "./assistant-parameter-edit";
 export { useAssistantConversation } from "./use-assistant-conversation";
 export type { AssistantConversationOptions, AssistantSubmission } from "./use-assistant-conversation";
+export { qcConnectionPresentation, useQcConnectionWorkflow } from "./use-qc-connection-workflow";
+export type { QcConnectionPresentation, QcConnectionTransition } from "./use-qc-connection-workflow";

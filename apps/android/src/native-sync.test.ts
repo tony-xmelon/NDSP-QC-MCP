@@ -41,8 +41,8 @@ test("USB attachment auto-connects and reports synchronization separately", () =
   assert.match(servicesSource, /connected: boolean; synchronized: boolean/);
   assert.match(javaSource, /handshakeComplete && presetSynchronized && currentSetlist != null/);
   assert.match(appSource, /if \(state === "available"\)[\s\S]*attemptUsbConnection\(\)/);
-  assert.match(appSource, /state\.kind === "preset"[\s\S]*usbSessionReady\.current[\s\S]*setUsbState\("connected"\)/);
-  assert.match(appSource, /usbState === "syncing" \? "SYNC"/);
+  assert.match(appSource, /state\.kind === "preset"[\s\S]*usbSessionReady\.current[\s\S]*transitionConnection\("connected"\)/);
+  assert.match(appSource, /label: usbLabel, appearance: usbState/);
 });
 
 test("A through H use the reported hardware mode and assignments", () => {

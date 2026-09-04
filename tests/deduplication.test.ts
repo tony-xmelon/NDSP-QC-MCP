@@ -445,3 +445,14 @@ test("ModelRepo projection and conversational control no longer have platform co
   assert.doesNotMatch(windows, /function (?:MenuBar|ConnectionBadge|ChatStatusBadge)/);
   assert.throws(() => source("services/device-gateway/src/qc_device_gateway/parameter_scales.py"));
 });
+
+test("connection presentation and transitions have one shared app workflow", () => {
+  const workflow = source("packages/typescript/qc-ui/src/use-qc-connection-workflow.ts");
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  assert.match(workflow, /qcConnectionPresentation/);
+  assert.match(workflow, /useQCConnectionWorkflow|useQcConnectionWorkflow/i);
+  for (const app of [windows, android]) assert.match(app, /useQcConnectionWorkflow/);
+  assert.doesNotMatch(android, /type UsbState/);
+  assert.doesNotMatch(android, /const usbLabel = usbState/);
+});

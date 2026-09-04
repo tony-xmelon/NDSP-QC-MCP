@@ -4,11 +4,10 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
-type UsbState = "searching" | "available" | "connecting" | "syncing" | "connected" | "absent" | "error";
 type AndroidGeminiModel = GeminiModelId;
 type AndroidAttachment = { name: string; mediaType: "image/png"; data: string };
 type AssistantResponse = { text: string; attachments?: AndroidAttachment[] };
@@ -58,7 +57,12 @@ export function App() {
     maximumInputLength: 2000
   });
   const { input: message, setInput: setMessage, messages, pending: busy } = conversation;
-  const [usbState, setUsbState] = useState<UsbState>(native ? "searching" : "absent");
+  const deviceConnection = useQcConnectionWorkflow({
+    phase: native ? "discovering" : "disconnected",
+    detail: native ? "Looking for the Quad Cortex…" : "Android USB is unavailable in browser preview.",
+    demo: true
+  });
+  const { connection, transition: transitionConnection, connected: usbConnected, busy: usbBusy, label: usbLabel, appearance: usbState } = deviceConnection;
   const [selectedModel, setSelectedModel] = useState<AndroidGeminiModel>(() => {
     const saved = window.localStorage.getItem(androidModelStorageKey);
     return androidGeminiModels.some((model) => model.id === saved) ? saved as AndroidGeminiModel : "gemini-3.7-flash";
@@ -86,7 +90,7 @@ export function App() {
     editor,
     selectedBlockId,
     setSelectedBlockId,
-    connected: usbState === "connected",
+    connected: usbConnected,
     demo: !native,
     pending: devicePending,
     setPending: setDevicePending,
@@ -101,7 +105,7 @@ export function App() {
     notice: appendAssistant,
     fail: (error) => appendAssistant(error instanceof Error ? error.message : String(error)),
     performanceFail: (error) => {
-      setUsbState("error");
+      transitionConnection("error");
       appendAssistant(error instanceof Error ? error.message : String(error));
     }
   });
@@ -122,7 +126,7 @@ export function App() {
     grid: gridWorkflow,
     parameter: parameterWorkflow,
     performance: performanceWorkflow,
-    connected: usbState === "connected",
+    connected: usbConnected,
     pending: devicePending,
     notice: appendAssistant,
     openExpression: () => setWorkflowPanel("block")
@@ -135,7 +139,7 @@ export function App() {
     onStates: (states) => {
       if (states.some((state) => state.kind === "preset")) {
         presetSynchronized.current = true;
-        if (usbSessionReady.current) setUsbState("connected");
+        if (usbSessionReady.current) transitionConnection("connected");
       }
     }
   });
@@ -149,16 +153,16 @@ export function App() {
     if (!native || connectInFlight.current) return;
     connectInFlight.current = true;
     presetSynchronized.current = false;
-    setUsbState("connecting");
+    transitionConnection("connecting");
     try {
       const result = await QcUsbNative.connect();
       usbSessionReady.current = true;
       if (result.synchronized) presetSynchronized.current = true;
-      setUsbState(presetSynchronized.current ? "connected" : "syncing");
+      transitionConnection(presetSynchronized.current ? "connected" : "syncing");
       if (announce) appendAssistant("Quad Cortex connected directly over USB.");
     } catch (error) {
       usbSessionReady.current = false;
-      setUsbState("error");
+      transitionConnection("error");
       if (announce) {
         const primary = error instanceof Error ? error.message : "Could not connect to the Quad Cortex.";
         try { appendAssistant(`${primary} ${await usbDiagnostics()}`); }
@@ -177,13 +181,13 @@ export function App() {
       VoiceInputNative.addListener("voiceState", ({ state }) => setVoiceState(state)),
       QcUsbNative.addListener("qcConnection", ({ state }) => {
         if (state === "available") {
-          setUsbState("available");
+          transitionConnection("available");
           void attemptUsbConnection();
         } else {
           usbSessionReady.current = false;
           presetSynchronized.current = false;
           resetCommands();
-          setUsbState("absent");
+          transitionConnection("absent");
         }
       }),
       QcUsbNative.addListener("qcStateBatch", ({ states }) => {
@@ -199,12 +203,12 @@ export function App() {
       if (connected) {
         usbSessionReady.current = true;
         presetSynchronized.current = synchronized;
-        setUsbState(synchronized ? "connected" : "syncing");
+        transitionConnection(synchronized ? "connected" : "syncing");
         return;
       }
-      if (!devices.length) { setUsbState("absent"); return; }
+      if (!devices.length) { transitionConnection("absent"); return; }
       await attemptUsbConnection();
-    }).catch(() => !cancelled && setUsbState("error"));
+    }).catch(() => !cancelled && transitionConnection("error"));
     return () => {
       cancelled = true;
       for (const promise of listenerPromises) void promise.then((listener) => listener.remove());
@@ -245,7 +249,7 @@ export function App() {
   };
 
   const connectUsb = async () => {
-    if (!native || usbState === "connecting" || usbState === "syncing") return;
+    if (!native || usbBusy) return;
     await attemptUsbConnection(true);
   };
 
@@ -276,12 +280,12 @@ export function App() {
     if (intent.kind === "inspect") return formatSnapshotSummary(snapshot);
     const intentTool = assistantIntentToolName(intent);
     if (intentTool && !assistantAccessPermitsTool(controlAccessMode, intentTool)) return `Assistant ${controlAccessMode} access does not permit that operation. Manual on-screen controls remain available.`;
-    if (intent.kind === "scene" && usbState !== "connected") {
+    if (intent.kind === "scene" && !usbConnected) {
       await selectScene(intent.index, false);
       return `Scene ${sceneLetter(intent.index)} selected in the preview.`;
     }
     if (intent.kind === "parameter") {
-      if (usbState !== "connected") return "Connect the Quad Cortex over USB first.";
+      if (!usbConnected) return "Connect the Quad Cortex over USB first.";
       if (!selectedBlock) return "Select a block on the Grid first.";
       try {
         const details = await androidGatewayTransport.blockDetails(selectedBlock.row, selectedBlock.column, snapshot.presetName);
@@ -314,7 +318,7 @@ export function App() {
       return error instanceof Error ? error.message : "That QC command is not valid.";
     }
     if (deviceCommand) {
-      if (usbState !== "connected") return "Connect the Quad Cortex over USB first.";
+      if (!usbConnected) return "Connect the Quad Cortex over USB first.";
       const result = await runAssistantCommand(qcTransport, deviceCommand);
       return assistantCommandDetail(deviceCommand, result);
     }
@@ -325,7 +329,7 @@ export function App() {
 
   const askGemini = async (input: string): Promise<AssistantResponse> => {
     if (!native) return { text: await localFallback(input) };
-    const prompt = assistantToolActionPrompt(snapshotRef.current, `USB ${usbState}`, selectedBlockId, input, controlAccessMode);
+    const prompt = assistantToolActionPrompt(snapshotRef.current, `USB ${connection.phase}`, selectedBlockId, input, controlAccessMode);
     let result: Awaited<ReturnType<typeof GeminiNative.generate>>;
     try {
       result = await GeminiNative.generate({ prompt, model: selectedModel });
@@ -354,16 +358,16 @@ export function App() {
     for (const action of actions) {
       try {
         const connectionAction = action.name === "reconnect_device" || action.name === "reset_device_session" || action.name === "disconnect_device";
-        if (usbState !== "connected" && !connectionAction) throw new Error("Connect the Quad Cortex first.");
+        if (!usbConnected && !connectionAction) throw new Error("Connect the Quad Cortex first.");
         const outcome = await executeQcAction(action, {
           gateway: androidGatewayTransport,
           snapshot: snapshotRef.current,
-          connected: usbState === "connected",
+          connected: usbConnected,
           accessMode: controlAccessMode,
           selectedBlockId
         });
         if (outcome.connection) {
-          setUsbState(outcome.connection.phase === "ready" ? "connected" : outcome.connection.phase === "disconnected" ? "absent" : "error");
+          deviceConnection.setConnection(outcome.connection);
         }
         if (outcome.savedPreset) presetWorkflow.commitSavedPreset(outcome.savedPreset);
         else if (outcome.snapshot) workflows.reconcile(outcome.snapshot);
@@ -405,8 +409,6 @@ export function App() {
       appendAssistant(error instanceof Error ? error.message : "Voice input failed.");
     }
   };
-
-  const usbLabel = usbState === "connected" ? "USB" : usbState === "syncing" ? "SYNC" : usbState === "connecting" || usbState === "searching" ? "WAIT" : "CONNECT";
 
   const configureRelay = async () => {
     if (!native) return;
@@ -474,15 +476,15 @@ export function App() {
     </nav>
 
     <nav className="workflow-actions" aria-label="Preset editing workflows">
-      <button disabled={usbState !== "connected" || devicePending} onClick={() => void gridWorkflow.openAdd()}>＋ BLOCK</button>
+      <button disabled={!usbConnected || devicePending} onClick={() => void gridWorkflow.openAdd()}>＋ BLOCK</button>
       <button disabled={!blockDetails || devicePending} onClick={() => setWorkflowPanel("block")}>EDIT BLOCK</button>
-      <button disabled={usbState !== "connected" || devicePending} onClick={routingWorkflow.open}>ROUTING</button>
-      <button disabled={usbState !== "connected" || devicePending} onClick={sceneWorkflow.open}>SCENES</button>
+      <button disabled={!usbConnected || devicePending} onClick={routingWorkflow.open}>ROUTING</button>
+      <button disabled={!usbConnected || devicePending} onClick={sceneWorkflow.open}>SCENES</button>
       <button disabled={!deviceHistory.redoEntry || devicePending} onClick={() => void deviceHistory.redo()}>REDO</button>
     </nav>
 
     <section className="mobile-chat" aria-label="QC assistant">
-      <div className="chat-heading"><span><i /> {busy ? "GEMINI THINKING" : "QC ASSISTANT"}</span><small>{selectedBlock ? `${selectedBlock.name} selected` : usbState === "connected" ? "QC connected" : "USB not connected"}</small></div>
+      <div className="chat-heading"><span><i /> {busy ? "GEMINI THINKING" : "QC ASSISTANT"}</span><small>{selectedBlock ? `${selectedBlock.name} selected` : usbConnected ? "QC connected" : "USB not connected"}</small></div>
       <div className="message-list" aria-live="polite">
         {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><div><p>{entry.text}</p>{entry.attachments?.map((attachment) => <img className="message-image" key={attachment.name} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} />)}</div></div>)}
         {busy && <div className="message assistant pending"><span>QC</span><p>•••</p></div>}
