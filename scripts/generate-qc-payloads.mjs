@@ -72,7 +72,9 @@ const outputs = new Map([
 let drift = false;
 for (const [target, content] of outputs) {
   const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
-  if (current === content) continue;
+  // Git commonly checks generated files out as CRLF on Windows while Node's
+  // templates intentionally use LF. Line endings are not contract drift.
+  if (current.replaceAll("\r\n", "\n") === content) continue;
   if (process.argv.includes("--check")) { console.error(`Generated payload drift: ${path.relative(root, target)}`); drift = true; }
   else { fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, content); }
 }
