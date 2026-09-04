@@ -13,7 +13,7 @@
   "initialSyncTimeoutMs": 2000,
   "presetSyncTimeoutMs": 15000,
   "commandConfirmationTimeoutMs": 3000,
-  "backupTotalTimeoutMs": 120000,
+  "backupTotalTimeoutMs": 180000,
   "backupFirstChunkTimeoutMs": 25000,
   "backupStreamStallTimeoutMs": 15000,
   "backupMaximumAttempts": 3,

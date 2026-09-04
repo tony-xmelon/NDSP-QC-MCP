@@ -15,7 +15,7 @@ final class QcUsbProfile {
     static final long INITIAL_SYNC_TIMEOUT_MS = 2000L;
     static final long PRESET_SYNC_TIMEOUT_MS = 15000L;
     static final long COMMAND_CONFIRMATION_TIMEOUT_MS = 3000L;
-    static final long BACKUP_TOTAL_TIMEOUT_MS = 120000L;
+    static final long BACKUP_TOTAL_TIMEOUT_MS = 180000L;
     static final long BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L;
     static final long BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L;
     static final int BACKUP_MAXIMUM_ATTEMPTS = 3;

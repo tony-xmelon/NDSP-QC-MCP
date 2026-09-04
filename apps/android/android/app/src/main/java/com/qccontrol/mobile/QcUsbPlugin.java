@@ -512,6 +512,8 @@ public class QcUsbPlugin extends Plugin {
 
     private static boolean isIdempotentGatewayWrite(String method) {
         switch (method) {
+            case "device.recallPreset":
+            case "device.reloadPreset":
             case "device.selectScene":
             case "device.toggleBypass":
             case "device.setParameter":

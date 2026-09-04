@@ -212,6 +212,45 @@ async fn reconnect_can_reach_a_connected_phone_while_usb_is_not_ready() {
 }
 
 #[tokio::test]
+async fn backup_can_outlive_the_ordinary_relay_request_window() {
+    let credentials = DeviceCredentialStore::new();
+    let pairing = PairingManager::new(credentials.clone());
+    let (principal, credential) = paired("alice", "phone-a", &credentials, &pairing).await;
+    let device = DeviceId("phone-a".into());
+    let hub = RelayHub::with_timeout(credentials, Duration::from_millis(20));
+    let mut phone = hub.connect(credential).await;
+    phone.set_ready(true);
+
+    let responder = tokio::spawn(async move {
+        let DeviceFrame::Invoke { id, method, .. } = phone.outbound.recv().await.unwrap() else {
+            panic!("invoke expected");
+        };
+        assert_eq!(method, "device.createBackup");
+        tokio::time::sleep(Duration::from_millis(40)).await;
+        phone
+            .accept(DeviceFrame::Result {
+                id,
+                ok: true,
+                result: Some(json!({"type": "qc-backup"})),
+                error: None,
+            })
+            .await;
+    });
+
+    let result = hub
+        .dispatch_validated_rpc(
+            &principal,
+            device,
+            "device.createBackup",
+            json!({"name": "test", "confirmPersistentWrite": true}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result["type"], "qc-backup");
+    responder.await.unwrap();
+}
+
+#[tokio::test]
 async fn reconnect_replaces_old_session_and_fails_pending_requests() {
     let credentials = DeviceCredentialStore::new();
     let pairing = PairingManager::new(credentials.clone());

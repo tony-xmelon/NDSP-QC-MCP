@@ -221,6 +221,12 @@ test("Android and Windows apply the same safe native-backup retry boundary", () 
   assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 3/);
   assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(windowsUsb, /partial document was discarded and was not combined with a retry/);
+  assert.match(javaSource, /pendingOperations\.timeout\(pending, QcUsbProfile\.BACKUP_TOTAL_TIMEOUT_MS/);
+});
+
+test("absolute Android preset writes use the bounded idempotent retry path", () => {
+  assert.match(javaSource, /case "device\.recallPreset":[\s\S]*case "device\.reloadPreset":[\s\S]*return true/);
+  assert.doesNotMatch(javaSource, /case "device\.navigateBank":[\s\S]*return true/);
 });
 
 test("live QC parameter frames update the open shared editor", () => {
