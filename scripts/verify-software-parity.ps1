@@ -8,7 +8,10 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $previousCargoTargetDirectory = $env:CARGO_TARGET_DIR
 if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) {
-    $env:CARGO_TARGET_DIR = Join-Path $repositoryRoot "artifacts\software-parity-target"
+    # GNU windres, used by the Windows Tauri shell build, does not reliably
+    # preserve spaces in CARGO_TARGET_DIR. Keep the isolated parity cache in a
+    # stable, space-free local application data path instead of inside the repo.
+    $env:CARGO_TARGET_DIR = Join-Path $env:LOCALAPPDATA "QCControlBuild\software-parity-target"
 }
 
 function Invoke-Checked {

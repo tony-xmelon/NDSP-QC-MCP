@@ -116,7 +116,7 @@ test("software parity lint-checks all Rust targets without release sidecars", ()
   assert.match(parity, /cargo clippy --locked --all-targets --manifest-path "apps\/windows\/src-tauri\/Cargo\.toml" -- -D warnings/);
   assert.match(parity, /cargo test --locked --manifest-path \$manifest/);
   assert.match(parity, /cargo clippy --locked --all-targets --manifest-path \$manifest -- -D warnings/);
-  assert.match(parity, /artifacts\\software-parity-target/);
+  assert.match(parity, /LOCALAPPDATA.*QCControlBuild\\software-parity-target/s);
   assert.match(parity, /\$env:CARGO_TARGET_DIR = \$previousCargoTargetDirectory/);
   assert.match(readFileSync(new URL("../packages/rust/qc-windows-midi/Cargo.lock", import.meta.url), "utf8"), /name = "qc-windows-midi"/);
 });
