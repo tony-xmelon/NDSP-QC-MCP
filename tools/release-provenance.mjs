@@ -140,11 +140,18 @@ function resolvedGradleComponents() {
   const wrapper = resolve(androidRoot, process.platform === "win32" ? "gradlew.bat" : "gradlew");
   if (!existsSync(wrapper)) return [];
   try {
-    const report = execFileSync(wrapper, ["-q", ":app:dependencies", "--configuration", "releaseRuntimeClasspath", "--console=plain"], {
+    const gradleArgs = ["-q", ":app:dependencies", "--configuration", "releaseRuntimeClasspath", "--console=plain"];
+    const executable = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : wrapper;
+    // A quoted .bat path is parsed as the cmd.exe command itself unless it is
+    // invoked through CALL. Keep shell mode disabled so arguments are not
+    // interpolated by Node and dependency resolution stays warning-free.
+    const args = process.platform === "win32" ? ["/d", "/s", "/c", `call "${wrapper}" ${gradleArgs.join(" ")}`] : gradleArgs;
+    const report = execFileSync(executable, args, {
       cwd: androidRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
-      maxBuffer: 32 * 1024 * 1024
+      maxBuffer: 32 * 1024 * 1024,
+      ...(process.platform === "win32" ? { windowsVerbatimArguments: true } : {})
     });
     return parseGradleDependencyReport(report);
   } catch {
