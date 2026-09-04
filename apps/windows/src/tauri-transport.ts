@@ -1,4 +1,5 @@
-import type { BlockDetails, ConnectionState, DeviceActionResult, DiagnosticsReport, GatewayTransport, ModelList, ParameterActionResult, PresetList, PresetSlotList, RuntimeStatus, SavePresetResult, WorkspaceDocument, WorkspaceFileResult } from "@ndsp-qc/client";
+import { createGatewayClientTransport, type DiagnosticsReport, type GatewayTransport, type RuntimeStatus, type WorkspaceDocument, type WorkspaceFileResult } from "@ndsp-qc/client";
+import { chatErrorMessage, type AntigravityModel, type ChatAttachment, type ChatCompletionRequest, type ChatCompletionResponse, type ChatQuota, type ChatSettings, type ChatSettingsUpdate, type GoogleOAuthResult } from "./model-chat";
 
 declare global {
   interface Window {
@@ -24,7 +25,102 @@ export function reportVoiceEvent(event: string): Promise<void> {
   return callTauri<void>("report_voice_event", { event });
 }
 
+export type PublicRelayState = "stopped" | "connecting" | "connected" | "reconnecting" | "pairing_required" | "invalid_endpoint";
+export type ControlAccessMode = "read-only" | "performance" | "modify" | "full";
+export interface PublicRelayStatus {
+  paired: boolean;
+  state: PublicRelayState;
+  accessMode: ControlAccessMode;
+  endpoint?: string;
+  deviceId?: string;
+}
+
+export const publicRelay = {
+  status(): Promise<PublicRelayStatus> {
+    return callTauri<PublicRelayStatus>("relay_status");
+  },
+  pair(endpoint: string, pairingCode: string, deviceName = "QC Control on Windows"): Promise<PublicRelayStatus> {
+    return callTauri<PublicRelayStatus>("pair_public_relay", { endpoint, pairingCode, deviceName });
+  },
+  start(): Promise<void> {
+    return callTauri<void>("start_public_relay");
+  },
+  unpair(): Promise<PublicRelayStatus> {
+    return callTauri<PublicRelayStatus>("unpair_public_relay");
+  },
+  setAccessMode(mode: ControlAccessMode): Promise<PublicRelayStatus> {
+    return callTauri<PublicRelayStatus>("set_public_relay_access_mode", { mode });
+  }
+};
+
+async function callModel<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await callTauri<T>(command, args);
+  } catch (error) {
+    throw new Error(chatErrorMessage(error));
+  }
+}
+
+export const modelChat = {
+  settings(): Promise<ChatSettings> {
+    return callModel<ChatSettings>("chat_settings");
+  },
+  updateSettings(settings: ChatSettingsUpdate): Promise<ChatSettings> {
+    return callModel<ChatSettings>("update_chat_settings", { settings });
+  },
+  setApiKey(apiKey: string): Promise<ChatSettings> {
+    return callModel<ChatSettings>("set_chat_api_key", { apiKey });
+  },
+  clearApiKey(): Promise<ChatSettings> {
+    return callModel<ChatSettings>("clear_chat_api_key");
+  },
+  configureGoogleOAuthApp(clientId: string, clientSecret: string): Promise<ChatSettings> {
+    return callModel<ChatSettings>("configure_google_oauth_app", { clientId, clientSecret });
+  },
+  complete(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    return callModel<ChatCompletionResponse>("chat_with_model", { request });
+  },
+  quota(): Promise<ChatQuota> {
+    return callModel<ChatQuota>("chat_quota");
+  },
+  antigravityModels(): Promise<AntigravityModel[]> {
+    return callModel<AntigravityModel[]>("antigravity_models");
+  },
+  testConnection(): Promise<string> {
+    return callModel<string>("test_chat_connection");
+  },
+  warm(): Promise<string> {
+    return callModel<string>("warm_chat_provider");
+  },
+  cancel(requestId: string): Promise<void> {
+    return callModel<void>("cancel_chat", { requestId });
+  },
+  fetchYoutubeReferenceAudio(url: string, startSeconds: number, durationSeconds: number, userConfirmedRights: boolean): Promise<{ detail: string; attachment: ChatAttachment }> {
+    return callModel<{ detail: string; attachment: ChatAttachment }>("fetch_youtube_reference_audio", { url, startSeconds, durationSeconds, userConfirmedRights });
+  },
+  openExternalUrl(url: string): Promise<void> {
+    return callModel<void>("open_external_url", { url });
+  },
+  connectGoogle(): Promise<GoogleOAuthResult> {
+    return callModel<GoogleOAuthResult>("connect_google_oauth");
+  },
+  openGoogleSubscriptionSetup(): Promise<void> {
+    return callModel<void>("open_google_subscription_setup");
+  },
+  selectGoogleProject(projectId: string): Promise<ChatSettings> {
+    return callModel<ChatSettings>("select_google_project", { projectId });
+  },
+  disconnectGoogle(): Promise<ChatSettings> {
+    return callModel<ChatSettings>("disconnect_google_oauth");
+  }
+};
+
+const generatedGatewayTransport = createGatewayClientTransport<GatewayTransport>(
+  <T,>(command: string, args?: Record<string, unknown>) => callTauri<T>(command, args)
+);
+
 export const tauriTransport: GatewayTransport = {
+  ...generatedGatewayTransport,
   async runtimeStatus(): Promise<RuntimeStatus> {
     if (!window.__TAURI_INTERNALS__) {
       return {
@@ -33,88 +129,7 @@ export const tauriTransport: GatewayTransport = {
         message: "UI preview mode — the device gateway is not attached."
       };
     }
-    return callTauri<RuntimeStatus>("runtime_status");
-  },
-  reconnect(): Promise<ConnectionState> {
-    return callTauri<ConnectionState>("reconnect_device");
-  },
-  resetSession(): Promise<ConnectionState> {
-    return callTauri<ConnectionState>("reset_device_session");
-  },
-  disconnect(): Promise<ConnectionState> {
-    return callTauri<ConnectionState>("disconnect_device");
-  },
-  currentSnapshot(): Promise<import("@ndsp-qc/client").PresetSnapshot> {
-    return callTauri<import("@ndsp-qc/client").PresetSnapshot>("current_snapshot");
-  },
-  listModels(): Promise<ModelList> {
-    return callTauri<ModelList>("list_models");
-  },
-  selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("select_scene", { scene, expectedPresetName });
-  },
-  toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("toggle_bypass", { row, column, expectedScene, expectedBypassed, desiredBypassed, expectedPresetName });
-  },
-  moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("move_block", { row, fromColumn, toColumn, expectedModelId, expectedPresetName });
-  },
-  addBlock(row: number, column: number, modelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("add_block", { row, column, modelId, expectedPresetName });
-  },
-  removeBlock(row: number, column: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("remove_block", { row, column, expectedModelId, expectedPresetName });
-  },
-  setBlockFootswitch(row: number, column: number, footswitch: number | null, expectedFootswitch: number | null, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_block_footswitch", { row, column, footswitch, expectedFootswitch, expectedModelId, expectedPresetName });
-  },
-  setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_chain_input", { row, inputId, expectedInputId, expectedPresetName });
-  },
-  setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_chain_output", { row, outputId, expectedOutputId, expectedPresetName });
-  },
-  setChainSplit(row: number, splitColumn: number | null, mixColumn: number | null, expectedSplitColumn: number | null, expectedMixColumn: number | null, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_chain_split", { row, splitColumn, mixColumn, expectedSplitColumn, expectedMixColumn, expectedPresetName });
-  },
-  listPresets(refresh = false): Promise<PresetList> {
-    return callTauri<PresetList>("list_presets", { refresh });
-  },
-  navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("navigate_bank", { direction, expectedPresetName, expectedPosition });
-  },
-  recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("recall_preset", { setlistKey, position, expectedPresetName, expectedPosition });
-  },
-  reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("reload_preset", { expectedPresetName, expectedPosition });
-  },
-  blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails> {
-    return callTauri<BlockDetails>("block_details", { row, column, expectedPresetName });
-  },
-  setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult> {
-    return callTauri<ParameterActionResult>("set_parameter", { row, column, parameterIndex, value, expectedValue, expectedScene, expectedPresetName });
-  },
-  setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_tempo", { bpm, expectedTempo, expectedPresetName });
-  },
-  setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("set_master_volume", { value, expectedValue });
-  },
-  pressFootswitch(index: number, expectedMode: import("@ndsp-qc/client").PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("press_footswitch", { index, expectedMode, expectedPresetName });
-  },
-  listPresetSlots(): Promise<PresetSlotList> {
-    return callTauri<PresetSlotList>("list_preset_slots");
-  },
-  savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult> {
-    return callTauri<SavePresetResult>("save_preset_as", { setlistKey, position, name, expectedPresetName, expectedPosition, confirmOverwrite });
-  },
-  showTuner(shown = true): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("show_tuner", { shown });
-  },
-  showGigView(shown = true): Promise<DeviceActionResult> {
-    return callTauri<DeviceActionResult>("show_gig_view", { shown });
+    return generatedGatewayTransport.runtimeStatus();
   }
 };
 

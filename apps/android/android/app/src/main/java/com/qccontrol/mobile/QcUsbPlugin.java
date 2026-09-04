@@ -1,0 +1,1106 @@
+package com.qccontrol.mobile;
+
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.hardware.usb.UsbManager;
+import android.os.Build;
+import androidx.core.content.ContextCompat;
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.PluginMethod;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
+
+@CapacitorPlugin(name = "QcUsb")
+public class QcUsbPlugin extends Plugin {
+    private static final int HID_WRITE_TIMEOUT_MS = 250;
+    private static final int MIDI_WRITE_TIMEOUT_MS = 250;
+    private static final String USB_PERMISSION = "com.qccontrol.mobile.USB_PERMISSION";
+
+    private UsbManager manager;
+    private UsbDevice device;
+    private UsbDeviceConnection connection;
+    private UsbInterface hidInterface;
+    private UsbEndpoint inputEndpoint;
+    private UsbInterface midiInterface;
+    private UsbEndpoint midiOutputEndpoint;
+    private PluginCall pendingConnect;
+    // HID reads, HID writes, and performance MIDI each have an independent
+    // lane. A footswitch must never queue behind preset synchronization or a
+    // multi-report parameter write.
+    private final ExecutorService readerIo = Executors.newSingleThreadExecutor();
+    private final ExecutorService commandIo = Executors.newSingleThreadExecutor();
+    private final ExecutorService midiIo = Executors.newSingleThreadExecutor();
+    private final ExecutorService metadataIo = Executors.newSingleThreadExecutor();
+    private final ScheduledExecutorService keepalive = Executors.newSingleThreadScheduledExecutor();
+    private volatile boolean reading;
+    private volatile CountDownLatch resetReply;
+    private volatile String currentSetlist;
+    private volatile int currentPosition = -1;
+    private volatile boolean currentSetlistFactory;
+    private volatile long messagesReceived;
+    private volatile long messagesSent;
+    private volatile long decodeErrors;
+    private volatile long expectedWriteStalls;
+    private volatile int lastMessageType = -1;
+    private volatile long connectedAt;
+    private volatile String lastError;
+    private final AtomicLong requestIds = new AtomicLong(1);
+    private volatile long readAttempts;
+    private volatile long negativeReads;
+    private volatile int selectedInterfaceId = -1;
+    private volatile int selectedInputEndpointAddress = -1;
+    private volatile int selectedInputMaxPacketSize;
+    private volatile boolean includeReportId = true;
+    private volatile boolean handshakeComplete;
+    private volatile boolean presetSynchronized;
+    private volatile boolean connecting;
+    private volatile long lastMidiCommandAt;
+    private volatile long lastMidiQueueDelayMs;
+    private volatile long maxMidiQueueDelayMs;
+    private volatile long lastStateAt;
+    private volatile long lastPresetLibraryAt;
+    private final AtomicLong connectionGeneration = new AtomicLong();
+    private final ConcurrentHashMap<Long, PendingGatewayRead> pendingGatewayReads = new ConcurrentHashMap<>();
+    private final QcNativeStateDecoder stateDecoder = new QcNativeStateDecoder();
+    private static volatile QcUsbPlugin relaySession;
+    private volatile String currentPresetName;
+    private volatile int currentMasterVolume = -1;
+    private final Object stateEventLock = new Object();
+    private final Deque<JSObject> stateEventLog = new ArrayDeque<>();
+    private long nextStateSequence = 1;
+    private volatile JSObject latestTempoClock;
+    private volatile PendingBackup pendingBackup;
+
+    private final BroadcastReceiver permissionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!USB_PERMISSION.equals(intent.getAction())) return;
+            UsbDevice grantedDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class)
+                : intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+            boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+            PluginCall call = pendingConnect;
+            pendingConnect = null;
+            if (call == null) return;
+            if (!granted || grantedDevice == null) {
+                call.reject("USB permission was denied.", "USB_PERMISSION_DENIED");
+                return;
+            }
+            openAndHandshake(grantedDevice, call);
+        }
+    };
+
+    private final BroadcastReceiver deviceReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            UsbDevice changed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class)
+                : intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+            if (changed == null || !isQuadCortex(changed)) return;
+            JSObject status = new JSObject();
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(intent.getAction())) {
+                if (device != null && device.getDeviceId() == changed.getDeviceId()) closeConnection();
+                status.put("state", "disconnected");
+            } else {
+                status.put("state", "available");
+                status.put("name", changed.getProductName() == null ? "Quad Cortex" : changed.getProductName());
+            }
+            notifyListeners("qcConnection", status, true);
+        }
+    };
+
+    @Override
+    public void load() {
+        relaySession = this;
+        manager = (UsbManager) getContext().getSystemService(Context.USB_SERVICE);
+        IntentFilter filter = new IntentFilter(USB_PERMISSION);
+        ContextCompat.registerReceiver(
+            getContext(), permissionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+        IntentFilter deviceFilter = new IntentFilter();
+        deviceFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        deviceFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        ContextCompat.registerReceiver(
+            getContext(), deviceReceiver, deviceFilter, ContextCompat.RECEIVER_EXPORTED
+        );
+        keepalive.scheduleWithFixedDelay(() -> {
+            if (!isReady() || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
+            // Keepalives share the serialized writer, but only enter the queue
+            // after five completely idle seconds. Normal interaction therefore
+            // never waits for recurring maintenance traffic.
+            commandIo.execute(() -> {
+                if (!isReady() || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
+                try { writeMessage(stateDecoder.keepaliveCommand()); } catch (Exception ignored) {}
+            });
+        }, QcUsbProfile.KEEPALIVE_INTERVAL_MS, QcUsbProfile.KEEPALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    static boolean relaySessionAvailable() {
+        QcUsbPlugin session = relaySession;
+        return session != null && session.isReady() && session.presetSynchronized;
+    }
+
+    static CompletableFuture<org.json.JSONObject> invokeFromRelay(String method, org.json.JSONObject params, org.json.JSONObject expected) {
+        QcUsbPlugin session = relaySession;
+        if (session == null) return failedRelay("NOT_CONNECTED", "QC Control is not running with a Quad Cortex session.");
+        return session.relayInvoke(method, params == null ? new org.json.JSONObject() : params,
+            expected == null ? new org.json.JSONObject() : expected);
+    }
+
+    static final class RelayException extends RuntimeException {
+        final String code;
+        RelayException(String code, String message) { super(message); this.code = code; }
+    }
+
+    private static CompletableFuture<org.json.JSONObject> failedRelay(String code, String message) {
+        CompletableFuture<org.json.JSONObject> value = new CompletableFuture<>();
+        value.completeExceptionally(new RelayException(code, message));
+        return value;
+    }
+
+    private static final class PendingBackup {
+        final String name;
+        final CompletableFuture<org.json.JSONObject> result;
+
+        PendingBackup(String name, CompletableFuture<org.json.JSONObject> result) {
+            this.name = name;
+            this.result = result;
+        }
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayDisconnect() {
+        closeConnection();
+        return CompletableFuture.completedFuture(connectionState("Quad Cortex session closed"));
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayReconnect(String detail) {
+        UsbDevice candidate = findQuadCortex();
+        if (candidate == null) return failedRelay("DEVICE_NOT_FOUND", "No Quad Cortex was found over USB.");
+        if (!manager.hasPermission(candidate)) return failedRelay("USB_PERMISSION_REQUIRED", "Quad Cortex USB permission is required.");
+        synchronized (this) {
+            if (connecting) return failedRelay("CONNECT_IN_PROGRESS", "The Quad Cortex USB connection is already starting.");
+            connecting = true;
+        }
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        commandIo.execute(() -> {
+            try {
+                openDeviceAndHandshake(candidate);
+                pollRelayReady(result, detail, System.currentTimeMillis() + 35000);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                closeConnection();
+                result.completeExceptionally(new RelayException("USB_CONNECT_FAILED", error.getMessage()));
+            } finally {
+                connecting = false;
+            }
+        });
+        return result;
+    }
+
+    private void pollRelayReady(CompletableFuture<org.json.JSONObject> result, String detail, long deadline) {
+        if (result.isDone()) return;
+        if (!isReady()) {
+            result.completeExceptionally(new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected while synchronizing."));
+            return;
+        }
+        if (presetSynchronized && currentSetlist != null || System.currentTimeMillis() >= deadline) {
+            result.complete(connectionState(detail));
+            return;
+        }
+        keepalive.schedule(() -> pollRelayReady(result, detail, deadline), 100, TimeUnit.MILLISECONDS);
+    }
+
+    private org.json.JSONObject connectionState(String detail) {
+        JSObject state = new JSObject();
+        state.put("phase", !isReady() ? "disconnected" : presetSynchronized && currentSetlist != null ? "ready" : "syncing");
+        state.put("detail", detail);
+        state.put("lastSync", connectedAt == 0 ? org.json.JSONObject.NULL : connectedAt);
+        state.put("demo", false);
+        return state;
+    }
+
+    private org.json.JSONObject relayStateEvents(org.json.JSONObject params) {
+        long after = Math.max(0, params.optLong("afterSequence", 0));
+        int limit = Math.max(1, Math.min(4096, params.optInt("limit", 256)));
+        org.json.JSONArray frames = new org.json.JSONArray();
+        synchronized (stateEventLock) {
+            for (JSObject frame : stateEventLog) {
+                if (frame.optLong("sequence", 0) > after && frames.length() < limit) frames.put(frame);
+            }
+        }
+        JSObject result = new JSObject();
+        result.put("native", true);
+        result.put("frames", frames);
+        return result;
+    }
+
+    private org.json.JSONObject relayTempoClock() {
+        JSObject clock = latestTempoClock;
+        if (clock != null) return clock;
+        JSObject unavailable = new JSObject();
+        unavailable.put("available", false);
+        return unavailable;
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayCreateBackup(org.json.JSONObject params) throws Exception {
+        String name = params.optString("name", "");
+        if (name.trim().isEmpty()) return failedRelay("INVALID_ARGUMENT", "Backup name cannot be empty.");
+        if (pendingBackup != null) return failedRelay("BACKUP_IN_PROGRESS", "A device backup is already in progress.");
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        PendingBackup pending = new PendingBackup(name, result);
+        pendingBackup = pending;
+        commandIo.execute(() -> {
+            try {
+                if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the backup.");
+                writeMessage(stateDecoder.backupCommand());
+            } catch (Exception error) {
+                if (pendingBackup == pending) pendingBackup = null;
+                result.completeExceptionally(error);
+            }
+        });
+        keepalive.schedule(() -> {
+            if (pendingBackup == pending) {
+                pendingBackup = null;
+                result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 60 seconds."));
+            }
+        }, 60, TimeUnit.SECONDS);
+        return result;
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayInvoke(String method, org.json.JSONObject params, org.json.JSONObject expected) {
+        try {
+            params = mergeExpectedState(params, expected);
+            String dispatch = GeneratedGatewayMethods.dispatchKind(method);
+            if ("SYSTEM".equals(dispatch)) {
+                return CompletableFuture.completedFuture(new JSObject()
+                    .put("connected", isReady()).put("synchronized", presetSynchronized && currentSetlist != null)
+                    .put("transport", "android-usb-relay"));
+            }
+            if ("RECONNECT".equals(dispatch)) return relayReconnect(
+                "device.resetSession".equals(method) ? "Communication session reset" : "Quad Cortex handshake complete");
+            if ("DISCONNECT".equals(dispatch)) return relayDisconnect();
+            if (!isReady()) return failedRelay("NOT_CONNECTED", "Quad Cortex USB is not connected.");
+            switch (dispatch) {
+                case "SNAPSHOT": return CompletableFuture.completedFuture(relaySnapshot());
+                case "STATE_EVENTS": return CompletableFuture.completedFuture(relayStateEvents(params));
+                case "TEMPO_CLOCK": return CompletableFuture.completedFuture(relayTempoClock());
+                case "CORRELATED_READ": return relayGatewayRead(method, params);
+                case "MODELS": return CompletableFuture.completedFuture(stateDecoder.modelList());
+                case "PRESET_LIBRARY": return relayPresetLibraryRead(method, params);
+                case "MASTER_VOLUME":
+                    if (currentMasterVolume < 0) return failedRelay("STATE_UNAVAILABLE", "The Quad Cortex has not reported master volume yet.");
+                    return CompletableFuture.completedFuture(new org.json.JSONObject().put("value", currentMasterVolume).put("observedAt", lastStateAt));
+                case "BLOCK_DETAILS": return CompletableFuture.completedFuture(
+                    stateDecoder.blockDetails(params.getInt("row"), params.getInt("column")));
+                case "SET_DEVICE_NAME": return relaySetDeviceName(params);
+                case "TAP_SCREEN": return relayTapScreen(params);
+                case "BACKUP": return relayCreateBackup(params);
+                case "PREVIEW_PARAMETER": return relayPreviewParameter(params);
+                case "PLANNED_WRITE": return relayPlannedGatewayWrite(method, params, 2500);
+                case "PRESET_WRITE": return relayPlannedGatewayWrite(method, params, 15000);
+                case "PERSISTENT_WRITE": return relayGatewayWorkflow(method, params);
+                default: return failedRelay("METHOD_NOT_ALLOWED", "The requested device operation is not supported by Android.");
+            }
+        } catch (Exception error) { return failedRelay("INVALID_ARGUMENT", error.getMessage() == null ? "Invalid device arguments." : error.getMessage()); }
+    }
+
+    private static org.json.JSONObject mergeExpectedState(
+        org.json.JSONObject params, org.json.JSONObject expected
+    ) throws Exception {
+        org.json.JSONObject merged = new org.json.JSONObject(params == null ? "{}" : params.toString());
+        if (expected == null) return merged;
+        copyExpected(merged, expected, "expectedPresetName", "presetName");
+        copyExpected(merged, expected, "expectedPosition", "position", "presetPosition");
+        copyExpected(merged, expected, "expectedScene", "activeScene", "scene");
+        copyExpected(merged, expected, "expectedTempo", "tempo");
+        return merged;
+    }
+
+    private static void copyExpected(
+        org.json.JSONObject target, org.json.JSONObject source, String targetKey, String... sourceKeys
+    ) throws Exception {
+        if (target.has(targetKey)) return;
+        for (String key : sourceKeys) {
+            if (source.has(key)) {
+                target.put(targetKey, source.get(key));
+                return;
+            }
+        }
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayPlannedGatewayWrite(
+        String method, org.json.JSONObject params, long timeoutMs
+    ) throws Exception {
+        QcNativeStateDecoder.PlannedGatewayWrite plan = stateDecoder.gatewayPlan(method, JSObject.fromJSONObject(params));
+        return executeRelayPlan(plan, timeoutMs);
+    }
+
+    private CompletableFuture<org.json.JSONObject> executeRelayPlan(
+        QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs
+    ) {
+        if (plan.midi) return relayMidi(plan.controller, plan.value).thenApply(result -> {
+            try { return result.put("detail", plan.detail).put("verification", "authoritative_state_pending"); }
+            catch (Exception error) { throw new java.util.concurrent.CompletionException(error); }
+        });
+        long stateBeforeWrite = lastStateAt;
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        commandIo.execute(() -> {
+            try {
+                if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the write.");
+                for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
+                org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
+                if ("none".equals(verification.optString("kind"))) {
+                    result.complete(new org.json.JSONObject().put("accepted", true).put("detail", plan.detail)
+                        .put("verification", "authoritative_state_pending"));
+                } else {
+                    pollRelayVerification(result, () -> stateDecoder.gatewayVerificationMatches(plan),
+                        stateBeforeWrite, System.currentTimeMillis() + timeoutMs, plan.detail);
+                }
+            } catch (Exception error) { result.completeExceptionally(error); }
+        });
+        return result;
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayGatewayWorkflow(
+        String method, org.json.JSONObject params
+    ) throws Exception {
+        return executeRelayWorkflow(
+            stateDecoder.gatewayWorkflow(method, JSObject.fromJSONObject(params)), 0);
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayGatewayRead(
+        String method, org.json.JSONObject params
+    ) throws Exception {
+        long requestId = requestIds.getAndIncrement();
+        QcNativeStateDecoder.PlannedGatewayRead plan = stateDecoder.gatewayRead(
+            method, JSObject.fromJSONObject(params), requestId);
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        PendingGatewayRead pending = new PendingGatewayRead(plan, result);
+        pendingGatewayReads.put(requestId, pending);
+        commandIo.execute(() -> {
+            try {
+                if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the read.");
+                for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
+            } catch (Exception error) {
+                pendingGatewayReads.remove(requestId);
+                result.completeExceptionally(error);
+            }
+        });
+        keepalive.schedule(() -> {
+            if (pendingGatewayReads.remove(requestId, pending)) {
+                result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested reply in time."));
+            }
+        }, plan.timeoutMs, TimeUnit.MILLISECONDS);
+        return result;
+    }
+
+    private CompletableFuture<org.json.JSONObject> relaySetDeviceName(org.json.JSONObject params) throws Exception {
+        String expectedName = params.optString("name", "");
+        return relayPlannedGatewayWrite("device.setDeviceName", params, 2500)
+            .thenCompose(ignored -> {
+                try { return relayGatewayRead("device.identity", new org.json.JSONObject()); }
+                catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
+            })
+            .thenCompose(identity -> expectedName.equals(identity.optString("customName", ""))
+                ? CompletableFuture.completedFuture(identity)
+                : failedRelay("READBACK_MISMATCH", "The Quad Cortex did not confirm the requested device name."));
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayTapScreen(org.json.JSONObject params) throws Exception {
+        return relayGatewayRead("device.captureScreen", new org.json.JSONObject())
+            .thenCompose(ignored -> {
+                try { return relayPlannedGatewayWrite("device.tapScreen", params, 2500); }
+                catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
+            });
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayPreviewParameter(org.json.JSONObject params) throws Exception {
+        double value = params.optDouble("value", Double.NaN);
+        return relayPlannedGatewayWrite("device.previewParameter", params, 2500)
+            .thenApply(result -> {
+                try {
+                    return result.put("acceptedValue", value);
+                } catch (org.json.JSONException error) {
+                    throw new IllegalStateException("Could not encode the parameter preview result.", error);
+                }
+            });
+    }
+
+    private CompletableFuture<org.json.JSONObject> executeRelayWorkflow(
+        QcNativeStateDecoder.PlannedGatewayWorkflow workflow, int stageIndex
+    ) {
+        if (stageIndex >= workflow.stages.size()) {
+            try {
+                stateDecoder.recordSavedPreset(workflow);
+                return CompletableFuture.completedFuture(new org.json.JSONObject()
+                    .put("accepted", true).put("verified", true).put("detail", workflow.detail)
+                    .put("observedAt", lastStateAt));
+            } catch (Exception error) {
+                return failedRelay("DEVICE_ERROR", error.getMessage());
+            }
+        }
+        QcNativeStateDecoder.PlannedGatewayStage stage = workflow.stages.get(stageIndex);
+        QcNativeStateDecoder.PlannedGatewayWrite write = new QcNativeStateDecoder.PlannedGatewayWrite(
+            workflow.detail, stage.verificationJson, false, 0, 0, stage.messages);
+        return executeRelayPlan(write, stage.timeoutMs)
+            .thenCompose(ignored -> executeRelayWorkflow(workflow, stageIndex + 1));
+    }
+
+    private interface RelayJsonRead { org.json.JSONObject get() throws Exception; }
+
+    private CompletableFuture<org.json.JSONObject> relayPresetLibraryRead(
+        String method, org.json.JSONObject params
+    ) throws Exception {
+        RelayJsonRead read = () -> {
+            if ("device.listPresetFolders".equals(method)) return stateDecoder.presetFolders();
+            if ("device.listPresetSlots".equals(method)) return stateDecoder.presetSlots();
+            String requestedSetlist = firstText(params, "setlistKey", "setlist_key");
+            String setlistKey = requestedSetlist == null ? currentSetlist : requestedSetlist;
+            if (setlistKey == null) throw new IllegalStateException("No active preset setlist has been synchronized.");
+            return stateDecoder.presetList(setlistKey);
+        };
+        boolean refresh = params.optBoolean("refresh", false);
+        if (!refresh) {
+            try {
+                org.json.JSONObject cached = read.get();
+                org.json.JSONArray folders = cached.optJSONArray("folders");
+                if (!"device.listPresetFolders".equals(method) || folders != null && folders.length() > 0)
+                    return CompletableFuture.completedFuture(cached);
+            } catch (Exception ignored) {}
+        }
+        long before = lastPresetLibraryAt;
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        commandIo.execute(() -> {
+            try {
+                if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the catalog read.");
+                writeMessage(stateDecoder.readCommand(4));
+                pollPresetLibrary(result, read, before, System.currentTimeMillis() + 25000);
+            } catch (Exception error) { result.completeExceptionally(error); }
+        });
+        return result;
+    }
+
+    private void pollPresetLibrary(CompletableFuture<org.json.JSONObject> result, RelayJsonRead read,
+                                   long before, long deadline) {
+        if (result.isDone()) return;
+        if (lastPresetLibraryAt > before) {
+            try {
+                result.complete(read.get());
+                return;
+            } catch (Exception ignored) {}
+        }
+        if (System.currentTimeMillis() >= deadline) {
+            result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested preset catalog in time."));
+            return;
+        }
+        keepalive.schedule(() -> pollPresetLibrary(result, read, before, deadline), 100, TimeUnit.MILLISECONDS);
+    }
+
+    private interface RelayVerification { boolean matches(); }
+
+    private void pollRelayVerification(CompletableFuture<org.json.JSONObject> result, RelayVerification verification,
+                                       long stateBeforeWrite, long deadline, String detail) {
+        if (result.isDone()) return;
+        if (lastStateAt > stateBeforeWrite && verification.matches()) {
+            try {
+                org.json.JSONObject value = new org.json.JSONObject().put("accepted", true).put("verified", true).put("observedAt", lastStateAt);
+                if (detail != null) value.put("detail", detail);
+                result.complete(value);
+            }
+            catch (Exception error) { result.completeExceptionally(error); }
+            return;
+        }
+        if (System.currentTimeMillis() >= deadline) {
+            result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not confirm the requested state in time."));
+            return;
+        }
+        keepalive.schedule(() -> pollRelayVerification(result, verification, stateBeforeWrite, deadline, detail), 50, TimeUnit.MILLISECONDS);
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayMidi(int controller, int value) {
+        if (value < 0 || value > 127) return failedRelay("INVALID_ARGUMENT", "MIDI value is outside the supported range.");
+        if (midiOutputEndpoint == null) return failedRelay("MIDI_NOT_AVAILABLE", "Quad Cortex USB-MIDI is unavailable.");
+        CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        long queuedAt = System.currentTimeMillis();
+        midiIo.execute(() -> {
+            try {
+                lastMidiQueueDelayMs = Math.max(0, System.currentTimeMillis() - queuedAt);
+                maxMidiQueueDelayMs = Math.max(maxMidiQueueDelayMs, lastMidiQueueDelayMs);
+                long remaining = QcUsbProfile.PERFORMANCE_MIDI_GAP_MS - (System.currentTimeMillis() - lastMidiCommandAt);
+                if (remaining > 0) Thread.sleep(remaining);
+                byte[] packet = {(byte) 0x0b, (byte) 0xb0, (byte) controller, (byte) value};
+                int written = connection.bulkTransfer(midiOutputEndpoint, packet, packet.length, MIDI_WRITE_TIMEOUT_MS);
+                lastMidiCommandAt = System.currentTimeMillis();
+                if (written != packet.length) throw new RelayException("MIDI_WRITE_FAILED", "The complete MIDI packet was not written.");
+                result.complete(new org.json.JSONObject().put("accepted", true));
+            } catch (Exception error) { result.completeExceptionally(error); }
+        });
+        return result;
+    }
+
+    private org.json.JSONObject relaySnapshot() throws Exception {
+        org.json.JSONObject snapshot = stateDecoder.snapshot();
+        snapshot.put("connected", isReady()).put("synchronized", presetSynchronized)
+            .put("position", snapshot.optInt("presetPosition", currentPosition))
+            .put("observedAt", lastStateAt);
+        if (currentMasterVolume < 0) snapshot.put("masterVolume", org.json.JSONObject.NULL);
+        return snapshot;
+    }
+
+    private static String firstText(org.json.JSONObject value, String... keys) {
+        for (String key : keys) { String text = value.optString(key, "").trim(); if (!text.isEmpty()) return text; }
+        return null;
+    }
+
+    private static int firstInt(org.json.JSONObject primary, org.json.JSONObject fallback, String... keys) {
+        for (String key : keys) { if (primary.has(key)) return primary.optInt(key, -1); if (fallback.has(key)) return fallback.optInt(key, -1); }
+        return -1;
+    }
+
+    @PluginMethod
+    public void scan(PluginCall call) {
+        JSArray found = new JSArray();
+        for (UsbDevice candidate : manager.getDeviceList().values()) {
+            if (!isQuadCortex(candidate)) continue;
+            JSObject entry = new JSObject();
+            entry.put("deviceId", candidate.getDeviceId());
+            entry.put("name", candidate.getProductName() == null ? "Quad Cortex" : candidate.getProductName());
+            entry.put("manufacturer", candidate.getManufacturerName());
+            entry.put("permission", manager.hasPermission(candidate));
+            entry.put("interfaces", candidate.getInterfaceCount());
+            found.put(entry);
+        }
+        JSObject result = new JSObject();
+        result.put("devices", found);
+        result.put("connected", connection != null && handshakeComplete);
+        result.put("synchronized", connection != null && handshakeComplete && presetSynchronized && currentSetlist != null);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void connect(PluginCall call) {
+        UsbDevice candidate = findQuadCortex();
+        if (candidate == null) {
+            call.reject("No Quad Cortex was found over USB.", "DEVICE_NOT_FOUND");
+            return;
+        }
+        if (isReady() && device != null && device.getDeviceId() == candidate.getDeviceId()) {
+            resolveConnected(call, candidate);
+            return;
+        }
+        if (connecting) {
+            call.reject("The Quad Cortex USB connection is already starting.", "CONNECT_IN_PROGRESS");
+            return;
+        }
+        if (manager.hasPermission(candidate)) {
+            openAndHandshake(candidate, call);
+            return;
+        }
+        pendingConnect = call;
+        PendingIntent permissionIntent = PendingIntent.getBroadcast(
+            getContext(), 0, new Intent(USB_PERMISSION).setPackage(getContext().getPackageName()),
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        manager.requestPermission(candidate, permissionIntent);
+    }
+
+    @PluginMethod
+    public void disconnect(PluginCall call) {
+        closeConnection();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void diagnostics(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("connected", connection != null);
+        result.put("device", device == null || device.getProductName() == null ? "Quad Cortex" : device.getProductName());
+        result.put("messagesReceived", messagesReceived);
+        result.put("messagesSent", messagesSent);
+        result.put("decodeErrors", decodeErrors);
+        result.put("expectedWriteStalls", expectedWriteStalls);
+        result.put("lastMessageType", lastMessageType);
+        result.put("connectedAt", connectedAt);
+        result.put("setlistKnown", currentSetlist != null);
+        result.put("presetPosition", currentPosition);
+        result.put("modelCount", stateDecoder.modelCount());
+        result.put("readAttempts", readAttempts);
+        result.put("negativeReads", negativeReads);
+        result.put("interfaceId", selectedInterfaceId);
+        result.put("inputEndpointAddress", selectedInputEndpointAddress);
+        result.put("inputMaxPacketSize", selectedInputMaxPacketSize);
+        result.put("reportBytes", includeReportId ? 129 : 128);
+        result.put("midiAvailable", midiOutputEndpoint != null);
+        result.put("midiInterfaceId", midiInterface == null ? -1 : midiInterface.getId());
+        result.put("midiOutputEndpointAddress", midiOutputEndpoint == null ? -1 : midiOutputEndpoint.getAddress());
+        result.put("lastMidiQueueDelayMs", lastMidiQueueDelayMs);
+        result.put("maxMidiQueueDelayMs", maxMidiQueueDelayMs);
+        result.put("lastStateAt", lastStateAt);
+        if (lastError != null) result.put("lastError", lastError);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void gatewayInvoke(PluginCall call) {
+        String method = call.getString("method", "");
+        if (!GeneratedGatewayMethods.contains(method)) {
+            call.reject("The requested gateway method is not part of the generated contract.", "METHOD_NOT_ALLOWED");
+            return;
+        }
+        JSObject params = call.getObject("params");
+        JSObject expected = call.getObject("expectedState");
+        relayInvoke(method, params == null ? new JSObject() : params,
+            expected == null ? new JSObject() : expected).whenComplete((result, error) -> {
+                if (error == null) {
+                    try { call.resolve(JSObject.fromJSONObject(result)); }
+                    catch (Exception conversionError) {
+                        call.reject("The gateway result was not valid JSON.", "DEVICE_ERROR", conversionError);
+                    }
+                }
+                else if (error instanceof RelayException)
+                    call.reject(error.getMessage(), ((RelayException) error).code, (Exception) error);
+                else if (error instanceof Exception)
+                    call.reject(error.getMessage() == null ? "The gateway operation failed." : error.getMessage(),
+                        "DEVICE_ERROR", (Exception) error);
+                else call.reject("The gateway operation failed.", "DEVICE_ERROR");
+            });
+    }
+
+    private void openAndHandshake(UsbDevice candidate, PluginCall call) {
+        synchronized (this) {
+            if (isReady() && device != null && device.getDeviceId() == candidate.getDeviceId()) {
+                resolveConnected(call, candidate);
+                return;
+            }
+            if (connecting) {
+                call.reject("The Quad Cortex USB connection is already starting.", "CONNECT_IN_PROGRESS");
+                return;
+            }
+            connecting = true;
+        }
+        commandIo.execute(() -> {
+            try {
+                openDeviceAndHandshake(candidate);
+                resolveConnected(call, candidate);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                closeConnection();
+                call.reject(error.getMessage(), "USB_CONNECT_FAILED", error);
+            } finally {
+                connecting = false;
+            }
+        });
+    }
+
+    private void openDeviceAndHandshake(UsbDevice candidate) throws Exception {
+        closeConnection();
+        UsbInterface selected = null;
+        UsbEndpoint selectedInput = null;
+        for (int index = 0; index < candidate.getInterfaceCount(); index++) {
+            UsbInterface iface = candidate.getInterface(index);
+            if (iface.getInterfaceClass() != UsbConstants.USB_CLASS_HID) continue;
+            UsbEndpoint candidateInput = null;
+            for (int endpointIndex = 0; endpointIndex < iface.getEndpointCount(); endpointIndex++) {
+                UsbEndpoint endpoint = iface.getEndpoint(endpointIndex);
+                if (endpoint.getDirection() == UsbConstants.USB_DIR_IN && endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_INT) candidateInput = endpoint;
+            }
+            if (iface.getId() == 5) {
+                selected = iface;
+                selectedInput = candidateInput;
+                break;
+            }
+            if (selected == null) {
+                selected = iface;
+                selectedInput = candidateInput;
+            }
+        }
+        if (selected == null) throw new IllegalStateException("The Quad Cortex HID interface was not found.");
+        if (selectedInput == null) throw new IllegalStateException("The Quad Cortex HID input endpoint was not found.");
+        UsbDeviceConnection opened = manager.openDevice(candidate);
+        if (opened == null || !opened.claimInterface(selected, true)) {
+            if (opened != null) opened.close();
+            throw new IllegalStateException("Could not claim the Quad Cortex HID interface.");
+        }
+        UsbInterface selectedMidi = null;
+        UsbEndpoint selectedMidiOutput = null;
+        for (int index = 0; index < candidate.getInterfaceCount(); index++) {
+            UsbInterface iface = candidate.getInterface(index);
+            if (iface.getInterfaceClass() != UsbConstants.USB_CLASS_AUDIO || iface.getInterfaceSubclass() != 3) continue;
+            for (int endpointIndex = 0; endpointIndex < iface.getEndpointCount(); endpointIndex++) {
+                UsbEndpoint endpoint = iface.getEndpoint(endpointIndex);
+                if (endpoint.getDirection() == UsbConstants.USB_DIR_OUT && endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) {
+                    selectedMidi = iface;
+                    selectedMidiOutput = endpoint;
+                    break;
+                }
+            }
+            if (selectedMidiOutput != null) break;
+        }
+        if (selectedMidi != null && opened.claimInterface(selectedMidi, true)) {
+            midiInterface = selectedMidi;
+            midiOutputEndpoint = selectedMidiOutput;
+        }
+        device = candidate;
+        connection = opened;
+        hidInterface = selected;
+        inputEndpoint = selectedInput;
+        selectedInterfaceId = selected.getId();
+        selectedInputEndpointAddress = selectedInput.getAddress();
+        selectedInputMaxPacketSize = selectedInput.getMaxPacketSize();
+        messagesReceived = 0;
+        messagesSent = 0;
+        decodeErrors = 0;
+        expectedWriteStalls = 0;
+        lastMessageType = -1;
+        lastError = null;
+        readAttempts = 0;
+        negativeReads = 0;
+        connectedAt = System.currentTimeMillis();
+        lastMidiCommandAt = 0;
+        lastMidiQueueDelayMs = 0;
+        maxMidiQueueDelayMs = 0;
+        lastStateAt = 0;
+        lastPresetLibraryAt = 0;
+        stateDecoder.sessionOpened(connectedAt);
+        startReader();
+        performHandshake();
+    }
+
+    private void resolveConnected(PluginCall call, UsbDevice candidate) {
+        JSObject result = new JSObject();
+        result.put("connected", true);
+        result.put("synchronized", presetSynchronized && currentSetlist != null);
+        result.put("name", candidate.getProductName() == null ? "Quad Cortex" : candidate.getProductName());
+        result.put("deviceId", candidate.getDeviceId());
+        call.resolve(result);
+    }
+
+    private boolean isReady() {
+        return connection != null && handshakeComplete;
+    }
+
+    private void performHandshake() {
+        int attempts = 0;
+        boolean answered = false;
+        while (!answered) {
+            int reportMode = stateDecoder.nextHandshakeAttempt(System.currentTimeMillis());
+            if (reportMode == -2) break;
+            if (reportMode == -1) continue;
+            attempts++;
+            // Android vendors differ in how their raw USB stack represents a
+            // numbered HID SET_REPORT. Try the standards-shaped 129-byte form
+            // first, then the 128-byte body-only form, and retain the one that
+            // receives the device's correlated reset reply.
+            includeReportId = reportMode == 1;
+            String session = UUID.randomUUID().toString().replace("-", "");
+            resetReply = new CountDownLatch(1);
+            long requestId = requestIds.getAndIncrement();
+            try {
+                writeMessage(stateDecoder.resetCommand(requestId, session));
+            } catch (Exception error) {
+                throw new IllegalStateException("Could not encode the QC USB reset command.", error);
+            }
+            try {
+                answered = resetReply.await(QcUsbProfile.HANDSHAKE_ATTEMPT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("The Quad Cortex USB handshake was interrupted.", error);
+            } finally {
+                resetReply = null;
+            }
+        }
+        if (!answered) throw new IllegalStateException("The Quad Cortex did not answer after " + attempts + " USB handshake attempts.");
+        stateDecoder.sessionHandshakeComplete(System.currentTimeMillis());
+        try {
+            for (QcNativeStateDecoder.EncodedMessage message : stateDecoder.initializationCommands()) {
+                writeMessage(message);
+            }
+        } catch (Exception error) {
+            throw new IllegalStateException("Could not encode the QC USB initialization commands.", error);
+        }
+        handshakeComplete = true;
+    }
+
+    private synchronized void writeMessage(QcNativeStateDecoder.EncodedMessage message) {
+        for (byte[] framedReport : stateDecoder.encodeFrame(message)) {
+            byte[] report = includeReportId
+                ? framedReport
+                : Arrays.copyOfRange(framedReport, 1, framedReport.length);
+            if (connection == null || hidInterface == null) throw new IllegalStateException("Quad Cortex USB disconnected during write.");
+            int written = connection.controlTransfer(0x21, 0x09, (2 << 8) | QcNativeStateDecoder.OUT_REPORT_ID, hidInterface.getId(), report, report.length, HID_WRITE_TIMEOUT_MS);
+            // The QC accepts the complete 128-byte data stage, then deliberately
+            // STALLs SET_REPORT's status stage. Android surfaces that as -1,
+            // exactly as hidapi does on the hardware-verified desktop path.
+            if (written < 0) expectedWriteStalls++;
+            else if (written != report.length) {
+                lastError = "USB HID write returned " + written + " of " + report.length + " bytes.";
+                throw new IllegalStateException(lastError);
+            }
+        }
+        messagesSent++;
+        stateDecoder.sessionOutbound(System.currentTimeMillis());
+    }
+
+    private void startReader() {
+        if (inputEndpoint == null) return;
+        reading = true;
+        long generation = connectionGeneration.incrementAndGet();
+        readerIo.execute(() -> {
+            while (reading && generation == connectionGeneration.get() && connection != null) {
+                byte[] buffer = new byte[QcNativeStateDecoder.REPORT_SIZE];
+                readAttempts++;
+                int count = connection.bulkTransfer(inputEndpoint, buffer, buffer.length, 250);
+                if (count <= 0) {
+                    if (count < 0) negativeReads++;
+                    continue;
+                }
+                byte[] report = normalizeInputReport(buffer, count);
+                DecodedMessage decoded = decodeMessage(report);
+                if (decoded != null) {
+                    messagesReceived++;
+                    lastMessageType = decoded.messageType;
+                    if (decoded.messageType == 4) lastPresetLibraryAt = System.currentTimeMillis();
+                    if (decoded.messageType == 52 && resetReply != null) resetReply.countDown();
+                    dispatchGatewayResponse(decoded.messageType, decoded.payload);
+                    publishStateBatch(decoded.states, decoded.tempoClock);
+                }
+            }
+        });
+    }
+
+    private static byte[] normalizeInputReport(byte[] buffer, int count) {
+        if (count > 0 && buffer[0] == QcNativeStateDecoder.IN_REPORT_ID) {
+            byte[] result = new byte[count];
+            System.arraycopy(buffer, 0, result, 0, count);
+            return result;
+        }
+        byte[] result = new byte[count + 1];
+        result[0] = 1;
+        System.arraycopy(buffer, 0, result, 1, count);
+        return result;
+    }
+
+    private DecodedMessage decodeMessage(byte[] report) {
+        try {
+            QcNativeStateDecoder.DecodedFrame frame = stateDecoder.pushReport(report);
+            if (frame == null) return null;
+            int type = frame.messageType;
+            byte[] payload = frame.payload;
+            // ModelRepo expands on its own lane and installs atomically in the
+            // same shared Rust decoder used for all realtime state.
+            if (type == 51) {
+                scheduleModelCatalogDecode(payload, connectionGeneration.get());
+                return new DecodedMessage(type, payload, new ArrayList<>(), null);
+            }
+            return new DecodedMessage(type, payload, stateDecoder.decode(type, payload),
+                type == 33 ? stateDecoder.tempoClock(payload) : null);
+        } catch (Exception error) {
+            decodeErrors++;
+            lastError = error.getMessage();
+            return null;
+        }
+    }
+
+    private static final class DecodedMessage {
+        final int messageType;
+        final byte[] payload;
+        final List<JSObject> states;
+        final JSObject tempoClock;
+
+        DecodedMessage(int messageType, byte[] payload, List<JSObject> states, JSObject tempoClock) {
+            this.messageType = messageType;
+            this.payload = payload;
+            this.states = states;
+            this.tempoClock = tempoClock;
+        }
+    }
+
+    private static final class PendingGatewayRead {
+        final QcNativeStateDecoder.PlannedGatewayRead plan;
+        final CompletableFuture<org.json.JSONObject> result;
+
+        PendingGatewayRead(
+            QcNativeStateDecoder.PlannedGatewayRead plan,
+            CompletableFuture<org.json.JSONObject> result
+        ) {
+            this.plan = plan;
+            this.result = result;
+        }
+    }
+
+    private void dispatchGatewayResponse(int messageType, byte[] payload) {
+        if (messageType == 40) {
+            PendingBackup pending = pendingBackup;
+            if (pending != null) {
+                try {
+                    JSObject update = stateDecoder.consumeBackupChunk(payload, pending.name);
+                    if (update.getBoolean("complete", false) && pendingBackup == pending) {
+                        pendingBackup = null;
+                        pending.result.complete(JSObject.fromJSONObject((org.json.JSONObject) update.get("backup")));
+                    }
+                } catch (Exception error) {
+                    if (pendingBackup == pending) pendingBackup = null;
+                    pending.result.completeExceptionally(error);
+                }
+            }
+        }
+        for (var entry : pendingGatewayReads.entrySet()) {
+            PendingGatewayRead pending = entry.getValue();
+            if (pending.plan.responseType != messageType || pending.result.isDone()) continue;
+            try {
+                org.json.JSONObject value = stateDecoder.decodeGatewayResponse(pending.plan, payload);
+                if (pendingGatewayReads.remove(entry.getKey(), pending)) pending.result.complete(value);
+            } catch (Exception ignored) {
+                // A response type may be shared by unrelated or differently
+                // correlated device messages. Keep waiting for this plan's
+                // shared Rust projection to accept the matching reply.
+            }
+        }
+    }
+
+    private void publishStateBatch(List<JSObject> decodedStates, JSObject tempoClock) {
+        if (decodedStates.isEmpty() && tempoClock == null) return;
+        long observedAt = System.currentTimeMillis();
+        lastStateAt = observedAt;
+        JSArray states = new JSArray();
+        for (JSObject state : decodedStates) {
+            String kind = state.getString("kind", "");
+            if ("master".equals(kind) && state.has("masterVolume")) {
+                double volume = state.optDouble("masterVolume", -1);
+                currentMasterVolume = volume < 0 ? -1 : (int) Math.round(volume <= 1 ? volume * 100 : volume);
+            }
+            else if ("position".equals(kind)) {
+                currentSetlist = state.getString("setlistKey", currentSetlist);
+                currentPosition = state.getInteger("position", currentPosition);
+                currentSetlistFactory = state.getBoolean("isFactory", currentSetlistFactory);
+            } else if ("preset".equals(kind)) {
+                presetSynchronized = true;
+                currentPresetName = state.getString("presetName", currentPresetName);
+            }
+            state.put("observedAt", observedAt);
+            states.put(state);
+        }
+        stateDecoder.sessionStateObserved(observedAt, presetSynchronized);
+        JSObject frame = new JSObject();
+        frame.put("observedAt", observedAt);
+        frame.put("states", states);
+        synchronized (stateEventLock) {
+            long sequence = nextStateSequence++;
+            frame.put("sequence", sequence);
+            if (tempoClock != null) {
+                frame.put("tempoClock", tempoClock);
+                latestTempoClock = new JSObject()
+                    .put("available", true)
+                    .put("sequence", sequence)
+                    .put("receivedAtUnixMs", observedAt)
+                    .put("currentBeat", tempoClock.getInteger("currentBeat"))
+                    .put("currentBar", tempoClock.getInteger("currentBar"))
+                    .put("currentTick", tempoClock.getInteger("currentTick"));
+            }
+            stateEventLog.addLast(frame);
+            while (stateEventLog.size() > 4096) stateEventLog.removeFirst();
+        }
+        notifyListeners("qcStateBatch", frame, true);
+    }
+
+    private void scheduleModelCatalogDecode(byte[] payload, long generation) {
+        metadataIo.execute(() -> {
+            try {
+                if (generation != connectionGeneration.get() || connection == null) return;
+                List<JSObject> states = stateDecoder.installModelRepo(payload);
+                if (generation != connectionGeneration.get()) return;
+                publishStateBatch(states, null);
+            } catch (Exception error) {
+                decodeErrors++;
+                lastError = error.getMessage();
+            }
+        });
+    }
+
+    private UsbDevice findQuadCortex() {
+        for (UsbDevice candidate : manager.getDeviceList().values()) if (isQuadCortex(candidate)) return candidate;
+        return null;
+    }
+
+    private static boolean isQuadCortex(UsbDevice candidate) {
+        return candidate.getVendorId() == QcUsbProfile.VENDOR_ID && candidate.getProductId() == QcUsbProfile.PRODUCT_ID;
+    }
+
+    private synchronized void closeConnection() {
+        reading = false;
+        handshakeComplete = false;
+        presetSynchronized = false;
+        connectionGeneration.incrementAndGet();
+        if (connection != null) {
+            if (midiInterface != null) connection.releaseInterface(midiInterface);
+            if (hidInterface != null) connection.releaseInterface(hidInterface);
+            connection.close();
+        }
+        connection = null;
+        device = null;
+        hidInterface = null;
+        inputEndpoint = null;
+        midiInterface = null;
+        midiOutputEndpoint = null;
+        currentSetlist = null;
+        currentPosition = -1;
+        currentSetlistFactory = false;
+        currentPresetName = null;
+        currentMasterVolume = -1;
+        for (PendingGatewayRead pending : pendingGatewayReads.values()) {
+            pending.result.completeExceptionally(new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected during the read."));
+        }
+        pendingGatewayReads.clear();
+        PendingBackup backup = pendingBackup;
+        pendingBackup = null;
+        if (backup != null) backup.result.completeExceptionally(
+            new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected during the backup."));
+        synchronized (stateEventLock) {
+            stateEventLog.clear();
+            nextStateSequence = 1;
+            latestTempoClock = null;
+        }
+        connectedAt = 0;
+        lastPresetLibraryAt = 0;
+        stateDecoder.sessionDisconnected(System.currentTimeMillis());
+        stateDecoder.reset();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (relaySession == this) relaySession = null;
+        closeConnection();
+        readerIo.shutdownNow();
+        commandIo.shutdownNow();
+        midiIo.shutdownNow();
+        metadataIo.shutdownNow();
+        keepalive.shutdownNow();
+        try { getContext().unregisterReceiver(permissionReceiver); } catch (Exception ignored) {}
+        try { getContext().unregisterReceiver(deviceReceiver); } catch (Exception ignored) {}
+        super.handleOnDestroy();
+    }
+}

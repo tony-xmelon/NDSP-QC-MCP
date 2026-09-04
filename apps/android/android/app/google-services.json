@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "762132554544",
+    "project_id": "qc-control-xmelon",
+    "storage_bucket": "qc-control-xmelon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:762132554544:android:2e6417e3507a3d87e09ef5",
+        "android_client_info": {
+          "package_name": "com.qccontrol.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsQhs_BqH7Gv_Vvu67w9pACEpBvKu7g7U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

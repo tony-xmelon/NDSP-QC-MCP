@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from .device import PyQuadCortexDevice
+from .generated_gateway_dispatch import (
+    GATEWAY_API_VERSION,
+    GATEWAY_CAPABILITIES,
+    GATEWAY_METHODS,
+    dispatch_device_method,
+)
 
 
 class GatewayService:
@@ -31,152 +37,12 @@ class GatewayService:
                 result = {
                     "platform": "Python device gateway",
                     "gatewayAvailable": True,
-                    "message": "Gateway active; guarded live controls and explicitly confirmed preset Save As are available; other persistent writes remain locked.",
+                    "gatewayApiVersion": GATEWAY_API_VERSION,
+                    "capabilities": list(GATEWAY_CAPABILITIES),
+                    "message": "Gateway active; guarded live controls plus explicitly confirmed preset Save As and Rename are available; other persistent writes remain locked.",
                 }
-            elif method == "device.reconnect":
-                result = self.device.reconnect()
-            elif method == "device.resetSession":
-                result = self.device.reset_session()
-            elif method == "device.disconnect":
-                result = self.device.disconnect()
-            elif method == "device.snapshot":
-                result = self.device.snapshot()
-            elif method == "device.listModels":
-                result = self.device.list_models()
-            elif method == "device.selectScene":
-                result = self.device.select_scene(
-                    params.get("scene"), params.get("expectedPresetName", "")
-                )
-            elif method == "device.toggleBypass":
-                result = self.device.toggle_bypass(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("expectedScene"),
-                    params.get("expectedBypassed"),
-                    params.get("desiredBypassed"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.moveBlock":
-                result = self.device.move_block(
-                    params.get("row"),
-                    params.get("fromColumn"),
-                    params.get("toColumn"),
-                    params.get("expectedModelId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.addBlock":
-                result = self.device.add_block(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("modelId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.removeBlock":
-                result = self.device.remove_block(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("expectedModelId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setBlockFootswitch":
-                result = self.device.set_block_footswitch(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("footswitch"),
-                    params.get("expectedFootswitch"),
-                    params.get("expectedModelId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setChainInput":
-                result = self.device.set_chain_input(
-                    params.get("row"),
-                    params.get("inputId"),
-                    params.get("expectedInputId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setChainOutput":
-                result = self.device.set_chain_output(
-                    params.get("row"),
-                    params.get("outputId"),
-                    params.get("expectedOutputId"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setChainSplit":
-                result = self.device.set_chain_split(
-                    params.get("row"),
-                    params.get("splitColumn"),
-                    params.get("mixColumn"),
-                    params.get("expectedSplitColumn"),
-                    params.get("expectedMixColumn"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.listPresets":
-                result = self.device.list_presets(params.get("refresh", False))
-            elif method == "device.navigateBank":
-                result = self.device.navigate_bank(
-                    params.get("direction"),
-                    params.get("expectedPresetName", ""),
-                    params.get("expectedPosition"),
-                )
-            elif method == "device.recallPreset":
-                result = self.device.recall_preset(
-                    params.get("setlistKey"),
-                    params.get("position"),
-                    params.get("expectedPresetName", ""),
-                    params.get("expectedPosition"),
-                )
-            elif method == "device.reloadPreset":
-                result = self.device.reload_preset(
-                    params.get("expectedPresetName", ""),
-                    params.get("expectedPosition"),
-                )
-            elif method == "device.blockDetails":
-                result = self.device.block_details(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setParameter":
-                result = self.device.set_parameter(
-                    params.get("row"),
-                    params.get("column"),
-                    params.get("parameterIndex"),
-                    params.get("value"),
-                    params.get("expectedValue"),
-                    params.get("expectedScene"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setTempo":
-                result = self.device.set_tempo(
-                    params.get("bpm"),
-                    params.get("expectedTempo"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.setMasterVolume":
-                result = self.device.set_master_volume(
-                    params.get("value"), params.get("expectedValue")
-                )
-            elif method == "device.pressFootswitch":
-                result = self.device.press_footswitch(
-                    params.get("index"),
-                    params.get("expectedMode"),
-                    params.get("expectedPresetName", ""),
-                )
-            elif method == "device.listPresetSlots":
-                result = self.device.list_preset_slots()
-            elif method == "device.savePresetAs":
-                result = self.device.save_preset_as(
-                    params.get("setlistKey"),
-                    params.get("position"),
-                    params.get("name"),
-                    params.get("expectedPresetName", ""),
-                    params.get("expectedPosition"),
-                    params.get("confirmOverwrite", False),
-                )
-            elif method == "device.showTuner":
-                result = self.device.show_tuner(params.get("shown", True))
-            elif method == "device.showGigView":
-                result = self.device.show_gig_view(params.get("shown", True))
+            elif isinstance(method, str) and method in GATEWAY_METHODS:
+                result = dispatch_device_method(self.device, method, params)
             else:
                 return self._error(request_id, -32601, f"Method not found: {method}")
             return {"jsonrpc": "2.0", "id": request_id, "result": result}

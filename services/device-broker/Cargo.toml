@@ -1,0 +1,18 @@
+[package]
+name = "qc-device-broker"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Native single-owner Quad Cortex USB broker"
+
+[dependencies]
+base64 = "0.22"
+flate2 = "1"
+hidapi = { version = "2.6", default-features = false, features = ["windows-native"] }
+prost = "0.14"
+qc-protocol = { path = "../../packages/rust/qc-protocol" }
+qc-device-runtime = { path = "../../packages/rust/qc-device-runtime" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }

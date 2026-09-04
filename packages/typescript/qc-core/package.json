@@ -1,0 +1,21 @@
+{
+  "name": "@ndsp-qc/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./assistant": "./src/assistant.ts",
+    "./footswitch": "./src/footswitch.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test ../../../tests/core.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ndsp-qc/client": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

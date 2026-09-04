@@ -2,28 +2,135 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
+import json
+import math
+import re
 import time
 from typing import Any
 
+from .domain import GRID_COLUMNS, GRID_ROWS, INPUT_ROUTE_LABELS, MAXIMUM_TEMPO_BPM, MINIMUM_TEMPO_BPM, OUTPUT_ROUTE_LABELS, SCENE_COUNT
+from .generated_payloads import BlockDetails, DeviceActionResult, PresetSnapshot
+from .usb_profile import FOOTSWITCH_BASE_CONTROLLER, MIDI_PRESSED_VALUE, MODE_SLOT_CONTROLLER
 
-MIN_TEMPO_BPM = 40
-MAX_TEMPO_BPM = 240
 
-INPUT_ROUTE_LABELS = {
-    0: "Internal", 1: "In 1", 2: "In 2", 3: "In 1/2", 4: "Return 1",
-    5: "Return 2", 6: "Return 1/2", 7: "Prev. Row", 8: "USB 5",
-    9: "USB 6", 10: "USB 7", 11: "USB 8", 12: "USB 5/6",
-    13: "USB 7/8", 14: "Sidechain",
+MIN_TEMPO_BPM = MINIMUM_TEMPO_BPM
+MAX_TEMPO_BPM = MAXIMUM_TEMPO_BPM
+
+
+def _native_transport_method(qc: Any, name: str):
+    """Return an intent-level Rust broker operation when that host provides it."""
+    return getattr(getattr(qc, "_t", None), name, None)
+
+
+def _pyquadcortex_method(qc: Any, name: str):
+    """Require a public pyquadcortex operation supplied by the parity PRs."""
+    method = getattr(qc, name, None)
+    if method is None:
+        raise RuntimeError(
+            f"Installed pyquadcortex does not provide {name}(); upgrade to a release "
+            "that includes the identity/history, screenshot, and remote-screen APIs."
+        )
+    return method
+
+
+def _png_response(image: bytes) -> dict[str, Any]:
+    """Project pyquadcortex image bytes to the shared Rust gateway shape."""
+    payload = bytes(image)
+    if (
+        len(payload) < 24
+        or not payload.startswith(b"\x89PNG\r\n\x1a\n")
+        or payload[12:16] != b"IHDR"
+    ):
+        raise RuntimeError("The Quad Cortex response was not a valid PNG image.")
+    return {
+        "pngBase64": base64.b64encode(payload).decode("ascii"),
+        "width": int.from_bytes(payload[16:20], "big"),
+        "height": int.from_bytes(payload[20:24], "big"),
+    }
+
+ROUTING_NODE_COLUMNS = {8: "splitter", 9: "mixer"}
+ROUTING_NODE_MODELS = {"splitter": 10004, "mixer": 11000}
+ROUTING_PARAMETER_OPTIONS = {
+    ("splitter", 0): ["A/B", "BALANCE", "CROSSOVER"],
+    ("splitter", 1): ["MONO", "STEREO"],
+    ("splitter", 6): ["LOW / HIGH", "HIGH / LOW"],
+    ("mixer", 4): ["NORMAL", "INVERTED"],
 }
 
-OUTPUT_ROUTE_LABELS = {
-    0: "Internal", 1: "Out 1/2", 2: "Out 3/4", 3: "Send 1/2", 4: "Out 1",
-    5: "Out 2", 6: "Out 3", 7: "Out 4", 8: "Send 1", 9: "Send 2",
-    10: "USB 5", 11: "USB 6", 12: "USB 7", 13: "USB 8", 14: "USB 5/6",
-    15: "USB 7/8", 16: "Row 3", 17: "Row 4", 18: "Rows 3/4",
-    19: "Multi Out", 20: "USB 3", 21: "USB 4", 22: "USB 3/4",
+_UK_C30_65_MICROPHONES = (
+    "Condenser 184", "Condenser 414", "Dynamic 421",
+    "Dynamic 57", "Ribbon 10", "Ribbon 160",
+)
+
+
+def _cab_microphone_options(model_id: int, value: Any) -> list[str]:
+    """Return the factory mic files the QC exposes for the UK C30 65 cab."""
+    if int(model_id) not in (12024, 32024) or not isinstance(value, str) or "_" not in value:
+        return []
+    prefix = value.rsplit("_", 1)[0]
+    return [f"{prefix}_{microphone}" for microphone in _UK_C30_65_MICROPHONES]
+
+_FACTORY_CATEGORY_NAMES = {
+    "BassAmplifier": "Bass Amp",
+    "BassOverdrive": "Bass Overdrive",
+    "CabsimBassM": "Bass Cab",
+    "CabsimBassST": "Bass Cab",
+    "CabsimGuitarM": "Guitar Cab",
+    "CabsimGuitarST": "Guitar Cab",
+    "FXLoop": "FX Loop",
+    "GuitarAmplifier": "Guitar Amp",
+    "GuitarOverdrive": "Guitar Overdrive",
+    "IRLoaders": "IR Loader",
+    "Loopers": "Looper",
 }
+_DEVICE_TYPE_NAMES = {
+    "bassamplifier": "Bass Amp", "bassamp": "Bass Amp",
+    "bassoverdrive": "Bass Overdrive",
+    "cabsimbassm": "Bass Cab", "cabsimbassst": "Bass Cab",
+    "basscabinet": "Bass Cab", "basscab": "Bass Cab",
+    "cabsimguitarm": "Guitar Cab", "cabsimguitarst": "Guitar Cab",
+    "guitarcabinet": "Guitar Cab", "guitarcab": "Guitar Cab",
+    "compressor": "Compressor", "delay": "Delay", "equalizer": "EQ", "eq": "EQ",
+    "filter": "Filter", "fxloop": "FX Loop",
+    "guitaramplifier": "Guitar Amp", "guitaramp": "Guitar Amp", "amp": "Guitar Amp",
+    "guitaroverdrive": "Guitar Overdrive", "irloaders": "IR Loader", "irloader": "IR Loader",
+    "loopers": "Looper", "looper": "Looper", "modulation": "Modulation",
+    "morph": "Morph", "neuralcapture": "Neural Capture", "pitch": "Pitch",
+    "reverb": "Reverb", "synth": "Synth", "utility": "Utility", "wah": "Wah",
+}
+_factory_model_cache: dict[int, tuple[str, str]] | None = None
+
+
+def _device_type_name(category: str) -> str:
+    key = re.sub(r"[^a-z0-9]+", "", category.casefold())
+    return _DEVICE_TYPE_NAMES.get(key, category.strip())
+
+
+def _format_parameter_number(value: float, precision: int | None) -> str:
+    rendered = f"{value:.{precision}f}" if precision is not None else f"{value:.3f}".rstrip("0").rstrip(".")
+    # Floating-point conversion can leave a negative residue that rounds to
+    # zero. CorOS displays zero without a sign (0.0 dB, never -0.0 dB).
+    return rendered[1:] if rendered.startswith("-") and float(rendered) == 0 else rendered
+
+
+def _factory_model_metadata(model_id: int) -> tuple[str, str] | None:
+    """Resolve built-in model labels without starting a device catalog transfer."""
+    global _factory_model_cache
+    if _factory_model_cache is None:
+        from pyquadcortex import models
+
+        _factory_model_cache = {}
+        for qualified_name, value in models.ALL.items():
+            category_key, constant = qualified_name.split(".", 1)
+            category = _device_type_name(_FACTORY_CATEGORY_NAMES.get(
+                category_key,
+                re.sub(r"(?<!^)(?=[A-Z])", " ", category_key),
+            ))
+            name = constant.removeprefix("N").replace("_", " ").title()
+            _factory_model_cache.setdefault(int(value), (name, category))
+    return _factory_model_cache.get(int(model_id))
 
 
 def _send_qc_midi_cc(controller: int, value: int = 127) -> str:
@@ -96,32 +203,38 @@ def _block_color(category: str, name: str) -> str:
     """Return the CorOS category color used by the Grid block artwork."""
     value = category.casefold()
     model = name.casefold()
-    if "gate" in model or "utility" in value or "wah" in value or "morph" in value:
-        return "#959595"
-    if "pitch" in value or "overdrive" in value or "drive" in value:
-        return "#ffd236"
-    if "filter" in value:
-        return "#87daff"
-    if "equalizer" in value:
-        return "#0a74e0"
-    if "modulation" in value:
-        return "#3500f1"
-    if "compressor" in value:
-        return "#45f862"
     if "plugin" in value:
         return "#ff7000"
-    if "amplifier" in value or "looper" in value:
-        return "#ff2727"
     if "capture" in value:
         return "#959595"
+    if "amplifier" in value or value.endswith(" amp"):
+        return "#ff2727"
+    if "looper" in value:
+        return "#ff2727"
+    if "ir loader" in value or "irloader" in value:
+        return "#6954ff"
+    if "cab" in value or "impulse response" in value:
+        return "#6954ff"
+    if any(term in value for term in ("overdrive", "distortion", "drive", "boost", "fuzz")):
+        return "#ffd236"
+    if "delay" in value:
+        return "#00ffdd"
+    if "reverb" in value:
+        return "#00ffdd"
+    if "compressor" in value:
+        return "#45f862"
+    if "pitch" in value or "octav" in model:
+        return "#ffd236"
+    if "modulation" in value:
+        return "#3500f1"
+    if "morph" in value or "filter" in value:
+        return "#87daff"
     if "synth" in value:
         return "#e44a5d"
-    if "cab" in value or "impulse" in value:
-        return "#6954ff"
-    if "fx loop" in value:
+    if "equalizer" in value or value == "eq":
+        return "#0a74e0"
+    if "gate" in model or "utility" in value or "wah" in value or "fx loop" in value:
         return "#959595"
-    if "delay" in value or "reverb" in value:
-        return "#00ffdd"
     return "#959595"
 
 
@@ -132,35 +245,72 @@ def _stomp_color(targets: list[dict[str, Any]]) -> str:
     if not targets:
         return "#626367"
     target = targets[0]
-    category = str(target.get("category", target.get("kind", ""))).casefold()
-    name = str(target.get("name", "")).casefold()
-    if "utility" in category or "gate" in name:
-        return "#f4f4f4"
-    if "pitch" in category:
-        return "#ffd236"
-    if "equalizer" in category:
-        return "#0a74e0"
-    if "modulation" in category:
-        return "#3500f1"
-    if "overdrive" in category or "drive" in category:
-        return "#ffd236"
-    if "capture" in category:
-        return "#ff7000"
-    if "amplifier" in category:
-        return "#ff2727"
-    if "fx loop" in category:
-        return "#00ffdd"
-    if "delay" in category or "reverb" in category:
-        return "#00ffdd"
-    if "wah" in category or "filter" in category:
-        return "#ffd236"
-    return "#f4f4f4"
+    category_color = _block_color(
+        str(target.get("category", target.get("kind", ""))),
+        str(target.get("name", "")),
+    )
+    return "#f4f4f4" if category_color == "#959595" else category_color
 
 
 def _effective_parameter_value(state: Any, scene: int) -> Any:
     if not state.values:
         return None
     return state.values[scene] if state.scene_mode and scene < len(state.values) else state.values[0]
+
+
+def _editor_parameter_state(value: Any, options: list[str], parameter_type: str) -> tuple[float | None, bool]:
+    """Translate numeric and dynamic text values into the editor's 0..1 domain."""
+    numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+    if numeric:
+        return float(value), parameter_type != "grMeter"
+    if isinstance(value, str) and options and value in options:
+        normalized = 0.0 if len(options) == 1 else options.index(value) / (len(options) - 1)
+        return normalized, True
+    return None, False
+
+
+_SUPPORTED_PARAMETER_TYPES = {
+    "comboBox", "empty", "fader", "float", "floatWithLed", "grMeter",
+    "int", "rotarySwitch", "string", "switch", "toggleButton",
+}
+
+
+def _catalog_audit(models: Any) -> dict[str, Any]:
+    """Check every visible runtime model and parameter the editor may receive."""
+    exceptions: list[dict[str, Any]] = []
+    model_count = parameter_count = 0
+    categories: set[str] = set()
+    for model in models:
+        if model.hidden or model.internal or model.category_hidden or model.superseded:
+            continue
+        model_count += 1
+        categories.add(model.category)
+        seen_indexes: set[int] = set()
+        for parameter in model.parameters:
+            parameter_count += 1
+            issue = ""
+            if parameter.index in seen_indexes:
+                issue = f"duplicate parameter index {parameter.index}"
+            elif not parameter.name.strip():
+                issue = "parameter name is empty"
+            elif parameter.type not in _SUPPORTED_PARAMETER_TYPES:
+                issue = f"unsupported parameter type {parameter.type!r}"
+            elif parameter.steps is not None and parameter.steps < 1:
+                issue = f"invalid step count {parameter.steps}"
+            seen_indexes.add(parameter.index)
+            if issue:
+                exceptions.append({
+                    "modelId": int(model.id),
+                    "modelName": model.name,
+                    "parameterIndex": int(parameter.index),
+                    "issue": issue,
+                })
+    return {
+        "modelCount": model_count,
+        "parameterCount": parameter_count,
+        "categoryCount": len(categories),
+        "exceptions": exceptions,
+    }
 
 
 def _tempo_bpm(preset: Any) -> int:
@@ -177,21 +327,23 @@ def _tempo_value(bpm: int) -> float:
     return (bpm - MIN_TEMPO_BPM) / (MAX_TEMPO_BPM - MIN_TEMPO_BPM)
 
 
-def _normalized_mode(qc: Any) -> str:
+def _normalized_mode_value(value: int) -> str:
     import pyquadcortex
 
-    value = int(qc.mode().mode)
     if value in pyquadcortex.HYBRID_MODES:
         return "HYBRID"
     mode = pyquadcortex.describe_mode(value).upper()
     return mode if mode in {"PRESET", "SCENE", "STOMP"} else "PRESET"
 
 
-def _footswitch_modes(qc: Any) -> list[str]:
+def _normalized_mode(qc: Any) -> str:
+    return _normalized_mode_value(int(qc.mode().mode))
+
+
+def _footswitch_modes_value(value: int) -> list[str]:
     """Return the mode used by the physical top and bottom A-H switch rows."""
     import pyquadcortex
 
-    value = int(qc.mode().mode)
     if value in pyquadcortex.HYBRID_MODES:
         return [mode.name for mode in pyquadcortex.HYBRID_MODES[value]]
     try:
@@ -199,6 +351,10 @@ def _footswitch_modes(qc: Any) -> list[str]:
     except ValueError:
         mode = "PRESET"
     return [mode, mode]
+
+
+def _footswitch_modes(qc: Any) -> list[str]:
+    return _footswitch_modes_value(int(qc.mode().mode))
 
 
 def _argb_to_css(value: int) -> str:
@@ -215,14 +371,63 @@ def _wait_for_dirty(qc: Any, expected: bool, timeout: float = 3.0) -> bool:
     return bool(qc.preset_dirty()) is expected
 
 
+def _conditional_parameter_hidden(model_id: int, parameter_index: int, normalized_values: dict[int, float | None]) -> bool:
+    """Resolve controls that intentionally share one ModelRepo display slot."""
+    if int(model_id) != 18007:  # Minivoicer
+        return False
+    quantized = float(normalized_values.get(4) or 0.0) >= 0.5
+    return parameter_index in ({20, 21} if quantized else {7, 11})
+
+
+def _parameter_enabled(
+    metadata: dict[str, Any],
+    normalized_values: dict[int, float | None],
+    controller_steps: dict[int, int | None],
+) -> bool:
+    """Evaluate ModelRepo toggleOn/toggleOff/toggleStep dependencies."""
+    allowed_steps = set(int(item) for item in metadata.get("enableWhenSteps") or [])
+
+    def selected_step(controller: int, value: float) -> int:
+        count = controller_steps.get(controller) or 2
+        return round(max(0.0, min(1.0, value)) * max(1, count - 1))
+
+    enable_when_on = metadata.get("enableWhenOn")
+    if enable_when_on is not None:
+        value = normalized_values.get(int(enable_when_on))
+        if value is None:
+            return False
+        if allowed_steps:
+            if selected_step(int(enable_when_on), float(value)) not in allowed_steps:
+                return False
+        elif float(value) < 0.5:
+            return False
+
+    enable_when_off = metadata.get("enableWhenOff")
+    if enable_when_off is not None:
+        value = normalized_values.get(int(enable_when_off))
+        if value is None:
+            return False
+        if allowed_steps:
+            if selected_step(int(enable_when_off), float(value)) in allowed_steps:
+                return False
+        elif float(value) >= 0.5:
+            return False
+    return True
+
+
 class PyQuadCortexDevice:
     def __init__(self) -> None:
         self._qc: Any | None = None
         self._connected_at: str | None = None
         self._preset_cache: dict[str, list[dict[str, Any]]] = {}
+        self._preset_folder_cache: list[dict[str, Any]] | None = None
         self._setlist_key: str | None = None
         self._preset_position: int | None = None
         self._setlist_is_factory = False
+        self._mode_cycle: list[int] = []
+        # A fast drag write is permitted only for the exact editor context that
+        # was established by the most recent verified block_details read.
+        self._live_editor_context: dict[str, Any] | None = None
 
     @property
     def connected(self) -> bool:
@@ -232,9 +437,12 @@ class PyQuadCortexDevice:
         qc, self._qc = self._qc, None
         self._connected_at = None
         self._preset_cache.clear()
+        self._preset_folder_cache = None
         self._setlist_key = None
         self._preset_position = None
         self._setlist_is_factory = False
+        self._mode_cycle = []
+        self._live_editor_context = None
         if qc is not None:
             qc.close()
 
@@ -242,7 +450,25 @@ class PyQuadCortexDevice:
         self.close()
         import pyquadcortex
 
-        self._qc = pyquadcortex.connect()
+        from .native_transport import connect_native, native_broker_enabled
+
+        # File READ is not required for a usable control session. On a populated
+        # QC it can enqueue hundreds of folder listings ahead of the active
+        # RecallPreset response, adding roughly ten seconds to startup. Directory
+        # methods already issue their own File READ, so defer that transfer until
+        # the user actually opens the preset browser. Keep the rest of the
+        # hardware-confirmed pyquadcortex hello sequence intact.
+        subscribe_types = pyquadcortex.QuadCortex._SUBSCRIBE_TYPES
+        if "File" in subscribe_types:
+            pyquadcortex.QuadCortex._SUBSCRIBE_TYPES = tuple(
+                message_type for message_type in subscribe_types if message_type != "File"
+            )
+        # Installed Windows builds ship a native HID owner. pyquadcortex remains
+        # the complete domain/protobuf layer, while USB enumeration, framing,
+        # reads, keepalive, and reconnection readiness happen off the Python/UI
+        # threads. Source/dev environments without the broker retain the direct
+        # transport as a compatibility fallback.
+        self._qc = connect_native() if native_broker_enabled() else pyquadcortex.connect()
         self._connected_at = _utc_now()
         self._remember_position(self._read_position_state())
         return self.connection_state("Quad Cortex handshake complete")
@@ -269,15 +495,57 @@ class PyQuadCortexDevice:
             "demo": False,
         }
 
+    def tempo_clock_state(self) -> dict[str, Any]:
+        """Read the broker's cached metronome edge; never performs a preset scan."""
+        qc = self._require_session()
+        clock_reader = getattr(getattr(qc, "_t", None), "tempo_clock", None)
+        if clock_reader is None:
+            return {"available": False}
+        clock = clock_reader()
+        return {"available": clock is not None, **(clock or {})}
+
+    def state_events(self, after_sequence: int = 0, limit: int = 256) -> dict[str, Any]:
+        """Pass through Rust-normalized frames without Python protobuf decoding."""
+        qc = self._require_session()
+        reader = getattr(getattr(qc, "_t", None), "state_events", None)
+        if reader is None:
+            return {"native": False, "frames": []}
+        if isinstance(after_sequence, bool) or not isinstance(after_sequence, int) or after_sequence < 0:
+            raise ValueError("afterSequence must be a non-negative integer.")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 4096:
+            raise ValueError("limit must be an integer from 1 through 4096.")
+        return {"native": True, "frames": reader(after_sequence, limit)}
+
     def _require_session(self) -> Any:
         if self._qc is None:
             raise RuntimeError("No Quad Cortex session. Connect before using device controls.")
         return self._qc
 
+    def _ensure_catalog(self) -> Any:
+        """Fetch the compatibility catalog; native UI metadata is owned by Rust."""
+        from pyquadcortex.catalog import parse_model_repo
+
+        qc = self._require_session()
+        if getattr(qc, "_catalog", None) is None:
+            payload = qc._fetch_model_repo()
+            qc._catalog = parse_model_repo(payload)
+        return qc._catalog
+
+    def _parameter_display_metadata(self, model_id: int, parameter_index: int, spec: Any, options: list[str]) -> dict[str, Any]:
+        return {
+            "minimum": float(spec.minimum), "maximum": float(spec.maximum),
+            "valueScale": "options" if options else "unknown", "scaleExponent": None,
+            "scalePoints": [],
+            "displayPrecision": None, "scaleKnown": bool(options), "units": spec.units,
+            "minimumLabel": None, "midpointLabel": None, "maximumLabel": None,
+        }
+
     def _assert_expected_preset(self, expected_name: str) -> Any:
         qc = self._require_session()
         preset = qc.read_current_preset()
-        if expected_name and preset.name != expected_name:
+        actual_name = preset.name or ""
+        unnamed_placeholder = expected_name.casefold() in {"current preset", "empty preset", "unsaved"}
+        if expected_name and actual_name != expected_name and not (not actual_name and unnamed_placeholder):
             raise RuntimeError(
                 f"Preset changed on the Quad Cortex: expected {expected_name!r}, "
                 f"but {preset.name or 'an unnamed preset'!r} is active. Refresh and retry."
@@ -298,39 +566,70 @@ class PyQuadCortexDevice:
         self._preset_position = int(state.position)
         self._setlist_is_factory = bool(state.is_factory)
 
-    def _current_position(self) -> tuple[str, int, bool]:
-        if self._setlist_key is None or self._preset_position is None:
+    def _current_position(self, refresh: bool = False) -> tuple[str, int, bool]:
+        if refresh or self._setlist_key is None or self._preset_position is None:
             self._remember_position(self._read_position_state())
         return self._setlist_key, self._preset_position, self._setlist_is_factory
 
-    def list_presets(self, refresh: bool = False) -> dict[str, Any]:
+    def list_presets(self, refresh: bool = False, setlist_key: str | None = None) -> dict[str, Any]:
         import pyquadcortex
 
         qc = self._require_session()
-        setlist_key, current_position, _ = self._current_position()
-        if refresh or setlist_key not in self._preset_cache:
-            entries = qc.list_presets(setlist_key, timeout=25.0)
-            self._preset_cache[setlist_key] = [
-                {
-                    "position": int(entry.index),
-                    "location": pyquadcortex.position_to_slot(entry.index),
-                    "name": entry.name,
-                    "instrument": int(entry.instrument) if entry.HasField("instrument") else 0,
-                }
+        active_setlist_key, current_position, _ = self._current_position(refresh=True)
+        target_setlist_key = setlist_key or active_setlist_key
+        if refresh or target_setlist_key not in self._preset_cache:
+            entries = qc.list_presets(target_setlist_key, timeout=25.0, include_empty=True)
+            by_position = {
+                int(entry.index): entry
                 for entry in entries
+                if entry.HasField("index")
+            }
+            self._preset_cache[target_setlist_key] = [
+                {
+                    "position": position,
+                    "location": pyquadcortex.position_to_slot(position),
+                    "name": entry.name if entry is not None and entry.HasField("name") and entry.name else "Unsaved",
+                    "instrument": int(entry.instrument) if entry is not None and entry.HasField("instrument") else 0,
+                }
+                for position in range(256)
+                for entry in [by_position.get(position)]
             ]
+        fallback_folders = [
+            {"key": target_setlist_key, "name": target_setlist_key.rstrip("/").rsplit("/", 1)[-1], "isFactory": False},
+            {"key": "/opt/neuraldsp/Factory Library/", "name": "Factory Library", "isFactory": True},
+        ]
         return {
-            "setlistKey": setlist_key,
-            "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
-            "currentPosition": current_position,
-            "presets": self._preset_cache[setlist_key],
+            "setlistKey": target_setlist_key,
+            "setlistName": target_setlist_key.rstrip("/").rsplit("/", 1)[-1],
+            "currentPosition": current_position if target_setlist_key.rstrip("/") == active_setlist_key.rstrip("/") else -1,
+            "presets": self._preset_cache[target_setlist_key],
+            "folders": self._preset_folder_cache or fallback_folders,
         }
+
+    def list_preset_folders(self, refresh: bool = False) -> dict[str, Any]:
+        if refresh or self._preset_folder_cache is None:
+            user_root = "/media/p4/Presets"
+            factory_key = "/opt/neuraldsp/Factory Library"
+            folders = []
+            for folder in self._require_session().list_folders(seconds=20.0):
+                key = str(folder.key).rstrip("/")
+                is_user_setlist = key.rsplit("/", 1)[0] == user_root
+                is_factory = key == factory_key
+                if not is_user_setlist and not is_factory:
+                    continue
+                folders.append({
+                    "key": str(folder.key),
+                    "name": folder.name or key.rsplit("/", 1)[-1],
+                    "isFactory": bool(folder.is_factory) or is_factory,
+                })
+            self._preset_folder_cache = sorted(folders, key=lambda item: (item["isFactory"], item["name"].casefold()))
+        return {"folders": self._preset_folder_cache}
 
     def list_preset_slots(self) -> dict[str, Any]:
         import pyquadcortex
 
         qc = self._require_session()
-        setlist_key, current_position, is_factory = self._current_position()
+        setlist_key, current_position, is_factory = self._current_position(refresh=True)
         if is_factory:
             raise RuntimeError("Factory Library is read-only. Recall a user setlist before saving.")
         entries = qc.list_presets(setlist_key, timeout=25.0, include_empty=True)
@@ -359,20 +658,147 @@ class PyQuadCortexDevice:
             "slots": slots,
         }
 
+    def create_device_backup(self, name: str, timeout: float = 60.0) -> dict[str, Any]:
+        """Collect the QC's native chunked backup JSON without opening its payload."""
+        from pyquadcortex.proto import ProductionAutomation_pb2 as pa
+
+        clean_name = "".join(character for character in str(name) if character.isprintable()).strip()
+        if not clean_name:
+            raise ValueError("Backup name cannot be empty.")
+        clean_name = clean_name[:80]
+
+        qc = self._require_session()
+        transport = qc._t
+        messages: list[Any] = []
+        collector = (pa.LocalBackupMessage, None, messages)
+        with transport._lock:
+            transport._collectors.append(collector)
+        try:
+            transport.send(pa.LocalBackupMessage(action=pa.MessageAction.CREATE))
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                transport._check_lost()
+                if messages and bool(messages[-1].is_last_chunk):
+                    break
+                time.sleep(0.1)
+        finally:
+            with transport._lock:
+                if collector in transport._collectors:
+                    transport._collectors.remove(collector)
+
+        if not messages or not bool(messages[-1].is_last_chunk):
+            raise TimeoutError("The Quad Cortex did not finish the native backup within 60 seconds.")
+        if sum(bool(message.is_last_chunk) for message in messages) != 1:
+            raise RuntimeError("The Quad Cortex returned an invalid backup chunk sequence.")
+        backup_json = "".join(message.backup_json for message in messages if message.backup_json)
+        if not backup_json or len(backup_json.encode("utf-8")) > 32 * 1024 * 1024:
+            raise RuntimeError("The Quad Cortex returned an empty or oversized backup document.")
+        try:
+            document = json.loads(backup_json)
+        except json.JSONDecodeError as error:
+            raise RuntimeError(f"The Quad Cortex returned malformed backup JSON: {error.msg}.") from error
+        if not isinstance(document, dict) or document.get("type") != "backup" or document.get("creator") != "quad":
+            raise RuntimeError("The Quad Cortex returned an unsupported backup document.")
+        payload = document.get("payload")
+        payload_hash = document.get("payload_hash")
+        if not isinstance(payload, str) or not isinstance(payload_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", payload_hash):
+            raise RuntimeError("The Quad Cortex backup is missing its native payload or integrity identifier.")
+        try:
+            base64.b64decode(payload, validate=True)
+        except (ValueError, TypeError) as error:
+            raise RuntimeError("The Quad Cortex backup payload is not valid Base64.") from error
+        document["name"] = clean_name
+        return document
+
     def list_models(self) -> dict[str, Any]:
         qc = self._require_session()
+        catalog = self._ensure_catalog()
+        audit = _catalog_audit(catalog)
         models = [
             {
                 "id": int(model.id),
                 "name": model.name,
-                "category": model.category,
+                "category": _device_type_name(model.category),
                 "basedOn": model.based_on,
             }
-            for model in qc.catalog
+            for model in catalog
             if not model.hidden and not model.internal and not model.category_hidden and not model.superseded
         ]
         models.sort(key=lambda model: (model["category"].casefold(), model["name"].casefold(), model["id"]))
-        return {"models": models}
+        return {"models": models, "audit": audit}
+
+    def identity(self) -> dict[str, Any]:
+        """Read identity through pyquadcortex and use the native gateway shape."""
+        message = self._require_session().version()
+        if not message.HasField("device_serial_number"):
+            raise RuntimeError("The Quad Cortex identity reply did not include a serial number.")
+        return {
+            "serial": message.device_serial_number,
+            "appFwVersion": message.app_fw_version if message.HasField("app_fw_version") else None,
+            "customName": message.custom_name if message.HasField("custom_name") else None,
+            "deviceType": int(message.device_type) if message.HasField("device_type") else None,
+        }
+
+    def set_device_name(self, name: str) -> dict[str, Any]:
+        if not isinstance(name, str) or not name:
+            raise ValueError("name must be a non-empty string")
+        if any(character.isprintable() is False for character in name) or len(name) > 64:
+            raise ValueError("Device name must be at most 64 visible characters")
+        qc = self._require_session()
+        _pyquadcortex_method(qc, "set_device_name")(name)
+        return {"detail": f"Device name change to {name} sent"}
+
+    def undo(self) -> dict[str, Any]:
+        qc = self._require_session()
+        _pyquadcortex_method(qc, "undo")()
+        return {"detail": "Device undo sent"}
+
+    def redo(self) -> dict[str, Any]:
+        qc = self._require_session()
+        _pyquadcortex_method(qc, "redo")()
+        return {"detail": "Device redo sent"}
+
+    def inhibited_modules(self) -> dict[str, Any]:
+        qc = self._require_session()
+        message = _pyquadcortex_method(qc, "inhibited_modules")()
+        if not message.HasField("global_gate") or not message.HasField("global_eq"):
+            raise RuntimeError("The Quad Cortex inhibited-modules reply was incomplete.")
+        return {"globalGate": bool(message.global_gate), "globalEq": bool(message.global_eq)}
+
+    def preset_screenshot(
+        self,
+        folder_name: str,
+        position: int,
+        is_factory: bool = False,
+    ) -> dict[str, Any]:
+        if not isinstance(folder_name, str) or not folder_name:
+            raise ValueError("folderName must be a non-empty string")
+        if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position <= 255:
+            raise ValueError("position must be an integer from 0 through 255")
+        if not isinstance(is_factory, bool):
+            raise ValueError("isFactory must be a boolean")
+        qc = self._require_session()
+        image = _pyquadcortex_method(qc, "preset_screenshot")(
+            folder_name, position, is_factory=is_factory
+        )
+        return _png_response(image)
+
+    def capture_screen(self) -> dict[str, Any]:
+        qc = self._require_session()
+        return _png_response(_pyquadcortex_method(qc, "capture_screen")())
+
+    def tap_screen(self, x: float, y: float) -> dict[str, Any]:
+        for name, value, upper in (("x", x, 800.0), ("y", y, 480.0)):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or not 0 <= value < upper
+            ):
+                raise ValueError(f"{name} must satisfy 0 <= {name} < {upper}")
+        qc = self._require_session()
+        _pyquadcortex_method(qc, "tap_screen")(x, y)
+        return {"detail": f"Tapped the Quad Cortex screen at ({x}, {y})"}
 
     def save_preset_as(
         self,
@@ -393,8 +819,8 @@ class PyQuadCortexDevice:
         if not isinstance(confirm_overwrite, bool):
             raise ValueError("Overwrite confirmation must be true or false.")
         qc = self._require_session()
-        current_key, current_position, is_factory = self._current_position()
-        self._assert_expected_preset(expected_preset_name)
+        current_key, current_position, is_factory = self._current_position(refresh=True)
+        current_preset = self._assert_expected_preset(expected_preset_name)
         if current_key != setlist_key or current_position != expected_position:
             raise RuntimeError("The active preset or setlist changed. Refresh and retry.")
         if is_factory:
@@ -402,41 +828,177 @@ class PyQuadCortexDevice:
         if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
             raise ValueError("Preset position must be an integer from 0 through 255.")
 
-        slots = self.list_preset_slots()["slots"]
-        destination = slots[position]
-        if destination["occupied"] and not confirm_overwrite:
-            raise RuntimeError(
-                f"Slot {destination['location']} contains {destination['name']!r}; explicit overwrite confirmation is required."
-            )
+        cached_entries = self._preset_cache.get(setlist_key)
+        destination = next(
+            (entry for entry in cached_entries or [] if entry["position"] == position),
+            None,
+        )
+        saving_current_unnamed_slot = position == current_position and not (current_preset.name or "")
+        if not confirm_overwrite and not saving_current_unnamed_slot:
+            if cached_entries is None:
+                raise RuntimeError(
+                    "That destination has not been synchronized. Refresh its setlist before saving without overwrite confirmation."
+                )
+            if destination is not None:
+                raise RuntimeError(
+                    f"Slot {destination['location']} contains {destination['name']!r}; explicit overwrite confirmation is required."
+                )
         current_entry = next(
-            (entry for entry in self.list_presets()["presets"] if entry["position"] == current_position),
+            (entry for entry in cached_entries or [] if entry["position"] == current_position),
             None,
         )
         instrument = current_entry["instrument"] if current_entry else 0
         active_scene = int(qc.active_scene())
-        stored_name = qc.save_current_preset(
-            setlist_key,
-            position,
-            name,
-            instrument=instrument,
-            default_scene=active_scene,
-            confirm=True,
-            confirm_timeout=25.0,
-        )
+        native_save = _native_transport_method(qc, "save_preset")
+        if native_save is not None:
+            native_save(setlist_key, position, name, instrument)
+        else:
+            qc.save_current_preset(
+                setlist_key,
+                position,
+                name,
+                instrument=instrument,
+                default_scene=active_scene,
+                confirm=False,
+            )
+        _wait_for_dirty(qc, False, timeout=5.0)
+        saved_key, saved_position, saved_is_factory = self._current_position(refresh=True)
+        if saved_is_factory or saved_key != setlist_key or saved_position != position:
+            raise RuntimeError("The active preset position changed while the save was being verified.")
+        saved_preset = qc.read_current_preset(timeout=15.0)
+        stored_name = saved_preset.name or ""
         if not stored_name:
-            raise RuntimeError("The device did not confirm the saved preset name.")
-        recalled = qc.read_preset(setlist_key, position, timeout=15.0)
-        if recalled.name != stored_name:
-            raise RuntimeError("The saved slot did not read back with the confirmed name.")
+            raise RuntimeError("The device did not expose a saved preset name during live readback.")
         self._setlist_key = setlist_key
         self._preset_position = position
-        self._preset_cache.pop(setlist_key, None)
-        _wait_for_dirty(qc, False, timeout=3.0)
+        if cached_entries is not None:
+            cached_entries[:] = [entry for entry in cached_entries if entry["position"] != position]
+            cached_entries.append({
+                "position": position,
+                "location": pyquadcortex.position_to_slot(position),
+                "name": stored_name,
+                "instrument": instrument,
+            })
+            cached_entries.sort(key=lambda entry: entry["position"])
         snapshot = self.snapshot()
         if snapshot["presetName"] != stored_name or snapshot["dirty"]:
             raise RuntimeError("The preset saved, but final live-state verification failed.")
         return {
             "detail": f"Saved and verified {pyquadcortex.position_to_slot(position)} · {stored_name}",
+            "savedName": stored_name,
+            "snapshot": snapshot,
+        }
+
+    def rename_current_preset(
+        self,
+        name: str,
+        expected_preset_name: str,
+        expected_position: int,
+        confirm_rename: bool,
+    ) -> dict[str, Any]:
+        if confirm_rename is not True:
+            raise RuntimeError("Renaming a stored preset requires explicit confirmation.")
+        clean_name = name.strip() if isinstance(name, str) else ""
+        if not clean_name:
+            raise ValueError("Preset name is required.")
+        if clean_name == expected_preset_name:
+            raise ValueError("The new preset name is identical to the current name.")
+        setlist_key, position, is_factory = self._current_position(refresh=True)
+        if is_factory:
+            raise RuntimeError("Factory Library is read-only. Save the preset to a user setlist before renaming it.")
+        if position != expected_position:
+            raise RuntimeError("The active preset position changed. Refresh and retry.")
+        result = self.save_preset_as(
+            setlist_key,
+            position,
+            clean_name,
+            expected_preset_name,
+            expected_position,
+            True,
+        )
+        result["detail"] = f"Renamed and verified {result['snapshot']['presetLocation']} · {result['savedName']}"
+        return result
+
+    def copy_preset(
+        self,
+        source_setlist_key: str,
+        source_position: int,
+        source_name: str,
+        destination_setlist_key: str,
+        destination_position: int,
+        expected_preset_name: str,
+        expected_position: int,
+        confirm_overwrite: bool,
+    ) -> dict[str, Any]:
+        """Copy one stored preset over the currently loaded user preset slot."""
+        import pyquadcortex
+
+        if not isinstance(source_setlist_key, str) or not source_setlist_key.strip():
+            raise ValueError("Source setlist is required.")
+        if not isinstance(destination_setlist_key, str) or not destination_setlist_key.strip():
+            raise ValueError("Destination setlist is required.")
+        for label, position in (("Source", source_position), ("Destination", destination_position)):
+            if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
+                raise ValueError(f"{label} preset position must be an integer from 0 through 255.")
+        if confirm_overwrite is not True:
+            raise RuntimeError("Pasting a preset requires explicit overwrite confirmation.")
+        if source_setlist_key.rstrip("/") == destination_setlist_key.rstrip("/") and source_position == destination_position:
+            raise ValueError("The source and destination preset slots are identical.")
+
+        qc = self._require_session()
+        current_key, current_position, is_factory = self._current_position(refresh=True)
+        self._assert_expected_preset(expected_preset_name)
+        if current_key.rstrip("/") != destination_setlist_key.rstrip("/") or current_position != expected_position or current_position != destination_position:
+            raise RuntimeError("The destination preset or setlist changed. Refresh and retry.")
+        if is_factory:
+            raise RuntimeError("Factory Library is read-only. Paste into a user setlist instead.")
+        if qc.preset_dirty():
+            raise RuntimeError("The destination has unsaved changes. Save or discard them before pasting a preset.")
+
+        source_listing = self.list_presets(refresh=True, setlist_key=source_setlist_key)["presets"]
+        source = next((entry for entry in source_listing if entry["position"] == source_position), None)
+        if source is None or source["name"] == "Unsaved":
+            raise RuntimeError("The copied source preset no longer exists.")
+        if source_name and source["name"] != source_name:
+            raise RuntimeError(
+                f"The copied source changed from {source_name!r} to {source['name']!r}. Copy it again before pasting."
+            )
+
+        native_save = _native_transport_method(qc, "save_preset")
+        if native_save is not None:
+            qc.read_preset(source_setlist_key, source_position, timeout=15.0)
+            native_save(destination_setlist_key, destination_position, source["name"], source["instrument"])
+            stored_name = source["name"]
+        else:
+            stored_name = qc.copy_preset(
+                source_setlist_key,
+                source_position,
+                destination_setlist_key,
+                to_position=destination_position,
+                name=source["name"],
+                instrument=source["instrument"],
+            )
+        _wait_for_dirty(qc, False, timeout=5.0)
+        saved_key, saved_position, saved_is_factory = self._current_position(refresh=True)
+        if saved_is_factory or saved_key.rstrip("/") != destination_setlist_key.rstrip("/") or saved_position != destination_position:
+            raise RuntimeError("The preset copy completed, but the destination position could not be verified.")
+
+        self._setlist_key = destination_setlist_key
+        self._preset_position = destination_position
+        destination_cache = self._preset_cache.get(destination_setlist_key)
+        if destination_cache is not None:
+            for entry in destination_cache:
+                if entry["position"] == destination_position:
+                    entry.update(name=stored_name, instrument=source["instrument"])
+                    break
+        snapshot = self.snapshot()
+        if snapshot["presetName"] != stored_name or snapshot["dirty"]:
+            raise RuntimeError("The preset copied, but final live-state verification failed.")
+        return {
+            "detail": (
+                f"Copied {source['location']} · {source['name']} to "
+                f"{pyquadcortex.position_to_slot(destination_position)} and verified"
+            ),
             "savedName": stored_name,
             "snapshot": snapshot,
         }
@@ -453,7 +1015,7 @@ class PyQuadCortexDevice:
         if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 256:
             raise ValueError("Preset position must be an integer from 0 through 255.")
         qc = self._require_session()
-        current_key, current_position, _ = self._current_position()
+        current_key, current_position, _ = self._current_position(refresh=True)
         self._assert_expected_preset(expected_preset_name)
         if expected_position is not None and current_position != expected_position:
             raise RuntimeError("The active preset slot changed on the Quad Cortex. Refresh and retry.")
@@ -462,20 +1024,15 @@ class PyQuadCortexDevice:
         if qc.preset_dirty():
             raise RuntimeError("The current preset has unsaved changes. Save or revert them before recalling another preset.")
 
-        listing = self.list_presets()["presets"]
-        target = next((entry for entry in listing if entry["position"] == position), None)
-        if target is None:
-            raise RuntimeError(f"Preset slot {pyquadcortex.position_to_slot(position)} is empty.")
         recalled = qc.read_preset(setlist_key, position, timeout=15.0)
-        if recalled.name != target["name"]:
-            raise RuntimeError("Preset recall response did not match the target preset name.")
+        target_name = recalled.name or "Unsaved"
         self._setlist_key = setlist_key
         self._preset_position = position
         snapshot = self.snapshot()
-        if snapshot["presetName"] != target["name"]:
+        if snapshot["presetName"] != target_name:
             raise RuntimeError("Preset recall landed, but live preset readback did not match.")
         return {
-            "detail": f"Recalled {target['location']} · {target['name']} and verified",
+            "detail": f"Recalled {pyquadcortex.position_to_slot(position)} · {target_name} and verified",
             "snapshot": snapshot,
         }
 
@@ -487,7 +1044,7 @@ class PyQuadCortexDevice:
     ) -> dict[str, Any]:
         if isinstance(direction, bool) or direction not in (-1, 1):
             raise ValueError("Bank direction must be -1 or 1.")
-        setlist_key, current_position, _ = self._current_position()
+        setlist_key, current_position, _ = self._current_position(refresh=True)
         target = current_position + direction * 8
         if not 0 <= target < 256:
             raise RuntimeError("Already at the first or last preset bank.")
@@ -512,7 +1069,7 @@ class PyQuadCortexDevice:
         self, expected_preset_name: str, expected_position: int
     ) -> dict[str, Any]:
         qc = self._require_session()
-        setlist_key, current_position, _ = self._current_position()
+        setlist_key, current_position, _ = self._current_position(refresh=True)
         self._assert_expected_preset(expected_preset_name)
         if current_position != expected_position:
             raise RuntimeError("The active preset slot changed on the Quad Cortex. Refresh and retry.")
@@ -527,12 +1084,16 @@ class PyQuadCortexDevice:
             raise RuntimeError("The preset reloaded, but the device still reports unsaved changes.")
         return {"detail": "Unsaved device changes discarded and preset reloaded", "snapshot": snapshot}
 
-    def select_scene(self, scene: int, expected_preset_name: str = "") -> dict[str, Any]:
-        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < 8:
-            raise ValueError("Scene must be an integer from 0 through 7.")
+    def select_scene(self, scene: int, expected_preset_name: str = "") -> DeviceActionResult:
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+            raise ValueError(f"Scene must be an integer from 0 through {SCENE_COUNT - 1}.")
         qc = self._require_session()
         self._assert_expected_preset(expected_preset_name)
-        qc.switch_scene(scene)
+        native_command = getattr(getattr(qc, "_t", None), "select_scene", None)
+        if native_command is not None:
+            native_command(scene)
+        else:
+            qc.switch_scene(scene)
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             if int(qc.active_scene()) == scene:
@@ -552,7 +1113,7 @@ class PyQuadCortexDevice:
         desired_bypassed: bool,
         expected_preset_name: str = "",
     ) -> dict[str, Any]:
-        for label, value, maximum in (("row", row, 3), ("column", column, 7), ("scene", expected_scene, 7)):
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1), ("scene", expected_scene, SCENE_COUNT - 1)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
         if not isinstance(expected_bypassed, bool) or not isinstance(desired_bypassed, bool):
@@ -578,7 +1139,11 @@ class PyQuadCortexDevice:
                 f"Bypass state changed on the Quad Cortex: expected {'bypassed' if expected_bypassed else 'enabled'}, "
                 f"but it is {'bypassed' if before_value else 'enabled'}. Refresh and retry."
             )
-        qc.set_bypass(row, column, desired_bypassed)
+        native_command = getattr(getattr(qc, "_t", None), "set_bypass", None)
+        if native_command is not None:
+            native_command(row, column, desired_bypassed)
+        else:
+            qc.set_bypass(row, column, desired_bypassed)
 
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
@@ -605,9 +1170,9 @@ class PyQuadCortexDevice:
     ) -> dict[str, Any]:
         """Move one existing block to an empty cell on the same signal row."""
         for label, value, maximum in (
-            ("row", row, 3),
-            ("source column", from_column, 7),
-            ("destination column", to_column, 7),
+            ("row", row, GRID_ROWS - 1),
+            ("source column", from_column, GRID_COLUMNS - 1),
+            ("destination column", to_column, GRID_COLUMNS - 1),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
@@ -629,7 +1194,11 @@ class PyQuadCortexDevice:
         if (row, to_column) in occupied:
             raise RuntimeError(f"Row {row + 1}, column {to_column + 1} is no longer empty. Refresh and retry.")
 
-        qc.move_block(row, from_column, row, to_column)
+        native_move = _native_transport_method(qc, "move_block")
+        if native_move is not None:
+            native_move(row, from_column, row, to_column)
+        else:
+            qc.move_block(row, from_column, row, to_column)
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             time.sleep(0.2)
@@ -652,7 +1221,7 @@ class PyQuadCortexDevice:
         model_id: int,
         expected_preset_name: str,
     ) -> dict[str, Any]:
-        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
         if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id <= 0:
@@ -664,11 +1233,15 @@ class PyQuadCortexDevice:
         preset = self._assert_expected_preset(expected_preset_name)
         if any(block.row == row and block.column == column for block in pyquadcortex.blocks(preset)):
             raise RuntimeError(f"Row {row + 1}, column {column + 1} is no longer empty. Refresh and retry.")
-        model = qc.catalog.get(model_id)
+        model = self._ensure_catalog().get(model_id)
         if model is None or model.hidden or model.internal or model.category_hidden or model.superseded:
             raise RuntimeError("The selected model is not available for new blocks on this Quad Cortex.")
 
-        qc.set_block(row, column, model_id, verify=True, timeout=5.0)
+        native_set = _native_transport_method(qc, "set_block")
+        if native_set is not None:
+            native_set(row, column, model_id)
+        else:
+            qc.set_block(row, column, model_id, verify=True, timeout=5.0)
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             time.sleep(0.2)
@@ -693,7 +1266,7 @@ class PyQuadCortexDevice:
         expected_model_id: int,
         expected_preset_name: str,
     ) -> dict[str, Any]:
-        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
         if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
@@ -709,8 +1282,12 @@ class PyQuadCortexDevice:
         )
         if block is None or int(block.model_id) != expected_model_id:
             raise RuntimeError("The selected block changed on the Quad Cortex. Refresh and retry.")
-        model = qc.catalog.get(expected_model_id)
-        qc.remove_block(row, column)
+        model = self._ensure_catalog().get(expected_model_id)
+        native_remove = _native_transport_method(qc, "remove_block")
+        if native_remove is not None:
+            native_remove(row, column)
+        else:
+            qc.remove_block(row, column)
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             time.sleep(0.2)
@@ -734,12 +1311,12 @@ class PyQuadCortexDevice:
         expected_preset_name: str,
     ) -> dict[str, Any]:
         """Assign or unassign a block's STOMP footswitch with stale-state guards."""
-        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+        for label, value, maximum in (("row", row, GRID_ROWS - 1), ("column", column, GRID_COLUMNS - 1)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
         for label, value in (("footswitch", footswitch), ("expected footswitch", expected_footswitch)):
-            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < 8):
-                raise ValueError(f"{label.capitalize()} must be null or an integer from 0 through 7.")
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < SCENE_COUNT):
+                raise ValueError(f"{label.capitalize()} must be null or an integer from 0 through {SCENE_COUNT - 1}.")
         if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id <= 0:
             raise ValueError("Expected model ID must be a positive integer.")
 
@@ -763,7 +1340,10 @@ class PyQuadCortexDevice:
         if footswitch == current:
             return {"detail": "Footswitch assignment was already current", "snapshot": self.snapshot()}
 
-        if footswitch is None:
+        native_footswitch = _native_transport_method(qc, "set_footswitch")
+        if native_footswitch is not None:
+            native_footswitch(row, column, footswitch)
+        elif footswitch is None:
             qc.clear_stomp_assignment(row, column)
         else:
             qc.set_stomp_assignment(row, column, footswitch)
@@ -819,7 +1399,10 @@ class PyQuadCortexDevice:
         if route_id == expected_route_id:
             return {"detail": f"Row {row + 1} {route_kind} was already current", "snapshot": self.snapshot()}
 
-        if route_kind == "input":
+        native_route = _native_transport_method(qc, f"set_chain_{route_kind}")
+        if native_route is not None:
+            native_route(row, route_id)
+        elif route_kind == "input":
             qc.set_chain_input(row, route_id)
         else:
             qc.set_chain_output(row, route_id)
@@ -862,10 +1445,10 @@ class PyQuadCortexDevice:
                 if mix is not None:
                     raise ValueError(f"{label} mix column must be null when the split is disabled.")
                 return
-            if isinstance(split, bool) or not isinstance(split, int) or not 0 <= split < 8:
-                raise ValueError(f"{label} split column must be null or an integer from 0 through 7.")
-            if isinstance(mix, bool) or not isinstance(mix, int) or mix not in range(-1, 8):
-                raise ValueError(f"{label} mix column must be -1 or an integer from 0 through 7.")
+            if isinstance(split, bool) or not isinstance(split, int) or not 0 <= split < GRID_COLUMNS:
+                raise ValueError(f"{label} split column must be null or an integer from 0 through {GRID_COLUMNS - 1}.")
+            if isinstance(mix, bool) or not isinstance(mix, int) or mix not in range(-1, GRID_COLUMNS):
+                raise ValueError(f"{label} mix column must be -1 or an integer from 0 through {GRID_COLUMNS - 1}.")
             if mix != -1 and mix <= split:
                 raise ValueError(f"{label} rejoin column must follow the split column.")
 
@@ -888,7 +1471,10 @@ class PyQuadCortexDevice:
         if desired == expected:
             return {"detail": f"Row {row + 1} parallel route was already current", "snapshot": self.snapshot()}
 
-        if split_column is None:
+        native_split = _native_transport_method(qc, "set_chain_split")
+        if native_split is not None:
+            native_split(row, split_column, mix_column)
+        elif split_column is None:
             qc.clear_split(row)
         else:
             qc.set_split(row, split_column, mix_column)
@@ -906,75 +1492,381 @@ class PyQuadCortexDevice:
                 return {"detail": detail, "snapshot": self.snapshot()}
         raise RuntimeError("The parallel-routing command was sent, but readback did not confirm it.")
 
+    def _routing_node_details(
+        self, preset: Any, row: int, column: int, scene: int
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        node = ROUTING_NODE_COLUMNS[column]
+        split = next((item for item in pyquadcortex.splits(preset) if item.row == row), None)
+        if split is None or (node == "mixer" and not split.rejoins):
+            raise RuntimeError(f"There is no {node} on signal line {row + 1}.")
+        collection = preset.chains[row].combined_splitter if node == "splitter" else preset.chains[row].mixer
+        if not collection:
+            raise RuntimeError(f"The Quad Cortex did not report {node} parameter state for signal line {row + 1}.")
+        qc = self._require_session()
+        model_id = ROUTING_NODE_MODELS[node]
+        model = self._ensure_catalog().get(model_id)
+        if model is None:
+            raise RuntimeError(f"Model metadata is unavailable for the {node}.")
+        stored_model = collection[0]
+        current_values: dict[int, float | None] = {}
+        controller_steps = {spec.index: spec.steps for spec in model.parameters}
+        for spec in model.parameters:
+            if spec.index >= len(stored_model.params):
+                current_values[spec.index] = None
+                continue
+            stored_parameter = stored_model.params[spec.index]
+            values = [
+                item.string_value if item.HasField("string_value") else item.float_value if item.HasField("float_value") else None
+                for item in stored_parameter.param_values
+            ]
+            state = pyquadcortex.ParamState(bool(stored_parameter.scene_mode), tuple(values))
+            value = _effective_parameter_value(state, scene)
+            current_values[spec.index] = float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+        visible_indexes: set[int] | None = None
+        if node == "splitter" and stored_model.params:
+            type_values = [item.float_value for item in stored_model.params[0].param_values if item.HasField("float_value")]
+            split_type = type_values[scene] if stored_model.params[0].scene_mode and scene < len(type_values) else (type_values[0] if type_values else 0.0)
+            visible_indexes = ({0, 1, 3, 4}, {0, 1, 2}, {0, 1, 5, 6})[max(0, min(2, round(split_type * 2)))]
+        parameters = []
+        for spec in model.parameters:
+            metadata: dict[str, Any] = {}
+            if metadata.get("hidden") or metadata.get("screenVisible") is False:
+                continue
+            if visible_indexes is not None and spec.index not in visible_indexes:
+                continue
+            if node == "mixer" and spec.name == "SPLIT MODE":
+                continue
+            if spec.index >= len(stored_model.params):
+                continue
+            stored_parameter = stored_model.params[spec.index]
+            values = []
+            for item in stored_parameter.param_values:
+                if item.HasField("string_value"):
+                    values.append(item.string_value)
+                elif item.HasField("float_value"):
+                    values.append(item.float_value)
+                else:
+                    values.append(None)
+            state = pyquadcortex.ParamState(bool(stored_parameter.scene_mode), tuple(values))
+            value = _effective_parameter_value(state, scene)
+            dynamic_options = list(stored_parameter.dynamic_steps)
+            options = dynamic_options or ROUTING_PARAMETER_OPTIONS.get((node, spec.index), [])
+            display_metadata = self._parameter_display_metadata(model_id, spec.index, spec, list(options))
+            normalized_value, writable = _editor_parameter_state(value, list(options), spec.type)
+            if options and normalized_value is not None:
+                display_value = str(pyquadcortex.option_at(options, normalized_value))
+            elif normalized_value is not None:
+                if display_metadata["scaleKnown"]:
+                    precision = display_metadata["displayPrecision"]
+                    display_value = _format_parameter_number(normalized_value, precision)
+                else:
+                    display_value = f"{normalized_value:.3f}".rstrip("0").rstrip(".")
+            else:
+                display_value = str(value or "")
+            parameters.append(
+                {
+                    "index": spec.index,
+                    "name": (spec.name or f"Parameter {spec.index}").replace("_", " "),
+                    "normalizedValue": normalized_value,
+                    "displayValue": display_value,
+                    "units": display_metadata.get("units", spec.units),
+                    "type": spec.type,
+                    "minimum": display_metadata["minimum"],
+                    "maximum": display_metadata["maximum"],
+                    "valueScale": display_metadata["valueScale"],
+                    "scaleExponent": display_metadata["scaleExponent"],
+                    "scalePoints": display_metadata.get("scalePoints", []),
+                    "displayPrecision": display_metadata["displayPrecision"],
+                    "scaleKnown": display_metadata["scaleKnown"],
+                    "minimumLabel": display_metadata.get("minimumLabel"),
+                    "midpointLabel": display_metadata.get("midpointLabel"),
+                    "maximumLabel": display_metadata.get("maximumLabel"),
+                    "displayPosition": display_metadata.get("displayPosition", spec.index),
+                    "steps": spec.steps,
+                    "sceneMode": bool(state.scene_mode),
+                    "options": list(options),
+                    "writable": writable,
+                    "enabled": _parameter_enabled(display_metadata, current_values, controller_steps),
+                    "expressionAssignable": display_metadata.get("expressionAssignable", True),
+                    "linkedSceneMode": display_metadata.get("linkedSceneMode"),
+                    "expression": None,
+                    "expressionMinimum": None,
+                    "expressionMaximum": None,
+                }
+            )
+        result = {
+            "row": row,
+            "column": column,
+            "modelId": model_id,
+            "name": model.name,
+            "category": _device_type_name(model.category),
+            "scene": scene,
+            "parameters": parameters,
+        }
+        self._live_editor_context = {
+            "row": row,
+            "column": column,
+            "scene": scene,
+            "presetName": preset.name or "",
+            "parameters": {
+                int(parameter["index"])
+                for parameter in parameters
+                if parameter["writable"]
+                and parameter["normalizedValue"] is not None
+                and not parameter["options"]
+            },
+        }
+        return result
+
+    def preview_parameter(
+        self,
+        row: int,
+        column: int,
+        parameter_index: int,
+        value: float,
+        expected_scene: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        """Stream a continuous knob value without any blocking device read.
+
+        The final set_parameter call still performs full optimistic-concurrency
+        checks and stable readback. This path exists only to make physical QC
+        tracking follow pointer motion in real time.
+        """
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.0 <= value <= 1.0:
+            raise ValueError("Parameter value must be a normalized number from 0 through 1.")
+        if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
+            raise ValueError("Parameter index must be a non-negative integer.")
+        context = self._live_editor_context
+        expected_name_matches = bool(context) and (
+            context["presetName"] == expected_preset_name
+            or (not context["presetName"] and expected_preset_name.casefold() in {"current preset", "empty preset", "unsaved"})
+        )
+        if (
+            not context
+            or column in ROUTING_NODE_COLUMNS
+            or context["row"] != row
+            or context["column"] != column
+            or context["scene"] != expected_scene
+            or not expected_name_matches
+            or parameter_index not in context["parameters"]
+        ):
+            raise RuntimeError("The live parameter context changed. Reopen the block and retry.")
+        qc = self._require_session()
+        native_command = getattr(getattr(qc, "_t", None), "set_parameter", None)
+        if native_command is not None:
+            native_command(row, column, parameter_index, value=float(value))
+        else:
+            qc.set_param(row, column, param_index=parameter_index, value=float(value))
+        return {
+            "detail": "Latest drag value sent to the Quad Cortex",
+            "acceptedValue": float(value),
+        }
+
     def block_details(
         self, row: int, column: int, expected_preset_name: str = ""
-    ) -> dict[str, Any]:
-        for label, value, maximum in (("row", row, 3), ("column", column, 7)):
+    ) -> BlockDetails:
+        for label, value, maximum in (("row", row, 3), ("column", column, 9)):
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
                 raise ValueError(f"Expected {label} must be an integer from 0 through {maximum}.")
 
+        qc = self._require_session()
+        native_reader = getattr(getattr(qc, "_t", None), "block_details", None)
+        if native_reader is not None:
+            native = native_reader(row, column, expected_preset_name)
+            if native is not None:
+                self._live_editor_context = {
+                    "row": row,
+                    "column": column,
+                    "scene": int(native["scene"]),
+                    "presetName": expected_preset_name,
+                    "parameters": {
+                        int(parameter["index"])
+                        for parameter in native["parameters"]
+                        if parameter.get("writable")
+                        and parameter.get("normalizedValue") is not None
+                        and not parameter.get("options")
+                    },
+                }
+                return native
+
         import pyquadcortex
 
-        qc = self._require_session()
         preset = self._assert_expected_preset(expected_preset_name)
         scene = int(qc.active_scene())
+        if column in ROUTING_NODE_COLUMNS:
+            return self._routing_node_details(preset, row, column, scene)
         block = next(
             (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
             None,
         )
         if block is None:
             raise RuntimeError(f"There is no block at row {row + 1}, column {column + 1}.")
-        model = qc.catalog.get(block.model_id)
+        model = self._ensure_catalog().get(block.model_id)
         if model is None:
             raise RuntimeError(f"Model metadata is unavailable for block {block.model_id}.")
 
-        parameters = []
+        current_values: dict[int, float | None] = {}
+        controller_steps = {spec.index: spec.steps for spec in model.parameters}
         for spec in model.parameters:
             try:
                 state = pyquadcortex.param_state(preset, row, column, spec.index)
                 value = _effective_parameter_value(state, scene)
+                current_values[spec.index] = float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+            except (IndexError, AttributeError):
+                current_values[spec.index] = None
+
+        parameters = []
+        cab_model = "cabsim" in model.category.casefold() or " cab" in _device_type_name(model.category).casefold()
+        ir_loader_model = "irloader" in re.sub(r"[^a-z0-9]+", "", model.category.casefold())
+        for spec in model.parameters:
+            metadata: dict[str, Any] = {}
+            if metadata.get("hidden") or (metadata.get("screenVisible") is False and not (cab_model or ir_loader_model)) or _conditional_parameter_hidden(block.model_id, spec.index, current_values):
+                continue
+            try:
+                state = pyquadcortex.param_state(preset, row, column, spec.index)
+                value = _effective_parameter_value(state, scene)
+                stored_parameter = preset.chains[row].models[column].params[spec.index]
             except (IndexError, AttributeError):
                 continue
             options = pyquadcortex.param_options(preset, row, column, spec.index)
-            writable = isinstance(value, (int, float)) and not isinstance(value, bool)
+            if not options and spec.index in (1, 9):
+                options = _cab_microphone_options(block.model_id, value)
+            display_metadata = self._parameter_display_metadata(block.model_id, spec.index, spec, list(options))
+            numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+            text_option = isinstance(value, str) and bool(options) and value in options
+            normalized_value, writable = _editor_parameter_state(value, list(options), spec.type)
             display_value: str
-            if options and writable:
+            if text_option:
+                display_value = str(value)
+            elif options and numeric:
                 try:
                     display_value = str(pyquadcortex.option_at(options, float(value)))
                 except (ValueError, IndexError):
                     display_value = f"{float(value):.3f}"
             elif writable:
-                try:
-                    display_value = f"{spec.to_real(float(value)):.3f}".rstrip("0").rstrip(".")
-                except ValueError:
+                if display_metadata["scaleKnown"]:
+                    precision = display_metadata["displayPrecision"]
+                    display_value = _format_parameter_number(float(value), precision)
+                else:
                     display_value = f"{float(value):.3f}".rstrip("0").rstrip(".")
             else:
                 display_value = str(value or "")
             parameters.append(
                 {
                     "index": spec.index,
-                    "name": spec.name or f"Parameter {spec.index}",
-                    "normalizedValue": float(value) if writable else None,
+                    "name": (spec.name or f"Parameter {spec.index}").replace("_", " "),
+                    "normalizedValue": normalized_value,
                     "displayValue": display_value,
-                    "units": spec.units,
+                    "units": display_metadata.get("units", spec.units),
                     "type": spec.type,
-                    "minimum": spec.minimum,
-                    "maximum": spec.maximum,
+                    "minimum": display_metadata["minimum"],
+                    "maximum": display_metadata["maximum"],
+                    "valueScale": display_metadata["valueScale"],
+                    "scaleExponent": display_metadata["scaleExponent"],
+                    "scalePoints": display_metadata.get("scalePoints", []),
+                    "displayPrecision": display_metadata["displayPrecision"],
+                    "scaleKnown": display_metadata["scaleKnown"],
+                    "minimumLabel": display_metadata.get("minimumLabel"),
+                    "midpointLabel": display_metadata.get("midpointLabel"),
+                    "maximumLabel": display_metadata.get("maximumLabel"),
+                    "displayPosition": display_metadata.get("displayPosition", spec.index),
                     "steps": spec.steps,
                     "sceneMode": bool(state.scene_mode),
                     "options": list(options),
                     "writable": writable,
+                    "enabled": _parameter_enabled(display_metadata, current_values, controller_steps),
+                    "expressionAssignable": display_metadata.get("expressionAssignable", True),
+                    "linkedSceneMode": display_metadata.get("linkedSceneMode"),
+                    "expression": (
+                        int(stored_parameter.expression)
+                        if pyquadcortex.field_present(stored_parameter, "expression")
+                        else None
+                    ),
+                    "expressionMinimum": (
+                        float(stored_parameter.expression_min)
+                        if pyquadcortex.field_present(stored_parameter, "expression_min")
+                        else None
+                    ),
+                    "expressionMaximum": (
+                        float(stored_parameter.expression_max)
+                        if pyquadcortex.field_present(stored_parameter, "expression_max")
+                        else None
+                    ),
                 }
             )
-        return {
+        result = {
             "row": row,
             "column": column,
             "modelId": block.model_id,
             "name": model.name,
-            "category": model.category,
+            "category": _device_type_name(model.category),
             "scene": scene,
             "parameters": parameters,
         }
+        self._live_editor_context = {
+            "row": row,
+            "column": column,
+            "scene": scene,
+            "presetName": preset.name or "",
+            "parameters": {
+                int(parameter["index"])
+                for parameter in parameters
+                if parameter["writable"]
+                and parameter["normalizedValue"] is not None
+                and not parameter["options"]
+            },
+        }
+        return result
+
+    def _set_routing_parameter(
+        self,
+        preset: Any,
+        row: int,
+        column: int,
+        parameter_index: int,
+        value: float,
+        expected_value: float,
+        scene: int,
+        expected_preset_name: str,
+    ) -> dict[str, Any]:
+        import pyquadcortex
+
+        node = ROUTING_NODE_COLUMNS[column]
+        details = self._routing_node_details(preset, row, column, scene)
+        parameter = next((item for item in details["parameters"] if item["index"] == parameter_index), None)
+        if parameter is None or parameter["normalizedValue"] is None:
+            raise RuntimeError(f"The selected {node} no longer exposes that parameter.")
+        options = parameter["options"]
+        if not pyquadcortex.params_equal(float(parameter["normalizedValue"]), float(expected_value), len(options) or None):
+            raise RuntimeError(f"The {node} parameter changed on the Quad Cortex. Refresh and retry.")
+
+        qc = self._require_session()
+        native_routing = _native_transport_method(qc, "set_routing_parameter")
+        if native_routing is not None:
+            native_routing(row, node, parameter_index, float(value))
+        elif node == "splitter":
+            qc.set_splitter_param(row, parameter_index, value=float(value))
+        else:
+            qc.set_mixer_param(row, parameter_index, value=float(value))
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.04)
+            current_preset = qc.read_current_preset()
+            current = self._routing_node_details(current_preset, row, column, scene)
+            actual = next((item for item in current["parameters"] if item["index"] == parameter_index), None)
+            if actual is not None and actual["normalizedValue"] is not None and pyquadcortex.params_equal(
+                float(actual["normalizedValue"]), float(value), len(actual["options"]) or None
+            ):
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Routing parameter readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"{node.title()} parameter change applied and verified",
+                    "block": current,
+                }
+        raise RuntimeError(f"The {node} parameter command was sent, but readback did not confirm the requested value.")
 
     def set_parameter(
         self,
@@ -1003,39 +1895,105 @@ class PyQuadCortexDevice:
                 f"Scene changed on the Quad Cortex: expected {chr(65 + expected_scene)}, "
                 f"but {chr(65 + actual_scene)} is active. Refresh and retry."
             )
+        if column in ROUTING_NODE_COLUMNS:
+            return self._set_routing_parameter(
+                preset, row, column, parameter_index, value, expected_value,
+                actual_scene, expected_preset_name
+            )
         block = next(
             (candidate for candidate in pyquadcortex.blocks(preset) if candidate.row == row and candidate.column == column),
             None,
         )
         if block is None:
             raise RuntimeError(f"There is no block at row {row + 1}, column {column + 1}.")
-        model = qc.catalog.get(block.model_id)
-        if model is None or not any(spec.index == parameter_index for spec in model.parameters):
-            raise RuntimeError("The selected block no longer exposes that parameter.")
+        native_reader = getattr(getattr(qc, "_t", None), "block_details", None)
+        native_block = native_reader(row, column, expected_preset_name) if native_reader is not None else None
+        native_parameter = next(
+            (item for item in (native_block or {}).get("parameters", []) if item["index"] == parameter_index),
+            None,
+        )
+        if native_reader is not None:
+            if native_parameter is None:
+                raise RuntimeError("The selected block no longer exposes that parameter.")
+        else:
+            model = self._ensure_catalog().get(block.model_id)
+            if model is None or not any(spec.index == parameter_index for spec in model.parameters):
+                raise RuntimeError("The selected block no longer exposes that parameter.")
         state = pyquadcortex.param_state(preset, row, column, parameter_index)
         current = _effective_parameter_value(state, actual_scene)
-        if not isinstance(current, (int, float)) or isinstance(current, bool):
-            raise RuntimeError("This parameter is not numeric and cannot be changed by this editor.")
         options = pyquadcortex.param_options(preset, row, column, parameter_index)
-        if not pyquadcortex.params_equal(float(current), float(expected_value), len(options) or None):
-            raise RuntimeError("The parameter changed on the Quad Cortex. Refresh the block and retry.")
-
-        qc.set_param(row, column, param_index=parameter_index, value=float(value))
-        deadline = time.monotonic() + 3.0
+        if not options and native_parameter is not None:
+            options = list(native_parameter.get("options") or [])
+        if not options and parameter_index in (1, 9):
+            options = _cab_microphone_options(block.model_id, current)
+        text_target = None
+        if isinstance(current, str):
+            if current not in options:
+                raise RuntimeError("This text parameter has no selectable option list on the Quad Cortex.")
+            current_normalized = 0.0 if len(options) == 1 else options.index(current) / (len(options) - 1)
+            if not pyquadcortex.params_equal(current_normalized, float(expected_value), len(options) or None):
+                raise RuntimeError("The parameter changed on the Quad Cortex. Refresh the block and retry.")
+            text_target = str(pyquadcortex.option_at(options, float(value)))
+            native_command = getattr(getattr(qc, "_t", None), "set_parameter", None)
+            if native_command is not None:
+                native_command(row, column, parameter_index, text=text_target)
+            else:
+                qc.set_param(row, column, param_index=parameter_index, text=text_target)
+        elif isinstance(current, (int, float)) and not isinstance(current, bool):
+            already_at_target = pyquadcortex.params_equal(float(current), float(value), len(options) or None)
+            if not already_at_target and not pyquadcortex.params_equal(float(current), float(expected_value), len(options) or None):
+                raise RuntimeError("The parameter changed on the Quad Cortex. Refresh the block and retry.")
+            if not already_at_target:
+                native_command = getattr(getattr(qc, "_t", None), "set_parameter", None)
+                if native_command is not None:
+                    native_command(row, column, parameter_index, value=float(value))
+                else:
+                    qc.set_param(row, column, param_index=parameter_index, value=float(value))
+        else:
+            raise RuntimeError("This parameter cannot be changed by the editor.")
+        deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline:
-            time.sleep(0.2)
+            time.sleep(0.04)
             current_preset = qc.read_current_preset()
             current_state = pyquadcortex.param_state(current_preset, row, column, parameter_index)
             actual = _effective_parameter_value(current_state, actual_scene)
-            if isinstance(actual, (int, float)) and pyquadcortex.params_equal(
-                float(actual), float(value), len(options) or None
-            ):
+            text_matches = text_target is not None and actual == text_target
+            numeric_matches = (
+                text_target is None
+                and isinstance(actual, (int, float))
+                and not isinstance(actual, bool)
+                and pyquadcortex.params_equal(float(actual), float(value), len(options) or None)
+            )
+            if text_matches or numeric_matches:
                 if not _wait_for_dirty(qc, True):
                     raise RuntimeError("Parameter readback matched, but the device did not mark the preset dirty.")
+                # block_details performs a fresh preset read. Validating the value
+                # in that result provides the second stable read without an
+                # additional fixed 250 ms wait or a full-preset snapshot.
+                verified_block = self.block_details(row, column, expected_preset_name)
+                verified_parameter = next(
+                    (item for item in verified_block["parameters"] if item["index"] == parameter_index),
+                    None,
+                )
+                if verified_parameter is None:
+                    raise RuntimeError("Parameter write landed, but its final displayed value could not be read.")
+                verified_value = verified_parameter.get("normalizedValue")
+                verified_text_matches = text_target is not None and verified_parameter.get("displayValue") == text_target
+                verified_numeric_matches = (
+                    text_target is None
+                    and isinstance(verified_value, (int, float))
+                    and not isinstance(verified_value, bool)
+                    and pyquadcortex.params_equal(float(verified_value), float(value), len(options) or None)
+                )
+                if not (verified_text_matches or verified_numeric_matches):
+                    continue
+                display = str(verified_parameter["displayValue"])
+                units = str(verified_parameter.get("units") or "")
+                if units and units not in display:
+                    display = f"{display} {units}"
                 return {
-                    "detail": "Parameter change applied and verified",
-                    "block": self.block_details(row, column, expected_preset_name),
-                    "snapshot": self.snapshot(),
+                    "detail": f"{verified_parameter['name']} set to {display} and verified by two stable device reads",
+                    "block": verified_block,
                 }
         raise RuntimeError("The parameter command was sent, but readback did not confirm the requested value.")
 
@@ -1068,20 +2026,33 @@ class PyQuadCortexDevice:
             return {"detail": f"Tempo is already {bpm} BPM", "snapshot": self.snapshot()}
 
         desired_value = _tempo_value(bpm)
-        qc.set_tempo_param("TEMPO", value=desired_value)
+        native_command = getattr(getattr(qc, "_t", None), "set_tempo", None)
+        if native_command is not None:
+            native_command(bpm)
+        else:
+            qc.set_tempo_param("TEMPO", value=desired_value)
         deadline = time.monotonic() + 3.0
+        stable_reads = 0
         while time.monotonic() < deadline:
-            time.sleep(0.2)
+            time.sleep(0.04)
             current = qc.read_current_preset()
             actual_value = pyquadcortex.tempo_params(current).get(0)
             if isinstance(actual_value, (int, float)) and abs(float(actual_value) - desired_value) <= 0.0025:
-                if not _wait_for_dirty(qc, True):
-                    raise RuntimeError("Tempo readback matched, but the device did not mark the preset dirty.")
-                snapshot = self.snapshot()
-                if snapshot["tempo"] != bpm:
-                    raise RuntimeError("Tempo write landed, but its displayed BPM did not verify.")
-                return {"detail": f"Tempo set to {bpm} BPM and verified", "snapshot": snapshot}
+                stable_reads += 1
+                if stable_reads >= 2:
+                    # Tempo is a live/global performance control on the QC and
+                    # does not necessarily dirty the preset. Requiring a dirty
+                    # flag turned a successful hardware write into an app error.
+                    return {"detail": f"Tempo set to {bpm} BPM and verified on the Quad Cortex"}
+            else:
+                stable_reads = 0
         raise RuntimeError("The tempo command was sent, but readback did not confirm the requested BPM.")
+
+    def master_volume_state(self) -> dict[str, int]:
+        """Read only the live master-volume control without rebuilding the preset snapshot."""
+        qc = self._require_session()
+        value = round(float(qc.master_volume(timeout=3.0).volume) * 100)
+        return {"value": max(0, min(100, value))}
 
     def set_master_volume(self, value: int, expected_value: int) -> dict[str, Any]:
         """Set the live QC master volume using its displayed 0-100 scale."""
@@ -1091,7 +2062,7 @@ class PyQuadCortexDevice:
             raise ValueError("Expected Master Volume must be an integer from 0 through 100.")
 
         qc = self._require_session()
-        actual = round(float(qc.master_volume(timeout=3.0).volume) * 100)
+        actual = self.master_volume_state()["value"]
         if abs(actual - expected_value) > 1:
             raise RuntimeError(
                 f"Master Volume changed on the Quad Cortex: expected {expected_value}, found {actual}. "
@@ -1101,16 +2072,16 @@ class PyQuadCortexDevice:
             return {"detail": f"Master Volume is already {value}", "snapshot": self.snapshot()}
 
         qc.set_master_volume(value / 100.0)
-        deadline = time.monotonic() + 3.0
+        # The QC can report the previous value briefly after a host write. Poll
+        # quickly until the first authoritative device echo; the dedicated live
+        # volume lane continues reconciling it after this command returns.
+        deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
-            time.sleep(0.15)
-            confirmed = round(float(qc.master_volume(timeout=3.0).volume) * 100)
+            time.sleep(0.04)
+            confirmed = self.master_volume_state()["value"]
             if abs(confirmed - value) <= 1:
-                snapshot = self.snapshot()
-                snapshot["masterVolume"] = confirmed
                 return {
                     "detail": f"Master Volume set to {confirmed}; the physical wheel will resume after soft takeover",
-                    "snapshot": snapshot,
                 }
         raise RuntimeError("The Master Volume command was sent, but readback did not confirm the requested value.")
 
@@ -1122,8 +2093,8 @@ class PyQuadCortexDevice:
     ) -> dict[str, Any]:
         import pyquadcortex
 
-        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < 8:
-            raise ValueError("Footswitch must be an integer from 0 through 7.")
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < SCENE_COUNT:
+            raise ValueError(f"Footswitch must be an integer from 0 through {SCENE_COUNT - 1}.")
         if expected_mode not in {"PRESET", "SCENE", "STOMP", "HYBRID"}:
             raise ValueError("Expected mode must be PRESET, SCENE, STOMP, or HYBRID.")
 
@@ -1139,7 +2110,7 @@ class PyQuadCortexDevice:
             raise RuntimeError("The current preset has unsaved changes. Save or revert them before pressing a preset footswitch.")
 
         before = self.snapshot()
-        endpoint = _send_qc_midi_cc(35 + index)
+        endpoint = _send_qc_midi_cc(FOOTSWITCH_BASE_CONTROLLER + index, MIDI_PRESSED_VALUE)
         time.sleep(0.35)
         try:
             self._remember_position(self._read_position_state(timeout=5.0))
@@ -1166,6 +2137,19 @@ class PyQuadCortexDevice:
             detail += "; no visible assignment changed"
         return {"detail": detail, "snapshot": after}
 
+    def select_mode_slot(self, slot: int, expected_preset_name: str) -> dict[str, Any]:
+        """Recall one of the three configured QC mode slots through official MIDI CC#47."""
+        if isinstance(slot, bool) or not isinstance(slot, int) or not 0 <= slot <= 2:
+            raise ValueError("Mode slot must be 0, 1, or 2.")
+        self._assert_expected_preset(expected_preset_name)
+        endpoint = _send_qc_midi_cc(MODE_SLOT_CONTROLLER, slot)
+        time.sleep(0.35)
+        snapshot = self.snapshot()
+        return {
+            "detail": f"Mode Slot {slot + 1} selected through {endpoint}; device mode verified as {snapshot['mode']}",
+            "snapshot": snapshot,
+        }
+
     def show_tuner(self, shown: bool = True) -> dict[str, Any]:
         if not isinstance(shown, bool):
             raise ValueError("Tuner visibility must be true or false.")
@@ -1178,18 +2162,37 @@ class PyQuadCortexDevice:
         self._require_session().set_gig_view(shown)
         return {"detail": "Gig View opened on the Quad Cortex" if shown else "Gig View closed"}
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self) -> PresetSnapshot:
         import pyquadcortex
 
         qc = self._require_session()
+        setlist_key, preset_position, _ = self._current_position(refresh=True)
         preset = qc.read_current_preset()
-        setlist_key, preset_position, _ = self._current_position()
         active_scene = int(qc.active_scene())
-        mode = _normalized_mode(qc)
-        footswitch_modes = _footswitch_modes(qc)
+        mode_state = qc.mode()
+        mode_value = int(mode_state.mode)
+        reported_cycle = list(mode_state.available_modes.modes)
+        if reported_cycle:
+            self._mode_cycle = [int(value) for value in reported_cycle]
+        if not self._mode_cycle:
+            self._mode_cycle = [0, 1, 2]
+        mode = _normalized_mode_value(mode_value)
+        footswitch_modes = _footswitch_modes_value(mode_value)
+        mode_slots = []
+        for slot, value in enumerate(self._mode_cycle[:3]):
+            label = pyquadcortex.describe_mode(value).upper()
+            mode_slots.append({
+                "slot": slot,
+                "label": label,
+                "mode": _normalized_mode_value(value),
+            })
         master_volume = round(float(qc.master_volume(timeout=3.0).volume) * 100)
 
-        catalog = qc.catalog
+        # The device model repository is a separate ~47 KB transfer that can take
+        # up to 25 seconds. A live snapshot must not implicitly fetch it: the grid
+        # remains usable with stable model ids, while model-aware screens load the
+        # catalog explicitly when the user opens them.
+        catalog = getattr(qc, "_catalog", None)
         stomp_assignments = list(pyquadcortex.stomp_assignments(preset))
         stomp_by_cell = {
             (assignment.row, assignment.column): int(assignment.footswitch)
@@ -1201,8 +2204,10 @@ class PyQuadCortexDevice:
         }
         blocks = []
         for block in pyquadcortex.blocks(preset):
-            model = catalog.get(block.model_id)
-            category = model.category if model else "Utility"
+            model = catalog.get(block.model_id) if catalog is not None else None
+            fallback = _factory_model_metadata(int(block.model_id)) if model is None else None
+            name = model.name if model else fallback[0] if fallback else f"Model {block.model_id}"
+            category = _device_type_name(model.category) if model else fallback[1] if fallback else "Utility"
             try:
                 bypass = pyquadcortex.bypass_state(preset, block.row, block.column)
                 bypassed = bypass.scenes[active_scene] if bypass.scene_mode else bypass.scenes[0]
@@ -1212,13 +2217,15 @@ class PyQuadCortexDevice:
                 "id": f"block-{block.row}-{block.column}",
                 "modelId": int(block.model_id),
                 "categoryId": int(model.category_id) if model else -1,
-                "name": model.name if model else f"Model {block.model_id}",
+                "name": name,
                 "kind": _block_kind(category),
                 "category": category,
+                "plugin": bool(model and getattr(model, "plugin_id", None)),
+                "pluginId": str(model.plugin_id) if model and getattr(model, "plugin_id", None) else None,
                 "row": block.row,
                 "column": block.column,
                 "bypassed": bypassed,
-                "color": _block_color(category, model.name if model else ""),
+                "color": _block_color(category, name),
                 "footswitch": stomp_by_cell.get((block.row, block.column)),
                 "footswitchOrder": stomp_order_by_cell.get((block.row, block.column)),
             })
@@ -1228,7 +2235,7 @@ class PyQuadCortexDevice:
         stomp_labels = dict(preset.stomp_labels)
         single_stomp_labels = dict(preset.single_stomp_labels)
         footswitch_states = []
-        for index in range(8):
+        for index in range(SCENE_COUNT):
             targets = [
                 block_by_cell.get((assignment.row, assignment.column))
                 for assignment in stomp_assignments
@@ -1268,20 +2275,21 @@ class PyQuadCortexDevice:
             routes.append(route)
 
         labels = list(preset.scene_labels)
-        scenes = [(labels[index] if index < len(labels) and labels[index] else f"Scene {chr(65 + index)}") for index in range(8)]
+        scenes = [(labels[index] if index < len(labels) and labels[index] else f"Scene {chr(65 + index)}") for index in range(SCENE_COUNT)]
         tempo_values = pyquadcortex.tempo_params(preset)
         return {
             "deviceName": "Quad Cortex",
-            "presetName": preset.name or "Current preset",
+            "presetName": preset.name or "Unsaved",
             "presetLocation": pyquadcortex.position_to_slot(preset_position),
             "presetPosition": preset_position,
             "setlistKey": setlist_key,
             "setlistName": setlist_key.rstrip("/").rsplit("/", 1)[-1],
             "mode": mode,
+            "modeSlots": mode_slots,
             "footswitchModes": footswitch_modes,
             "activeScene": active_scene,
             "scenes": scenes,
-            "sceneColors": [_argb_to_css(color) for color in list(preset.scene_colors)[:8]],
+            "sceneColors": [_argb_to_css(color) for color in list(preset.scene_colors)[:SCENE_COUNT]],
             "footswitchStates": footswitch_states,
             "blocks": blocks,
             "routes": routes,

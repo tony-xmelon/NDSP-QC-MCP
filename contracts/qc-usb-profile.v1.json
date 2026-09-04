@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "vendorId": 5418,
+  "productId": 34826,
+  "cortexControlVersion": "4.0.1",
+  "maxFrameBytes": 1048576,
+  "maxInflatedBytes": 16777216,
+  "keepaliveIntervalMs": 5000,
+  "reconnectIntervalMs": 750,
+  "performanceMidiGapMs": 80,
+  "handshakeTimeoutMs": 30000,
+  "handshakeAttemptTimeoutMs": 5000,
+  "initialSyncTimeoutMs": 2000,
+  "presetSyncTimeoutMs": 15000,
+  "commandConfirmationTimeoutMs": 3000,
+  "confirmationPollIntervalMs": 100,
+  "midi": {
+    "footswitchBaseController": 35,
+    "tapTempoController": 44,
+    "modeSlotController": 47,
+    "pressedValue": 127
+  },
+  "liveSubscriptions": [15, 2, 13, 14, 17, 33, 34, 21, 3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 57, 60]
+}

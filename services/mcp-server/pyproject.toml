@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ndsp-qc-mcp-server"
+version = "0.1.0"
+description = "Standalone Model Context Protocol server for Neural DSP Quad Cortex control"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=2.0,<3",
+  "ndsp-qc-gateway-client==0.1.0",
+]
+
+[project.scripts]
+ndsp-qc-mcp = "qc_mcp_server.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qc_mcp_server"]

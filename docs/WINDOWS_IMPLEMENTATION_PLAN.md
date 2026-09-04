@@ -1,5 +1,9 @@
 # QC Voice Control — Windows implementation plan
 
+> Historical plan, superseded by [ARCHITECTURE.md](ARCHITECTURE.md) and
+> [NATIVE_BROKER.md](NATIVE_BROKER.md). The shipped application uses the shared
+> Rust engine and native Rust broker.
+
 ## 1. Product definition
 
 Build a Windows desktop controller for the large-form-factor Neural DSP Quad Cortex. The application mirrors the physical unit closely enough that a user can transfer muscle memory between hardware and software, while adding desktop menus, connection diagnostics, keyboard/mouse control, and an AI chat/voice surface.
@@ -23,11 +27,10 @@ This Windows plan is one client plan within the repository-wide architecture in 
 
 - **Tauri 2** for the Windows application shell, native menus, installer, window management, and sidecar lifecycle.
 - **React + TypeScript + Vite** for the hardware surface, QC screen, chat UI, dialogs, input handling, and skin renderer.
-- **Python 3.13 device-gateway sidecar** for exclusive USB-HID ownership, state normalization, command validation, and diagnostics. It composes the reusable `qc-core` and `qc-pyquadcortex` packages.
-- **PyInstaller/Nuitka packaging spike** to produce a self-contained Python sidecar. Select the packager after verifying `protobuf` and the Windows `hidapi` binding in a clean VM.
+- **Native Rust device-broker sidecar** for exclusive USB-HID ownership, state normalization, command validation, and diagnostics. It composes `qc-device-runtime` and `qc-protocol`.
 - **WebView2** as the Windows web runtime used by Tauri. Validate microphone permission and Realtime WebRTC in the first technical spike rather than postponing it.
 
-This split keeps the proven Python hardware implementation intact while giving the UI the precision and flexibility needed to recreate the hardware surface. The frontend must never call `pyquadcortex` directly. AI/MCP is not part of the desktop boundary: the standalone MCP service uses the same core either directly or through the gateway.
+This split keeps protocol and device behavior shared between Windows and Android while giving the UI the precision and flexibility needed to recreate the hardware surface. Python remains a differential test oracle only. AI/MCP is not part of the desktop boundary: the standalone MCP service uses the same native contract.
 
 ### Process boundary
 
@@ -47,9 +50,9 @@ An optional authenticated HTTP/WebSocket transport may be enabled later for Andr
 ### Repository modules used by Windows
 
 ```text
-packages/python/qc-core/             Models, ports, commands, safety, history
-packages/python/qc-pyquadcortex/     USB-HID/protocol adapter
-services/device-gateway/             Sidecar entry point, IPC, session lifecycle
+packages/rust/qc-protocol/           USB framing, protobuf, state decoding, commands
+packages/rust/qc-device-runtime/     Shared snapshots, guards, operation plans
+services/device-broker/              Native sidecar, IPC, Windows HID lifecycle
 contracts/                           Versioned cross-language wire schemas
 packages/typescript/qc-client/       Generated types, transport, shared state
 packages/typescript/qc-ui/           Reusable web UI primitives
@@ -330,7 +333,7 @@ The user may resize or collapse the chat dock. Hardware status and emergency can
 2. **Conversation mode:** Optional continuous voice activity detection.
 3. **Dictation only:** Speech fills the composer but never sends automatically.
 
-OpenAI Realtime runs over WebRTC in WebView2. The Python backend creates short-lived client credentials and retains the permanent API key in Windows Credential Manager. Microphone selection, mute, input meter, echo cancellation, transcript visibility, and data-retention disclosure live in Settings.
+Realtime voice runs through the platform adapter. The native Tauri host retains provider credentials in Windows Credential Manager and supplies only short-lived or request-scoped authorization to the webview. Microphone selection, mute, input meter, echo cancellation, transcript visibility, and data-retention disclosure live in Settings.
 
 ### AI tool design
 
@@ -382,9 +385,9 @@ Every multi-step AI edit presents a diff grouped by scene and block. “Apply te
 
 ### Phase 0 — technical foundation
 
-- Scaffold Tauri, React/TypeScript, and Python sidecar.
-- Implement framed JSON-RPC and sidecar lifecycle.
-- Package `pyquadcortex` with the working Windows `hidapi` binding.
+- Scaffold Tauri, React/TypeScript, and the native Rust broker.
+- Implement framed JSON-RPC and broker lifecycle.
+- Implement the QC protocol and Windows HID transport in Rust.
 - Spike WebView2 microphone permission and Realtime WebRTC.
 - Establish logging, redaction, tests, and CI.
 
@@ -453,7 +456,7 @@ Exit: signed installer passes clean Windows 10/11 verification and a second form
 
 ## 10. Test strategy
 
-- Reuse `pyquadcortex` fake-transport and offline protocol fixtures.
+- Retain imported protocol fixtures for differential testing against the native Rust implementation.
 - Backend unit tests for every typed command, validation rule, confirmation level, and redaction rule.
 - Contract tests for JSON-RPC schemas and version negotiation.
 - Frontend component tests for every screen/control state.
@@ -482,7 +485,7 @@ The first public MVP is complete when it can:
 ## 12. Early decisions that remain reversible
 
 - Tauri versus a pure WinUI/WebView2 shell if microphone or accessibility integration proves unreliable.
-- PyInstaller versus Nuitka for sidecar packaging.
+- Native broker release hardening and installer-size optimization.
 - OpenAI Realtime as the initial voice provider versus an optional local recognizer later.
 - SQLite-backed workspaces versus a portable zipped `.qcw` document.
 - Exact save/overwrite workflow after observing how users combine touchscreen and desktop editing.

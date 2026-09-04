@@ -1,3 +1,9 @@
+import { QC_SCENE_COLORS } from "./generated-domain.ts";
+import type { BlockDetails, DeviceActionResult, PresetSnapshot } from "./generated-payloads.ts";
+export * from "./generated-domain.ts";
+export * from "./generated-gateway-methods.ts";
+export * from "./generated-payloads.ts";
+
 export type ConnectionPhase =
   | "disconnected"
   | "discovering"
@@ -15,77 +21,44 @@ export interface ConnectionState {
   demo: boolean;
 }
 
-export type BlockKind = "input" | "utility" | "capture" | "amp" | "cab" | "mod" | "delay" | "reverb" | "output";
-export type BlockGlyph = BlockKind | "cube" | "gate" | "compressor" | "capture-grid" | "wave" | "level";
-
-export interface GridBlock {
-  id: string;
-  modelId?: number;
-  categoryId?: number;
-  name: string;
-  kind: BlockKind;
-  category?: string;
-  row: number;
-  column: number;
-  bypassed?: boolean;
-  color?: string;
-  glyph?: BlockGlyph;
-  footswitch?: number;
-  footswitchOrder?: number;
+export interface TempoClockState {
+  available: boolean;
+  sequence?: number;
+  receivedAtUnixMs?: number;
+  currentBeat?: number;
+  currentBar?: number;
+  currentTick?: number;
 }
 
-export interface FootswitchState {
-  index: number;
-  active: boolean;
-  assigned: boolean;
-  color: string;
-  momentary?: boolean;
-  label?: string;
+export interface NativeStateFrame<TState = unknown> {
+  sequence: number;
+  observedAt: number;
+  states: TState[];
+  tempoClock?: Omit<TempoClockState, "available" | "sequence" | "receivedAtUnixMs">;
 }
 
-export interface GridRoute {
-  row: number;
-  inputId?: number;
-  outputId?: number;
-  input: string;
-  output: string;
-  splitColumn?: number;
-  mixColumn?: number;
-}
-
-export interface PresetSnapshot {
-  deviceName: string;
-  presetName: string;
-  presetLocation: string;
-  presetPosition: number;
-  setlistKey: string;
-  setlistName: string;
-  mode: "PRESET" | "SCENE" | "STOMP" | "HYBRID";
-  footswitchModes?: ["PRESET" | "SCENE" | "STOMP", "PRESET" | "SCENE" | "STOMP"];
-  activeScene: number;
-  scenes: string[];
-  sceneColors?: string[];
-  footswitchStates?: FootswitchState[];
-  blocks: GridBlock[];
-  routes: GridRoute[];
-  tempo: number;
-  tempoLedEnabled?: boolean;
-  masterVolume: number;
-  dirty: boolean;
+export interface NativeStateFrames<TState = unknown> {
+  native: boolean;
+  frames: NativeStateFrame<TState>[];
 }
 
 export const demoSnapshot: PresetSnapshot = {
   deviceName: "Quad Cortex",
-  presetName: "QC Block Reference",
+  presetName: "Brit 2203",
   presetLocation: "1A",
   presetPosition: 0,
   setlistKey: "demo",
   setlistName: "Demo Presets",
   mode: "PRESET",
+  modeSlots: [
+    { slot: 0, label: "PRESET", mode: "PRESET" },
+    { slot: 1, label: "SCENE", mode: "SCENE" },
+    { slot: 2, label: "STOMP", mode: "STOMP" }
+  ],
   footswitchModes: ["PRESET", "PRESET"],
   activeScene: 0,
   scenes: ["Clean", "Edge", "Crunch", "Lead", "Ambient", "Octave", "Solo +", "Mute"],
-  sceneColors: ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"],
+  sceneColors: [...QC_SCENE_COLORS],
   tempo: 120,
   tempoLedEnabled: true,
   masterVolume: 40,
@@ -98,18 +71,18 @@ export const demoSnapshot: PresetSnapshot = {
   ],
   blocks: [
     { id: "in-1", name: "IN 1", kind: "input", row: 0, column: -1 },
-    { id: "plugin", name: "Plugin Device", kind: "utility", category: "Plugins", row: 0, column: 0 },
+    { id: "gate", name: "Adaptive Gate", kind: "utility", category: "Utility", row: 0, column: 0, bypassed: true },
     { id: "amp", name: "British 2203", kind: "amp", category: "Amp", row: 0, column: 1 },
     { id: "capture", name: "OD Capture", kind: "capture", category: "Neural Capture", row: 0, column: 2 },
-    { id: "cab", name: "4x12 UK V30", kind: "cab", category: "Cab", row: 0, column: 3 },
-    { id: "overdrive", name: "Rodent Drive", kind: "utility", category: "Overdrive", row: 0, column: 4 },
-    { id: "delay", name: "Digital Delay", kind: "delay", category: "Delay", row: 0, column: 5 },
-    { id: "reverb", name: "Plate Reverb", kind: "reverb", category: "Reverb", row: 0, column: 6 },
-    { id: "compressor", name: "Jewel Comp", kind: "utility", category: "Compressor", row: 0, column: 7 },
+    { id: "cab", name: "Plini Cab", kind: "cab", category: "Cab", row: 0, column: 3, plugin: true, pluginId: "plini-x" },
+    { id: "overdrive", name: "Gojira OD", kind: "utility", category: "Overdrive", row: 0, column: 4, plugin: true, pluginId: "gojira-x" },
+    { id: "delay", name: "SLO-100 Delay", kind: "delay", category: "Delay", row: 0, column: 5, plugin: true, pluginId: "slo100-x" },
+    { id: "reverb", name: "Nolly Reverb", kind: "reverb", category: "Reverb", row: 0, column: 6, plugin: true, pluginId: "nolly-x" },
+    { id: "compressor", name: "Cory Wong Compressor", kind: "utility", category: "Compressor", row: 0, column: 7, plugin: true, pluginId: "cory-x" },
     { id: "out-1", name: "OUT 1/2", kind: "output", row: 0, column: 8 },
     { id: "in-2", name: "IN 2", kind: "input", row: 1, column: -1 },
-    { id: "pitch", name: "Dual Octaver", kind: "mod", category: "Pitch", row: 1, column: 0 },
-    { id: "modulation", name: "Vintage Chorus", kind: "mod", category: "Modulation", row: 1, column: 1 },
+    { id: "pitch", name: "Dual Octaver", kind: "mod", category: "Pitch", row: 1, column: 0, plugin: true, pluginId: "misha-x" },
+    { id: "modulation", name: "Harmonic Tremolo", kind: "mod", category: "Modulation", row: 1, column: 1, plugin: true, pluginId: "mayer-x" },
     { id: "morph", name: "Freeze", kind: "utility", category: "Morph", row: 1, column: 2 },
     { id: "synth", name: "Synth", kind: "utility", category: "Synth", row: 1, column: 3 },
     { id: "filter", name: "Envelope Filter", kind: "utility", category: "Filter", row: 1, column: 4 },
@@ -121,6 +94,7 @@ export const demoSnapshot: PresetSnapshot = {
     { id: "fx-loop", name: "FX Loop 1", kind: "utility", category: "FX Loop", row: 2, column: 0 },
     { id: "looper", name: "Looper X", kind: "utility", category: "Looper", row: 2, column: 1 },
     { id: "utility", name: "Gain", kind: "utility", category: "Utility", row: 2, column: 2 },
+    { id: "plugin", name: "Rabea Device", kind: "utility", category: "Plugins", row: 2, column: 3, plugin: true, pluginId: "rabea-x" },
     { id: "out-send", name: "SEND 1", kind: "output", row: 2, column: 8 }
   ]
 };
@@ -128,12 +102,9 @@ export const demoSnapshot: PresetSnapshot = {
 export interface RuntimeStatus {
   platform: string;
   gatewayAvailable: boolean;
+  gatewayApiVersion?: number;
+  capabilities?: string[];
   message: string;
-}
-
-export interface DeviceActionResult {
-  detail: string;
-  snapshot?: PresetSnapshot;
 }
 
 export interface ModelEntry {
@@ -143,8 +114,41 @@ export interface ModelEntry {
   basedOn: string;
 }
 
+export interface ModelCatalogAuditException {
+  modelId: number;
+  modelName: string;
+  parameterIndex: number;
+  issue: string;
+}
+
+export interface ModelCatalogAudit {
+  modelCount: number;
+  parameterCount: number;
+  categoryCount: number;
+  exceptions: ModelCatalogAuditException[];
+}
+
 export interface ModelList {
   models: ModelEntry[];
+  audit: ModelCatalogAudit;
+}
+
+export interface DeviceIdentity {
+  serial: string;
+  appFwVersion?: string;
+  customName?: string;
+  deviceType?: number;
+}
+
+export interface InhibitedModules {
+  globalGate: boolean;
+  globalEq: boolean;
+}
+
+export interface DeviceImage {
+  pngBase64: string;
+  width: number;
+  height: number;
 }
 
 export interface PresetEntry {
@@ -154,36 +158,24 @@ export interface PresetEntry {
   instrument: number;
 }
 
+export interface PresetFolder {
+  key: string;
+  name: string;
+  isFactory: boolean;
+}
+
+export interface PresetFolderList {
+  folders: PresetFolder[];
+  loading?: boolean;
+}
+
 export interface PresetList {
   setlistKey: string;
   setlistName: string;
   currentPosition: number;
   presets: PresetEntry[];
-}
-
-export interface BlockParameter {
-  index: number;
-  name: string;
-  normalizedValue: number | null;
-  displayValue: string;
-  units: string;
-  type: string;
-  minimum: number;
-  maximum: number;
-  steps: number | null;
-  sceneMode: boolean;
-  options: string[];
-  writable: boolean;
-}
-
-export interface BlockDetails {
-  row: number;
-  column: number;
-  modelId: number;
-  name: string;
-  category: string;
-  scene: number;
-  parameters: BlockParameter[];
+  folders: PresetFolder[];
+  loading?: boolean;
 }
 
 export interface ParameterActionResult extends DeviceActionResult {
@@ -206,7 +198,6 @@ export interface WorkspaceDocument {
   ui: {
     selectedBlockId: string;
     formFactorId: string;
-    skinId: string;
   };
 }
 
@@ -249,13 +240,28 @@ export interface SavePresetResult extends DeviceActionResult {
   savedName: string;
 }
 
+export interface MasterVolumeState {
+  value: number;
+}
+
 export interface GatewayTransport {
   runtimeStatus(): Promise<RuntimeStatus>;
   reconnect(): Promise<ConnectionState>;
   resetSession(): Promise<ConnectionState>;
   disconnect(): Promise<ConnectionState>;
   currentSnapshot(): Promise<PresetSnapshot>;
+  currentStateEvents(afterSequence: number, limit?: number): Promise<NativeStateFrames>;
+  currentTempoClock(): Promise<TempoClockState>;
+  currentMasterVolume(): Promise<MasterVolumeState>;
   listModels(): Promise<ModelList>;
+  identity(): Promise<DeviceIdentity>;
+  setDeviceName(name: string): Promise<DeviceActionResult & { identity: DeviceIdentity }>;
+  undo(): Promise<DeviceActionResult>;
+  redo(): Promise<DeviceActionResult>;
+  inhibitedModules(): Promise<InhibitedModules>;
+  presetScreenshot(folderName: string, position: number, isFactory?: boolean): Promise<DeviceImage>;
+  captureScreen(): Promise<DeviceImage>;
+  tapScreen(x: number, y: number): Promise<DeviceActionResult>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
@@ -265,17 +271,23 @@ export interface GatewayTransport {
   setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainSplit(row: number, splitColumn: number | null, mixColumn: number | null, expectedSplitColumn: number | null, expectedMixColumn: number | null, expectedPresetName: string): Promise<DeviceActionResult>;
-  listPresets(refresh?: boolean): Promise<PresetList>;
+  listPresets(refresh?: boolean, setlistKey?: string): Promise<PresetList>;
+  listPresetFolders(refresh?: boolean): Promise<PresetFolderList>;
   navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   recallPreset(setlistKey: string, position: number, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
+  previewParameter(row: number, column: number, parameterIndex: number, value: number, expectedScene: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult>;
   pressFootswitch(index: number, expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;
+  selectModeSlot(slot: 0 | 1 | 2, expectedPresetName: string): Promise<DeviceActionResult>;
   listPresetSlots(): Promise<PresetSlotList>;
   savePresetAs(setlistKey: string, position: number, name: string, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult>;
+  copyPreset(sourceSetlistKey: string, sourcePosition: number, sourceName: string, destinationSetlistKey: string, destinationPosition: number, expectedPresetName: string, expectedPosition: number, confirmOverwrite: boolean): Promise<SavePresetResult>;
+  renameCurrentPreset(name: string, expectedPresetName: string, expectedPosition: number, confirmRename: boolean): Promise<SavePresetResult>;
   showTuner(shown?: boolean): Promise<DeviceActionResult>;
   showGigView(shown?: boolean): Promise<DeviceActionResult>;
+  createDeviceBackup(name: string): Promise<WorkspaceFileResult>;
 }

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "limits": {
+    "gridRows": 4,
+    "gridColumns": 8,
+    "scenes": 8,
+    "minimumTempoBpm": 40,
+    "maximumTempoBpm": 240,
+    "ipcMaxFrameBytes": 16777216
+  },
+  "sceneColors": ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"],
+  "inputRoutes": [
+    { "id": 1, "label": "In 1", "group": "MONO" },
+    { "id": 2, "label": "In 2", "group": "MONO" },
+    { "id": 4, "label": "Return 1", "group": "MONO" },
+    { "id": 5, "label": "Return 2", "group": "MONO" },
+    { "id": 8, "label": "USB 5", "group": "MONO" },
+    { "id": 9, "label": "USB 6", "group": "MONO" },
+    { "id": 10, "label": "USB 7", "group": "MONO" },
+    { "id": 11, "label": "USB 8", "group": "MONO" },
+    { "id": 3, "label": "In 1/2", "group": "STEREO" },
+    { "id": 6, "label": "Return 1/2", "group": "STEREO" },
+    { "id": 12, "label": "USB 5/6", "group": "STEREO" },
+    { "id": 13, "label": "USB 7/8", "group": "STEREO" },
+    { "id": 7, "label": "Prev. Row", "group": "" },
+    { "id": 0, "label": "Internal", "group": "" }
+  ],
+  "outputRoutes": [
+    { "id": 19, "label": "Multi Out", "group": "STEREO" },
+    { "id": 1, "label": "Out 1/2", "group": "STEREO" },
+    { "id": 2, "label": "Out 3/4", "group": "STEREO" },
+    { "id": 3, "label": "Send 1/2", "group": "STEREO" },
+    { "id": 22, "label": "USB 3/4", "group": "STEREO" },
+    { "id": 14, "label": "USB 5/6", "group": "STEREO" },
+    { "id": 15, "label": "USB 7/8", "group": "STEREO" },
+    { "id": 4, "label": "Out 1", "group": "MONO" },
+    { "id": 5, "label": "Out 2", "group": "MONO" },
+    { "id": 6, "label": "Out 3", "group": "MONO" },
+    { "id": 7, "label": "Out 4", "group": "MONO" },
+    { "id": 8, "label": "Send 1", "group": "MONO" },
+    { "id": 9, "label": "Send 2", "group": "MONO" },
+    { "id": 20, "label": "USB 3", "group": "MONO" },
+    { "id": 21, "label": "USB 4", "group": "MONO" },
+    { "id": 10, "label": "USB 5", "group": "MONO" },
+    { "id": 11, "label": "USB 6", "group": "MONO" },
+    { "id": 12, "label": "USB 7", "group": "MONO" },
+    { "id": 13, "label": "USB 8", "group": "MONO" },
+    { "id": 16, "label": "Row 3", "group": "OTHER" },
+    { "id": 17, "label": "Row 4", "group": "OTHER" },
+    { "id": 18, "label": "Row 3/4", "group": "OTHER" },
+    { "id": 0, "label": "Internal", "group": "OTHER" }
+  ]
+}

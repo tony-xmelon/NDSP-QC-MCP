@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
+  "dependencies": {
+    "@ndsp-qc/core": "0.1.0"
+  },
   "peerDependencies": {
     "@ndsp-qc/client": "0.1.0",
     "@ndsp-qc/form-factors": "0.1.0",

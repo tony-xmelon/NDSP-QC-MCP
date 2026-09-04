@@ -1,0 +1,141 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI Variable", "Segoe UI", sans-serif;
+  background: #08090b;
+  color: #f5f6f7;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; min-width: 0; height: 100%; margin: 0; overflow: hidden; }
+button, input, select { font: inherit; }
+button { touch-action: manipulation; }
+
+.android-app {
+  width: 100%;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  gap: 9px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -20%, #222933 0, transparent 42%),
+    linear-gradient(180deg, #0b0d10, #07080a 65%);
+}
+
+.mobile-header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.connection-pills { display: flex; align-items: center; gap: 6px; }
+.mobile-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.app-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid #3f464f; border-radius: 10px; background: linear-gradient(145deg, #242930, #111419); box-shadow: inset 0 1px #ffffff1c; }
+.app-mark img { width: 100%; height: 100%; border-radius: 9px; }
+.mobile-brand > span:last-child { min-width: 0; display: grid; gap: 1px; }
+.mobile-brand strong { font-size: 15px; letter-spacing: -.01em; }
+.mobile-brand small { overflow: hidden; color: #8e969f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.connection-pill { min-height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #33413a; border-radius: 16px; background: #121814; color: #aab5ae; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.connection-pill i { width: 6px; aspect-ratio: 1; border-radius: 50%; background: #53de80; box-shadow: 0 0 7px #53de80; }
+.connection-pill:not(.connected) i { background: #89919a; box-shadow: none; }
+.connection-pill.error i { background: #f26d6d; }
+.connection-pill.connecting i, .connection-pill.searching i, .connection-pill.syncing i { animation: pulse 1s infinite alternate; }
+.connection-pill.syncing i { background: #e8b957; box-shadow: 0 0 7px #e8b957; }
+.connection-pill.relay-connected i { background: #58a6ff; box-shadow: 0 0 7px #58a6ff; }
+.connection-pill.relay-connecting i, .connection-pill.relay-reconnecting i { background: #e8b957; animation: pulse 1s infinite alternate; }
+
+.mobile-screen { min-width: 0; overflow: visible; border-radius: 10px; box-shadow: 0 13px 30px #000b; }
+.mobile-screen > .qc-chassis {
+  width: 100%;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 800 / 480;
+  overflow: visible;
+  border: 1px solid #35383d;
+  border-radius: 10px;
+  background: #080809;
+  box-shadow: inset 0 0 0 1px #7773, 0 4px 13px #000b;
+}
+.mobile-screen > .qc-chassis::before,
+.mobile-screen > .qc-chassis::after,
+.mobile-screen .official-svg-viewport,
+.mobile-screen .chassis-edge,
+.mobile-screen .master-volume,
+.mobile-screen .device-plate,
+.mobile-screen .screen-nav-control,
+.mobile-screen .footswitch-deck { display: none !important; }
+.mobile-screen .qc-screen-bezel {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 9px;
+  background: #050506;
+  box-shadow: none;
+}
+.mobile-screen .qc-screen { border-radius: 7px; }
+.mobile-screen .preset-title.is-dirty { font-style: italic; font-weight: 500; }
+
+.quick-controls { min-height: 104px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(48px, 1fr)); gap: 6px; }
+.quick-controls button { min-width: 0; min-height: 48px; display: grid; place-items: center; align-content: center; gap: 1px; padding: 3px; border: 1px solid #2a2e34; border-radius: 11px; background: linear-gradient(180deg, #171a1f, #101216); color: #d9dde1; box-shadow: inset 0 1px #ffffff0d, 0 2px 5px #0006; }
+.quick-controls .navigation-controls { grid-column: 5; grid-row: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; min-width: 0; }
+.quick-controls .navigation-controls button { min-height: 0; height: 100%; border-radius: 11px; }
+.quick-controls .tempo-control { grid-column: 5; grid-row: 2; }
+.quick-controls button:active { transform: translateY(1px); background: #0d0f12; }
+.quick-controls .footswitch-control.is-active { border-color: color-mix(in srgb, var(--switch-color) 75%, #2a2e34); background: linear-gradient(180deg, color-mix(in srgb, var(--switch-color) 18%, #171a1f), color-mix(in srgb, var(--switch-color) 9%, #101216)); color: var(--switch-color); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--switch-color) 22%, transparent), 0 0 11px color-mix(in srgb, var(--switch-color) 16%, transparent); }
+.quick-controls .control-led { width: 10px; height: 10px; display: block; border: 1px solid #8c9298; border-radius: 50%; background: #555b61; box-shadow: inset 0 0 0 1px #23272b; }
+.quick-controls .footswitch-control.is-assigned .control-led { border-color: color-mix(in srgb, var(--switch-color) 58%, #8c9298); }
+.quick-controls .footswitch-control.is-active .control-led { border-color: var(--switch-color); background: var(--switch-color); box-shadow: 0 0 8px var(--switch-color); }
+.quick-controls .tempo-control .control-led { width: 8px; height: 8px; }
+.quick-controls .tempo-control.is-active .control-led { border-color: #35ee76; background: #35ee76; box-shadow: 0 0 7px #35ee76; animation: tempo-flash calc(60s / var(--tempo-bpm, 120)) infinite step-end; }
+.quick-controls span { font-size: 18px; font-weight: 800; line-height: 1.1; }
+.quick-controls small { color: #707780; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
+.quick-controls .tempo-control.is-active small { color: #59ba78; }
+
+.mobile-chat { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; overflow: hidden; border: 1px solid #23272c; border-radius: 15px; background: #0d0f12cc; box-shadow: inset 0 1px #ffffff0a; }
+.chat-heading { min-height: 35px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid #20242a; color: #a3aab2; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+.chat-heading > span { display: flex; align-items: center; gap: 6px; }
+.chat-heading i { width: 5px; aspect-ratio: 1; border-radius: 50%; background: #55e282; box-shadow: 0 0 6px #55e282; }
+.chat-heading small { min-width: 0; overflow: hidden; color: #56bd78; font-size: 9px; font-weight: 600; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.message-list { min-height: 0; display: flex; flex-direction: column; gap: 11px; padding: 12px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.message-list::-webkit-scrollbar { display: none; }
+.message { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: start; gap: 7px; }
+.message > span { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid #2c3238; border-radius: 8px; background: #171b20; color: #5fe88a; font-size: 8px; font-weight: 900; }
+.message.user > span { color: #b0b6bd; }
+.message p { width: fit-content; max-width: 100%; margin: 0; padding: 8px 10px; border-radius: 5px 12px 12px 12px; background: #171a1f; color: #d6d9dd; font-size: 13px; line-height: 1.4; }
+.message.user p { background: #20262d; color: #f1f2f3; }
+.chat-model-bar { min-height: 33px; display: grid; grid-template-columns: minmax(118px, .9fr) minmax(86px, .65fr) minmax(0, 1.1fr); align-items: center; gap: 8px; padding: 4px 8px; border-top: 1px solid #20242a; background: #0b0d10; }
+.chat-model-bar select { width: 100%; min-width: 0; height: 25px; padding: 0 25px 0 8px; border: 1px solid #2d333a; border-radius: 7px; outline: 0; background: #15191e; color: #cdd2d7; font-size: 10px; }
+.chat-model-bar select:focus { border-color: #4d8f63; }
+.chat-model-bar span { min-width: 0; overflow: hidden; color: #777f88; font-size: 9px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.chat-model-bar span[title] { cursor: help; }
+.message-composer { min-height: 54px; display: grid; grid-template-columns: 36px minmax(0, 1fr) 38px; align-items: center; gap: 5px; padding: 7px; border-top: 1px solid #20242a; background: #0a0c0e; }
+.message-composer input { min-width: 0; height: 38px; padding: 0 8px; border: 0; outline: 0; background: transparent; color: #f4f5f6; font-size: 14px; }
+.message-composer input::placeholder { color: #656c74; }
+.voice-button, .send-button { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 11px; background: #171b20; color: #8c949d; font-size: 17px; }
+.voice-button { display: grid; place-items: center; }
+.voice-button svg { width: 20px; height: 20px; }
+.voice-button.is-listening { background: #542329; color: #ff7580; animation: pulse .65s infinite alternate; }
+.voice-button:disabled { color: #444b52; }
+.send-button { background: #54dd80; color: #07110a; font-size: 20px; font-weight: 900; }
+.send-button:disabled { background: #20242a; color: #555c64; }
+.message.pending p { color: #73ee98; letter-spacing: .2em; animation: pulse .65s infinite alternate; }
+
+@keyframes pulse { to { opacity: .38; } }
+@keyframes tempo-flash { 0%, 18% { opacity: 1; } 19%, 100% { opacity: .3; } }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .android-app { grid-template-columns: minmax(420px, 1.25fr) minmax(300px, .75fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 8px 12px; }
+  .mobile-header { grid-column: 1 / -1; }
+  .mobile-screen { grid-column: 1; grid-row: 2; }
+  .quick-controls { grid-column: 1; grid-row: 3; align-self: start; }
+  .mobile-chat { grid-column: 2; grid-row: 2 / 4; }
+}
+
+@media (max-height: 650px) and (orientation: portrait) {
+  .android-app { gap: 6px; }
+  .mobile-header { min-height: 36px; }
+  .app-mark { width: 30px; height: 30px; }
+  .quick-controls { min-height: 94px; grid-template-rows: repeat(2, minmax(44px, 1fr)); gap: 5px; }
+  .quick-controls button { min-height: 44px; }
+  .mobile-screen > .qc-chassis { max-height: 36vh; }
+}

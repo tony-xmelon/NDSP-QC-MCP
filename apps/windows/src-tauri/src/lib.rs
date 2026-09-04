@@ -1,10 +1,22 @@
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use qc_device_runtime::request::plan_host_midi;
+use qc_protocol::profile;
+use qc_relay_client::{DeviceAdapter, DeviceError};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
-use tauri::State;
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{mpsc, Mutex};
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+mod chat;
+mod generated_gateway;
+mod relay;
+use chat::{ChatBridge, ChatError, ChatRequest, ChatResponse, ChatSettings, ChatSettingsView};
+use generated_gateway::rpc;
+use relay::{RelayBridge, RelayStatus};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -12,11 +24,142 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[derive(Default)]
+struct PerformanceMidi {
+    last_sent: Option<Instant>,
+    handle: Option<usize>,
+    endpoint: Option<String>,
+}
+
+impl PerformanceMidi {
+    fn send(&mut self, controller: u8, value: u8) -> Result<String, String> {
+        self.send_raw(0xB0_u32 | ((controller as u32) << 8) | ((value as u32) << 16))
+    }
+
+    fn send_raw(&mut self, message: u32) -> Result<String, String> {
+        if let Some(last_sent) = self.last_sent {
+            let elapsed = last_sent.elapsed();
+            let gap = Duration::from_millis(profile::PERFORMANCE_MIDI_GAP_MS);
+            if elapsed < gap {
+                std::thread::sleep(gap - elapsed);
+            }
+        }
+        if self.handle.is_none() {
+            let (handle, endpoint) = open_qc_midi_output()?;
+            self.handle = Some(handle);
+            self.endpoint = Some(endpoint);
+        }
+        if let Err(error) =
+            send_qc_midi_short(self.handle.expect("MIDI handle was initialized"), message)
+        {
+            close_qc_midi_output(self.handle.take());
+            self.endpoint = None;
+            return Err(error);
+        }
+        self.last_sent = Some(Instant::now());
+        Ok(self
+            .endpoint
+            .clone()
+            .unwrap_or_else(|| "Quad Cortex MIDI".into()))
+    }
+}
+
+impl Drop for PerformanceMidi {
+    fn drop(&mut self) {
+        close_qc_midi_output(self.handle.take());
+    }
+}
+
+#[cfg(windows)]
+fn open_qc_midi_output() -> Result<(usize, String), String> {
+    use std::ptr::null_mut;
+    use windows_sys::Win32::Media::Audio::{
+        midiOutGetDevCapsW, midiOutGetNumDevs, midiOutOpen, HMIDIOUT, MIDIOUTCAPSW,
+    };
+
+    let mut endpoint = None;
+    for device_id in 0..unsafe { midiOutGetNumDevs() } {
+        let mut caps = MIDIOUTCAPSW::default();
+        let result = unsafe {
+            midiOutGetDevCapsW(
+                device_id as usize,
+                &mut caps,
+                std::mem::size_of::<MIDIOUTCAPSW>() as u32,
+            )
+        };
+        if result != 0 {
+            continue;
+        }
+        let name_units = caps.szPname;
+        let end = name_units
+            .iter()
+            .position(|unit| *unit == 0)
+            .unwrap_or(name_units.len());
+        let name = String::from_utf16_lossy(&name_units[..end]);
+        if name.to_lowercase().contains("quad cortex") {
+            endpoint = Some((device_id, name));
+            break;
+        }
+    }
+    let (device_id, name) = endpoint.ok_or_else(|| {
+        "Quad Cortex Windows MIDI output was not found. Enable MIDI over USB and reconnect."
+            .to_string()
+    })?;
+    let mut handle: HMIDIOUT = null_mut();
+    let opened = unsafe { midiOutOpen(&mut handle, device_id, 0, 0, 0) };
+    if opened != 0 {
+        return Err(format!(
+            "Could not open the Quad Cortex MIDI output (Windows MIDI error {opened})."
+        ));
+    }
+    Ok((handle as usize, name))
+}
+
+#[cfg(windows)]
+fn send_qc_midi_short(handle: usize, message: u32) -> Result<(), String> {
+    use windows_sys::Win32::Media::Audio::midiOutShortMsg;
+
+    let sent = unsafe { midiOutShortMsg(handle as _, message) };
+    if sent != 0 {
+        return Err(format!(
+            "Could not send the Quad Cortex MIDI command (Windows MIDI error {sent})."
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn open_qc_midi_output() -> Result<(usize, String), String> {
+    Err("QC footswitch emulation currently requires Windows MIDI.".into())
+}
+
+#[cfg(not(windows))]
+fn send_qc_midi_short(_handle: usize, _message: u32) -> Result<(), String> {
+    Err("QC performance control currently requires Windows MIDI.".into())
+}
+
+#[cfg(windows)]
+fn close_qc_midi_output(handle: Option<usize>) {
+    use windows_sys::Win32::Media::Audio::midiOutClose;
+
+    if let Some(handle) = handle {
+        unsafe { midiOutClose(handle as _) };
+    }
+}
+
+#[cfg(not(windows))]
+fn close_qc_midi_output(_handle: Option<usize>) {}
+
 struct GatewayProcess {
     child: Child,
     stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
+    responses: mpsc::Receiver<GatewayReaderMessage>,
     next_id: u64,
+}
+
+enum GatewayReaderMessage {
+    Response(Value),
+    Failed(String),
 }
 
 enum GatewayRequestFailure {
@@ -32,13 +175,18 @@ impl Drop for GatewayProcess {
 }
 
 impl GatewayProcess {
-    fn start() -> Result<Self, String> {
+    fn start(event_tx: Option<mpsc::Sender<Value>>) -> Result<Self, String> {
+        let executable_directory = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(Path::to_path_buf));
         let mut command = if let Ok(executable) = std::env::var("QC_GATEWAY_EXECUTABLE") {
             Command::new(executable)
+        } else if std::env::var("QC_GATEWAY_RUNTIME").as_deref() != Ok("python") {
+            let executable = locate_native_broker(executable_directory.as_deref()).ok_or(
+                "The Rust QC device runtime was not found. Build services/device-broker before starting the app.",
+            )?;
+            Command::new(executable)
         } else {
-            let executable_directory = std::env::current_exe()
-                .ok()
-                .and_then(|path| path.parent().map(Path::to_path_buf));
             let packaged = executable_directory
                 .as_deref()
                 .and_then(locate_packaged_gateway);
@@ -73,6 +221,10 @@ impl GatewayProcess {
                 command
             }
         };
+        if let Some(native_broker) = locate_native_broker(executable_directory.as_deref()) {
+            command.env("QC_USE_NATIVE_BROKER", "1");
+            command.env("QC_NATIVE_BROKER_EXECUTABLE", native_broker);
+        }
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);
         let mut child = command
@@ -87,10 +239,62 @@ impl GatewayProcess {
             .stdout
             .take()
             .ok_or("Gateway stdout was not created")?;
+        let (response_tx, responses) = mpsc::channel();
+        std::thread::Builder::new()
+            .name("qc-gateway-events".into())
+            .spawn(move || {
+                let mut stdout = BufReader::new(stdout);
+                loop {
+                    let message = (|| -> Result<Value, String> {
+                        let mut header = [0_u8; 4];
+                        stdout
+                            .read_exact(&mut header)
+                            .map_err(|error| format!("Gateway closed: {error}"))?;
+                        let response_length = u32::from_be_bytes(header) as usize;
+                        if response_length == 0
+                            || response_length > qc_protocol::domain::IPC_MAX_FRAME_BYTES
+                        {
+                            return Err(format!(
+                                "Gateway returned invalid frame length: {response_length}"
+                            ));
+                        }
+                        let mut payload = vec![0_u8; response_length];
+                        stdout
+                            .read_exact(&mut payload)
+                            .map_err(|error| error.to_string())?;
+                        serde_json::from_slice(&payload).map_err(|error| error.to_string())
+                    })();
+                    match message {
+                        Ok(value)
+                            if value.get("method").and_then(Value::as_str)
+                                == Some("device.stateFrame") =>
+                        {
+                            if let (Some(sender), Some(params)) =
+                                (event_tx.as_ref(), value.get("params"))
+                            {
+                                let _ = sender.send(params.clone());
+                            }
+                        }
+                        Ok(value) => {
+                            if response_tx
+                                .send(GatewayReaderMessage::Response(value))
+                                .is_err()
+                            {
+                                return;
+                            }
+                        }
+                        Err(error) => {
+                            let _ = response_tx.send(GatewayReaderMessage::Failed(error));
+                            return;
+                        }
+                    }
+                }
+            })
+            .map_err(|error| format!("Could not start gateway event reader: {error}"))?;
         Ok(Self {
             child,
             stdin,
-            stdout: BufReader::new(stdout),
+            responses,
             next_id: 1,
         })
     }
@@ -114,22 +318,13 @@ impl GatewayProcess {
             .flush()
             .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
 
-        let mut header = [0_u8; 4];
-        self.stdout.read_exact(&mut header).map_err(|error| {
-            GatewayRequestFailure::Transport(format!("Gateway closed: {error}"))
-        })?;
-        let response_length = u32::from_be_bytes(header) as usize;
-        if response_length == 0 || response_length > 16 * 1024 * 1024 {
-            return Err(GatewayRequestFailure::Transport(format!(
-                "Gateway returned invalid frame length: {response_length}"
-            )));
-        }
-        let mut response_payload = vec![0_u8; response_length];
-        self.stdout
-            .read_exact(&mut response_payload)
-            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
-        let response: Value = serde_json::from_slice(&response_payload)
-            .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
+        let response = match self.responses.recv() {
+            Ok(GatewayReaderMessage::Response(value)) => value,
+            Ok(GatewayReaderMessage::Failed(error)) => {
+                return Err(GatewayRequestFailure::Transport(error));
+            }
+            Err(error) => return Err(GatewayRequestFailure::Transport(error.to_string())),
+        };
         if response.get("id").and_then(Value::as_u64) != Some(id) {
             return Err(GatewayRequestFailure::Transport(
                 "Gateway response did not match the request".into(),
@@ -150,6 +345,43 @@ impl GatewayProcess {
     }
 }
 
+fn locate_native_broker(executable_directory: Option<&Path>) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(directory) = executable_directory {
+        for name in [
+            "qc-device-broker.exe",
+            "qc-device-broker-x86_64-pc-windows-msvc.exe",
+            "qc-device-broker-x86_64-pc-windows-gnu.exe",
+        ] {
+            candidates.push(directory.join(name));
+        }
+    }
+    let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .and_then(Path::parent)
+        .map(Path::to_path_buf);
+    if let Some(repository) = repository {
+        candidates.push(
+            repository
+                .join("services")
+                .join("device-broker")
+                .join("target")
+                .join("release")
+                .join("qc-device-broker.exe"),
+        );
+        candidates.push(
+            repository
+                .join("services")
+                .join("device-broker")
+                .join("target")
+                .join("debug")
+                .join("qc-device-broker.exe"),
+        );
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
 fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
     [
         "qc-device-gateway.exe",
@@ -160,6 +392,78 @@ fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
     .find(|path| path.is_file())
 }
 
+fn locate_media_tool(
+    environment_name: &str,
+    packaged_name: &str,
+    path_name: &str,
+) -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os(environment_name)
+        .map(PathBuf::from)
+        .filter(|path| path.is_file())
+    {
+        return Some(path);
+    }
+    let mut candidates = Vec::new();
+    if let Some(directory) = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+    {
+        candidates.push(directory.join(format!("{packaged_name}.exe")));
+    }
+    let binaries = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
+    for suffix in ["", "-x86_64-pc-windows-msvc", "-x86_64-pc-windows-gnu"] {
+        candidates.push(binaries.join(format!("{packaged_name}{suffix}.exe")));
+    }
+    if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
+        return Some(path);
+    }
+    std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|directory| directory.join(path_name))
+            .find(|candidate| candidate.is_file())
+    })
+}
+
+fn validate_youtube_url(value: &str) -> Result<(), ChatError> {
+    let parsed = reqwest::Url::parse(value)
+        .map_err(|_| ChatError::new("invalid_request", "The reference URL is invalid.", false))?;
+    if parsed.scheme() != "https" {
+        return Err(ChatError::new(
+            "invalid_request",
+            "The YouTube reference must use HTTPS.",
+            false,
+        ));
+    }
+    let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+    let allowed = host == "youtu.be"
+        || host == "youtube.com"
+        || host.ends_with(".youtube.com")
+        || host == "youtube-nocookie.com"
+        || host.ends_with(".youtube-nocookie.com");
+    if !allowed {
+        return Err(ChatError::new(
+            "invalid_request",
+            "Only public YouTube URLs are accepted by this tool.",
+            false,
+        ));
+    }
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReferenceAudioAttachment {
+    name: String,
+    media_type: String,
+    data: String,
+}
+
+#[derive(serde::Serialize)]
+struct ReferenceAudioResult {
+    detail: String,
+    attachment: ReferenceAudioAttachment,
+}
+
 #[derive(Default)]
 struct Gateway {
     process: Option<GatewayProcess>,
@@ -167,12 +471,13 @@ struct Gateway {
     voice_recognition_available: Option<bool>,
     voice_last_event: Option<String>,
     voice_event_at_unix: Option<u64>,
+    event_tx: Option<mpsc::Sender<Value>>,
 }
 
 impl Gateway {
     fn request(&mut self, method: &str, params: Value) -> Result<Value, String> {
         if self.process.is_none() {
-            self.process = Some(GatewayProcess::start()?);
+            self.process = Some(GatewayProcess::start(self.event_tx.clone())?);
         }
         let result = self
             .process
@@ -181,7 +486,7 @@ impl Gateway {
             .request(method, params);
         let (output, status) = match result {
             Ok(value) => {
-                if method == "device.disconnect" {
+                if method == rpc::DISCONNECT {
                     self.connected = false;
                 } else if method.starts_with("device.") {
                     self.connected = true;
@@ -256,33 +561,380 @@ fn write_runtime_health(gateway: &Gateway, method: &str, status: &str) {
 }
 
 #[tauri::command]
-fn report_voice_capability(
-    state: State<'_, Mutex<Gateway>>,
-    available: bool,
-) -> Result<(), String> {
-    let mut gateway = state
-        .lock()
-        .map_err(|_| "Gateway session lock was poisoned".to_string())?;
-    gateway.voice_recognition_available = Some(available);
-    write_runtime_health(&gateway, "voice.capability", "ok");
-    Ok(())
+async fn report_voice_capability(app: AppHandle, available: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Mutex<Gateway>>();
+        let mut gateway = state
+            .lock()
+            .map_err(|_| "Gateway session lock was poisoned".to_string())?;
+        gateway.voice_recognition_available = Some(available);
+        write_runtime_health(&gateway, "voice.capability", "ok");
+        Ok(())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-fn report_voice_event(state: State<'_, Mutex<Gateway>>, event: String) -> Result<(), String> {
+async fn report_voice_event(app: AppHandle, event: String) -> Result<(), String> {
     let normalized = normalize_voice_event(&event)?;
-    let mut gateway = state
-        .lock()
-        .map_err(|_| "Gateway session lock was poisoned".to_string())?;
-    gateway.voice_last_event = Some(normalized);
-    gateway.voice_event_at_unix = Some(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs(),
-    );
-    write_runtime_health(&gateway, "voice.event", "ok");
-    Ok(())
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Mutex<Gateway>>();
+        let mut gateway = state
+            .lock()
+            .map_err(|_| "Gateway session lock was poisoned".to_string())?;
+        gateway.voice_last_event = Some(normalized);
+        gateway.voice_event_at_unix = Some(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        );
+        write_runtime_health(&gateway, "voice.event", "ok");
+        Ok(())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+fn chat_settings(state: State<'_, ChatBridge>) -> Result<ChatSettingsView, ChatError> {
+    chat::settings(&state)
+}
+
+#[tauri::command]
+fn update_chat_settings(
+    state: State<'_, ChatBridge>,
+    settings: ChatSettings,
+) -> Result<ChatSettingsView, ChatError> {
+    chat::update_settings(&state, settings)
+}
+
+#[tauri::command]
+fn set_chat_api_key(
+    state: State<'_, ChatBridge>,
+    api_key: String,
+) -> Result<ChatSettingsView, ChatError> {
+    chat::set_api_key(&state, api_key)
+}
+
+#[tauri::command]
+fn clear_chat_api_key(state: State<'_, ChatBridge>) -> Result<ChatSettingsView, ChatError> {
+    chat::clear_api_key(&state)
+}
+
+#[tauri::command]
+fn configure_google_oauth_app(
+    state: State<'_, ChatBridge>,
+    client_id: String,
+    client_secret: String,
+) -> Result<ChatSettingsView, ChatError> {
+    chat::configure_google_oauth_app(&state, client_id, client_secret)
+}
+
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    if !is_allowed_external_url(&url) {
+        return Err("That external address is not allowed.".into());
+    }
+    webbrowser::open(&url)
+        .map(|_| ())
+        .map_err(|_| "Could not open the system browser.".into())
+}
+
+#[tauri::command]
+async fn open_google_subscription_setup(state: State<'_, ChatBridge>) -> Result<(), ChatError> {
+    chat::open_google_subscription_setup(&state).await
+}
+
+#[tauri::command]
+async fn connect_google_oauth(
+    state: State<'_, ChatBridge>,
+) -> Result<chat::GoogleOAuthResult, ChatError> {
+    chat::connect_google_oauth(&state).await
+}
+
+#[tauri::command]
+fn select_google_project(
+    state: State<'_, ChatBridge>,
+    project_id: String,
+) -> Result<ChatSettingsView, ChatError> {
+    chat::select_google_project(project_id)?;
+    chat::settings(&state)
+}
+
+#[tauri::command]
+fn disconnect_google_oauth(state: State<'_, ChatBridge>) -> Result<ChatSettingsView, ChatError> {
+    chat::disconnect_google_oauth()?;
+    chat::settings(&state)
+}
+
+fn is_allowed_external_url(url: &str) -> bool {
+    const ALLOWED: [&str; 10] = [
+        "https://antigravity.google/docs/cli/install/",
+        "https://antigravity.google/pricing",
+        "https://aistudio.google.com/app/apikey",
+        "https://console.cloud.google.com/apis/credentials",
+        "https://ai.google.dev/gemini-api/docs/api-key",
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://platform.openai.com/api-keys",
+        "https://openai.com/api/pricing/",
+        "https://platform.claude.com/settings/keys",
+        "https://platform.claude.com/docs/en/about-claude/pricing",
+    ];
+    ALLOWED.contains(&url)
+}
+
+#[tauri::command]
+async fn chat_with_model(
+    state: State<'_, ChatBridge>,
+    request: ChatRequest,
+) -> Result<ChatResponse, ChatError> {
+    chat::complete(&state, request).await
+}
+
+#[tauri::command]
+async fn fetch_youtube_reference_audio(
+    url: String,
+    start_seconds: f64,
+    duration_seconds: f64,
+    user_confirmed_rights: bool,
+) -> Result<ReferenceAudioResult, ChatError> {
+    if !user_confirmed_rights {
+        return Err(ChatError::new(
+            "rights_confirmation_required",
+            "Confirm that you own this media or have permission to copy it before fetching an excerpt.",
+            false,
+        ));
+    }
+    validate_youtube_url(&url)?;
+    if !start_seconds.is_finite() || start_seconds < 0.0 {
+        return Err(ChatError::new(
+            "invalid_request",
+            "The excerpt start must be zero or greater.",
+            false,
+        ));
+    }
+    if !duration_seconds.is_finite() || !(5.0..=120.0).contains(&duration_seconds) {
+        return Err(ChatError::new(
+            "invalid_request",
+            "The excerpt duration must be from 5 through 120 seconds.",
+            false,
+        ));
+    }
+
+    let fetcher = locate_media_tool("QC_MEDIA_FETCH_EXECUTABLE", "qc-media-fetch", "yt-dlp.exe")
+        .ok_or_else(|| {
+            ChatError::new(
+                "media_tool_unavailable",
+                "The bundled YouTube media fetcher is unavailable.",
+                false,
+            )
+        })?;
+    let ffmpeg = locate_media_tool(
+        "QC_MEDIA_FFMPEG_EXECUTABLE",
+        "qc-media-ffmpeg",
+        "ffmpeg.exe",
+    )
+    .ok_or_else(|| {
+        ChatError::new(
+            "media_tool_unavailable",
+            "The bundled lossless media remuxer is unavailable.",
+            false,
+        )
+    })?;
+    let deno = locate_media_tool("QC_MEDIA_DENO_EXECUTABLE", "qc-media-deno", "deno.exe")
+        .ok_or_else(|| {
+            ChatError::new(
+                "media_tool_unavailable",
+                "The bundled YouTube stream resolver is unavailable.",
+                false,
+            )
+        })?;
+
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let output_directory =
+        std::env::temp_dir().join(format!("qc-reference-audio-{}-{nonce}", std::process::id()));
+    fs::create_dir(&output_directory).map_err(|_| {
+        ChatError::new(
+            "media_download",
+            "Could not prepare temporary reference-audio storage.",
+            false,
+        )
+    })?;
+    let output_template = output_directory.join("reference.%(ext)s");
+    let end_seconds = start_seconds + duration_seconds;
+    let section = format!("*{start_seconds:.3}-{end_seconds:.3}");
+    let runtime = format!("deno:{}", deno.to_string_lossy());
+    let mut command = tokio::process::Command::new(fetcher);
+    command
+        .kill_on_drop(true)
+        .args([
+            "--ignore-config",
+            "--no-playlist",
+            "--no-progress",
+            "--no-warnings",
+            "--restrict-filenames",
+            "--max-filesize",
+            "32M",
+            "--format",
+            "bestaudio[acodec=opus][ext=webm]/bestaudio[acodec^=mp4a][ext=m4a]/bestaudio[ext=webm]/bestaudio[ext=m4a]",
+            "--download-sections",
+        ])
+        .arg(section)
+        .arg("--js-runtimes")
+        .arg(runtime)
+        .arg("--ffmpeg-location")
+        .arg(ffmpeg)
+        .arg("--output")
+        .arg(output_template)
+        .arg("--")
+        .arg(&url);
+
+    let output = tokio::time::timeout(std::time::Duration::from_secs(180), command.output())
+        .await
+        .map_err(|_| {
+            ChatError::new(
+                "media_download_timeout",
+                "The YouTube audio excerpt did not finish within three minutes.",
+                true,
+            )
+        })?
+        .map_err(|_| {
+            ChatError::new(
+                "media_download",
+                "The YouTube media fetcher could not start.",
+                true,
+            )
+        })?;
+    if !output.status.success() {
+        let _ = fs::remove_dir_all(&output_directory);
+        return Err(ChatError::new(
+            "media_download",
+            "The public YouTube audio excerpt could not be fetched. The video may be unavailable, restricted, or require sign-in.",
+            true,
+        ));
+    }
+
+    let media_path = fs::read_dir(&output_directory)
+        .map_err(|_| {
+            ChatError::new(
+                "media_download",
+                "The downloaded excerpt could not be inspected.",
+                false,
+            )
+        })?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| {
+            matches!(
+                path.extension()
+                    .and_then(|value| value.to_str())
+                    .map(str::to_ascii_lowercase)
+                    .as_deref(),
+                Some("webm" | "m4a")
+            )
+        })
+        .ok_or_else(|| {
+            ChatError::new(
+                "media_download",
+                "The fetcher produced no supported Opus/WebM or AAC/M4A audio file.",
+                true,
+            )
+        })?;
+    let media = fs::read(&media_path).map_err(|_| {
+        ChatError::new(
+            "media_download",
+            "The downloaded audio excerpt could not be read.",
+            false,
+        )
+    })?;
+    let _ = fs::remove_dir_all(&output_directory);
+    if media.is_empty() || media.len() > 32 * 1024 * 1024 {
+        return Err(ChatError::new(
+            "media_download",
+            "The downloaded audio excerpt is empty or exceeds the 32 MB chat attachment limit.",
+            false,
+        ));
+    }
+    let extension = media_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("webm")
+        .to_ascii_lowercase();
+    let media_type = if extension == "m4a" {
+        "audio/m4a"
+    } else {
+        "audio/webm"
+    };
+    Ok(ReferenceAudioResult {
+        detail: format!(
+            "Fetched and losslessly remuxed a {:.1}-second YouTube reference excerpt from {:.1}s as {} ({:.1} MB); it is attached for direct model analysis.",
+            duration_seconds,
+            start_seconds,
+            if extension == "m4a" { "AAC/M4A" } else { "Opus/WebM" },
+            media.len() as f64 / 1_048_576.0,
+        ),
+        attachment: ReferenceAudioAttachment {
+            name: format!("youtube-reference-{:.0}-{:.0}.{extension}", start_seconds, end_seconds),
+            media_type: media_type.into(),
+            data: BASE64_STANDARD.encode(media),
+        },
+    })
+}
+
+#[tauri::command]
+async fn chat_quota(state: State<'_, ChatBridge>) -> Result<chat::ChatQuota, ChatError> {
+    chat::quota(&state).await
+}
+
+#[tauri::command]
+async fn antigravity_models() -> Result<Vec<chat::AntigravityModel>, ChatError> {
+    chat::antigravity_models().await
+}
+
+#[tauri::command]
+async fn test_chat_connection(state: State<'_, ChatBridge>) -> Result<String, ChatError> {
+    let request = ChatRequest {
+        request_id: format!(
+            "connection-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        ),
+        messages: vec![chat::ChatMessage {
+            role: "user".into(),
+            content: "Reply with exactly: QC model connection ready".into(),
+            attachments: vec![],
+        }],
+        context: Value::Null,
+        tools: vec![],
+        instructions: Some("This is a connection test. Do not request a tool.".into()),
+        max_output_tokens: Some(32),
+    };
+    let response = chat::complete(&state, request).await?;
+    if response.text.trim().is_empty() {
+        return Err(ChatError::new(
+            "connection_test",
+            "The provider accepted the request but returned no text.",
+            true,
+        ));
+    }
+    Ok(response.text)
+}
+
+#[tauri::command]
+async fn warm_chat_provider(state: State<'_, ChatBridge>) -> Result<String, ChatError> {
+    chat::warm(&state).await
+}
+
+#[tauri::command]
+fn cancel_chat(state: State<'_, ChatBridge>, request_id: String) -> Result<bool, ChatError> {
+    chat::cancel(&state, &request_id)
 }
 
 fn normalize_voice_event(event: &str) -> Result<String, String> {
@@ -331,55 +983,313 @@ fn with_gateway_params(
         .request(method, params)
 }
 
-#[tauri::command]
-fn runtime_status(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "system.status")
-}
-
-#[tauri::command]
-fn reconnect_device(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "device.reconnect")
-}
-
-#[tauri::command]
-fn reset_device_session(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    state
-        .lock()
-        .map_err(|_| "Gateway session lock was poisoned".to_string())?
-        .restart("device.resetSession")
-}
-
-#[tauri::command]
-fn disconnect_device(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "device.disconnect")
-}
-
-#[tauri::command]
-fn current_snapshot(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "device.snapshot")
-}
-
-#[tauri::command]
-fn list_models(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "device.listModels")
-}
-
-#[tauri::command]
-fn select_scene(
+fn try_with_gateway(
     state: State<'_, Mutex<Gateway>>,
-    scene: u8,
-    expected_preset_name: String,
+    method: &str,
+    params: Value,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.selectScene",
-        json!({ "scene": scene, "expectedPresetName": expected_preset_name }),
+    state
+        .try_lock()
+        .map_err(|_| "Device transport is busy".to_string())?
+        .request(method, params)
+}
+
+#[derive(Clone)]
+struct WindowsRelayAdapter {
+    app: AppHandle,
+}
+
+fn relay_device_error(message: String) -> DeviceError {
+    let disconnected = message.contains("No Quad Cortex session")
+        || message.contains("not connected")
+        || message.contains("disconnected");
+    DeviceError::new(
+        if disconnected {
+            "NOT_CONNECTED"
+        } else {
+            "DEVICE_ERROR"
+        },
+        message,
+        disconnected,
     )
 }
 
+#[async_trait::async_trait]
+impl DeviceAdapter for WindowsRelayAdapter {
+    async fn ready(&self) -> bool {
+        self.app
+            .state::<Mutex<Gateway>>()
+            .try_lock()
+            .map(|gateway| gateway.connected)
+            .unwrap_or(false)
+    }
+
+    async fn invoke(&self, method: &str, params: Value) -> Result<Value, DeviceError> {
+        if method == rpc::PRESS_FOOTSWITCH {
+            let index = params
+                .get("index")
+                .and_then(Value::as_u64)
+                .filter(|value| *value < u64::from(qc_protocol::domain::SCENE_COUNT + 3))
+                .ok_or_else(|| {
+                    DeviceError::new(
+                        "INVALID_ARGUMENT",
+                        "Footswitch index must be from 0 through 10",
+                        false,
+                    )
+                })? as u8;
+            let app = self.app.clone();
+            return tauri::async_runtime::spawn_blocking(move || {
+                app.state::<Mutex<PerformanceMidi>>()
+                    .lock()
+                    .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+                    .send(
+                        profile::FOOTSWITCH_BASE_CONTROLLER + index,
+                        profile::MIDI_PRESSED_VALUE,
+                    )
+            })
+            .await
+            .map_err(|error| relay_device_error(error.to_string()))?
+            .map(|endpoint| json!({"accepted": true, "immediate": true, "transport": endpoint}))
+            .map_err(relay_device_error);
+        }
+        if method == rpc::SELECT_MODE_SLOT {
+            let slot = params
+                .get("slot")
+                .and_then(Value::as_u64)
+                .filter(|value| *value <= 2)
+                .ok_or_else(|| {
+                    DeviceError::new("INVALID_ARGUMENT", "Mode slot must be A, B, or C", false)
+                })? as u8;
+            let app = self.app.clone();
+            return tauri::async_runtime::spawn_blocking(move || {
+                app.state::<Mutex<PerformanceMidi>>()
+                    .lock()
+                    .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+                    .send(profile::MODE_SLOT_CONTROLLER, slot)
+            })
+            .await
+            .map_err(|error| relay_device_error(error.to_string()))?
+            .map(|endpoint| json!({"accepted": true, "immediate": true, "transport": endpoint}))
+            .map_err(relay_device_error);
+        }
+        let app = self.app.clone();
+        let method = method.to_owned();
+        tauri::async_runtime::spawn_blocking(move || {
+            app.state::<Mutex<Gateway>>()
+                .lock()
+                .map_err(|_| "Gateway session lock was poisoned".to_string())?
+                .request(&method, params)
+        })
+        .await
+        .map_err(|error| relay_device_error(error.to_string()))?
+        .map_err(relay_device_error)
+    }
+}
+
+fn relay_adapter(app: &AppHandle) -> std::sync::Arc<dyn DeviceAdapter> {
+    std::sync::Arc::new(WindowsRelayAdapter { app: app.clone() })
+}
+
 #[tauri::command]
-fn toggle_bypass(
-    state: State<'_, Mutex<Gateway>>,
+fn relay_status(state: State<'_, RelayBridge>) -> Result<RelayStatus, String> {
+    state.status()
+}
+
+#[tauri::command]
+async fn pair_public_relay(
+    app: AppHandle,
+    state: State<'_, RelayBridge>,
+    endpoint: String,
+    pairing_code: String,
+    device_name: Option<String>,
+) -> Result<RelayStatus, String> {
+    state
+        .pair(
+            &endpoint,
+            &pairing_code,
+            device_name.as_deref().unwrap_or("QC Control on Windows"),
+            relay_adapter(&app),
+        )
+        .await
+}
+
+#[tauri::command]
+fn start_public_relay(app: AppHandle, state: State<'_, RelayBridge>) -> Result<(), String> {
+    state.start(relay_adapter(&app))
+}
+
+#[tauri::command]
+fn unpair_public_relay(state: State<'_, RelayBridge>) -> Result<RelayStatus, String> {
+    state.unpair()
+}
+
+#[tauri::command]
+fn set_public_relay_access_mode(
+    state: State<'_, RelayBridge>,
+    mode: String,
+) -> Result<RelayStatus, String> {
+    state.set_access_mode(&mode)?;
+    state.status()
+}
+
+async fn background_gateway_request(app: AppHandle, method: &'static str) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_gateway(app.state::<Mutex<Gateway>>(), method)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+async fn background_gateway_request_params(
+    app: AppHandle,
+    method: &'static str,
+    params: Value,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_gateway_params(app.state::<Mutex<Gateway>>(), method, params)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn runtime_status(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::RUNTIME_STATUS).await
+}
+
+#[tauri::command]
+async fn reconnect_device(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::RECONNECT).await
+}
+
+#[tauri::command]
+async fn reset_device_session(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Mutex<Gateway>>()
+            .lock()
+            .map_err(|_| "Gateway session lock was poisoned".to_string())?
+            .restart(rpc::RESET_SESSION)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn disconnect_device(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::DISCONNECT).await
+}
+
+#[tauri::command]
+async fn current_snapshot(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::CURRENT_SNAPSHOT).await
+}
+
+#[tauri::command]
+async fn current_state_events(
+    app: AppHandle,
+    after_sequence: u64,
+    limit: Option<u16>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        try_with_gateway(
+            app.state::<Mutex<Gateway>>(),
+            rpc::CURRENT_STATE_EVENTS,
+            json!({ "afterSequence": after_sequence, "limit": limit.unwrap_or(256) }),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn current_tempo_clock(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        try_with_gateway(
+            app.state::<Mutex<Gateway>>(),
+            rpc::CURRENT_TEMPO_CLOCK,
+            json!({}),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn list_models(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::LIST_MODELS).await
+}
+
+#[tauri::command]
+async fn device_identity(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::IDENTITY).await
+}
+
+#[tauri::command]
+async fn set_device_name(app: AppHandle, name: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_DEVICE_NAME, json!({ "name": name })).await
+}
+
+#[tauri::command]
+async fn undo_device(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::UNDO).await
+}
+
+#[tauri::command]
+async fn redo_device(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::REDO).await
+}
+
+#[tauri::command]
+async fn inhibited_modules(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::INHIBITED_MODULES).await
+}
+
+#[tauri::command]
+async fn preset_screenshot(
+    app: AppHandle,
+    folder_name: String,
+    position: u32,
+    is_factory: Option<bool>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::PRESET_SCREENSHOT,
+        json!({
+            "folderName": folder_name,
+            "position": position,
+            "isFactory": is_factory.unwrap_or(false)
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn capture_screen(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::CAPTURE_SCREEN).await
+}
+
+#[tauri::command]
+async fn tap_screen(app: AppHandle, x: f64, y: f64) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::TAP_SCREEN, json!({ "x": x, "y": y })).await
+}
+
+#[tauri::command]
+async fn select_scene(
+    app: AppHandle,
+    scene: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SELECT_SCENE,
+        json!({ "scene": scene, "expectedPresetName": expected_preset_name }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn toggle_bypass(
+    app: AppHandle,
     row: u8,
     column: u8,
     expected_scene: u8,
@@ -387,9 +1297,9 @@ fn toggle_bypass(
     desired_bypassed: bool,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.toggleBypass",
+    background_gateway_request_params(
+        app,
+        rpc::TOGGLE_BYPASS,
         json!({
             "row": row,
             "column": column,
@@ -399,20 +1309,21 @@ fn toggle_bypass(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn move_block(
-    state: State<'_, Mutex<Gateway>>,
+async fn move_block(
+    app: AppHandle,
     row: u8,
     from_column: u8,
     to_column: u8,
     expected_model_id: u32,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.moveBlock",
+    background_gateway_request_params(
+        app,
+        rpc::MOVE_BLOCK,
         json!({
             "row": row,
             "fromColumn": from_column,
@@ -421,19 +1332,20 @@ fn move_block(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn add_block(
-    state: State<'_, Mutex<Gateway>>,
+async fn add_block(
+    app: AppHandle,
     row: u8,
     column: u8,
     model_id: u32,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.addBlock",
+    background_gateway_request_params(
+        app,
+        rpc::ADD_BLOCK,
         json!({
             "row": row,
             "column": column,
@@ -441,19 +1353,20 @@ fn add_block(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn remove_block(
-    state: State<'_, Mutex<Gateway>>,
+async fn remove_block(
+    app: AppHandle,
     row: u8,
     column: u8,
     expected_model_id: u32,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.removeBlock",
+    background_gateway_request_params(
+        app,
+        rpc::REMOVE_BLOCK,
         json!({
             "row": row,
             "column": column,
@@ -461,11 +1374,12 @@ fn remove_block(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_block_footswitch(
-    state: State<'_, Mutex<Gateway>>,
+async fn set_block_footswitch(
+    app: AppHandle,
     row: u8,
     column: u8,
     footswitch: Option<u8>,
@@ -473,9 +1387,9 @@ fn set_block_footswitch(
     expected_model_id: u32,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setBlockFootswitch",
+    background_gateway_request_params(
+        app,
+        rpc::SET_BLOCK_FOOTSWITCH,
         json!({
             "row": row,
             "column": column,
@@ -485,19 +1399,20 @@ fn set_block_footswitch(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_chain_input(
-    state: State<'_, Mutex<Gateway>>,
+async fn set_chain_input(
+    app: AppHandle,
     row: u8,
     input_id: u8,
     expected_input_id: u8,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setChainInput",
+    background_gateway_request_params(
+        app,
+        rpc::SET_CHAIN_INPUT,
         json!({
             "row": row,
             "inputId": input_id,
@@ -505,19 +1420,20 @@ fn set_chain_input(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_chain_output(
-    state: State<'_, Mutex<Gateway>>,
+async fn set_chain_output(
+    app: AppHandle,
     row: u8,
     output_id: u8,
     expected_output_id: u8,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setChainOutput",
+    background_gateway_request_params(
+        app,
+        rpc::SET_CHAIN_OUTPUT,
         json!({
             "row": row,
             "outputId": output_id,
@@ -525,11 +1441,12 @@ fn set_chain_output(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_chain_split(
-    state: State<'_, Mutex<Gateway>>,
+async fn set_chain_split(
+    app: AppHandle,
     row: u8,
     split_column: Option<i8>,
     mix_column: Option<i8>,
@@ -537,9 +1454,9 @@ fn set_chain_split(
     expected_mix_column: Option<i8>,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setChainSplit",
+    background_gateway_request_params(
+        app,
+        rpc::SET_CHAIN_SPLIT,
         json!({
             "row": row,
             "splitColumn": split_column,
@@ -549,42 +1466,69 @@ fn set_chain_split(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn list_presets(state: State<'_, Mutex<Gateway>>, refresh: bool) -> Result<Value, String> {
-    with_gateway_params(state, "device.listPresets", json!({ "refresh": refresh }))
+async fn list_presets(
+    app: AppHandle,
+    refresh: bool,
+    setlist_key: Option<String>,
+) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_gateway_params(
+            app.state::<Mutex<Gateway>>(),
+            rpc::LIST_PRESETS,
+            json!({ "refresh": refresh, "setlistKey": setlist_key }),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-fn navigate_bank(
-    state: State<'_, Mutex<Gateway>>,
+async fn list_preset_folders(app: AppHandle, refresh: bool) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_gateway_params(
+            app.state::<Mutex<Gateway>>(),
+            rpc::LIST_PRESET_FOLDERS,
+            json!({ "refresh": refresh }),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn navigate_bank(
+    app: AppHandle,
     direction: i8,
     expected_preset_name: String,
     expected_position: u16,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.navigateBank",
+    background_gateway_request_params(
+        app,
+        rpc::NAVIGATE_BANK,
         json!({
             "direction": direction,
             "expectedPresetName": expected_preset_name,
             "expectedPosition": expected_position
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn recall_preset(
-    state: State<'_, Mutex<Gateway>>,
+async fn recall_preset(
+    app: AppHandle,
     setlist_key: String,
     position: u16,
     expected_preset_name: String,
     expected_position: u16,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.recallPreset",
+    background_gateway_request_params(
+        app,
+        rpc::RECALL_PRESET,
         json!({
             "setlistKey": setlist_key,
             "position": position,
@@ -592,45 +1536,48 @@ fn recall_preset(
             "expectedPosition": expected_position
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn reload_preset(
-    state: State<'_, Mutex<Gateway>>,
+async fn reload_preset(
+    app: AppHandle,
     expected_preset_name: String,
     expected_position: u16,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.reloadPreset",
+    background_gateway_request_params(
+        app,
+        rpc::RELOAD_PRESET,
         json!({
             "expectedPresetName": expected_preset_name,
             "expectedPosition": expected_position
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn block_details(
-    state: State<'_, Mutex<Gateway>>,
+async fn block_details(
+    app: AppHandle,
     row: u8,
     column: u8,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.blockDetails",
+    background_gateway_request_params(
+        app,
+        rpc::BLOCK_DETAILS,
         json!({
             "row": row,
             "column": column,
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_parameter(
-    state: State<'_, Mutex<Gateway>>,
+async fn set_parameter(
+    app: AppHandle,
     row: u8,
     column: u8,
     parameter_index: u16,
@@ -639,9 +1586,9 @@ fn set_parameter(
     expected_scene: u8,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setParameter",
+    background_gateway_request_params(
+        app,
+        rpc::SET_PARAMETER,
         json!({
             "row": row,
             "column": column,
@@ -652,65 +1599,143 @@ fn set_parameter(
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_tempo(
-    state: State<'_, Mutex<Gateway>>,
+async fn preview_parameter(
+    app: AppHandle,
+    row: u8,
+    column: u8,
+    parameter_index: u16,
+    value: f64,
+    expected_scene: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::PREVIEW_PARAMETER,
+        json!({
+            "row": row,
+            "column": column,
+            "parameterIndex": parameter_index,
+            "value": value,
+            "expectedScene": expected_scene,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_tempo(
+    app: AppHandle,
     bpm: u16,
     expected_tempo: u16,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setTempo",
+    background_gateway_request_params(
+        app,
+        rpc::SET_TEMPO,
         json!({
             "bpm": bpm,
             "expectedTempo": expected_tempo,
             "expectedPresetName": expected_preset_name
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn set_master_volume(
-    state: State<'_, Mutex<Gateway>>,
-    value: u8,
-    expected_value: u8,
-) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.setMasterVolume",
+async fn set_master_volume(app: AppHandle, value: u8, expected_value: u8) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_MASTER_VOLUME,
         json!({ "value": value, "expectedValue": expected_value }),
     )
+    .await
 }
 
 #[tauri::command]
-fn press_footswitch(
-    state: State<'_, Mutex<Gateway>>,
+async fn current_master_volume(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        try_with_gateway(
+            app.state::<Mutex<Gateway>>(),
+            rpc::CURRENT_MASTER_VOLUME,
+            json!({}),
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn press_footswitch(
+    app: AppHandle,
     index: u8,
     expected_mode: String,
     expected_preset_name: String,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.pressFootswitch",
-        json!({
-            "index": index,
-            "expectedMode": expected_mode,
-            "expectedPresetName": expected_preset_name
-        }),
-    )
+    if u32::from(index) >= qc_protocol::domain::SCENE_COUNT + 3 {
+        return Err("Footswitch index must be from 0 through 10.".into());
+    }
+    if !matches!(
+        expected_mode.as_str(),
+        "PRESET" | "SCENE" | "STOMP" | "HYBRID"
+    ) {
+        return Err("The current footswitch mode is not valid.".into());
+    }
+    let plan = plan_host_midi("device.pressFootswitch", &json!({ "index": index }))?;
+    let detail = plan.detail.clone();
+    let endpoint = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Mutex<PerformanceMidi>>()
+            .lock()
+            .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+            .send(plan.controller, plan.value)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    Ok(json!({
+        "detail": format!("{detail} immediately through {endpoint}; live USB state will reconcile the result."),
+        "immediate": true,
+        "expectedPresetName": expected_preset_name
+    }))
 }
 
 #[tauri::command]
-fn list_preset_slots(state: State<'_, Mutex<Gateway>>) -> Result<Value, String> {
-    with_gateway(state, "device.listPresetSlots")
+async fn select_mode_slot(
+    app: AppHandle,
+    slot: u8,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    if slot > 2 {
+        return Err("Mode slot must be A, B, or C.".into());
+    }
+    let plan = plan_host_midi("device.selectModeSlot", &json!({ "slot": slot }))?;
+    let detail = plan.detail.clone();
+    let endpoint = tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Mutex<PerformanceMidi>>()
+            .lock()
+            .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+            .send(plan.controller, plan.value)
+    })
+    .await
+    .map_err(|error| error.to_string())??;
+    Ok(json!({
+        "detail": format!("{detail} immediately through {endpoint}; live USB state will reconcile the result."),
+        "immediate": true,
+        "expectedPresetName": expected_preset_name
+    }))
 }
 
 #[tauri::command]
-fn save_preset_as(
-    state: State<'_, Mutex<Gateway>>,
+async fn list_preset_slots(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::LIST_PRESET_SLOTS).await
+}
+
+#[tauri::command]
+async fn save_preset_as(
+    app: AppHandle,
     setlist_key: String,
     position: u16,
     name: String,
@@ -718,9 +1743,9 @@ fn save_preset_as(
     expected_position: u16,
     confirm_overwrite: bool,
 ) -> Result<Value, String> {
-    with_gateway_params(
-        state,
-        "device.savePresetAs",
+    background_gateway_request_params(
+        app,
+        rpc::SAVE_PRESET_AS,
         json!({
             "setlistKey": setlist_key,
             "position": position,
@@ -730,19 +1755,152 @@ fn save_preset_as(
             "confirmOverwrite": confirm_overwrite
         }),
     )
+    .await
 }
 
 #[tauri::command]
-fn show_tuner(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
-    with_gateway_params(state, "device.showTuner", json!({ "shown": shown }))
+async fn copy_preset(
+    app: AppHandle,
+    source_setlist_key: String,
+    source_position: u16,
+    source_name: String,
+    destination_setlist_key: String,
+    destination_position: u16,
+    expected_preset_name: String,
+    expected_position: u16,
+    confirm_overwrite: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::COPY_PRESET,
+        json!({
+            "sourceSetlistKey": source_setlist_key,
+            "sourcePosition": source_position,
+            "sourceName": source_name,
+            "destinationSetlistKey": destination_setlist_key,
+            "destinationPosition": destination_position,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position,
+            "confirmOverwrite": confirm_overwrite
+        }),
+    )
+    .await
 }
 
 #[tauri::command]
-fn show_gig_view(state: State<'_, Mutex<Gateway>>, shown: bool) -> Result<Value, String> {
-    with_gateway_params(state, "device.showGigView", json!({ "shown": shown }))
+async fn rename_current_preset(
+    app: AppHandle,
+    name: String,
+    expected_preset_name: String,
+    expected_position: u16,
+    confirm_rename: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::RENAME_CURRENT_PRESET,
+        json!({
+            "name": name,
+            "expectedPresetName": expected_preset_name,
+            "expectedPosition": expected_position,
+            "confirmRename": confirm_rename
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn show_tuner(app: AppHandle, shown: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SHOW_TUNER, json!({ "shown": shown })).await
+}
+
+#[tauri::command]
+async fn show_gig_view(app: AppHandle, shown: bool) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SHOW_GIG_VIEW, json!({ "shown": shown })).await
 }
 
 const MAX_WORKSPACE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_NATIVE_BACKUP_BYTES: usize = 32 * 1024 * 1024;
+
+fn validate_native_backup(document: &Value) -> Result<(), String> {
+    if !document.is_object()
+        || document.get("type").and_then(Value::as_str) != Some("backup")
+        || document.get("creator").and_then(Value::as_str) != Some("quad")
+    {
+        return Err("The device returned an unsupported native backup document".into());
+    }
+    let payload = document
+        .get("payload")
+        .and_then(Value::as_str)
+        .ok_or("The native backup has no payload")?;
+    if payload.is_empty() || payload.len() > MAX_NATIVE_BACKUP_BYTES {
+        return Err("The native backup payload is empty or oversized".into());
+    }
+    let payload_hash = document
+        .get("payload_hash")
+        .and_then(Value::as_str)
+        .ok_or("The native backup has no integrity identifier")?;
+    if payload_hash.len() != 64 || !payload_hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("The native backup integrity identifier is malformed".into());
+    }
+    Ok(())
+}
+
+fn safe_backup_name(value: &str) -> String {
+    let filtered: String = value
+        .chars()
+        .filter(|character| !character.is_control())
+        .map(|character| {
+            if r#"<>:"/\|?*"#.contains(character) {
+                '_'
+            } else {
+                character
+            }
+        })
+        .collect();
+    let trimmed = filtered.trim().trim_end_matches('.');
+    if trimmed.is_empty() {
+        "QC Device Backup".into()
+    } else {
+        trimmed.chars().take(80).collect()
+    }
+}
+
+#[tauri::command]
+async fn create_device_backup(app: AppHandle, name: String) -> Result<Value, String> {
+    let clean_name = safe_backup_name(&name);
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("Quad Cortex Backup", &["json"])
+        .set_file_name(format!("{clean_name}.json"))
+        .save_file()
+    else {
+        return Ok(json!({ "cancelled": true }));
+    };
+    if path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        != Some("json".into())
+    {
+        return Err("Quad Cortex backups must use the .json extension".into());
+    }
+    let document = background_gateway_request_params(
+        app,
+        rpc::CREATE_DEVICE_BACKUP,
+        json!({ "name": clean_name }),
+    )
+    .await?;
+    validate_native_backup(&document)?;
+    let bytes = serde_json::to_vec(&document).map_err(|error| error.to_string())?;
+    if bytes.len() > MAX_NATIVE_BACKUP_BYTES {
+        return Err("The native backup exceeds the 32 MiB safety limit".into());
+    }
+    fs::write(&path, bytes).map_err(|error| format!("Could not save native backup: {error}"))?;
+    Ok(json!({
+        "cancelled": false,
+        "path": path.to_string_lossy(),
+        "name": path.file_name().and_then(|value| value.to_str()).unwrap_or("QC Device Backup.json")
+    }))
+}
 
 fn validate_workspace(document: &Value) -> Result<(), String> {
     if !document.is_object() || document.get("version").and_then(Value::as_u64) != Some(1) {
@@ -953,6 +2111,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn reference_audio_accepts_only_https_youtube_hosts() {
+        assert!(validate_youtube_url("https://youtu.be/abc123").is_ok());
+        assert!(validate_youtube_url("https://music.youtube.com/watch?v=abc123").is_ok());
+        assert!(validate_youtube_url("http://youtube.com/watch?v=abc123").is_err());
+        assert!(validate_youtube_url("https://youtube.com.example.test/watch?v=abc123").is_err());
+        assert!(validate_youtube_url("https://example.test/watch?v=abc123").is_err());
+    }
+
+    #[test]
+    fn external_browser_links_are_exactly_allowlisted() {
+        assert!(is_allowed_external_url(
+            "https://aistudio.google.com/app/apikey"
+        ));
+        assert!(!is_allowed_external_url(
+            "https://aistudio.google.com/app/apikey?continue=https://evil.example"
+        ));
+        assert!(!is_allowed_external_url("https://evil.example"));
+    }
+
+    #[test]
     fn workspace_validation_requires_version_and_snapshot() {
         assert!(validate_workspace(&json!({ "version": 1, "snapshot": {} })).is_ok());
         assert!(validate_workspace(&json!({ "version": 2, "snapshot": {} })).is_err());
@@ -963,6 +2141,19 @@ mod tests {
     fn workspace_file_name_removes_windows_path_characters() {
         assert_eq!(safe_workspace_name("6B ICFTF: #22?"), "6B ICFTF_ #22_");
         assert_eq!(safe_workspace_name("..."), "QC Workspace");
+    }
+
+    #[test]
+    fn native_backup_validation_requires_the_qc_container_fields() {
+        let valid = json!({
+            "type": "backup",
+            "creator": "quad",
+            "payload": "AA==",
+            "payload_hash": "0".repeat(64)
+        });
+        assert!(validate_native_backup(&valid).is_ok());
+        assert!(validate_native_backup(&json!({ "type": "backup" })).is_err());
+        assert_eq!(safe_backup_name("Band: Friday?"), "Band_ Friday_");
     }
 
     #[test]
@@ -1029,6 +2220,7 @@ mod tests {
             voice_recognition_available: Some(true),
             voice_last_event: Some("submitted".into()),
             voice_event_at_unix: Some(1),
+            event_tx: None,
         };
         let health = runtime_health_document(&gateway, "device.snapshot", "ok");
         let keys = health
@@ -1079,15 +2271,55 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let (device_event_tx, device_event_rx) = mpsc::channel::<Value>();
+    let gateway = Gateway {
+        event_tx: Some(device_event_tx),
+        ..Gateway::default()
+    };
     tauri::Builder::default()
-        .manage(Mutex::new(Gateway::default()))
+        .manage(Mutex::new(gateway))
+        .manage(Mutex::new(PerformanceMidi::default()))
+        .manage(ChatBridge::default())
+        .manage(RelayBridge::default())
+        .setup(move |app| {
+            let handle = app.handle().clone();
+            let relay = app.state::<RelayBridge>();
+            relay.restore_access_mode();
+            let _ = relay.start(relay_adapter(&handle));
+            std::thread::Builder::new()
+                .name("qc-window-events".into())
+                .spawn(move || {
+                    while let Ok(frame) = device_event_rx.recv() {
+                        if handle.emit("qc-state-frame", frame).is_err() {
+                            return;
+                        }
+                    }
+                })
+                .map_err(|error| error.to_string())?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            relay_status,
+            pair_public_relay,
+            start_public_relay,
+            unpair_public_relay,
+            set_public_relay_access_mode,
             runtime_status,
             reconnect_device,
             reset_device_session,
             disconnect_device,
             current_snapshot,
+            current_state_events,
+            current_tempo_clock,
             list_models,
+            device_identity,
+            set_device_name,
+            undo_device,
+            redo_device,
+            inhibited_modules,
+            preset_screenshot,
+            capture_screen,
+            tap_screen,
             select_scene,
             toggle_bypass,
             move_block,
@@ -1098,24 +2330,48 @@ pub fn run() {
             set_chain_output,
             set_chain_split,
             list_presets,
+            list_preset_folders,
             navigate_bank,
             recall_preset,
             reload_preset,
             block_details,
+            preview_parameter,
             set_parameter,
             set_tempo,
             set_master_volume,
+            current_master_volume,
             press_footswitch,
+            select_mode_slot,
             list_preset_slots,
             save_preset_as,
+            copy_preset,
+            rename_current_preset,
             show_tuner,
             show_gig_view,
+            create_device_backup,
             save_workspace_as,
             save_workspace,
             open_workspace,
             export_diagnostics,
             report_voice_capability,
-            report_voice_event
+            report_voice_event,
+            chat_settings,
+            update_chat_settings,
+            set_chat_api_key,
+            clear_chat_api_key,
+            configure_google_oauth_app,
+            open_external_url,
+            open_google_subscription_setup,
+            connect_google_oauth,
+            select_google_project,
+            disconnect_google_oauth,
+            chat_with_model,
+            fetch_youtube_reference_audio,
+            chat_quota,
+            antigravity_models,
+            test_chat_connection,
+            warm_chat_provider,
+            cancel_chat
         ])
         .run(tauri::generate_context!())
         .expect("error while running QC Control");

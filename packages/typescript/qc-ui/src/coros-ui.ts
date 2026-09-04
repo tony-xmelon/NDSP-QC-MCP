@@ -1,8 +1,63 @@
 export type CorOsContextAction = "create-new" | "edit-details" | "preset-midi-out" | "favorite" | "delete-preset" | "new-capture" | "tempo" | "cpu-monitor" | "settings";
 
+/** Grid gaps before columns 0-7, followed by the gap after column 7. */
+export const GRID_ROUTE_BOUNDARIES = [75, 141, 228.5, 317, 404.5, 488, 572, 659.5, 748] as const;
+
+export const PRESET_TITLE_RIGHT_EDGE = 612;
+
+export function presetTitleLayout(locationWidth: number, titleWidthAtFullSize: number) {
+  const start = 14 + Math.max(0, locationWidth) + 16;
+  const maxWidth = Math.max(180, PRESET_TITLE_RIGHT_EDGE - start);
+  const fontSize = Math.max(22, Math.min(68, 68 * maxWidth / Math.max(1, titleWidthAtFullSize)));
+  return {
+    start,
+    maxWidth,
+    fontSize,
+    squeeze: titleWidthAtFullSize * fontSize / 68 > maxWidth,
+    baseline: 75 - (68 - fontSize) * .28
+  };
+}
+
+export function splitAnchorX(splitColumn: number): number {
+  return GRID_ROUTE_BOUNDARIES[Math.max(0, Math.min(7, splitColumn))];
+}
+
+/** mixColumn is the last cell in the branch, so its marker sits after it. */
+export function mixAnchorX(mixColumn: number): number {
+  return GRID_ROUTE_BOUNDARIES[Math.max(0, Math.min(8, mixColumn + 1))];
+}
+
 export function openSplitPath(splitX: number, fromY: number, toY: number, rowStartX = 52): string {
   const middleY = (fromY + toY) / 2;
-  return `M${splitX} ${fromY} C${splitX} ${middleY - 9},${rowStartX} ${middleY + 9},${rowStartX} ${toY}`;
+  const radius = 9;
+  return `M${splitX} ${fromY}V${middleY - radius}Q${splitX} ${middleY} ${splitX - radius} ${middleY}H${rowStartX + radius}Q${rowStartX} ${middleY} ${rowStartX} ${middleY + radius}V${toY - radius}Q${rowStartX} ${toY} ${rowStartX + radius} ${toY}`;
+}
+
+/** Mirror of openSplitPath for the Mixer return shown in the QC Grid. */
+export function rejoinSplitPath(mixX: number, fromY: number, toY: number, rowEndX = 748): string {
+  const radius = 9;
+  // A mixer on the final boundary has no horizontal space for the ordinary
+  // outward loop. Drawing that loop would reverse over itself and produce a
+  // visible pulse, so descend directly and round into the lower rail.
+  if (mixX === rowEndX) {
+    return `M${mixX} ${fromY}V${toY - radius}Q${rowEndX} ${toY} ${rowEndX - radius} ${toY}`;
+  }
+  const middleY = (fromY + toY) / 2;
+  return `M${mixX} ${fromY}V${middleY - radius}Q${mixX} ${middleY} ${mixX + radius} ${middleY}H${rowEndX - radius}Q${rowEndX} ${middleY} ${rowEndX} ${middleY + radius}V${toY - radius}Q${rowEndX} ${toY} ${rowEndX - radius} ${toY}`;
+}
+
+export function gridBlocksByRow<T extends { row: number; column: number }>(blocks: T[], rowCount = 4): T[][] {
+  return Array.from({ length: rowCount }, (_, row) => blocks
+    .filter((block) => block.row === row)
+    .sort((left, right) => left.column - right.column));
+}
+
+export function rowHasVisibleSignalRail(blockCount: number, route?: { input?: string; output?: string; splitColumn?: number; mixColumn?: number }): boolean {
+  return blockCount > 0
+    || Boolean(route?.input && route.input !== "Internal")
+    || Boolean(route?.output && route.output !== "Internal")
+    || route?.splitColumn !== undefined
+    || route?.mixColumn !== undefined;
 }
 
 export const GRID_CONTEXT_MENU = [
@@ -16,4 +71,12 @@ export const GRID_CONTEXT_MENU = [
   { label: "Tempo", icon: "♩", action: "tempo" },
   { label: "CPU monitor", icon: "▥", action: "cpu-monitor" },
   { label: "Settings", icon: "⚙", action: "settings" }
+] as const;
+
+export const DIRECTORY_PRESET_CONTEXT_MENU = [
+  { label: "Edit", action: "edit", requiresPreset: true },
+  { label: "Copy", action: "copy", requiresPreset: true },
+  { label: "Cut", action: "cut", requiresPreset: true },
+  { label: "Paste", action: "paste" },
+  { label: "Delete", action: "delete", danger: true, requiresPreset: true }
 ] as const;

@@ -4,12 +4,12 @@ The normal single-owner process for Quad Cortex USB access. It composes `qc-core
 
 The gateway is independently runnable and contains no desktop UI.
 
-## Current development slice
+## Development-only parity runtime
 
 Run `python main.py --stdio` from this directory to serve v1 length-prefixed
-JSON-RPC on stdin/stdout. The Windows Tauri shell launches it automatically from
-the repository virtual environment (or from `QC_GATEWAY_EXECUTABLE` when set),
-keeps one persistent session, and exposes snapshot, scene, block-bypass, guarded
+JSON-RPC on stdin/stdout. It is selected only when a developer explicitly sets
+`QC_GATEWAY_RUNTIME=python`. The installed Windows and Android applications use
+the shared native Rust runtime instead. This service exposes snapshot, scene, block-bypass, guarded
 installed model discovery, guarded block placement/removal/same-row movement,
 STOMP footswitch assignment, guarded row input/output and branch/rejoin routing, preset
 directory/recall, bank navigation, tuner, and Gig View methods. State-changing
@@ -21,11 +21,8 @@ setlist slots and exposes Save As with active-preset guards, an explicit occupie
 overwrite flag, device confirmation, slot readback, and final clean-state verification.
 Factory-library and global-setting writes remain unavailable.
 
-## Packaged runtime
+## Packaging
 
-`services/device-gateway/requirements.txt` pins the validated Windows HID and
-protobuf runtime. The root `npm run build:installer` command installs the build
-requirements, packages this service as a one-file console sidecar, and embeds it
-in the Tauri NSIS installer. The console subsystem is required for framed
-stdin/stdout IPC; the Windows host launches it with `CREATE_NO_WINDOW` so no
-console is shown to the user.
+`services/device-gateway/requirements.txt` pins the development oracle's HID and
+protobuf dependencies. It is not packaged in Windows or Android releases and is
+not part of the normal application runtime.

@@ -6,7 +6,7 @@ import json
 import struct
 from typing import Any, BinaryIO
 
-MAX_FRAME_BYTES = 16 * 1024 * 1024
+from .domain import IPC_MAX_FRAME_BYTES
 
 
 class FramingError(ValueError):
@@ -20,7 +20,7 @@ def read_frame(stream: BinaryIO) -> dict[str, Any] | None:
     if len(header) != 4:
         raise FramingError("incomplete frame header")
     (length,) = struct.unpack(">I", header)
-    if length == 0 or length > MAX_FRAME_BYTES:
+    if length == 0 or length > IPC_MAX_FRAME_BYTES:
         raise FramingError(f"invalid frame length: {length}")
     payload = stream.read(length)
     if len(payload) != length:
@@ -36,7 +36,7 @@ def read_frame(stream: BinaryIO) -> dict[str, Any] | None:
 
 def write_frame(stream: BinaryIO, message: dict[str, Any]) -> None:
     payload = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    if len(payload) > MAX_FRAME_BYTES:
+    if len(payload) > IPC_MAX_FRAME_BYTES:
         raise FramingError("frame exceeds maximum size")
     stream.write(struct.pack(">I", len(payload)))
     stream.write(payload)

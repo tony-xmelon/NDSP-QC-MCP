@@ -30,6 +30,7 @@ apps/windows/src-tauri/binaries/*.exe
 # Mobile
 .gradle/
 **/local.properties
+apps/android/android/app/src/main/jniLibs/
 DerivedData/
 Pods/
 
@@ -46,6 +47,9 @@ Thumbs.db
 *.log
 diagnostics/
 *.qcw
+.codex-remote-attachments/
+artifacts/
+tmp/
 
 # Generated contract clients
 generated/

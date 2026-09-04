@@ -1,0 +1,17 @@
+[package]
+name = "qc-relay-client"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Reusable outbound public-relay client for QC Control device hosts"
+
+[dependencies]
+async-trait = "0.1"
+futures-util = "0.3"
+rand = "0.9"
+reqwest = { version = "0.13", features = ["json"] }
+qc-relay-protocol = { path = "../qc-relay-protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }

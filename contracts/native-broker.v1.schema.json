@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qc-control.local/contracts/native-broker.v1.schema.json",
+  "title": "QC native broker JSON-RPC v1",
+  "description": "Native QC state/command broker with a compatibility raw-protobuf transport. Frames are four-byte big-endian length followed by UTF-8 JSON.",
+  "$defs": {
+    "messageType": { "type": "integer", "minimum": 1, "maximum": 70 },
+    "rawMessage": {
+      "type": "object",
+      "required": ["sequence", "messageType", "payloadBase64", "receivedAtUnixMs"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "messageType": { "$ref": "#/$defs/messageType" },
+        "payloadBase64": { "type": "string", "contentEncoding": "base64" },
+        "receivedAtUnixMs": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": ["jsonrpc", "id", "method"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "id": { "type": "integer" },
+        "method": {
+          "enum": [
+            "system.status", "device.status", "device.reconnect", "device.disconnect",
+            "device.raw.latest", "device.raw.events", "device.raw.send", "device.raw.request",
+            "device.state.events", "device.state.blockDetails",
+            "device.command.scene", "device.command.bypass",
+            "device.command.parameter", "device.command.tempo"
+            , "device.command.operation"
+          ]
+        },
+        "params": { "type": "object" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "gateway.v1.schema.json#/$defs/response" }
+  ]
+}

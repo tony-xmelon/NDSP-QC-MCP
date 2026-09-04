@@ -1,10 +1,79 @@
 # Standalone MCP server
 
-An independently installable Model Context Protocol server exposing typed, safety-classified Quad Cortex tools and resources.
+> Deprecated for new public deployments. This Python package remains supported
+> as the local compatibility oracle until Rust release parity is complete. Use
+> `services/qc-remote` for authenticated ChatGPT/Claude mobile connectivity.
 
-Planned modes:
+An independently installable Model Context Protocol server exposing typed,
+safety-classified Quad Cortex tools and resources. It uses the official MCP
+Python SDK 2.x and does not depend on a desktop or mobile UI.
 
-- `direct`: compose `qc-core` and `qc-pyquadcortex` and own USB directly;
-- `gateway`: connect through `qc-gateway-client` when another process owns USB.
+## Run from this repository
 
-This service has its own package metadata, CLI entry point, tests, and release artifact. It must not depend on any client app or UI package.
+Install the two Python packages and the official SDK:
+
+```powershell
+python -m pip install -e packages/python/qc-gateway-client
+python -m pip install -e services/mcp-server
+python services/mcp-server/main.py --mode gateway --transport stdio
+```
+
+Install `qc-gateway-client` first because it is a local source dependency that
+is not fetched from a public package index.
+
+The repository entry point locates and owns the existing device-gateway
+sidecar. For a packaged external gateway, pass its complete launch command with
+`--gateway-command` or `NDSP_QC_GATEWAY_COMMAND`.
+
+`--transport streamable-http --host 127.0.0.1 --port 8000` is also available.
+It remains loopback-only by default. Do not expose the server to a LAN without
+adding authentication and the MCP SDK's host/origin transport security.
+
+## Ownership modes
+
+- `gateway` (default): communicates through `qc-gateway-client` and the
+  versioned framed JSON-RPC gateway contract.
+- `direct`: composes the installed device-gateway adapter in-process and owns
+  USB itself. The Windows app/Cortex Control must be closed. This mode requires
+  the device gateway and hardware dependencies to be installed/importable.
+
+In normal gateway mode only the native broker owns the QC USB session, and the
+MCP server does not acquire HID or depend on a UI. Legacy `direct` mode is the
+explicit development exception: its in-process Python adapter owns USB itself.
+
+## Resources
+
+- `qc://status`
+- `qc://current-preset`
+- `qc://models`
+
+## Tools and safety
+
+Read tools include the current preset, block details, models, preset
+folders/slots, and master volume. Temporary live controls include scenes,
+banks, views, recalls, tempo, mode slots, bypass, and parameters. Master-volume
+changes and preset reload are risky controls with explicit confirmation.
+Persistent preset tools are `save_preset_as`, `rename_current_preset`, and
+`copy_preset`.
+
+All preset-affecting mutations require expected preset/scene/value/position
+state from a fresh snapshot. The gateway performs authoritative readback.
+`save_preset_as` and `rename_current_preset` are deliberately separate and
+additionally require `confirm_persistent_write=true`. Rename applies only to the
+active stored user preset and verifies the new name. No arbitrary JSON-RPC,
+protobuf, raw HID, or global-setting write tool is exposed.
+
+The MCP server provides tools to an MCP host; it does not itself contain an LLM
+or chat UI.
+
+## Test and package
+
+```powershell
+python -m unittest discover -s services/mcp-server/tests -v
+python -m pip install build
+python -m build packages/python/qc-gateway-client
+python -m build services/mcp-server
+```
+
+To validate the wheels in a clean environment, install the generated gateway
+client wheel first, then the MCP server wheel, and run `ndsp-qc-mcp --help`.

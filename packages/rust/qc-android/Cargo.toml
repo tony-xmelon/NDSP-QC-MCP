@@ -1,0 +1,16 @@
+[package]
+name = "qc-android"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "JNI binding for the shared QC native state engine"
+
+[lib]
+name = "qc_android"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+qc-device-runtime = { path = "../qc-device-runtime" }
+qc-protocol = { path = "../qc-protocol" }
+serde_json = "1"

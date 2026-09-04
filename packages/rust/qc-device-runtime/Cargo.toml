@@ -1,0 +1,12 @@
+[package]
+name = "qc-device-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Platform-neutral Quad Cortex state and operation runtime"
+
+[dependencies]
+base64 = "0.22"
+qc-protocol = { path = "../qc-protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -7,47 +7,65 @@ Support Windows now and Android, iOS, web, automation, and other clients later w
 ## System map
 
 ```text
- Windows app ── private stdio IPC ─┐
- Android/iOS/web ─ HTTPS/WebSocket ├── Device Gateway ── qc-core ── DevicePort
- Other local clients ─ local IPC ──┘                         │
-                                                            └── qc-pyquadcortex ── USB-HID ── QC
+ Windows React shell ─┐                           ┌─ Tauri adapter ── Rust device broker ─┐
+                      ├─ qc-ui + qc-core + client ┤                                      ├─ qc-device-runtime + qc-protocol ── USB-HID ── QC
+ Android React shell ─┘                           └─ Capacitor adapter ── Java/JNI host ──┘
 
- MCP client ── MCP Server ──┬── gateway mode ── Device Gateway
-                            └── direct mode ─── qc-core + qc-pyquadcortex ── QC
+ ChatGPT / Claude ── HTTPS OAuth + Streamable MCP ── Rust remote service ─┬─ paired Windows outbound client ── Rust broker ──┐
+                                                                         └─ paired Android foreground relay ── Java/JNI host ─┴─ USB-HID ── QC
+ MCP gateway mode ── gateway.v1 ── Rust device broker
 ```
 
-The gateway and direct MCP mode are alternative QC owners. They must not open the hardware simultaneously.
+The Windows native broker, Android direct adapter, and direct MCP mode are alternative QC owners. They must not open the hardware simultaneously.
 
 ## Modules and dependency rules
 
-### `packages/python/qc-core`
+### Python parity packages
 
-Owns normalized models, typed commands and queries, use cases, connection states, safety classification, expected-state checks, command journaling interfaces, and ports. It has no knowledge of `pyquadcortex`, transport framing, MCP, UI frameworks, or operating systems.
+`services/device-gateway` and `pyquadcortex` are retained only as a source-level
+differential oracle and protocol reference. They are not packaged in Windows or
+Android and are never selected by default. `QC_GATEWAY_RUNTIME=python` is an
+explicit development-only parity mode.
 
-Examples of ports include `DevicePort`, `EventSink`, `WorkspaceStore`, `CredentialStore`, and `Clock`. Fake implementations support deterministic tests.
+### `services/device-broker` and `packages/rust/qc-device-runtime`
 
-### `packages/python/qc-pyquadcortex`
+The Rust broker is the Windows composition root and exclusive device-session
+owner. It exposes framed `gateway.v1` over stdio, owns Windows HID and event
+correlation, and delegates platform-neutral snapshot/preset-library behavior to
+`qc-device-runtime` and all wire semantics to `qc-protocol`.
 
-Implements `DevicePort` using `pyquadcortex`, HID, and protobuf details. All firmware/protocol quirks and translation between raw data and normalized domain models live here. No client is allowed to import `pyquadcortex` directly.
+The Python device gateway is the parity oracle, not a deployed composition root.
 
-### `services/device-gateway`
+### MCP and remote services
 
-Is the normal composition root and exclusive USB owner. It combines the core with a device adapter, serializes mutations, publishes state/events, performs recovery, and exposes transports:
+The legacy Python MCP package is retained as a local compatibility oracle. New public
+connector deployments use three Rust services:
 
-- framed JSON-RPC over stdin/stdout for the packaged Windows sidecar;
-- optional authenticated loopback or LAN HTTP/WebSocket for mobile/web clients;
-- an in-process test transport.
+- `services/rust-mcp` owns the `rmcp` tool/resource surface and per-request
+  principal/device route requirement.
+- `services/qc-relay` owns OAuth resource metadata, bearer authorization,
+  pairing, revocation, rate limits, active-device routing, and the outbound
+  `qc-relay.v1` WebSocket protocol.
+- `services/qc-remote` composes both Axum routers, validates external OAuth
+  tokens through introspection, and is the HTTPS reverse-proxy deployment target.
 
-Transport adapters call the same application use cases. Network exposure is disabled by default and must add pairing, authentication, TLS where appropriate, origin checks, rate limiting, and explicit user consent.
+Local gateway mode reaches the same Rust device broker contract used by the
+Windows client. Remote mode reaches either a paired Windows broker or the paired
+Android native host through an authenticated outbound relay connection; neither
+deployed path loads Python or pyquadcortex.
 
-### `services/mcp-server`
+`packages/rust/qc-relay-protocol` owns the shared relay wire frames and limits.
+`packages/rust/qc-relay-client` owns the reusable outbound Rust client used by
+Windows. The complete 45-method action allowlist and minimum access tier for
+Windows, Android, and the server are generated from `qc-actions.v1.json`. A
+contract test requires it to remain an exact gateway-method set, so a new
+Windows RPC cannot silently be omitted from Android.
 
-Is an independently packaged MCP server. It maps MCP tools/resources to typed core use cases and never accepts raw protobuf or arbitrary hardware writes. It supports:
-
-- **direct mode:** owns USB by composing `qc-core` with `qc-pyquadcortex`;
-- **gateway mode:** uses `qc-gateway-client` when the Windows app or gateway already owns USB.
-
-The MCP package has its own entry point, dependency declaration, tests, README, and release artifact. It does not import anything from `apps/` and contains no OpenAI-specific business logic.
+The public server is only an OAuth resource server. Identity remains with a
+configured OAuth 2.1 authorization server supporting S256 PKCE. Exact issuer,
+resource/audience, expiry, and scope are checked on every request. No provider
+consumer token, browser cookie, HID frame, protobuf payload, or arbitrary RPC is
+accepted by the remote boundary.
 
 ### `packages/python/qc-gateway-client`
 
@@ -57,19 +75,61 @@ Provides a Python implementation of the versioned gateway contract. It is used b
 
 Contains versioned, language-neutral schemas for commands, results, snapshots, events, errors, capabilities, confirmation requests, and protocol negotiation. JSON Schema is the initial interchange definition. Generated Python/TypeScript/Kotlin/Swift models are build artifacts and are never hand-edited.
 
+Five manifests currently prevent platform drift:
+
+- `qc-usb-profile.v1.json` owns USB identity, handshake/sync timing, subscriptions, frame limits, keepalive policy, and performance MIDI mappings.
+- `qc-domain.v1.json` owns Grid/scene/tempo limits, scene colors, route IDs/labels/groups, and IPC frame limits.
+- `gateway-methods.v1.json` owns every gateway RPC, TypeScript client method,
+  Tauri command binding, generated Android dispatch class, and the explicitly
+  smaller set supported by the legacy Python parity runtime.
+- `qc-actions.v1.json` owns the cross-surface assistant/MCP action names, RPC mapping, descriptions, schemas, and read/live/persistent safety class.
+- `qc-payloads.v1.schema.json` owns snapshots, native state events, Grid/editor structures, and action results generated for TypeScript, Rust, and Python.
+
+`npm run protocol:generate` materializes the required Rust, Java, Python, TypeScript, JSON Schema, and Tauri binding files. `npm run protocol:check` fails when a checked-in generated file drifts from its manifest.
+
 Each request carries a protocol version, request ID, command kind, payload, and optional expected-state guard. Errors use stable codes plus human-readable detail. Capability negotiation lets old clients hide unsupported features safely.
 
 ### TypeScript packages
 
-- `qc-client` owns generated TypeScript types, transport clients, caching, and platform-neutral state transitions.
-- `qc-ui` owns reusable web components for the QC screen and controls, but no Tauri APIs.
+- `qc-core` owns shared Windows/Android behavior: the gateway-backed device transport adapter, realtime command coordinator, optimistic state and rollback, stale-echo reconciliation, surface commands, routing taxonomy and constraints, editor transitions, tempo, footswitch semantics, assistant action validation and device-command resolution. It imports no React, browser, Tauri, Capacitor, or native USB APIs.
+- `qc-client` owns generated TypeScript types and the stable `gateway.v1` transport contract.
+- `qc-ui` owns reusable web components for the QC screen and controls plus React bindings for the core parameter-editor and realtime device-command sessions. `useQcController` keeps native-frame commits synchronous with the current snapshot, serializes rapid adjacent-preset requests, and runs the same optimistic send/readback/rollback transaction for every platform, including assistant-initiated performance commands, but imports no Tauri or Capacitor APIs.
 - `qc-form-factors` owns declarative geometry and skins. Manifests refer to semantic controls such as `footswitch:A`, not backend methods.
+
+Realtime native adapters timestamp observations at the device boundary and
+batch all updates decoded from one device frame. A single Rust engine in
+`packages/rust/qc-protocol` owns HID framing and receive-frame assembly,
+handshake/initialization messages, intent-level outbound device commands,
+protobuf state normalization, and complete ModelRepo
+parameter/display semantics. Windows links it directly into the native broker;
+Android reaches it through a narrow JNI facade. `qc-core` owns pending-command
+reconciliation, command transactions, batch reduction, and the provider-neutral
+bounded chat/tool-loop controller, so both clients share wire interpretation,
+ordering, editor metadata, routing rules, and stale-echo behavior while retaining only the
+platform-specific USB handle, permission, endpoint, and lifecycle code. HID
+reads, writes, performance MIDI, and ModelRepo parsing use independent lanes.
+Both native hosts retain the USB handle for the full connected session and
+expose the same 45 gateway methods. Their remaining native code is limited to
+OS permission/interface discovery, endpoint I/O, serialized scheduling,
+lifecycle adaptation, and notifications. Shared Rust owns tempo-clock decoding,
+backup chunk assembly and validation, command planning, HID-versus-MIDI lane
+selection, and response projection.
+
+Cross-native transport policy lives in `contracts/qc-usb-profile.v1.json` and
+generates Java/Rust constants. Runtime reconnect cadence, handshake attempts,
+keepalive scheduling, outbound-idle tracking, and read-error tolerance live in
+`qc-protocol::session::SessionMachine`, called by both native hosts. Native
+adapters may differ in OS lifecycle and endpoint APIs, but they do not
+independently choose session policy, handshake versions, subscriptions, frame
+limits, keepalive timing, or performance MIDI mappings.
 
 The Windows app composes these packages with Tauri. A future React Native client may reuse `qc-client` and manifests without being forced to reuse DOM components. Native Kotlin/Swift clients can instead generate models from the same contracts.
 
 ### Client apps
 
 Each directory under `apps/` is a thin composition root for navigation, lifecycle, platform permissions, credential storage, networking, notifications, audio, and packaging. Client apps do not contain QC command rules or USB protocol code.
+
+Client apps also never import one another. Shared React controls, styling, editor state, and the verified command journal belong in `qc-ui`; shared behavior, chat sessions, route drafts, and preview fixtures belong in `qc-core`. Platform-only composition such as the Windows routing editor and chat dock lives in focused components rather than the application root. This prevents a desktop-only stylesheet or compatibility wrapper from becoming an accidental mobile dependency.
 
 ## Command flow
 
@@ -82,12 +142,22 @@ Each directory under `apps/` is a thin composition root for navigation, lifecycl
 
 An interrupted or uncertain mutation is never blindly replayed. The owner reads device state first and reports whether it landed.
 
+Windows and Android persist a local assistant access mode that defaults to full
+guarded control. The cumulative tiers are **Read-only** for inspection;
+**Performance** for buttons, views, master volume, and tempo; **Modify** for
+those operations plus Grid, preset, scene, routing, and save edits; and **Full
+control** for all of those plus system-level operations. Both native outbound
+relay adapters enforce the generated tier for every remote request, so changing
+or bypassing web UI state cannot authorize a broader operation. Manual app
+controls remain independent.
+
 ## Device ownership and deployment modes
 
 | Scenario | QC owner | Client path |
 |---|---|---|
 | Windows desktop only | bundled gateway sidecar | private stdio JSON-RPC |
-| Windows plus phone remote | Windows gateway | authenticated LAN WebSocket/HTTPS |
+| Windows through public MCP | Windows Rust broker | paired outbound `wss://` relay |
+| Android through public MCP | Android native USB host | paired foreground `wss://` relay |
 | Headless computer/Raspberry Pi | gateway service | authenticated network API |
 | Standalone MCP, desktop closed | MCP direct mode | MCP to core/device adapter |
 | MCP while desktop owns QC | Windows gateway | MCP gateway mode |

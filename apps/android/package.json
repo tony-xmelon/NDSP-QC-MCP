@@ -1,0 +1,35 @@
+{
+  "name": "@ndsp-qc/android",
+  "version": "0.3.16",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "test": "node --experimental-strip-types --test src/assistant-router.test.ts src/gemini-quota.test.ts src/mobile-ui.test.ts src/native-sync.test.ts",
+    "branding:generate": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/generate-android-branding.ps1",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../scripts/build-android-debug.ps1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@ndsp-qc/client": "0.1.0",
+    "@ndsp-qc/core": "0.1.0",
+    "@ndsp-qc/form-factors": "0.1.0",
+    "@ndsp-qc/ui": "0.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "latest",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}

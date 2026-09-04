@@ -3,13 +3,23 @@
   "$id": "https://qc-voice-control.local/contracts/gateway.v1.schema.json",
   "title": "QC Gateway JSON-RPC v1",
   "description": "Envelope and domain payloads exchanged with the private device gateway.",
+  "x-payload-schema": "qc-payloads.v1.schema.json",
   "$defs": {
     "request": {
       "type": "object",
-      "required": ["jsonrpc", "id", "method"],
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ],
       "properties": {
-        "jsonrpc": { "const": "2.0" },
-        "id": { "type": "integer", "minimum": 1 },
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
         "method": {
           "enum": [
             "system.status",
@@ -17,7 +27,17 @@
             "device.resetSession",
             "device.disconnect",
             "device.snapshot",
+            "device.stateEvents",
+            "device.tempoClock",
             "device.listModels",
+            "device.identity",
+            "device.setDeviceName",
+            "device.undo",
+            "device.redo",
+            "device.inhibitedModules",
+            "device.presetScreenshot",
+            "device.captureScreen",
+            "device.tapScreen",
             "device.selectScene",
             "device.toggleBypass",
             "device.moveBlock",
@@ -28,50 +48,97 @@
             "device.setChainOutput",
             "device.setChainSplit",
             "device.listPresets",
+            "device.listPresetFolders",
             "device.navigateBank",
             "device.recallPreset",
             "device.reloadPreset",
             "device.blockDetails",
+            "device.previewParameter",
             "device.setParameter",
             "device.setTempo",
+            "device.setMasterVolume",
+            "device.masterVolume",
             "device.pressFootswitch",
+            "device.selectModeSlot",
             "device.listPresetSlots",
             "device.savePresetAs",
+            "device.copyPreset",
+            "device.renameCurrentPreset",
+            "device.createBackup",
             "device.showTuner",
             "device.showGigView"
           ]
         },
-        "params": { "type": "object" }
+        "params": {
+          "type": "object"
+        }
       },
       "additionalProperties": false
     },
     "response": {
       "type": "object",
-      "required": ["jsonrpc", "id"],
+      "required": [
+        "jsonrpc",
+        "id"
+      ],
       "properties": {
-        "jsonrpc": { "const": "2.0" },
-        "id": { "type": "integer", "minimum": 1 },
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
         "result": {},
         "error": {
           "type": "object",
-          "required": ["code", "message"],
+          "required": [
+            "code",
+            "message"
+          ],
           "properties": {
-            "code": { "type": "integer" },
-            "message": { "type": "string" },
+            "code": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
             "data": {}
           },
           "additionalProperties": false
         }
       },
       "oneOf": [
-        { "required": ["result"], "not": { "required": ["error"] } },
-        { "required": ["error"], "not": { "required": ["result"] } }
+        {
+          "required": [
+            "result"
+          ],
+          "not": {
+            "required": [
+              "error"
+            ]
+          }
+        },
+        {
+          "required": [
+            "error"
+          ],
+          "not": {
+            "required": [
+              "result"
+            ]
+          }
+        }
       ],
       "additionalProperties": false
     }
   },
   "oneOf": [
-    { "$ref": "#/$defs/request" },
-    { "$ref": "#/$defs/response" }
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    }
   ]
 }
