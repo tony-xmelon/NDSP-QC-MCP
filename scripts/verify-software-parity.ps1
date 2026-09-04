@@ -41,6 +41,8 @@ Push-Location $repositoryRoot
 try {
     Invoke-Checked "Package architecture boundaries" { npm run architecture:check }
     Invoke-Checked "Windows and Android capability parity" { npm run app-parity:check }
+    Invoke-Checked "Quad Cortex reference corpus integrity" { npm run verify:qc-corpora }
+    Invoke-Checked "Windows and Android screen coverage" { npm run verify:qc-coverage }
     Invoke-Checked "Dependency security policy" { npm run security:audit }
     Invoke-Checked "TypeScript typecheck" { npm run typecheck }
     Invoke-Checked "TypeScript and UI tests" { npm test }
