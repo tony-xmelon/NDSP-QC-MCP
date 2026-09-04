@@ -82,6 +82,86 @@ function rustComponents(lockFiles) {
   return [...components.values()].sort((left, right) => `${left.name}@${left.version}`.localeCompare(`${right.name}@${right.version}`));
 }
 
+const mavenPurl = (group, name, version) => `pkg:maven/${encodeURIComponent(group)}/${encodeURIComponent(name)}${version ? `@${version}` : ""}`;
+
+export function parseGradleDependencyReport(source) {
+  const components = new Map();
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/---\s+([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)(?::([^\s(]+))?(?:\s+->\s+([^\s(]+))?/);
+    if (!match) continue;
+    const [, group, name, requested, selected] = match;
+    const version = selected ?? requested;
+    if (!version || version === "FAILED" || version.startsWith("{")) continue;
+    const key = `${group}:${name}@${version}`;
+    components.set(key, {
+      type: "library",
+      group,
+      name,
+      version,
+      purl: mavenPurl(group, name, version),
+      properties: [{ name: "qc:ecosystem", value: "gradle" }]
+    });
+  }
+  return [...components.values()].sort((left, right) => `${left.group}:${left.name}@${left.version}`.localeCompare(`${right.group}:${right.name}@${right.version}`));
+}
+
+export function parseGradleDeclarations(source, variablesSource = "") {
+  const variables = new Map([...variablesSource.matchAll(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*=\s*['"]([^'"]+)['"]/gm)].map((match) => [match[1], match[2]]));
+  const declarations = [...source.matchAll(/^\s*(?:implementation|api|runtimeOnly)\s+(?:platform\()?['"]([^'"]+)['"]/gm)].map((match) => match[1]);
+  const bom = declarations.map((coordinate) => coordinate.split(":"))
+    .find(([group, name, version]) => group === "com.google.firebase" && name === "firebase-bom" && version);
+  const components = new Map();
+  for (const coordinate of declarations) {
+    const [group, name, rawVersion] = coordinate.split(":");
+    if (!group || !name) continue;
+    const variable = rawVersion?.match(/^\$\{?([A-Za-z][A-Za-z0-9_]*)\}?$/)?.[1];
+    const version = variable ? variables.get(variable) : rawVersion;
+    const properties = [
+      { name: "qc:ecosystem", value: "gradle" },
+      { name: "qc:dependency-resolution", value: "declared" }
+    ];
+    if (!version && group === "com.google.firebase" && bom) properties.push({ name: "qc:version-managed-by", value: `${bom[0]}:${bom[1]}:${bom[2]}` });
+    const key = `${group}:${name}@${version ?? "managed"}`;
+    components.set(key, {
+      type: "library",
+      group,
+      name,
+      ...(version ? { version } : {}),
+      purl: mavenPurl(group, name, version),
+      properties
+    });
+  }
+  return [...components.values()].sort((left, right) => `${left.group}:${left.name}@${left.version ?? ""}`.localeCompare(`${right.group}:${right.name}@${right.version ?? ""}`));
+}
+
+function resolvedGradleComponents() {
+  const androidRoot = resolve(repositoryRoot, "apps/android/android");
+  const wrapper = resolve(androidRoot, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+  if (!existsSync(wrapper)) return [];
+  try {
+    const report = execFileSync(wrapper, ["-q", ":app:dependencies", "--configuration", "releaseRuntimeClasspath", "--console=plain"], {
+      cwd: androidRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 32 * 1024 * 1024
+    });
+    return parseGradleDependencyReport(report);
+  } catch {
+    return [];
+  }
+}
+
+function androidGradleInventory() {
+  const resolved = resolvedGradleComponents();
+  if (resolved.length) return { components: resolved, resolved: true };
+  const androidRoot = resolve(repositoryRoot, "apps/android/android");
+  const declarations = parseGradleDeclarations(
+    readFileSync(resolve(androidRoot, "app/build.gradle"), "utf8"),
+    readFileSync(resolve(androidRoot, "variables.gradle"), "utf8")
+  );
+  return { components: declarations, resolved: false };
+}
+
 function walk(directory) {
   if (!existsSync(directory)) return [];
   return readdirSync(directory).flatMap((entry) => {
@@ -117,8 +197,8 @@ function uuidFromDigest(digest) {
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
-export function buildSbom(packageLock, cargoLocks, metadata = {}) {
-  const components = [...npmComponents(packageLock), ...rustComponents(cargoLocks)];
+export function buildSbom(packageLock, cargoLocks, metadata = {}, gradle = []) {
+  const components = [...npmComponents(packageLock), ...rustComponents(cargoLocks), ...gradle];
   const componentDigest = sha256(JSON.stringify(components));
   return {
     bomFormat: "CycloneDX",
@@ -143,7 +223,8 @@ export function generateReleaseProvenance({ artifacts = defaultArtifacts(), outp
   const cargoLocks = walk(repositoryRoot).filter((path) => basename(path) === "Cargo.lock");
   const packageLock = JSON.parse(readFileSync(resolve(repositoryRoot, "package-lock.json"), "utf8"));
   const generatedAt = new Date().toISOString();
-  const sbom = buildSbom(packageLock, cargoLocks, { version: windowsPackage.version });
+  const gradle = androidGradleInventory();
+  const sbom = buildSbom(packageLock, cargoLocks, { version: windowsPackage.version }, gradle.components);
   const manifest = {
     schemaVersion: 1,
     product: "QC Control",
@@ -152,6 +233,12 @@ export function generateReleaseProvenance({ artifacts = defaultArtifacts(), outp
     applications: { windows: windowsPackage.version, android: androidPackage.version },
     contracts,
     tools: { node: process.version, npm: commandVersion("npm"), rustc: commandVersion("rustc"), cargo: commandVersion("cargo") },
+    dependencyInventories: {
+      npm: sbom.components.filter((component) => component.properties?.some((property) => property.name === "qc:ecosystem" && property.value === "npm")).length,
+      cargo: sbom.components.filter((component) => component.properties?.some((property) => property.name === "qc:ecosystem" && property.value === "cargo")).length,
+      gradle: gradle.components.length,
+      gradleResolved: gradle.resolved
+    },
     artifacts: artifactRecords,
     sbom: { format: "CycloneDX", specVersion: sbom.specVersion, componentCount: sbom.components.length, file: "sbom.cdx.json", sha256: sha256(JSON.stringify(sbom, null, 2) + "\n") }
   };
