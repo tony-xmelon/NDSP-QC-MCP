@@ -1,6 +1,6 @@
 param(
     [string]$ReleaseNotes = "QC Control Android development build.",
-    [string]$Testers = ""
+    [string]$Testers = "prezimir@gmail.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +17,9 @@ try {
 
     New-Item -ItemType Directory -Force (Split-Path -Parent $apkPath) | Out-Null
     Copy-Item -LiteralPath $builtApkPath -Destination $apkPath -Force
+
+    & node (Join-Path $repoRoot "tools\release-provenance.mjs") $apkPath
+    if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }
 
     $firebaseArguments = @("appdistribution:distribute", $apkPath, "--app", $firebaseAppId, "--release-notes", $ReleaseNotes)
     if ($Testers) { $firebaseArguments += @("--testers", $Testers) }

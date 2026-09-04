@@ -83,4 +83,8 @@ try {
 finally {
     Pop-Location
 }
+$windowsInstallers = @(Get-ChildItem -LiteralPath (Join-Path $env:CARGO_TARGET_DIR "release\bundle\nsis") -Filter "*.exe" -File -ErrorAction SilentlyContinue | ForEach-Object FullName)
+if (-not $windowsInstallers.Count) { throw "The Windows installer build completed without an NSIS artifact." }
+& node (Join-Path $repositoryRoot "tools\release-provenance.mjs") @windowsInstallers
+if ($LASTEXITCODE -ne 0) { throw "Could not generate Windows release provenance." }
 $buildLock.Dispose()

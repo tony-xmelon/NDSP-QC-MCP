@@ -36,3 +36,7 @@ try {
 finally {
     Pop-Location
 }
+
+$builtApkPath = Join-Path $androidRoot "android\app\build\outputs\apk\debug\app-debug.apk"
+& node (Join-Path $repoRoot "tools\release-provenance.mjs") $builtApkPath
+if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }
