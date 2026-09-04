@@ -22,6 +22,11 @@ async function viewportMetrics(page: Page) {
 
 for (const surface of surfaces) {
   test(`${surface.name} fits and passes accessibility checks`, async ({ page }) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(`pageerror: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") runtimeErrors.push(`console: ${message.text()}`);
+    });
     await page.setViewportSize({ width: surface.width, height: surface.height });
     await page.goto(surface.url);
     await page.locator("#root").waitFor({ state: "visible" });
@@ -47,5 +52,6 @@ for (const surface of surfaces) {
     const targetSpacing = await new AxeBuilder({ page }).withRules(["target-size"]).exclude(".coros-vector-actions").analyze();
     const materialViolations = [...accessibility.violations, ...targetSpacing.violations].filter((violation) => violation.impact === "serious" || violation.impact === "critical");
     expect(materialViolations, materialViolations.map((violation) => `${violation.id}: ${violation.help}`).join("\n")).toEqual([]);
+    expect(runtimeErrors, "app must render without uncaught exceptions or console errors").toEqual([]);
   });
 }
