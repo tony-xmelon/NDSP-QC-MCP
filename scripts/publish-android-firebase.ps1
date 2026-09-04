@@ -8,10 +8,15 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $androidPackage = Get-Content (Join-Path $repoRoot "apps\android\package.json") | ConvertFrom-Json
 $apkPath = Join-Path $repoRoot "artifacts\android\QC-Control-Android-$($androidPackage.version)-debug.apk"
 $builtApkPath = Join-Path $repoRoot "apps\android\android\app\build\outputs\apk\debug\app-debug.apk"
+$capacitorConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\capacitor.config.ts") -Raw
+if ($capacitorConfig -notmatch 'appId\s*:\s*["'']([^"'']+)["'']') {
+    throw "Could not read the Android application ID from capacitor.config.ts."
+}
+$androidAppId = $Matches[1]
 $firebaseConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\android\app\google-services.json") -Raw | ConvertFrom-Json
-$firebaseClients = @($firebaseConfig.client | Where-Object { $_.client_info.android_client_info.package_name -eq "com.qccontrol.mobile" })
+$firebaseClients = @($firebaseConfig.client | Where-Object { $_.client_info.android_client_info.package_name -eq $androidAppId })
 if ($firebaseClients.Count -ne 1 -or [string]::IsNullOrWhiteSpace($firebaseClients[0].client_info.mobilesdk_app_id)) {
-    throw "Firebase configuration must contain exactly one registered com.qccontrol.mobile client."
+    throw "Firebase configuration must contain exactly one registered $androidAppId client."
 }
 $firebaseAppId = $firebaseClients[0].client_info.mobilesdk_app_id
 
