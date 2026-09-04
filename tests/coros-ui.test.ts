@@ -364,11 +364,12 @@ test("realtime device state is pushed instead of polled", () => {
 
 test("QC results collapse after two rendered lines with a side chevron and no header", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/chat-dock.tsx", import.meta.url), "utf8");
+  const primitiveSource = readFileSync(new URL("../packages/typescript/qc-ui/src/assistant-chat-primitives.tsx", import.meta.url), "utf8");
   const styles = readFileSync(new URL("../apps/windows/src/styles.css", import.meta.url), "utf8");
-  assert.match(appSource, /function CollapsibleQcResult/);
-  assert.match(appSource, /element\.scrollHeight > element\.clientHeight \+ 1/, "the chevron must only appear when rendered content exceeds the clamp");
-  assert.match(appSource, /aria-expanded=\{expanded\}/);
-  assert.match(appSource, /item\.role === "tool" \? <CollapsibleQcResult text=\{item\.text\} \/>/, "only QC results should use the compact result treatment");
+  assert.match(primitiveSource, /function CollapsibleAssistantResult/);
+  assert.match(primitiveSource, /element\.scrollHeight > element\.clientHeight \+ 1/, "the chevron must only appear when rendered content exceeds the clamp");
+  assert.match(primitiveSource, /aria-expanded=\{expanded\}/);
+  assert.match(appSource, /item\.role === "tool" \? <CollapsibleAssistantResult text=\{item\.text\} \/>/, "only QC results should use the compact result treatment");
   assert.match(appSource, /item\.role !== "tool" && <span>\{item\.role\.toUpperCase\(\)\}<\/span>/, "QC results must not render a redundant role header");
   assert.doesNotMatch(appSource, />QC RESULT</);
   assert.match(styles, /\.qc-result-text\.is-collapsed[^}]*-webkit-line-clamp: 2;/s);

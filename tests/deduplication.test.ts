@@ -456,3 +456,17 @@ test("connection presentation and transitions have one shared app workflow", () 
   assert.doesNotMatch(android, /type UsbState/);
   assert.doesNotMatch(android, /const usbLabel = usbState/);
 });
+
+test("assistant message rendering and access tiers have one shared UI owner", () => {
+  const primitives = source("packages/typescript/qc-ui/src/assistant-chat-primitives.tsx");
+  const windowsDock = source("apps/windows/src/chat-dock.tsx");
+  const windowsTransport = source("apps/windows/src/tauri-transport.ts");
+  const android = source("apps/android/src/App.tsx");
+  const androidServices = source("apps/android/src/native-services.ts");
+  assert.match(primitives, /AssistantAttachmentList/);
+  assert.match(primitives, /AssistantAccessSelect/);
+  for (const app of [windowsDock, android]) assert.match(app, /AssistantAttachmentList/);
+  for (const transport of [windowsTransport, androidServices]) assert.match(transport, /AssistantAccessMode/);
+  assert.doesNotMatch(windowsTransport, /"read-only" \| "performance"/);
+  assert.doesNotMatch(androidServices, /"read-only" \| "performance"/);
+});

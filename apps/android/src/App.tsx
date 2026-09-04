@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -486,7 +486,7 @@ export function App() {
     <section className="mobile-chat" aria-label="QC assistant">
       <div className="chat-heading"><span><i /> {busy ? "GEMINI THINKING" : "QC ASSISTANT"}</span><small>{selectedBlock ? `${selectedBlock.name} selected` : usbConnected ? "QC connected" : "USB not connected"}</small></div>
       <div className="message-list" aria-live="polite">
-        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><div><p>{entry.text}</p>{entry.attachments?.map((attachment) => <img className="message-image" key={attachment.name} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} />)}</div></div>)}
+        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><div><p>{entry.text}</p><AssistantAttachmentList attachments={entry.attachments} imageClassName="message-image" /></div></div>)}
         {busy && <div className="message assistant pending"><span>QC</span><p>•••</p></div>}
       </div>
       <div className="chat-model-bar">
@@ -498,12 +498,7 @@ export function App() {
         }}>
           {androidGeminiModels.map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}
         </select>
-        <select value={controlAccessMode} aria-label="Assistant and remote device access" disabled={busy} onChange={(event) => void changeControlAccessMode(event.target.value as ControlAccessMode)}>
-          <option value="read-only">Read-only</option>
-          <option value="performance">Performance</option>
-          <option value="modify">Modify</option>
-          <option value="full">Full control</option>
-        </select>
+        <AssistantAccessSelect value={controlAccessMode} ariaLabel="Assistant and remote device access" disabled={busy} onChange={(mode) => void changeControlAccessMode(mode)} />
         <span title={`Device estimate for the current Pacific quota day. ${selectedQuota.dayRemaining} of ${selectedQuota.limits.requestsPerDay} daily requests left; ${selectedQuota.minuteRemaining} of ${selectedQuota.limits.requestsPerMinute} per-minute requests left; ${selectedQuota.minuteInputRemaining.toLocaleString()} of ${selectedQuota.limits.inputTokensPerMinute.toLocaleString()} input tokens/min left. Input ${selectedQuota.usage.input.toLocaleString()}, output ${selectedQuota.usage.output.toLocaleString()}, thinking ${selectedQuota.usage.thinking.toLocaleString()} tokens today.`}>
           {quotaState === "exhausted" ? "LIMIT · " : ""}{selectedQuota.dayRemaining}/{selectedQuota.limits.requestsPerDay} day · {selectedQuota.minuteRemaining}/{selectedQuota.limits.requestsPerMinute} min · {selectedQuota.usage.total.toLocaleString()} tok
         </span>

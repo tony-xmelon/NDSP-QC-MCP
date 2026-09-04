@@ -76,14 +76,15 @@ test("Android exposes an allowlisted Gemini selector and a compact persisted quo
 test("assistant and relay access defaults to full control and enforces four tiers", () => {
   const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
   const servicesSource = readFileSync(new URL("./native-services.ts", import.meta.url), "utf8");
+  const primitivesSource = readFileSync(new URL("../../../packages/typescript/qc-ui/src/assistant-chat-primitives.tsx", import.meta.url), "utf8");
   const relaySource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/QcRelayService.java", import.meta.url), "utf8");
   const policySource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/RelayAccessPolicy.java", import.meta.url), "utf8");
 
   assert.match(appSource, /value === "read-only" \|\| value === "performance" \|\| value === "modify" \? value : "full"/);
-  assert.match(appSource, /aria-label="Assistant and remote device access"/);
+  assert.match(appSource, /ariaLabel="Assistant and remote device access"/);
   assert.match(appSource, /assistantAccessPermitsTool\(controlAccessMode/);
-  assert.match(appSource, /<option value="performance">Performance<\/option>/);
-  assert.match(appSource, /<option value="modify">Modify<\/option>/);
+  assert.match(primitivesSource, /value: "performance", label: "Performance"/);
+  assert.match(primitivesSource, /value: "modify", label: "Modify"/);
   assert.match(servicesSource, /setAccessMode\(options: \{ mode: ControlAccessMode \}\)/);
   assert.match(policySource, /getString\(MODE, FULL\)/);
   assert.match(policySource, /GeneratedRemoteActions\.isPerformance/);

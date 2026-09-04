@@ -1,4 +1,5 @@
 import { createGatewayClientTransport, type DiagnosticsReport, type GatewayTransport, type RuntimeStatus, type WorkspaceDocument, type WorkspaceFileResult } from "@ndsp-qc/client";
+import type { AssistantAccessMode } from "@ndsp-qc/core";
 import { chatErrorMessage, type AntigravityModel, type ChatAttachment, type ChatCompletionRequest, type ChatCompletionResponse, type ChatQuota, type ChatSettings, type ChatSettingsUpdate, type GoogleOAuthResult } from "./model-chat";
 
 declare global {
@@ -26,7 +27,7 @@ export function reportVoiceEvent(event: string): Promise<void> {
 }
 
 export type PublicRelayState = "stopped" | "connecting" | "connected" | "reconnecting" | "pairing_required" | "invalid_endpoint";
-export type ControlAccessMode = "read-only" | "performance" | "modify" | "full";
+export type ControlAccessMode = AssistantAccessMode;
 export interface PublicRelayStatus {
   paired: boolean;
   state: PublicRelayState;

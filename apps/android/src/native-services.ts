@@ -1,6 +1,6 @@
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { createGatewayClientTransport, type GatewayTransport, type PresetSnapshot } from "@ndsp-qc/client";
-import { createQcGatewayTransport, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
+import { createQcGatewayTransport, type AssistantAccessMode, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
 
 export type { QcStateUpdate } from "@ndsp-qc/core";
 
@@ -43,7 +43,7 @@ interface VoiceInputNativePlugin {
 }
 
 export type RelayState = "stopped" | "connecting" | "connected" | "reconnecting" | "pairing_required" | "invalid_endpoint";
-export type ControlAccessMode = "read-only" | "performance" | "modify" | "full";
+export type ControlAccessMode = AssistantAccessMode;
 interface QcRelayNativePlugin {
   status(): Promise<{ paired: boolean; state: RelayState; endpoint?: string; accessMode: ControlAccessMode }>;
   pair(options: { endpoint: string; pairingCode: string; deviceName?: string }): Promise<{ paired: boolean; endpoint: string }>;

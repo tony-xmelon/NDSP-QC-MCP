@@ -1,30 +1,9 @@
-import { useEffect, useRef, useState, type ClipboardEventHandler, type ReactNode, type RefObject } from "react";
+import { type ClipboardEventHandler, type ReactNode, type RefObject } from "react";
 import type { ConversationMessage } from "@ndsp-qc/core";
-import { MicrophoneIcon } from "@ndsp-qc/ui";
+import { AssistantAttachmentList, CollapsibleAssistantResult, MicrophoneIcon } from "@ndsp-qc/ui";
 import type { ChatAttachment } from "./model-chat";
 
 const attachmentTypes = "image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/wav,audio/aiff,audio/aac,audio/ogg,audio/flac,audio/m4a,audio/opus,audio/webm,video/mp4,video/mpeg,video/quicktime,video/avi,video/webm,video/wmv,video/3gpp,application/pdf,.txt,.md,.markdown,.csv,.json,.xml,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.css,.html,.htm,.py,.rs,.toml";
-
-function CollapsibleQcResult({ text }: { text: string }) {
-  const content = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [canExpand, setCanExpand] = useState(false);
-
-  useEffect(() => {
-    const element = content.current;
-    if (!element || expanded) return;
-    const measure = () => setCanExpand(element.scrollHeight > element.clientHeight + 1);
-    measure();
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
-    observer?.observe(element);
-    return () => observer?.disconnect();
-  }, [expanded, text]);
-
-  return <div className={`qc-result${expanded ? " is-expanded" : ""}`}>
-    <div ref={content} className={`qc-result-text${expanded ? "" : " is-collapsed"}`}>{text}</div>
-    {canExpand && <button className="qc-result-toggle" type="button" aria-expanded={expanded} aria-label={expanded ? "Collapse QC result" : "Expand QC result"} onClick={() => setExpanded((value) => !value)}><i aria-hidden="true" /></button>}
-  </div>;
-}
 
 export type ChatDockProps = {
   open: boolean;
@@ -65,8 +44,8 @@ export function ChatDock(props: ChatDockProps) {
     <div ref={props.conversationRef} className="conversation-preview" aria-live="polite" onScroll={props.onScroll} onWheel={props.onUserScroll} onTouchMove={props.onUserScroll} onPointerDown={props.onUserScroll}>
       {props.messages.map((item) => <div className={`${item.role}-message`} key={item.id}>
         {item.role !== "tool" && <span>{item.role.toUpperCase()}</span>}
-        {item.attachments?.length ? <div className="chat-message-attachments">{item.attachments.map((attachment, index) => attachment.mediaType.startsWith("image/") ? <img key={`${attachment.name}-${index}`} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} /> : <span className="chat-file-chip" key={`${attachment.name}-${index}`}>▤ {attachment.name}</span>)}</div> : null}
-        {item.role === "tool" ? <CollapsibleQcResult text={item.text} /> : item.text}
+        <AssistantAttachmentList attachments={item.attachments} className="chat-message-attachments" fileClassName="chat-file-chip" />
+        {item.role === "tool" ? <CollapsibleAssistantResult text={item.text} /> : item.text}
       </div>)}
     </div>
     {props.pendingAction}

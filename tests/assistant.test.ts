@@ -80,6 +80,7 @@ test("classifies read-only tools separately from direct device controls", () => 
 
 test("Windows assistant access defaults to full control and enforces all four tiers", () => {
   const source = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const primitives = readFileSync(new URL("../packages/typescript/qc-ui/src/assistant-chat-primitives.tsx", import.meta.url), "utf8");
   assert.equal(assistantAccessPermitsChatTool("read-only", "get_current_preset"), true);
   assert.equal(assistantAccessPermitsChatTool("read-only", "set_tempo"), false);
   assert.equal(assistantAccessPermitsChatTool("performance", "set_tempo"), true);
@@ -89,10 +90,11 @@ test("Windows assistant access defaults to full control and enforces all four ti
   assert.equal(assistantAccessPermitsChatTool("full", "set_device_name"), true);
   assert.equal(assistantAccessPermitsChatTool("modify", "create_device_backup"), false);
   assert.match(source, /assistantAccessPermitsChatTool\(assistantAccessMode, tool\.name\)/);
-  assert.match(source, /<option value="full">Full control<\/option>/);
-  assert.match(source, /<option value="modify">Modify<\/option>/);
-  assert.match(source, /<option value="performance">Performance<\/option>/);
-  assert.match(source, /<option value="read-only">Read-only<\/option>/);
+  assert.match(source, /<AssistantAccessSelect value=\{assistantAccessMode\}/);
+  assert.match(primitives, /value: "full", label: "Full control"/);
+  assert.match(primitives, /value: "modify", label: "Modify"/);
+  assert.match(primitives, /value: "performance", label: "Performance"/);
+  assert.match(primitives, /value: "read-only", label: "Read-only"/);
 });
 
 test("credential UI metadata prevents browser password restoration", () => {
