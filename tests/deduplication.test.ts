@@ -472,3 +472,13 @@ test("assistant message rendering and access tiers have one shared UI owner", ()
   assert.doesNotMatch(windowsTransport, /"read-only" \| "performance"/);
   assert.doesNotMatch(androidServices, /"read-only" \| "performance"/);
 });
+
+test("assistant tool outcomes reconcile through one shared UI path", () => {
+  const outcome = source("packages/typescript/qc-ui/src/qc-action-outcome.ts");
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  assert.match(outcome, /reconcileQcActionOutcome/);
+  for (const app of [windows, android]) assert.match(app, /reconcileQcActionOutcome/);
+  assert.doesNotMatch(windows, /if \(result\.connection\) setConnection/);
+  assert.doesNotMatch(android, /if \(outcome\.connection\) deviceConnection/);
+});

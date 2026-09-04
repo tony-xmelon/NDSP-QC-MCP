@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, recentModelConversation, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -368,12 +368,15 @@ export function App() {
         accessMode: controlAccessMode,
         selectedBlockId
       });
-      if (outcome.connection) deviceConnection.setConnection(outcome.connection);
-      if (outcome.savedPreset) presetWorkflow.commitSavedPreset(outcome.savedPreset);
-      else if (outcome.snapshot) workflows.reconcile(outcome.snapshot);
-      if (outcome.block && blockDetails?.row === outcome.block.row && blockDetails.column === outcome.block.column) parameterWorkflow.updateDetails(outcome.block);
-      if (outcome.clearSelection) closeBlockEditor();
-      const attachments = outcome.image ? [{ name: `qc-screen-${Date.now()}.png`, mediaType: "image/png" as const, data: outcome.image.pngBase64 }] : [];
+      const attachment = reconcileQcActionOutcome(outcome, {
+        setConnection: deviceConnection.setConnection,
+        commitSavedPreset: presetWorkflow.commitSavedPreset,
+        commitSnapshot: workflows.reconcile,
+        currentBlock: blockDetails,
+        updateBlock: parameterWorkflow.updateDetails,
+        clearSelection: closeBlockEditor
+      });
+      const attachments = attachment ? [attachment] : [];
       conversation.append("tool", outcome.detail, attachments);
       return { detail: outcome.detail, attachments };
     } catch (error) {

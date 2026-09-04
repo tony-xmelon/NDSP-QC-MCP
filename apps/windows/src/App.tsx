@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent 
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles, type ControlAccessMode, type PublicRelayStatus } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -1227,19 +1227,14 @@ export function App() {
       accessMode: assistantAccessMode,
       selectedBlockId
     });
-    if (result.connection) setConnection(result.connection);
-    if (result.savedPreset) commitSavedPreset(result.savedPreset);
-    else if (result.snapshot) commitToolSnapshot(result.snapshot);
-    if (result.block && blockDetails?.row === result.block.row && blockDetails.column === result.block.column) {
-      parameterWorkflow.updateDetails(result.block);
-    }
-    if (result.clearSelection) {
-      setSelectedBlockId("");
-      editor.close();
-    }
-    const attachment = result.image
-      ? { name: `qc-screen-${Date.now()}.png`, mediaType: "image/png", data: result.image.pngBase64 }
-      : undefined;
+    const attachment = reconcileQcActionOutcome(result, {
+      setConnection,
+      commitSavedPreset,
+      commitSnapshot: commitToolSnapshot,
+      currentBlock: blockDetails,
+      updateBlock: parameterWorkflow.updateDetails,
+      clearSelection: () => { setSelectedBlockId(""); editor.close(); }
+    });
     appendMessage("tool", result.detail, attachment ? [attachment] : undefined);
     return attachment ? { detail: result.detail, attachment } : result.detail;
   };
