@@ -1,6 +1,9 @@
 param(
     [string]$ReleaseNotes = "QC Control Android development build.",
-    [string]$Testers = "prezimir@gmail.com"
+    [string]$Testers = "prezimir@gmail.com",
+    [string]$WindowsHardwareReport,
+    [string]$AndroidHardwareReport,
+    [switch]$PrepareOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +22,8 @@ if ($firebaseClients.Count -ne 1 -or [string]::IsNullOrWhiteSpace($firebaseClien
     throw "Firebase configuration must contain exactly one registered $androidAppId client."
 }
 $firebaseAppId = $firebaseClients[0].client_info.mobilesdk_app_id
+$windowsHardwareReportPath = if ($WindowsHardwareReport) { $WindowsHardwareReport } else { Join-Path $repoRoot "artifacts\hardware-conformance\windows.json" }
+$androidHardwareReportPath = if ($AndroidHardwareReport) { $AndroidHardwareReport } else { Join-Path $repoRoot "artifacts\hardware-conformance\android.json" }
 
 Push-Location $repoRoot
 try {
@@ -34,10 +39,18 @@ try {
     & node (Join-Path $repoRoot "tools\release-provenance.mjs") $apkPath
     if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }
 
-    $firebaseArguments = @("appdistribution:distribute", $apkPath, "--app", $firebaseAppId, "--release-notes", $ReleaseNotes)
-    if ($Testers) { $firebaseArguments += @("--testers", $Testers) }
-    & firebase @firebaseArguments
-    if ($LASTEXITCODE -ne 0) { throw "Firebase upload failed with exit code $LASTEXITCODE." }
+    if ($PrepareOnly) {
+        Write-Host "Prepared Firebase candidate without uploading: $apkPath"
+    }
+    else {
+        & node (Join-Path $repoRoot "tools\verify-hardware-release.mjs") $windowsHardwareReportPath $androidHardwareReportPath
+        if ($LASTEXITCODE -ne 0) { throw "Hardware conformance failed; Android distribution was not started." }
+
+        $firebaseArguments = @("appdistribution:distribute", $apkPath, "--app", $firebaseAppId, "--release-notes", $ReleaseNotes)
+        if ($Testers) { $firebaseArguments += @("--testers", $Testers) }
+        & firebase @firebaseArguments
+        if ($LASTEXITCODE -ne 0) { throw "Firebase upload failed with exit code $LASTEXITCODE." }
+    }
 }
 finally {
     Pop-Location

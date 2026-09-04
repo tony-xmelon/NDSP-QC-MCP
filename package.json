@@ -14,6 +14,7 @@
     "android:sync": "npm run android:sync --workspace @ndsp-qc/android",
     "android:open": "npm run android:open --workspace @ndsp-qc/android",
     "android:build:debug": "npm run android:build:debug --workspace @ndsp-qc/android",
+    "android:prepare:firebase": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-android-firebase.ps1 -PrepareOnly",
     "android:publish:firebase": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish-android-firebase.ps1",
     "dev:windows": "npm run dev --workspace @ndsp-qc/windows",
     "build:windows": "npm run build --workspace @ndsp-qc/windows",

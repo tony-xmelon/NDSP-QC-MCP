@@ -19,6 +19,12 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   assert.match(publish, /client_info\.mobilesdk_app_id/);
   assert.doesNotMatch(publish, /\$firebaseAppId = "1:/);
   assert.ok(publish.indexOf("release-provenance.mjs") < publish.indexOf("appdistribution:distribute"));
+  assert.match(publish, /\[switch\]\$PrepareOnly/);
+  assert.match(publish, /verify-hardware-release\.mjs/);
+  assert.ok(publish.indexOf("if ($PrepareOnly)") < publish.indexOf("verify-hardware-release.mjs"));
+  assert.ok(publish.indexOf("verify-hardware-release.mjs") < publish.indexOf("appdistribution:distribute"));
+  const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.match(rootPackage.scripts["android:prepare:firebase"], /-PrepareOnly/);
 });
 
 test("release provenance fingerprints the executable app parity contract", () => {
