@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 @CapacitorPlugin(name = "QcUsb")
@@ -89,6 +90,7 @@ public class QcUsbPlugin extends Plugin {
     private volatile long maxMidiQueueDelayMs;
     private volatile long lastStateAt;
     private volatile long lastPresetLibraryAt;
+    private final AtomicBoolean presetLibrarySettlementScheduled = new AtomicBoolean();
     private final AtomicLong connectionGeneration = new AtomicLong();
     private final QcPendingOperations pendingOperations = new QcPendingOperations();
     private final QcNativeStateDecoder stateDecoder = new QcNativeStateDecoder();
@@ -134,7 +136,7 @@ public class QcUsbPlugin extends Plugin {
                 status.put("state", "disconnected");
             } else {
                 status.put("state", "available");
-                status.put("name", changed.getProductName() == null ? "Quad Cortex" : changed.getProductName());
+                status.put("name", changed.getProductName() == null ? getContext().getString(R.string.device_name) : changed.getProductName());
             }
             notifyListeners("qcConnection", status, true);
         }
@@ -229,7 +231,7 @@ public class QcUsbPlugin extends Plugin {
         pendingReady = pending;
         commandIo.execute(() -> {
             try {
-                openDeviceAndHandshake(candidate);
+                openDeviceAndHandshake(candidate, pending);
                 resolvePendingReady();
             } catch (Exception error) {
                 lastError = error.getMessage();
@@ -361,7 +363,7 @@ public class QcUsbPlugin extends Plugin {
             ContentValues values = new ContentValues();
             values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
             values.put(MediaStore.Downloads.MIME_TYPE, "application/json");
-            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/QC Control");
+            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + getContext().getString(R.string.download_folder));
             values.put(MediaStore.Downloads.IS_PENDING, 1);
             android.net.Uri uri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
             if (uri == null) throw new Exception("Android could not create the backup file in Downloads.");
@@ -377,7 +379,7 @@ public class QcUsbPlugin extends Plugin {
             getContext().getContentResolver().update(uri, ready, null, null);
             path = uri.toString();
         } else {
-            File root = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "QC Control");
+            File root = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), getContext().getString(R.string.download_folder));
             if (!root.isDirectory() && !root.mkdirs()) throw new Exception("Android could not create the backup directory.");
             File file = new File(root, fileName);
             try (OutputStream output = new FileOutputStream(file)) { output.write(bytes); }
@@ -418,7 +420,7 @@ public class QcUsbPlugin extends Plugin {
                 case "TAP_SCREEN": return relayTapScreen(params);
                 case "BACKUP": return relayCreateBackup(params);
                 case "PREVIEW_PARAMETER": return relayPreviewParameter(method, params);
-                case "PLANNED_WRITE": return relayPlannedGatewayWrite(method, params, 2500);
+                case "PLANNED_WRITE": return relayPlannedGatewayWrite(method, params, 10000);
                 case "PRESET_WRITE": return relayPlannedGatewayWrite(method, params, 15000);
                 case "PERSISTENT_WRITE": return relayGatewayWorkflow(method, params);
                 default: return failedRelay("METHOD_NOT_ALLOWED", "The requested device operation is not supported by Android.");
@@ -430,11 +432,11 @@ public class QcUsbPlugin extends Plugin {
         String method, org.json.JSONObject params, long timeoutMs
     ) throws Exception {
         QcNativeStateDecoder.PlannedGatewayWrite plan = stateDecoder.gatewayPlan(method, JSObject.fromJSONObject(params));
-        return executeRelayPlan(plan, timeoutMs);
+        return executeRelayPlan(plan, timeoutMs, isIdempotentGatewayWrite(method));
     }
 
     private CompletableFuture<org.json.JSONObject> executeRelayPlan(
-        QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs
+        QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs, boolean retryable
     ) {
         if (plan.midi) return relayMidi(plan.controller, plan.value).thenApply(result -> {
             try { return result.put("detail", plan.detail).put("verification", "authoritative_state_pending"); }
@@ -474,7 +476,67 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
+        if (registered != null) {
+            for (long refreshDelay : new long[] {250, 1500, 4000, 7000}) {
+                keepalive.schedule(() -> commandIo.execute(() -> {
+                    if (result.isDone() || !isReady()) return;
+                    try {
+                        writeMessage(stateDecoder.currentPresetCommand(requestIds.getAndIncrement()));
+                    } catch (Exception ignored) {
+                        // Passive state updates and the original timeout remain active.
+                    }
+                }), refreshDelay, TimeUnit.MILLISECONDS);
+            }
+        }
+        if (registered != null && retryable) {
+            keepalive.schedule(() -> {
+                if (result.isDone()) return;
+                commandIo.execute(() -> {
+                    if (result.isDone() || !isReady()) return;
+                    try {
+                        for (QcNativeStateDecoder.EncodedMessage message : plan.messages) {
+                            writeMessage(message, !includeReportId);
+                        }
+                        Thread.sleep(250);
+                        writeMessage(stateDecoder.currentPresetCommand(requestIds.getAndIncrement()));
+                    } catch (InterruptedException error) {
+                        Thread.currentThread().interrupt();
+                    } catch (Exception ignored) {
+                        // The original verification timeout remains authoritative.
+                    }
+                });
+            }, Math.max(250, timeoutMs / 3), TimeUnit.MILLISECONDS);
+        }
         return result;
+    }
+
+    private static boolean isIdempotentGatewayWrite(String method) {
+        switch (method) {
+            case "device.selectScene":
+            case "device.toggleBypass":
+            case "device.setParameter":
+            case "device.setLaneControlParameter":
+            case "device.setLaneControlSceneMode":
+            case "device.setParameterSceneMode":
+            case "device.setParameterExpression":
+            case "device.setExpressionBypass":
+            case "device.setBlockFootswitch":
+            case "device.setStompMomentary":
+            case "device.setStompLabel":
+            case "device.setMidiOut":
+            case "device.setPresetLoadMidiOut":
+            case "device.setChainInput":
+            case "device.setChainOutput":
+            case "device.setChainSplit":
+            case "device.setTempo":
+            case "device.setMasterVolume":
+            case "device.selectModeSlot":
+            case "device.showTuner":
+            case "device.showGigView":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private CompletableFuture<org.json.JSONObject> relayGatewayWorkflow(
@@ -502,6 +564,21 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
+        // Android reports the QC's normal SET_REPORT status-stage STALL as -1,
+        // which is indistinguishable from a transfer the controller never
+        // accepted. Correlated reads are idempotent, so retry one unanswered
+        // request inside its original deadline. Mutations never use this path.
+        keepalive.schedule(() -> {
+            if (result.isDone()) return;
+            commandIo.execute(() -> {
+                if (result.isDone() || !isReady()) return;
+                try {
+                    for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
+                } catch (Exception ignored) {
+                    // The original timeout remains the authoritative failure.
+                }
+            });
+        }, Math.max(250, plan.timeoutMs / 2), TimeUnit.MILLISECONDS);
         pendingOperations.timeout(pending, plan.timeoutMs, keepalive,
             () -> new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested reply in time."));
         return result;
@@ -555,7 +632,7 @@ public class QcUsbPlugin extends Plugin {
         QcNativeStateDecoder.PlannedGatewayStage stage = workflow.stages.get(stageIndex);
         QcNativeStateDecoder.PlannedGatewayWrite write = new QcNativeStateDecoder.PlannedGatewayWrite(
             workflow.detail, stage.verificationJson, false, 0, 0, stage.messages);
-        return executeRelayPlan(write, stage.timeoutMs)
+        return executeRelayPlan(write, stage.timeoutMs, false)
             .thenCompose(ignored -> executeRelayWorkflow(workflow, stageIndex + 1));
     }
 
@@ -594,8 +671,13 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
-        pendingOperations.timeout(pending, 25_000, keepalive,
-            () -> new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested preset catalog in time."));
+        pendingOperations.timeout(pending, 25_000, keepalive, () -> {
+            android.util.Log.w("QcUsbPlugin", "Preset catalog timeout: sent=" + messagesSent
+                + " received=" + messagesReceived + " lastType=" + lastMessageType
+                + " decodeErrors=" + decodeErrors + " negativeReads=" + negativeReads
+                + " includeReportId=" + includeReportId + " lastError=" + lastError);
+            return new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested preset catalog in time.");
+        });
         return result;
     }
 
@@ -646,7 +728,7 @@ public class QcUsbPlugin extends Plugin {
             if (!isQuadCortex(candidate)) continue;
             JSObject entry = new JSObject();
             entry.put("deviceId", candidate.getDeviceId());
-            entry.put("name", candidate.getProductName() == null ? "Quad Cortex" : candidate.getProductName());
+            entry.put("name", candidate.getProductName() == null ? getContext().getString(R.string.device_name) : candidate.getProductName());
             entry.put("manufacturer", candidate.getManufacturerName());
             entry.put("permission", manager.hasPermission(candidate));
             entry.put("interfaces", candidate.getInterfaceCount());
@@ -696,7 +778,7 @@ public class QcUsbPlugin extends Plugin {
     public void diagnostics(PluginCall call) {
         JSObject result = new JSObject();
         result.put("connected", connection != null);
-        result.put("device", device == null || device.getProductName() == null ? "Quad Cortex" : device.getProductName());
+        result.put("device", device == null || device.getProductName() == null ? getContext().getString(R.string.device_name) : device.getProductName());
         result.put("messagesReceived", messagesReceived);
         result.put("messagesSent", messagesSent);
         result.put("decodeErrors", decodeErrors);
@@ -762,7 +844,7 @@ public class QcUsbPlugin extends Plugin {
         }
         commandIo.execute(() -> {
             try {
-                openDeviceAndHandshake(candidate);
+                openDeviceAndHandshake(candidate, null);
                 resolveConnected(call, candidate);
             } catch (Exception error) {
                 lastError = error.getMessage();
@@ -774,8 +856,10 @@ public class QcUsbPlugin extends Plugin {
         });
     }
 
-    private void openDeviceAndHandshake(UsbDevice candidate) throws Exception {
-        closeConnection();
+    private void openDeviceAndHandshake(
+        UsbDevice candidate, QcPendingOperations.Entry<?> preservedOperation
+    ) throws Exception {
+        closeConnection(preservedOperation);
         UsbInterface selected = null;
         UsbEndpoint selectedInput = null;
         for (int index = 0; index < candidate.getInterfaceCount(); index++) {
@@ -852,7 +936,7 @@ public class QcUsbPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("connected", true);
         result.put("synchronized", presetSynchronized && currentSetlist != null);
-        result.put("name", candidate.getProductName() == null ? "Quad Cortex" : candidate.getProductName());
+        result.put("name", candidate.getProductName() == null ? getContext().getString(R.string.device_name) : candidate.getProductName());
         result.put("deviceId", candidate.getDeviceId());
         call.resolve(result);
     }
@@ -904,8 +988,14 @@ public class QcUsbPlugin extends Plugin {
     }
 
     private synchronized void writeMessage(QcNativeStateDecoder.EncodedMessage message) {
+        writeMessage(message, includeReportId);
+    }
+
+    private synchronized void writeMessage(
+        QcNativeStateDecoder.EncodedMessage message, boolean withReportId
+    ) {
         for (byte[] framedReport : stateDecoder.encodeFrame(message)) {
-            byte[] report = includeReportId
+            byte[] report = withReportId
                 ? framedReport
                 : Arrays.copyOfRange(framedReport, 1, framedReport.length);
             if (connection == null || hidInterface == null) throw new IllegalStateException("Quad Cortex USB disconnected during write.");
@@ -942,8 +1032,9 @@ public class QcUsbPlugin extends Plugin {
                     messagesReceived++;
                     lastMessageType = decoded.messageType;
                     if (decoded.messageType == 4) {
+                        android.util.Log.i("QcUsbPlugin", "Received preset catalog frame");
                         lastPresetLibraryAt = System.currentTimeMillis();
-                        resolvePendingPresetLibraryReads(lastPresetLibraryAt);
+                        schedulePresetLibrarySettlement();
                     }
                     if (decoded.messageType == 52 && resetReply != null) resetReply.countDown();
                     dispatchGatewayResponse(decoded.messageType, decoded.payload);
@@ -954,7 +1045,13 @@ public class QcUsbPlugin extends Plugin {
     }
 
     private static byte[] normalizeInputReport(byte[] buffer, int count) {
-        if (count > 0 && buffer[0] == QcNativeStateDecoder.IN_REPORT_ID) {
+        // Android's raw interrupt endpoint reports the 128-byte HID body, while
+        // some vendor stacks can return the 129-byte report-ID-prefixed form.
+        // The body's first byte is its chunk length and may legitimately equal
+        // the inbound report ID (notably a final one-byte chunk), so the byte
+        // value alone cannot distinguish the two layouts.
+        if (count == QcNativeStateDecoder.REPORT_SIZE
+            && buffer[0] == QcNativeStateDecoder.IN_REPORT_ID) {
             byte[] result = new byte[count];
             System.arraycopy(buffer, 0, result, 0, count);
             return result;
@@ -982,6 +1079,7 @@ public class QcUsbPlugin extends Plugin {
         } catch (Exception error) {
             decodeErrors++;
             lastError = error.getMessage();
+            android.util.Log.w("QcUsbPlugin", "Could not decode QC HID frame: " + lastError);
             return null;
         }
     }
@@ -1073,6 +1171,24 @@ public class QcUsbPlugin extends Plugin {
                 // A later type-4 event will retry this read without polling.
             }
         }
+    }
+
+    private void schedulePresetLibrarySettlement() {
+        if (!presetLibrarySettlementScheduled.compareAndSet(false, true)) return;
+        keepalive.schedule(this::settlePresetLibraryReads, 250, TimeUnit.MILLISECONDS);
+    }
+
+    private void settlePresetLibraryReads() {
+        long observedAt = lastPresetLibraryAt;
+        long quietFor = System.currentTimeMillis() - observedAt;
+        if (quietFor < 250) {
+            keepalive.schedule(this::settlePresetLibraryReads, 250 - quietFor, TimeUnit.MILLISECONDS);
+            return;
+        }
+        presetLibrarySettlementScheduled.set(false);
+        resolvePendingPresetLibraryReads(observedAt);
+        // Do not lose a catalog frame that raced with clearing the scheduled flag.
+        if (lastPresetLibraryAt > observedAt) schedulePresetLibrarySettlement();
     }
 
     private void dispatchGatewayResponse(int messageType, byte[] payload) {
@@ -1189,6 +1305,10 @@ public class QcUsbPlugin extends Plugin {
     }
 
     private synchronized void closeConnection() {
+        closeConnection(null);
+    }
+
+    private synchronized void closeConnection(QcPendingOperations.Entry<?> preservedOperation) {
         reading = false;
         handshakeComplete = false;
         presetSynchronized = false;
@@ -1209,10 +1329,10 @@ public class QcUsbPlugin extends Plugin {
         currentSetlistFactory = false;
         currentPresetName = null;
         currentMasterVolume = -1;
-        pendingOperations.failAll(() -> new RelayException(
+        pendingOperations.failAllExcept(preservedOperation, () -> new RelayException(
             "NOT_CONNECTED", "Quad Cortex USB disconnected during a pending operation."));
         pendingBackup = null;
-        pendingReady = null;
+        if (pendingReady != preservedOperation) pendingReady = null;
         synchronized (stateEventLock) {
             stateEventLog.clear();
             nextStateSequence = 1;

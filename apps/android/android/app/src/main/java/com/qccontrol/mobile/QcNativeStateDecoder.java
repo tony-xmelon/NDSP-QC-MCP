@@ -164,6 +164,10 @@ final class QcNativeStateDecoder implements AutoCloseable {
         return one("read", new JSObject().put("messageType", messageType));
     }
 
+    EncodedMessage currentPresetCommand(long requestId) throws Exception {
+        return one("readCurrentPreset", new JSObject().put("requestId", requestId));
+    }
+
     EncodedMessage keepaliveCommand() throws Exception {
         return one("keepalive", new JSObject());
     }

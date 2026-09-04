@@ -360,7 +360,11 @@ impl GatewaySnapshot {
                     self.dirty = false;
                 }
                 if let Some(value) = &state.preset_name {
-                    self.preset_name.clone_from(value);
+                    self.preset_name = if value.is_empty() {
+                        "Unsaved".into()
+                    } else {
+                        value.clone()
+                    };
                 }
                 if let Some(value) = state.tempo {
                     self.tempo = value;
@@ -467,6 +471,16 @@ mod tests {
         assert_eq!(snapshot.setlist_name, "Live");
         assert_eq!(snapshot.tempo, 96);
         assert_eq!(snapshot.master_volume, 57);
+    }
+
+    #[test]
+    fn preserves_a_nonempty_guard_name_for_unsaved_presets() {
+        let mut snapshot = GatewaySnapshot::default();
+        let mut preset = StateUpdate::empty("preset");
+        preset.preset_name = Some(String::new());
+        snapshot.apply(&preset);
+
+        assert_eq!(snapshot.preset_name, "Unsaved");
     }
 
     #[test]

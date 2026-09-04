@@ -135,6 +135,10 @@ public final class QcRelayService extends Service {
                             : RelayProtocol.error(id, error instanceof QcUsbPlugin.RelayException
                                 ? ((QcUsbPlugin.RelayException) error).code : "DEVICE_ERROR",
                                 error.getMessage() == null ? "The device operation failed." : error.getMessage(), false);
+                        // WebSocket frames are ordered. Publish the post-operation
+                        // USB state before the result so reset/reconnect callers
+                        // cannot race the next one-second readiness heartbeat.
+                        sendReadiness(webSocket);
                         webSocket.send(reply.toString());
                     } catch (Exception ignored) {}
                 });
@@ -208,7 +212,7 @@ public final class QcRelayService extends Service {
 
     private Notification notification(String detail) {
         return new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("QC Control relay").setContentText(detail).setOngoing(true)
+            .setContentTitle(getString(R.string.relay_notification_title)).setContentText(detail).setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE).setPriority(NotificationCompat.PRIORITY_LOW).build();
     }
 

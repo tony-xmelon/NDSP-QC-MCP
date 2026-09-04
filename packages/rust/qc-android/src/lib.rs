@@ -279,6 +279,11 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeEnco
                 u16::try_from(unsigned(&args, "messageType")?)
                     .map_err(|_| "messageType is out of range".to_string())?,
             )],
+            "readCurrentPreset" => vec![commands::read_current_preset(
+                args.get("requestId")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| "requestId must be a non-negative integer".to_string())?,
+            )],
             "keepalive" => vec![commands::keepalive()],
             "backup" => {
                 handle(value)

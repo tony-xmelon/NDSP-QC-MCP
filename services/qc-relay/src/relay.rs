@@ -174,7 +174,9 @@ impl RelayHub {
         if &session.principal_id != principal {
             return Err(RelayError::Forbidden);
         }
-        if !session.ready.load(Ordering::Acquire) {
+        if !session.ready.load(Ordering::Acquire)
+            && !matches!(policy.rpc, "device.reconnect" | "device.resetSession")
+        {
             return Err(RelayError::DeviceOffline);
         }
         let id = Uuid::new_v4().to_string();
@@ -222,6 +224,21 @@ impl RelayHub {
         &self,
         principal: &PrincipalId,
     ) -> Result<DeviceId, RelayError> {
+        self.device_for_principal(principal, true).await
+    }
+
+    pub async fn connected_device_for_principal(
+        &self,
+        principal: &PrincipalId,
+    ) -> Result<DeviceId, RelayError> {
+        self.device_for_principal(principal, false).await
+    }
+
+    async fn device_for_principal(
+        &self,
+        principal: &PrincipalId,
+        require_ready: bool,
+    ) -> Result<DeviceId, RelayError> {
         let devices = self
             .inner
             .connections
@@ -229,7 +246,8 @@ impl RelayHub {
             .await
             .iter()
             .filter(|(_, session)| {
-                &session.principal_id == principal && session.ready.load(Ordering::Acquire)
+                &session.principal_id == principal
+                    && (!require_ready || session.ready.load(Ordering::Acquire))
             })
             .map(|(device, _)| device.clone())
             .collect::<Vec<_>>();

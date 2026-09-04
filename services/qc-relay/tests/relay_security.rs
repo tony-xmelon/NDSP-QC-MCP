@@ -156,6 +156,62 @@ async fn routes_calls_only_to_the_owning_principal_and_correlates_results() {
 }
 
 #[tokio::test]
+async fn reconnect_can_reach_a_connected_phone_while_usb_is_not_ready() {
+    let credentials = DeviceCredentialStore::new();
+    let pairing = PairingManager::new(credentials.clone());
+    let (alice, credential) = paired("alice", "phone-a", &credentials, &pairing).await;
+    let hub = RelayHub::with_timeout(credentials, Duration::from_secs(1));
+    let mut connection = hub.connect(credential).await;
+
+    assert_eq!(
+        hub.active_device_for_principal(&alice).await.unwrap_err(),
+        RelayError::DeviceOffline
+    );
+    assert_eq!(
+        hub.connected_device_for_principal(&alice).await.unwrap(),
+        DeviceId("phone-a".into())
+    );
+    assert_eq!(
+        hub.dispatch_validated_rpc(
+            &alice,
+            DeviceId("phone-a".into()),
+            "device.snapshot",
+            json!({}),
+        )
+        .await
+        .unwrap_err(),
+        RelayError::DeviceOffline
+    );
+
+    let caller = {
+        let hub = hub.clone();
+        let alice = alice.clone();
+        tokio::spawn(async move {
+            hub.dispatch_validated_rpc(
+                &alice,
+                DeviceId("phone-a".into()),
+                "device.reconnect",
+                json!({}),
+            )
+            .await
+        })
+    };
+    let DeviceFrame::Invoke { id, method, .. } = connection.outbound.recv().await.unwrap() else {
+        panic!()
+    };
+    assert_eq!(method, "device.reconnect");
+    connection
+        .accept(DeviceFrame::Result {
+            id,
+            ok: true,
+            result: Some(json!({"connected": true})),
+            error: None,
+        })
+        .await;
+    assert_eq!(caller.await.unwrap().unwrap(), json!({"connected": true}));
+}
+
+#[tokio::test]
 async fn reconnect_replaces_old_session_and_fails_pending_requests() {
     let credentials = DeviceCredentialStore::new();
     let pairing = PairingManager::new(credentials.clone());
