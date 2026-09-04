@@ -1,7 +1,9 @@
 //! Platform-neutral QC domain state used by both desktop and mobile hosts.
 //! USB/HID ownership and host UI IPC remain in their platform adapters.
 
-use qc_protocol::state::{GridBlock, GridRoute, ModeSlot, PresetFolderListing, StateUpdate};
+use qc_protocol::state::{
+    GridBlock, GridRoute, IoPortState, ModeSlot, PresetFolderListing, StateUpdate,
+};
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -238,6 +240,8 @@ pub struct GatewaySnapshot {
     pub scene_colors: Option<Vec<String>>,
     pub blocks: Vec<GridBlock>,
     pub routes: Vec<GridRoute>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub io_ports: Option<Vec<IoPortState>>,
     pub tempo: u32,
     pub tempo_led_enabled: bool,
     pub master_volume: u32,
@@ -269,6 +273,7 @@ impl Default for GatewaySnapshot {
             scene_colors: None,
             blocks: Vec::new(),
             routes: Vec::new(),
+            io_ports: None,
             tempo: 120,
             tempo_led_enabled: false,
             master_volume: 0,
@@ -374,6 +379,21 @@ impl GatewaySnapshot {
                     self.tempo_led_enabled = value;
                 }
             }
+            "ioPorts" => {
+                if let Some(updates) = &state.io_ports {
+                    let ports = self.io_ports.get_or_insert_with(Vec::new);
+                    for update in updates {
+                        if let Some(current) = ports
+                            .iter_mut()
+                            .find(|port| port.kind == update.kind && port.id == update.id)
+                        {
+                            current.clone_from(update);
+                        } else {
+                            ports.push(update.clone());
+                        }
+                    }
+                }
+            }
             "bypass" => {
                 if let (Some(row), Some(column), Some(bypassed)) =
                     (state.row, state.column, state.bypassed)
@@ -428,6 +448,37 @@ mod tests {
         assert_eq!(snapshot.setlist_name, "Live");
         assert_eq!(snapshot.tempo, 96);
         assert_eq!(snapshot.master_volume, 57);
+    }
+
+    #[test]
+    fn merges_partial_io_pushes_without_losing_other_port_states() {
+        let mut snapshot = GatewaySnapshot::default();
+        let mut inputs = StateUpdate::empty("ioPorts");
+        inputs.io_ports = Some(vec![IoPortState {
+            kind: "input".into(),
+            id: 1,
+            label: "In 1".into(),
+            plugged: true,
+        }]);
+        snapshot.apply(&inputs);
+
+        let mut output = StateUpdate::empty("ioPorts");
+        output.io_ports = Some(vec![IoPortState {
+            kind: "output".into(),
+            id: 4,
+            label: "Out 1".into(),
+            plugged: false,
+        }]);
+        snapshot.apply(&output);
+
+        let ports = snapshot.io_ports.as_ref().unwrap();
+        assert_eq!(ports.len(), 2);
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "input" && port.plugged));
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "output" && !port.plugged));
     }
 
     #[test]

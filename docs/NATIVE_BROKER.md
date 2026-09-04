@@ -32,6 +32,13 @@ screen-coordinate tap sequences. Live tap sends the verified wire-value 1 then
 wire-value 0 pair as one serialized worker operation after priming the
 remote-screen session; CorOS 4.1 interprets those values opposite their recovered
 `RELEASE`/`PRESS` labels.
+
+On Windows the HID owner is full duplex: a permanent RX thread waits on the
+input endpoint while the serialized broker lane writes on the same exclusive
+handle. This matters for large device-originated transfers such as backup,
+which keep receiving reports and sending keepalives without tearing down the
+live session. LocalBackup assembly is boundary-aware because current firmware
+does not correlate its chunks with the request id.
 Windows performance footswitch and mode-slot actions remain direct Tauri MIDI
 operations because MIDI endpoint selection is an operating-system concern.
 

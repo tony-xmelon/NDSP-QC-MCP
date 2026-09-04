@@ -3148,7 +3148,7 @@ dependencies = [
 
 [[package]]
 name = "qc-voice-control"
-version = "0.1.81"
+version = "0.1.84"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -3156,6 +3156,7 @@ dependencies = [
  "qc-device-runtime",
  "qc-protocol",
  "qc-relay-client",
+ "qc-windows-midi",
  "rand 0.9.5",
  "reqwest",
  "rfd",
@@ -3166,6 +3167,13 @@ dependencies = [
  "tauri-build",
  "tokio",
  "webbrowser",
+]
+
+[[package]]
+name = "qc-windows-midi"
+version = "0.1.0"
+dependencies = [
+ "qc-protocol",
  "windows-sys 0.61.2",
 ]
 

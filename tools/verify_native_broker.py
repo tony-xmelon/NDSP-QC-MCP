@@ -8,7 +8,6 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +19,13 @@ def exchange(process: subprocess.Popen[bytes], request: dict) -> dict:
     assert process.stdin is not None and process.stdout is not None
     process.stdin.write(struct.pack(">I", len(body)) + body)
     process.stdin.flush()
-    length = struct.unpack(">I", process.stdout.read(4))[0]
-    return json.loads(process.stdout.read(length))
+    while True:
+        length = struct.unpack(">I", process.stdout.read(4))[0]
+        response = json.loads(process.stdout.read(length))
+        # Live state notifications share stdout with replies and commonly arrive
+        # while reconnect is still waiting for the initial preset.
+        if response.get("id") == request["id"]:
+            return response
 
 
 def main() -> int:
@@ -32,18 +36,14 @@ def main() -> int:
         stderr=subprocess.PIPE,
     )
     try:
-        deadline = time.monotonic() + 35
-        request_id = 0
-        while True:
-            request_id += 1
-            response = exchange(process, {
-                "jsonrpc": "2.0", "id": request_id,
-                "method": "system.status", "params": {},
-            })
-            status = response["result"]
-            if status["phase"] == "ready" or time.monotonic() >= deadline:
-                break
-            time.sleep(0.1)
+        request_id = 1
+        response = exchange(process, {
+            "jsonrpc": "2.0", "id": request_id,
+            "method": "device.reconnect", "params": {},
+        })
+        if "error" in response:
+            raise RuntimeError(response["error"].get("message", "device.reconnect failed"))
+        status = response["result"]
         request_id += 1
         scene = exchange(process, {
             "jsonrpc": "2.0", "id": request_id,
@@ -51,14 +51,34 @@ def main() -> int:
         })["result"]
         if scene is not None:
             base64.b64decode(scene["payloadBase64"], validate=True)
+        request_id += 1
+        screen = exchange(process, {
+            "jsonrpc": "2.0", "id": request_id,
+            "method": "device.captureScreen", "params": {},
+        })["result"]
+        screen_png = base64.b64decode(screen["pngBase64"], validate=True)
+        screen_verified = (
+            screen.get("width") == 800
+            and screen.get("height") == 480
+            and screen_png.startswith(b"\x89PNG\r\n\x1a\n")
+        )
         output = {
-            "verified": status["phase"] == "ready" and scene is not None,
+            "verified": status["phase"] == "ready" and scene is not None and screen_verified,
             "status": status,
             "latestSceneMessage": scene,
+            "screen": {"width": screen.get("width"), "height": screen.get("height")},
         }
         print(json.dumps(output, separators=(",", ":")))
         return 0 if output["verified"] else 1
     finally:
+        try:
+            request_id += 1
+            exchange(process, {
+                "jsonrpc": "2.0", "id": request_id,
+                "method": "device.disconnect", "params": {},
+            })
+        except (BrokenPipeError, EOFError, OSError, TypeError):
+            pass
         process.terminate()
         process.wait(timeout=5)
 

@@ -1123,6 +1123,102 @@ class PyQuadCortexDevice:
             time.sleep(0.1)
         raise RuntimeError(f"Scene {chr(65 + scene)} did not verify after the device command.")
 
+    def copy_scene(
+        self,
+        from_scene: int,
+        to_scene: int,
+        swap: bool = False,
+        expected_preset_name: str = "",
+    ) -> DeviceActionResult:
+        for label, scene in (("source scene", from_scene), ("destination scene", to_scene)):
+            if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+                raise ValueError(f"Expected {label} to be an integer from 0 through {SCENE_COUNT - 1}.")
+        if from_scene == to_scene:
+            raise ValueError("Source and destination scenes must be different.")
+        if not isinstance(swap, bool):
+            raise ValueError("Swap must be true or false.")
+
+        qc = self._require_session()
+        before = self._assert_expected_preset(expected_preset_name)
+        before_labels = list(before.scene_labels)
+        before_colors = list(before.scene_colors)
+        qc.copy_scene(from_scene, to_scene, swap)
+
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            current = qc.read_current_preset()
+            labels = list(current.scene_labels)
+            colors = list(current.scene_colors)
+            copied = labels[to_scene] == before_labels[from_scene] and colors[to_scene] == before_colors[from_scene]
+            swapped = not swap or (
+                labels[from_scene] == before_labels[to_scene]
+                and colors[from_scene] == before_colors[to_scene]
+            )
+            if copied and swapped:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Scene readback matched, but the device did not mark the preset dirty.")
+                verb = "swapped" if swap else "copied"
+                return {
+                    "detail": f"Scenes {chr(65 + from_scene)} and {chr(65 + to_scene)} {verb} and verified",
+                    "snapshot": self.snapshot(),
+                }
+            time.sleep(0.1)
+        raise RuntimeError("The scene-copy command was sent, but readback did not confirm the requested state.")
+
+    def set_scene_label(
+        self, scene: int, label: str | None, expected_preset_name: str = ""
+    ) -> DeviceActionResult:
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+            raise ValueError(f"Scene must be an integer from 0 through {SCENE_COUNT - 1}.")
+        if label is not None:
+            if not isinstance(label, str):
+                raise ValueError("Scene label must be a string or null.")
+            if len(label) > 32:
+                raise ValueError("Scene label must contain at most 32 characters.")
+            if any(ord(character) < 32 or ord(character) == 127 for character in label):
+                raise ValueError("Scene label must not contain control characters.")
+
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        qc.set_scene_label(scene, label)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            current = qc.read_current_preset()
+            actual = list(current.scene_labels)[scene]
+            if (label is None and not actual.strip()) or actual == label:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Scene-label readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"Scene {chr(65 + scene)} label updated and verified",
+                    "snapshot": self.snapshot(),
+                }
+            time.sleep(0.1)
+        raise RuntimeError("The scene-label command was sent, but readback did not confirm the requested label.")
+
+    def set_scene_color(
+        self, scene: int, color: int, expected_preset_name: str = ""
+    ) -> DeviceActionResult:
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+            raise ValueError(f"Scene must be an integer from 0 through {SCENE_COUNT - 1}.")
+        if isinstance(color, bool) or not isinstance(color, int) or not 0 <= color <= 0xFFFFFFFF:
+            raise ValueError("Scene color must be an ARGB integer from 0 through 4294967295.")
+
+        qc = self._require_session()
+        self._assert_expected_preset(expected_preset_name)
+        qc.set_scene_color(scene, color)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            current = qc.read_current_preset()
+            if int(list(current.scene_colors)[scene]) == color:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Scene-color readback matched, but the device did not mark the preset dirty.")
+                return {
+                    "detail": f"Scene {chr(65 + scene)} color updated and verified",
+                    "snapshot": self.snapshot(),
+                }
+            time.sleep(0.1)
+        raise RuntimeError("The scene-color command was sent, but readback did not confirm the requested color.")
+
     def toggle_bypass(
         self,
         row: int,

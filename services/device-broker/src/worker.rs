@@ -3,9 +3,8 @@ use qc_device_runtime::request::{self as runtime_request, PresetMutationPlan};
 use qc_device_runtime::{
     GatewaySnapshot, PresetEntry, PresetFolder, PresetLibrary, PresetList, PresetSlotList,
 };
-use qc_protocol::commands::{self, DeviceOperation, OutboundMessage};
-use qc_protocol::profile;
-use qc_protocol::responses::{decode_tempo_clock, BackupAssembler, TempoClock as TempoClockFrame};
+use qc_protocol::commands::{self, DeviceCommand, DeviceOperation, OutboundMessage};
+use qc_protocol::responses::{decode_tempo_clock, TempoClock as TempoClockFrame};
 use qc_protocol::session::SessionMachine;
 use qc_protocol::state::{
     decode_preset_folder, parse_model_repo, BlockDetails, ModelCatalog, ModelList, StateDecoder,
@@ -60,9 +59,11 @@ impl Default for BrokerStatus {
 }
 
 enum Command {
-    Reconnect,
+    Reconnect {
+        force: bool,
+        reply: mpsc::Sender<()>,
+    },
     Disconnect,
-    SwitchScene(u32, mpsc::Sender<Result<(), String>>),
     Send(u16, Vec<u8>, mpsc::Sender<Result<(), String>>),
     SendSequence {
         messages: Vec<OutboundMessage>,
@@ -78,13 +79,23 @@ enum Command {
         timeout: Duration,
         reply: mpsc::Sender<Result<IncomingMessage, String>>,
     },
+    CreateBackup {
+        timeout: Duration,
+        reply: mpsc::Sender<Result<String, String>>,
+    },
     Stop,
+}
+
+#[derive(Default)]
+struct RawEventBus {
+    log: Mutex<VecDeque<IncomingMessage>>,
+    subscribers: Mutex<Vec<mpsc::Sender<IncomingMessage>>>,
 }
 
 pub struct DeviceController {
     state: Arc<Mutex<BrokerStatus>>,
     latest_messages: Arc<Mutex<HashMap<u16, IncomingMessage>>>,
-    event_log: Arc<Mutex<VecDeque<IncomingMessage>>>,
+    raw_events: Arc<RawEventBus>,
     state_event_log: Arc<Mutex<VecDeque<DecodedStateFrame>>>,
     state_subscribers: Arc<Mutex<Vec<mpsc::Sender<DecodedStateFrame>>>>,
     gateway_snapshot: Arc<Mutex<GatewaySnapshot>>,
@@ -95,9 +106,23 @@ pub struct DeviceController {
 
 impl DeviceController {
     pub fn start() -> Self {
+        Self::start_with_auto_connect(true)
+    }
+
+    /// Starts the stdio broker without racing its client's explicit reconnect.
+    pub fn start_disconnected() -> Self {
+        Self::start_with_auto_connect(false)
+    }
+
+    fn start_with_auto_connect(auto_connect: bool) -> Self {
         let state = Arc::new(Mutex::new(BrokerStatus::default()));
+        if !auto_connect {
+            let mut status = state.lock().expect("device status lock");
+            status.phase = "disconnected".into();
+            status.detail = "Waiting for a reconnect request".into();
+        }
         let latest_messages = Arc::new(Mutex::new(HashMap::new()));
-        let event_log = Arc::new(Mutex::new(VecDeque::new()));
+        let raw_events = Arc::new(RawEventBus::default());
         let state_event_log = Arc::new(Mutex::new(VecDeque::new()));
         let state_subscribers = Arc::new(Mutex::new(Vec::new()));
         let gateway_snapshot = Arc::new(Mutex::new(GatewaySnapshot::default()));
@@ -123,7 +148,7 @@ impl DeviceController {
         let (commands, receiver) = mpsc::channel();
         let worker_state = Arc::clone(&state);
         let worker_messages = Arc::clone(&latest_messages);
-        let worker_events = Arc::clone(&event_log);
+        let worker_raw_events = Arc::clone(&raw_events);
         let worker_library = Arc::clone(&preset_library);
         thread::Builder::new()
             .name("qc-native-usb".into())
@@ -131,17 +156,18 @@ impl DeviceController {
                 run(
                     worker_state,
                     worker_messages,
-                    worker_events,
+                    worker_raw_events,
                     worker_library,
                     state_messages,
                     receiver,
+                    auto_connect,
                 )
             })
             .expect("native QC USB worker starts");
         Self {
             state,
             latest_messages,
-            event_log,
+            raw_events,
             state_event_log,
             state_subscribers,
             gateway_snapshot,
@@ -155,8 +181,20 @@ impl DeviceController {
         self.state.lock().expect("device status lock").clone()
     }
 
-    pub fn reconnect(&self) {
-        let _ = self.commands.send(Command::Reconnect);
+    pub fn reconnect(&self) -> Result<(), String> {
+        self.request_reconnect(false)
+    }
+    pub fn reset_session(&self) -> Result<(), String> {
+        self.request_reconnect(true)
+    }
+    fn request_reconnect(&self, force: bool) -> Result<(), String> {
+        let (reply, response) = mpsc::channel();
+        self.commands
+            .send(Command::Reconnect { force, reply })
+            .map_err(|_| "Native QC worker is not available".to_string())?;
+        response
+            .recv_timeout(Duration::from_secs(35))
+            .map_err(|_| "Native QC worker did not acknowledge the reconnect request".to_string())
     }
     pub fn disconnect(&self) {
         let _ = self.commands.send(Command::Disconnect);
@@ -176,7 +214,8 @@ impl DeviceController {
         message_type: Option<u16>,
         limit: usize,
     ) -> Vec<IncomingMessage> {
-        self.event_log
+        self.raw_events
+            .log
             .lock()
             .expect("event log lock")
             .iter()
@@ -187,14 +226,6 @@ impl DeviceController {
             .take(limit.min(4096))
             .cloned()
             .collect()
-    }
-
-    pub fn event_cursor(&self) -> u64 {
-        self.event_log
-            .lock()
-            .expect("event log lock")
-            .back()
-            .map_or(0, |message| message.sequence)
     }
 
     pub fn state_events_since(&self, sequence: u64, limit: usize) -> Vec<DecodedStateFrame> {
@@ -213,6 +244,16 @@ impl DeviceController {
         self.state_subscribers
             .lock()
             .expect("decoded state subscriber lock")
+            .push(sender);
+        receiver
+    }
+
+    pub fn subscribe_raw_events(&self) -> mpsc::Receiver<IncomingMessage> {
+        let (sender, receiver) = mpsc::channel();
+        self.raw_events
+            .subscribers
+            .lock()
+            .expect("raw event subscriber lock")
             .push(sender);
         receiver
     }
@@ -244,6 +285,7 @@ impl DeviceController {
         timeout: Duration,
         predicate: impl Fn(&GatewaySnapshot) -> bool,
     ) -> Option<GatewaySnapshot> {
+        let events = self.subscribe_state_events();
         let deadline = Instant::now() + timeout;
         loop {
             if let Some(snapshot) = self.gateway_snapshot() {
@@ -253,7 +295,14 @@ impl DeviceController {
             } else if Instant::now() >= deadline {
                 return None;
             }
-            thread::sleep(Duration::from_millis(10));
+            if events
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .is_err()
+            {
+                return self
+                    .gateway_snapshot()
+                    .filter(|snapshot| predicate(snapshot));
+            }
         }
     }
 
@@ -321,17 +370,23 @@ impl DeviceController {
     }
 
     pub fn wait_for_preset_folders(&self, timeout: Duration) -> Vec<PresetFolder> {
+        let events = self.subscribe_raw_events();
         let deadline = Instant::now() + timeout;
         loop {
             let folders = self.preset_folders();
             if !folders.is_empty() || Instant::now() >= deadline {
                 return folders;
             }
-            thread::sleep(Duration::from_millis(25));
+            match events.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(message) if message.message_type == 4 => {}
+                Ok(_) => continue,
+                Err(_) => return self.preset_folders(),
+            }
         }
     }
 
     pub fn wait_for_preset_list(&self, key: &str, timeout: Duration) -> Option<PresetList> {
+        let events = self.subscribe_raw_events();
         let deadline = Instant::now() + timeout;
         loop {
             if let Some(list) = self.preset_list(key) {
@@ -340,7 +395,11 @@ impl DeviceController {
             if Instant::now() >= deadline {
                 return None;
             }
-            thread::sleep(Duration::from_millis(25));
+            match events.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(message) if message.message_type == 4 => {}
+                Ok(_) => continue,
+                Err(_) => return self.preset_list(key),
+            }
         }
     }
 
@@ -410,46 +469,57 @@ impl DeviceController {
     }
 
     pub fn create_backup(&self, timeout: Duration) -> Result<String, String> {
-        let cursor = self
-            .event_log
-            .lock()
-            .expect("event log lock")
-            .back()
-            .map(|message| message.sequence)
-            .unwrap_or(0);
-        self.send_command(commands::create_local_backup())?;
-        let deadline = Instant::now() + timeout;
-        let mut consumed = cursor;
-        let mut backup = BackupAssembler::default();
-        while Instant::now() < deadline {
-            for raw in self.events_since(consumed, Some(40), 4096) {
-                consumed = consumed.max(raw.sequence);
-                if let Some(document) = backup
-                    .push(raw.payload.as_slice())
-                    .map_err(|error| format!("Could not decode native backup chunk: {error}"))?
+        let (reply, response) = mpsc::channel();
+        self.commands
+            .send(Command::CreateBackup { timeout, reply })
+            .map_err(|_| "Native QC worker is not available".to_string())?;
+        let document = response
+            .recv_timeout(timeout + Duration::from_secs(20))
+            .map_err(|_| "Native QC backup worker timed out".to_string())??;
+        let status = self.wait_for_ready(Duration::from_secs(35));
+        if status.phase != "ready" {
+            return Err(format!(
+                "The backup completed, but the Quad Cortex session did not recover: {}",
+                status.detail
+            ));
+        }
+        let state_events = self.subscribe_state_events();
+        let message = commands::read(17);
+        self.request(
+            message.message_type,
+            message.payload,
+            17,
+            None,
+            Duration::from_secs(10),
+        )?;
+        let state_deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < state_deadline {
+            let remaining = state_deadline.saturating_duration_since(Instant::now());
+            match state_events.recv_timeout(remaining) {
+                Ok(frame)
+                    if frame
+                        .states
+                        .iter()
+                        .any(|state| state.master_volume.is_some()) =>
                 {
                     return Ok(document);
                 }
+                Ok(_) => {}
+                Err(_) => break,
             }
-            thread::sleep(Duration::from_millis(25));
         }
-        Err("The Quad Cortex did not finish the native backup within 60 seconds.".into())
+        Err("The backup completed, but Master Volume state did not resynchronize".into())
     }
 
     pub fn switch_scene(&self, scene: u32) -> Result<(), String> {
         if scene > 7 {
             return Err("Scene must be between 0 and 7".into());
         }
-        let (sender, receiver) = mpsc::channel();
-        self.commands
-            .send(Command::SwitchScene(scene, sender))
-            .map_err(|error| error.to_string())?;
-        receiver
-            .recv_timeout(Duration::from_secs(2))
-            .map_err(|error| error.to_string())?
+        self.send_operation(DeviceOperation::Command(DeviceCommand::SelectScene(scene)))
     }
 
     pub fn wait_for_scene(&self, scene: u32, timeout: Duration) -> BrokerStatus {
+        let events = self.subscribe_state_events();
         let deadline = Instant::now() + timeout;
         loop {
             let status = self.status();
@@ -459,18 +529,29 @@ impl DeviceController {
             {
                 return status;
             }
-            thread::sleep(Duration::from_millis(10));
+            if events
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .is_err()
+            {
+                return self.status();
+            }
         }
     }
 
     pub fn wait_for_ready(&self, timeout: Duration) -> BrokerStatus {
+        let events = self.subscribe_state_events();
         let deadline = Instant::now() + timeout;
         loop {
             let status = self.status();
             if status.phase == "ready" || status.phase == "error" || Instant::now() >= deadline {
                 return status;
             }
-            thread::sleep(Duration::from_millis(25));
+            if events
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .is_err()
+            {
+                return self.status();
+            }
         }
     }
 }
@@ -622,43 +703,94 @@ fn publish_state_frame(
         .retain(|subscriber| subscriber.send(frame.clone()).is_ok());
 }
 
+#[allow(clippy::too_many_arguments)]
+fn ingest_incoming(
+    state: &Arc<Mutex<BrokerStatus>>,
+    connected: &mut ConnectedQc,
+    latest_messages: &Arc<Mutex<HashMap<u16, IncomingMessage>>>,
+    raw_events: &Arc<RawEventBus>,
+    preset_library: &Arc<Mutex<PresetLibrary>>,
+    state_messages: &mpsc::Sender<StateDecoderCommand>,
+    state_generation: u64,
+    pending_requests: &mut Vec<PendingRequest>,
+    message: IncomingMessage,
+) {
+    update_message(state, &mut connected.latest_messages, message.clone());
+    latest_messages
+        .lock()
+        .expect("latest message lock")
+        .insert(message.message_type, message.clone());
+    {
+        let mut log = raw_events.log.lock().expect("event log lock");
+        log.push_back(message.clone());
+        while log.len() > 4096 {
+            log.pop_front();
+        }
+    }
+    raw_events
+        .subscribers
+        .lock()
+        .expect("raw event subscriber lock")
+        .retain(|subscriber| subscriber.send(message.clone()).is_ok());
+    let _ = state_messages.send(StateDecoderCommand::Message(
+        state_generation,
+        message.clone(),
+    ));
+    if message.message_type == 4 {
+        if let Ok(Some(listing)) = decode_preset_folder(&message.payload) {
+            preset_library
+                .lock()
+                .expect("preset library lock")
+                .ingest(listing);
+        }
+    }
+    deliver_pending(pending_requests, &message);
+}
+
 fn run(
     state: Arc<Mutex<BrokerStatus>>,
     latest_messages: Arc<Mutex<HashMap<u16, IncomingMessage>>>,
-    event_log: Arc<Mutex<VecDeque<IncomingMessage>>>,
+    raw_events: Arc<RawEventBus>,
     preset_library: Arc<Mutex<PresetLibrary>>,
     state_messages: mpsc::Sender<StateDecoderCommand>,
     commands: mpsc::Receiver<Command>,
+    initial_auto_connect: bool,
 ) {
     let session_clock = Instant::now();
     let mut session = SessionMachine::new(0);
     let mut connection: Option<ConnectedQc> = None;
-    let mut auto_connect = true;
-    let mut pending_scene: Option<(u32, Instant)> = None;
-    let mut next_scene_poll = Instant::now();
+    let mut auto_connect = initial_auto_connect;
     let mut pending_requests: Vec<PendingRequest> = Vec::new();
     let mut state_generation = 0_u64;
     let mut command_not_before = Instant::now();
     loop {
         while let Ok(command) = commands.try_recv() {
             match command {
-                Command::Reconnect => {
-                    connection = None;
+                Command::Reconnect { force, reply } => {
+                    let phase = state.lock().expect("device status lock").phase.clone();
+                    if reconnect_is_satisfied(force, connection.is_some(), &phase) {
+                        let _ = reply.send(());
+                        continue;
+                    }
+                    if connection.take().is_some() {
+                        session.outbound(session_clock.elapsed().as_millis() as u64);
+                    }
                     fail_pending(&mut pending_requests, "Device session restarted");
                     latest_messages.lock().expect("latest message lock").clear();
-                    event_log.lock().expect("event log lock").clear();
+                    raw_events.log.lock().expect("event log lock").clear();
                     preset_library.lock().expect("preset library lock").clear();
                     state_generation += 1;
                     let _ = state_messages.send(StateDecoderCommand::Reset(state_generation));
                     auto_connect = true;
                     session.request_reconnect(session_clock.elapsed().as_millis() as u64);
                     set_phase(&state, "searching", "Reconnect requested", false, false);
+                    let _ = reply.send(());
                 }
                 Command::Disconnect => {
                     connection = None;
                     fail_pending(&mut pending_requests, "Device session closed");
                     latest_messages.lock().expect("latest message lock").clear();
-                    event_log.lock().expect("event log lock").clear();
+                    raw_events.log.lock().expect("event log lock").clear();
                     preset_library.lock().expect("preset library lock").clear();
                     state_generation += 1;
                     let _ = state_messages.send(StateDecoderCommand::Reset(state_generation));
@@ -672,27 +804,8 @@ fn run(
                         false,
                     );
                 }
-                Command::SwitchScene(scene, reply) => {
-                    let result = if let Some(connected) = connection.as_ref() {
-                        thread::sleep(command_not_before.saturating_duration_since(Instant::now()));
-                        connected
-                            .usb
-                            .send_command(commands::DeviceCommand::SelectScene(scene).encode());
-                        session.outbound(session_clock.elapsed().as_millis() as u64);
-                        pending_scene = Some((
-                            scene,
-                            Instant::now()
-                                + Duration::from_millis(profile::COMMAND_CONFIRMATION_TIMEOUT_MS),
-                        ));
-                        next_scene_poll = Instant::now();
-                        Ok(())
-                    } else {
-                        Err("Quad Cortex is not connected".into())
-                    };
-                    let _ = reply.send(result);
-                }
                 Command::Send(message_type, payload, reply) => {
-                    let result = if let Some(connected) = connection.as_ref() {
+                    let result = if let Some(connected) = connection.as_mut() {
                         thread::sleep(command_not_before.saturating_duration_since(Instant::now()));
                         connected.usb.send(message_type, payload);
                         session.outbound(session_clock.elapsed().as_millis() as u64);
@@ -708,7 +821,7 @@ fn run(
                     interval,
                     reply,
                 } => {
-                    let result = if let Some(connected) = connection.as_ref() {
+                    let result = if let Some(connected) = connection.as_mut() {
                         thread::sleep(command_not_before.saturating_duration_since(Instant::now()));
                         thread::sleep(delay);
                         for (index, message) in messages.iter().enumerate() {
@@ -732,7 +845,7 @@ fn run(
                     timeout,
                     reply,
                 } => {
-                    if let Some(connected) = connection.as_ref() {
+                    if let Some(connected) = connection.as_mut() {
                         thread::sleep(command_not_before.saturating_duration_since(Instant::now()));
                         pending_requests.push(PendingRequest {
                             expected_type,
@@ -745,6 +858,61 @@ fn run(
                     } else {
                         let _ = reply.send(Err("Quad Cortex is not connected".into()));
                     }
+                }
+                Command::CreateBackup { timeout, reply } => {
+                    fail_pending(&mut pending_requests, "Device session is creating a backup");
+                    let synchronized = connection
+                        .as_ref()
+                        .is_some_and(|connected| connected.synchronized);
+                    set_phase(
+                        &state,
+                        "syncing",
+                        "Creating device backup",
+                        connection.is_some(),
+                        synchronized,
+                    );
+                    let result = if let Some(connected) = connection.as_mut() {
+                        match connected.usb.create_backup(timeout) {
+                            Ok(transfer) => {
+                                for message in transfer.side_messages {
+                                    ingest_incoming(
+                                        &state,
+                                        connected,
+                                        &latest_messages,
+                                        &raw_events,
+                                        &preset_library,
+                                        &state_messages,
+                                        state_generation,
+                                        &mut pending_requests,
+                                        message,
+                                    );
+                                }
+                                Ok(transfer.document)
+                            }
+                            Err(error) => Err(error.to_string()),
+                        }
+                    } else {
+                        Err("Quad Cortex is not connected".to_string())
+                    };
+                    session.outbound(session_clock.elapsed().as_millis() as u64);
+                    if let Some(connected) = connection.as_ref() {
+                        set_phase(
+                            &state,
+                            if connected.synchronized {
+                                "ready"
+                            } else {
+                                "syncing"
+                            },
+                            if result.is_ok() {
+                                "Device backup complete"
+                            } else {
+                                "Device backup failed; USB session remains open"
+                            },
+                            true,
+                            connected.synchronized,
+                        );
+                    }
+                    let _ = reply.send(result);
                 }
                 Command::Stop => {
                     fail_pending(&mut pending_requests, "Native broker stopped");
@@ -774,7 +942,7 @@ fn run(
                     *latest_messages.lock().expect("latest message lock") =
                         connected.latest_messages.clone();
                     {
-                        let mut log = event_log.lock().expect("event log lock");
+                        let mut log = raw_events.log.lock().expect("event log lock");
                         log.clear();
                         let mut initial = connected
                             .latest_messages
@@ -822,31 +990,17 @@ fn run(
                         session_clock.elapsed().as_millis() as u64,
                         connected.synchronized,
                     );
-                    update_message(&state, &mut connected.latest_messages, message.clone());
-                    latest_messages
-                        .lock()
-                        .expect("latest message lock")
-                        .insert(message.message_type, message.clone());
-                    {
-                        let mut log = event_log.lock().expect("event log lock");
-                        log.push_back(message.clone());
-                        while log.len() > 4096 {
-                            log.pop_front();
-                        }
-                    }
-                    let _ = state_messages.send(StateDecoderCommand::Message(
+                    ingest_incoming(
+                        &state,
+                        connected,
+                        &latest_messages,
+                        &raw_events,
+                        &preset_library,
+                        &state_messages,
                         state_generation,
-                        message.clone(),
-                    ));
-                    if message.message_type == 4 {
-                        if let Ok(Some(listing)) = decode_preset_folder(&message.payload) {
-                            preset_library
-                                .lock()
-                                .expect("preset library lock")
-                                .ingest(listing);
-                        }
-                    }
-                    deliver_pending(&mut pending_requests, &message);
+                        &mut pending_requests,
+                        message,
+                    );
                 }
                 Ok(None) => session.read_succeeded(),
                 Err(error) => {
@@ -870,22 +1024,15 @@ fn run(
                 connected.usb.send_command(commands::keepalive());
                 session.outbound(session_clock.elapsed().as_millis() as u64);
             }
-            if let Some((wanted, deadline)) = pending_scene {
-                let actual = state.lock().expect("device status lock").active_scene;
-                if actual == Some(wanted) || Instant::now() >= deadline {
-                    pending_scene = None;
-                } else if Instant::now() >= next_scene_poll {
-                    connected.usb.send_command(commands::read(13));
-                    session.outbound(session_clock.elapsed().as_millis() as u64);
-                    next_scene_poll = Instant::now()
-                        + Duration::from_millis(profile::CONFIRMATION_POLL_INTERVAL_MS);
-                }
-            }
         } else {
             thread::sleep(Duration::from_millis(100));
         }
         expire_pending(&mut pending_requests);
     }
+}
+
+fn reconnect_is_satisfied(force: bool, connected: bool, phase: &str) -> bool {
+    !force && (connected || matches!(phase, "connecting" | "handshaking" | "syncing" | "ready"))
 }
 
 fn deliver_pending(pending: &mut Vec<PendingRequest>, message: &IncomingMessage) {
@@ -1063,5 +1210,20 @@ mod tests {
         assert_eq!(snapshot.setlist_name, "Live");
         assert_eq!(snapshot.tempo, 96);
         assert_eq!(snapshot.master_volume, 57);
+    }
+
+    #[test]
+    fn normal_reconnect_does_not_restart_an_active_or_connecting_session() {
+        for phase in ["connecting", "handshaking", "syncing", "ready"] {
+            assert!(reconnect_is_satisfied(false, phase == "ready", phase));
+        }
+        assert!(!reconnect_is_satisfied(false, false, "searching"));
+        assert!(!reconnect_is_satisfied(false, false, "disconnected"));
+    }
+
+    #[test]
+    fn forced_session_reset_always_restarts() {
+        assert!(!reconnect_is_satisfied(true, true, "ready"));
+        assert!(!reconnect_is_satisfied(true, false, "connecting"));
     }
 }

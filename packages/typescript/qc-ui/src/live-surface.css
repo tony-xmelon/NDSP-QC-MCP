@@ -1,6 +1,6 @@
 @keyframes qc-tempo-led-pulse {
-  0%, 4.1% { opacity: 1; filter: brightness(1.25); }
-  4.2%, 100% { opacity: .16; filter: brightness(.55); }
+  0%, 15.9% { opacity: 1; filter: brightness(1.25); }
+  16%, 100% { opacity: .16; filter: brightness(.55); }
 }
 
 .hardware-switch.is-tempo-pulse.is-active .switch-led::before {

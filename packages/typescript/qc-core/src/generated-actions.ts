@@ -630,6 +630,134 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "copy_scene",
+    "rpc": "device.copyScene",
+    "classification": "live-write",
+    "description": "Copy or swap two scenes in the current preset and verify the resulting scene state.",
+    "properties": {
+      "from_scene": "scene-index",
+      "to_scene": "scene-index",
+      "swap": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "from_scene",
+      "to_scene",
+      "swap",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from_scene": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "to_scene": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "swap": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "from_scene",
+        "to_scene",
+        "swap",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_scene_label",
+    "rpc": "device.setSceneLabel",
+    "classification": "live-write",
+    "description": "Set or clear the label of one scene in the current preset.",
+    "properties": {
+      "scene": "scene-index",
+      "label": "nullable-string",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "scene",
+      "label",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scene": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene",
+        "label",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_scene_color",
+    "rpc": "device.setSceneColor",
+    "classification": "live-write",
+    "description": "Set the display color of one scene in the current preset.",
+    "properties": {
+      "scene": "scene-index",
+      "color": "integer",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "scene",
+      "color",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scene": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "color": {
+          "type": "integer"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene",
+        "color",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "press_footswitch",
     "rpc": "device.pressFootswitch",
     "classification": "live-write",

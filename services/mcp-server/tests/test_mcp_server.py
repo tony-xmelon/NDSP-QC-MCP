@@ -116,6 +116,22 @@ class ToolSafetyTests(unittest.TestCase):
             "expectedPresetName": "Lead",
         }))
 
+        self.tools.copy_scene(1, 6, True, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.copyScene", {
+            "fromScene": 1, "toScene": 6, "swap": True,
+            "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_scene_label(6, None, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setSceneLabel", {
+            "scene": 6, "label": None, "expectedPresetName": "Lead",
+        }))
+
+        self.tools.set_scene_color(6, 0xFFFF02C2, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setSceneColor", {
+            "scene": 6, "color": 0xFFFF02C2, "expectedPresetName": "Lead",
+        }))
+
     def test_missing_or_invalid_expected_state_never_reaches_backend(self) -> None:
         with self.assertRaises(ValueError):
             self.tools.select_scene(2, "")
@@ -123,6 +139,12 @@ class ToolSafetyTests(unittest.TestCase):
             self.tools.set_tempo(300, 120, "Clean")
         with self.assertRaises(ValueError):
             self.tools.set_bypass(4, 0, True, False, 0, "Clean")
+        with self.assertRaises(ValueError):
+            self.tools.copy_scene(2, 2, False, "Clean")
+        with self.assertRaises(ValueError):
+            self.tools.set_scene_label(2, "bad\nlabel", "Clean")
+        with self.assertRaises(ValueError):
+            self.tools.set_scene_color(2, 0x100000000, "Clean")
         with self.assertRaisesRegex(ValueError, "confirm_risky_operation"):
             self.tools.set_master_volume(60, 50, False)
         with self.assertRaisesRegex(ValueError, "confirm_risky_operation"):

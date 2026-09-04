@@ -5,6 +5,8 @@ import test from "node:test";
 const javaSource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java", import.meta.url), "utf8");
 const servicesSource = readFileSync(new URL("./native-services.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const liveStateSource = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
+const performanceWorkflowSource = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
 const coreStateSource = readFileSync(new URL("../../../packages/typescript/qc-core/src/state.ts", import.meta.url), "utf8");
 const generatedPayloadSource = readFileSync(new URL("../../../packages/typescript/qc-client/src/generated-payloads.ts", import.meta.url), "utf8");
 const coreFootswitchSource = readFileSync(new URL("../../../packages/typescript/qc-core/src/footswitch.ts", import.meta.url), "utf8");
@@ -30,8 +32,9 @@ test("tempo synchronizes in both directions over the native USB bridge", () => {
   assert.match(rustStateSource, /decode_global_tempo/);
   assert.match(rustStateSource, /StateUpdate::new\("tempo"\)/);
   assert.match(rustStateSource, /tempo_led_enabled/);
-  assert.match(appSource, /reconcileFrame\(states\)/);
-  assert.match(appSource, /qcTransport\.tapTempo\(snapshotRef\.current\)/);
+  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
+  assert.match(performanceWorkflowSource, /transport\.tapTempo\(controller\.snapshotRef\.current\)/);
 });
 
 test("USB attachment auto-connects and reports synchronization separately", () => {
@@ -46,25 +49,25 @@ test("A through H use the reported hardware mode and assignments", () => {
   assert.match(sharedTransportSource, /gateway\.pressFootswitch\(index, state\.mode, state\.presetName\)/);
   assert.match(rustStateSource, /preset[\s\S]{0,200}\.stomp_mode_assignments/);
   assert.match(rustStateSource, /footswitch: assignments\.get/);
-  assert.match(appSource, /beginFootswitch/);
+  assert.match(performanceWorkflowSource, /controller\.beginFootswitch/);
   assert.match(coreFootswitchSource, /mode === "SCENE"/);
   assert.match(coreFootswitchSource, /mode === "PRESET"/);
   assert.match(coreFootswitchSource, /block\.footswitch === index/);
   assert.match(rustRuntimeRequestSource, /"device\.pressFootswitch"[\s\S]*profile::FOOTSWITCH_BASE_CONTROLLER/);
-  assert.match(appSource, /runFootswitch\(qcTransport, index\)/);
+  assert.match(performanceWorkflowSource, /controller\.runFootswitch\(transport, index\)/);
 });
 
 test("mode slots A through C use the same shared transport contract and immediate MIDI lane", () => {
   assert.match(sharedTransportSource, /gateway\.selectModeSlot\(slot, state\.presetName\)/);
   assert.match(rustRuntimeRequestSource, /"device\.selectModeSlot"[\s\S]*profile::MODE_SLOT_CONTROLLER/);
-  assert.match(appSource, /runModeSlot\(qcTransport, slot\)/);
+  assert.match(performanceWorkflowSource, /controller\.runModeSlot\(transport, slot\)/);
 });
 
 test("Tap Tempo uses its explicit official MIDI control and live bypass updates are batched", () => {
   assert.match(sharedTransportSource, /gateway\.tapTempo\(state\.mode, state\.presetName\)/);
   assert.match(rustRuntimeRequestSource, /"device\.tapTempo"[\s\S]*profile::TAP_TEMPO_CONTROLLER/);
   assert.match(rustRuntimeRequestSource, /MidiControlChange/);
-  assert.match(appSource, /qcTransport\.tapTempo\(snapshotRef\.current\)/);
+  assert.match(performanceWorkflowSource, /transport\.tapTempo\(controller\.snapshotRef\.current\)/);
   assert.match(rustStateSource, /StateUpdate::new\("bypassBatch"\)/);
   assert.match(coreStateSource, /state\.kind === "bypassBatch"/);
 });
@@ -77,7 +80,8 @@ test("native USB remains open and command traffic is never blocked by startup", 
   assert.match(javaSource, /if \(isReady\(\) && device != null && device\.getDeviceId\(\) == candidate\.getDeviceId\(\)\)/);
   assert.doesNotMatch(javaSource, /Thread\.sleep\(2000\)/);
   assert.match(javaSource, /midiIo\.execute\(\(\) ->/);
-  assert.match(appSource, /reconcileFrame\(states\)/);
+  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(readFileSync(new URL("../../../packages/typescript/qc-core/src/command-coordinator.ts", import.meta.url), "utf8"), /beginSnapshotMutation/);
   assert.match(rustStateSource, /catalog_refresh = Some\(true\)/);
 });
@@ -148,7 +152,9 @@ test("Android remote relay consumes every generated MCP action with verified wri
   }
   assert.match(relayProtocolSource, /GeneratedRemoteActions\.contains\(method\)/);
   assert.match(javaSource, /relayPlannedGatewayWrite\(/);
-  assert.match(javaSource, /stateDecoder\.gatewayVerificationMatches\(plan\)/);
+  assert.match(javaSource, /stateDecoder\.gatewayTransactionState\(/);
+  assert.match(javaSource, /resolvePendingGatewayTransactions/);
+  assert.doesNotMatch(javaSource, /pollRelayVerification/);
   assert.match(javaSource, /relayGatewayWorkflow\(method, params\)/);
   assert.match(nativeDecoderSource, /nativePlanGatewayWorkflow/);
   assert.match(rustAndroidSource, /plan_preset_mutation/);
@@ -192,9 +198,29 @@ test("Android relay has exact gateway parity with Windows", () => {
   assert.match(servicesSource, /gatewayInvoke\(options:/);
 });
 
+test("Android persists completed native backups without blocking USB reads", () => {
+  assert.match(javaSource, /MediaStore\.Downloads\.EXTERNAL_CONTENT_URI/);
+  assert.match(javaSource, /Environment\.DIRECTORY_DOWNLOADS \+ "\/QC Control"/);
+  assert.match(javaSource, /metadataIo\.execute\(\(\) -> \{[\s\S]*saveBackupDocument/);
+  assert.match(javaSource, /32 \* 1024 \* 1024/);
+  assert.doesNotMatch(javaSource, /pending\.result\.complete\(JSObject\.fromJSONObject\(\(org\.json\.JSONObject\) update\.get\("backup"\)\)\)/);
+});
+
+test("Android and Windows apply the same safe native-backup retry boundary", () => {
+  const windowsUsb = readFileSync(new URL("../../../services/device-broker/src/usb.rs", import.meta.url), "utf8");
+  assert.match(rustAndroidSource, /"started": started/);
+  assert.match(rustAndroidSource, /"ignoredPrefixChunks": ignored_prefix_chunks/);
+  assert.match(javaSource, /scheduleBackupWatchdog\(pending, 25_000\)/);
+  assert.match(javaSource, /operation\.started[\s\S]*partial document was discarded/);
+  assert.match(javaSource, /operation\.attempts >= 3/);
+  assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*MAX_ATTEMPTS/);
+  assert.match(windowsUsb, /partial document was discarded and was not combined with a retry/);
+});
+
 test("live QC parameter frames update the open shared editor", () => {
   assert.match(generatedPayloadSource, /\| "parameter"/);
   assert.match(rustStateSource, /StateUpdate::new\("parameter"\)/);
   assert.match(rustStateSource, /parameter_overrides[\s\S]{0,100}\.insert/);
-  assert.match(appSource, /state\.kind === "parameter"[\s\S]*editor\.updateParameter/);
+  assert.match(appSource, /useQcLiveState/);
+  assert.match(liveStateSource, /state\.kind === "parameter"[\s\S]*editor\.updateParameters/);
 });

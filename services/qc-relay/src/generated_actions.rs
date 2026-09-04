@@ -148,6 +148,24 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "copy_scene",
+        rpc: "device.copyScene",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_scene_label",
+        rpc: "device.setSceneLabel",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_scene_color",
+        rpc: "device.setSceneColor",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "press_footswitch",
         rpc: "device.pressFootswitch",
         class: ActionClass::LiveWrite,

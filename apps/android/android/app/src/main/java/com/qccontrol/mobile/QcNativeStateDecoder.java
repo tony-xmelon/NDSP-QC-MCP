@@ -130,6 +130,9 @@ final class QcNativeStateDecoder implements AutoCloseable {
     JSObject presetFolders() throws Exception { return new JSObject(nativePresetFolders(requireHandle())); }
     JSObject presetList(String setlistKey) throws Exception { return new JSObject(nativePresetList(requireHandle(), setlistKey)); }
     JSObject presetSlots() throws Exception { return new JSObject(nativePresetSlots(requireHandle())); }
+    JSObject mergeExpectedState(JSObject params, JSObject expected) throws Exception {
+        return new JSObject(nativeMergeExpectedState(params.toString(), expected.toString()));
+    }
 
     int modelCount() { return nativeModelCount(requireHandle()); }
 
@@ -201,8 +204,13 @@ final class QcNativeStateDecoder implements AutoCloseable {
             Byte.toUnsignedInt(encoded[laneOffset + 2]), decodeCommandEnvelope(encoded, commandOffset));
     }
 
-    boolean gatewayVerificationMatches(PlannedGatewayWrite plan) {
-        return nativeGatewayVerificationMatches(requireHandle(), plan.verificationJson) == 1;
+    int gatewayTransactionState(
+        PlannedGatewayWrite plan, long afterObservedAtMs, long deadlineMs,
+        long observedAtMs, long nowMs
+    ) {
+        return nativeGatewayTransactionState(
+            requireHandle(), plan.verificationJson, afterObservedAtMs,
+            deadlineMs, observedAtMs, nowMs);
     }
 
     PlannedGatewayWorkflow gatewayWorkflow(String method, JSObject args) throws Exception {
@@ -246,10 +254,6 @@ final class QcNativeStateDecoder implements AutoCloseable {
     void recordSavedPreset(PlannedGatewayWorkflow workflow) {
         nativeRecordSavedPreset(
             requireHandle(), workflow.setlistKey, workflow.position, workflow.savedName, workflow.instrument);
-    }
-
-    boolean gatewayVerificationMatches(PlannedGatewayStage stage) {
-        return nativeGatewayVerificationMatches(requireHandle(), stage.verificationJson) == 1;
     }
 
     PlannedGatewayRead gatewayRead(String method, JSObject args, long requestId) throws Exception {
@@ -362,6 +366,7 @@ final class QcNativeStateDecoder implements AutoCloseable {
     }
 
     private static native long nativeCreate();
+    private static native String nativeMergeExpectedState(String paramsJson, String expectedJson);
     private static native int nativeReportSize();
     private static native int nativeOutboundReportId();
     private static native int nativeInboundReportId();
@@ -373,7 +378,9 @@ final class QcNativeStateDecoder implements AutoCloseable {
     private static native String nativeDecodeGatewayResponse(String projectionJson, byte[] payload);
     private static native String nativeTempoClock(byte[] payload);
     private static native String nativeConsumeBackupChunk(long handle, byte[] payload, String name);
-    private static native int nativeGatewayVerificationMatches(long handle, String verificationJson);
+    private static native int nativeGatewayTransactionState(
+        long handle, String verificationJson, long afterObservedAtMs,
+        long deadlineMs, long observedAtMs, long nowMs);
     private static native byte[] nativeEncodeFrame(int messageType, byte[] payload);
     private static native byte[] nativePushReport(long handle, byte[] report);
     private static native void nativeReset(long handle);

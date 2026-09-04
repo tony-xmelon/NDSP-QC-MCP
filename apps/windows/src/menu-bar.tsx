@@ -8,7 +8,7 @@ export type MenuCommand =
   | "undo" | "redo" | "copy-preset" | "paste-preset" | "copy-block-settings" | "paste-block-settings" | "settings"
   | "view-fit" | "view-actual" | "toggle-fullscreen" | "toggle-chat"
   | "open-preset-directory" | "save-preset-to-device" | "rename-current-preset" | "add-block" | "edit-routing" | "discard-changes"
-  | "previous-preset" | "next-preset" | "set-tempo" | `select-mode-${0 | 1 | 2}` | "open-tuner" | "open-gig-view"
+  | "previous-preset" | "next-preset" | "set-tempo" | "edit-scenes" | `select-mode-${0 | 1 | 2}` | "open-tuner" | "open-gig-view"
   | "export-preset-library" | "device-backup"
   | "connect" | "disconnect" | "reconnect" | "reset-session" | "refresh-state" | "device-info"
   | "user-guide" | "keyboard-reference" | "export-diagnostics" | "prepare-support-report"
@@ -249,4 +249,3 @@ function ChatStatusBadge({ status, activity, thinking, expanded, onClick }: { st
     <span className="connection-chevron" aria-hidden="true" />
   </button>;
 }
-

@@ -2,6 +2,7 @@ package com.qccontrol.mobile;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -12,6 +13,8 @@ import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -25,12 +28,15 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.UUID;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -84,7 +90,7 @@ public class QcUsbPlugin extends Plugin {
     private volatile long lastStateAt;
     private volatile long lastPresetLibraryAt;
     private final AtomicLong connectionGeneration = new AtomicLong();
-    private final ConcurrentHashMap<Long, PendingGatewayRead> pendingGatewayReads = new ConcurrentHashMap<>();
+    private final QcPendingOperations pendingOperations = new QcPendingOperations();
     private final QcNativeStateDecoder stateDecoder = new QcNativeStateDecoder();
     private static volatile QcUsbPlugin relaySession;
     private volatile String currentPresetName;
@@ -93,7 +99,8 @@ public class QcUsbPlugin extends Plugin {
     private final Deque<JSObject> stateEventLog = new ArrayDeque<>();
     private long nextStateSequence = 1;
     private volatile JSObject latestTempoClock;
-    private volatile PendingBackup pendingBackup;
+    private volatile QcPendingOperations.Entry<PendingBackup> pendingBackup;
+    private volatile QcPendingOperations.Entry<PendingReady> pendingReady;
 
     private final BroadcastReceiver permissionReceiver = new BroadcastReceiver() {
         @Override
@@ -184,11 +191,23 @@ public class QcUsbPlugin extends Plugin {
 
     private static final class PendingBackup {
         final String name;
-        final CompletableFuture<org.json.JSONObject> result;
+        final long createdAt = System.currentTimeMillis();
+        volatile long lastActivityAt = createdAt;
+        volatile boolean started;
+        volatile int chunks;
+        volatile int ignoredPrefixChunks;
+        volatile int attempts = 1;
 
-        PendingBackup(String name, CompletableFuture<org.json.JSONObject> result) {
+        PendingBackup(String name) {
             this.name = name;
-            this.result = result;
+        }
+    }
+
+    private static final class PendingReady {
+        final String detail;
+
+        PendingReady(String detail) {
+            this.detail = detail;
         }
     }
 
@@ -206,32 +225,36 @@ public class QcUsbPlugin extends Plugin {
             connecting = true;
         }
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        QcPendingOperations.Entry<PendingReady> pending = pendingOperations.register(new PendingReady(detail), result);
+        pendingReady = pending;
         commandIo.execute(() -> {
             try {
                 openDeviceAndHandshake(candidate);
-                pollRelayReady(result, detail, System.currentTimeMillis() + 35000);
+                resolvePendingReady();
             } catch (Exception error) {
                 lastError = error.getMessage();
+                if (pendingReady == pending) pendingReady = null;
+                pendingOperations.remove(pending);
                 closeConnection();
                 result.completeExceptionally(new RelayException("USB_CONNECT_FAILED", error.getMessage()));
             } finally {
                 connecting = false;
             }
         });
+        pendingOperations.timeout(pending, 35_000, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish synchronizing in time."));
         return result;
     }
 
-    private void pollRelayReady(CompletableFuture<org.json.JSONObject> result, String detail, long deadline) {
-        if (result.isDone()) return;
-        if (!isReady()) {
-            result.completeExceptionally(new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected while synchronizing."));
-            return;
+    private void resolvePendingReady() {
+        QcPendingOperations.Entry<PendingReady> pending = pendingReady;
+        if (pending == null || !isReady() || !presetSynchronized || currentSetlist == null) return;
+        if (pendingReady == pending) {
+            pendingReady = null;
+            if (pendingOperations.remove(pending)) {
+                pending.result.complete(connectionState(pending.operation.detail));
+            }
         }
-        if (presetSynchronized && currentSetlist != null || System.currentTimeMillis() >= deadline) {
-            result.complete(connectionState(detail));
-            return;
-        }
-        keepalive.schedule(() -> pollRelayReady(result, detail, deadline), 100, TimeUnit.MILLISECONDS);
     }
 
     private org.json.JSONObject connectionState(String detail) {
@@ -269,9 +292,9 @@ public class QcUsbPlugin extends Plugin {
     private CompletableFuture<org.json.JSONObject> relayCreateBackup(org.json.JSONObject params) throws Exception {
         String name = params.optString("name", "");
         if (name.trim().isEmpty()) return failedRelay("INVALID_ARGUMENT", "Backup name cannot be empty.");
-        if (pendingBackup != null) return failedRelay("BACKUP_IN_PROGRESS", "A device backup is already in progress.");
+        if (pendingBackup != null && !pendingBackup.result.isDone()) return failedRelay("BACKUP_IN_PROGRESS", "A device backup is already in progress.");
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
-        PendingBackup pending = new PendingBackup(name, result);
+        QcPendingOperations.Entry<PendingBackup> pending = pendingOperations.register(new PendingBackup(name), result);
         pendingBackup = pending;
         commandIo.execute(() -> {
             try {
@@ -279,21 +302,94 @@ public class QcUsbPlugin extends Plugin {
                 writeMessage(stateDecoder.backupCommand());
             } catch (Exception error) {
                 if (pendingBackup == pending) pendingBackup = null;
+                pendingOperations.remove(pending);
                 result.completeExceptionally(error);
             }
         });
-        keepalive.schedule(() -> {
-            if (pendingBackup == pending) {
-                pendingBackup = null;
-                result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 60 seconds."));
-            }
-        }, 60, TimeUnit.SECONDS);
+        pendingOperations.timeout(pending, 60_000, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 60 seconds."));
+        scheduleBackupWatchdog(pending, 25_000);
         return result;
+    }
+
+    private void scheduleBackupWatchdog(QcPendingOperations.Entry<PendingBackup> pending, long delayMs) {
+        keepalive.schedule(() -> {
+            if (pendingBackup != pending || pending.result.isDone()) return;
+            PendingBackup operation = pending.operation;
+            long now = System.currentTimeMillis();
+            long stallLimit = operation.started ? 15_000 : 25_000;
+            long idle = now - operation.lastActivityAt;
+            if (idle < stallLimit) {
+                scheduleBackupWatchdog(pending, stallLimit - idle);
+                return;
+            }
+            if (operation.started) {
+                pendingBackup = null;
+                if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
+                    "READBACK_TIMEOUT", "The native backup stream stalled after " + operation.chunks + " chunks; the partial document was discarded."));
+                return;
+            }
+            if (operation.attempts >= 3) {
+                pendingBackup = null;
+                if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
+                    "READBACK_TIMEOUT", "No native backup document started after " + operation.attempts + " requests and " + operation.ignoredPrefixChunks + " stale chunks."));
+                return;
+            }
+            operation.attempts += 1;
+            operation.lastActivityAt = now;
+            commandIo.execute(() -> {
+                try { writeMessage(stateDecoder.backupCommand()); }
+                catch (Exception error) {
+                    if (pendingBackup == pending) pendingBackup = null;
+                    pendingOperations.remove(pending);
+                    pending.result.completeExceptionally(error);
+                }
+            });
+            scheduleBackupWatchdog(pending, 25_000);
+        }, Math.max(1, delayMs), TimeUnit.MILLISECONDS);
+    }
+
+    private org.json.JSONObject saveBackupDocument(org.json.JSONObject document, String requestedName) throws Exception {
+        String safeName = requestedName.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        if (safeName.isEmpty()) safeName = "QC Device Backup";
+        String fileName = safeName.endsWith(".json") ? safeName : safeName + ".json";
+        byte[] bytes = document.toString().getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > 32 * 1024 * 1024) throw new Exception("The native backup exceeds the 32 MiB safety limit.");
+
+        String path;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+            values.put(MediaStore.Downloads.MIME_TYPE, "application/json");
+            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/QC Control");
+            values.put(MediaStore.Downloads.IS_PENDING, 1);
+            android.net.Uri uri = getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) throw new Exception("Android could not create the backup file in Downloads.");
+            try (OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+                if (output == null) throw new Exception("Android could not open the backup file for writing.");
+                output.write(bytes);
+            } catch (Exception error) {
+                getContext().getContentResolver().delete(uri, null, null);
+                throw error;
+            }
+            ContentValues ready = new ContentValues();
+            ready.put(MediaStore.Downloads.IS_PENDING, 0);
+            getContext().getContentResolver().update(uri, ready, null, null);
+            path = uri.toString();
+        } else {
+            File root = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "QC Control");
+            if (!root.isDirectory() && !root.mkdirs()) throw new Exception("Android could not create the backup directory.");
+            File file = new File(root, fileName);
+            try (OutputStream output = new FileOutputStream(file)) { output.write(bytes); }
+            path = file.getAbsolutePath();
+        }
+        return new JSObject().put("cancelled", false).put("path", path).put("name", fileName);
     }
 
     private CompletableFuture<org.json.JSONObject> relayInvoke(String method, org.json.JSONObject params, org.json.JSONObject expected) {
         try {
-            params = mergeExpectedState(params, expected);
+            params = stateDecoder.mergeExpectedState(
+                JSObject.fromJSONObject(params), JSObject.fromJSONObject(expected));
             String dispatch = GeneratedGatewayMethods.dispatchKind(method);
             if ("SYSTEM".equals(dispatch)) {
                 return CompletableFuture.completedFuture(new JSObject()
@@ -328,30 +424,6 @@ public class QcUsbPlugin extends Plugin {
         } catch (Exception error) { return failedRelay("INVALID_ARGUMENT", error.getMessage() == null ? "Invalid device arguments." : error.getMessage()); }
     }
 
-    private static org.json.JSONObject mergeExpectedState(
-        org.json.JSONObject params, org.json.JSONObject expected
-    ) throws Exception {
-        org.json.JSONObject merged = new org.json.JSONObject(params == null ? "{}" : params.toString());
-        if (expected == null) return merged;
-        copyExpected(merged, expected, "expectedPresetName", "presetName");
-        copyExpected(merged, expected, "expectedPosition", "position", "presetPosition");
-        copyExpected(merged, expected, "expectedScene", "activeScene", "scene");
-        copyExpected(merged, expected, "expectedTempo", "tempo");
-        return merged;
-    }
-
-    private static void copyExpected(
-        org.json.JSONObject target, org.json.JSONObject source, String targetKey, String... sourceKeys
-    ) throws Exception {
-        if (target.has(targetKey)) return;
-        for (String key : sourceKeys) {
-            if (source.has(key)) {
-                target.put(targetKey, source.get(key));
-                return;
-            }
-        }
-    }
-
     private CompletableFuture<org.json.JSONObject> relayPlannedGatewayWrite(
         String method, org.json.JSONObject params, long timeoutMs
     ) throws Exception {
@@ -366,21 +438,39 @@ public class QcUsbPlugin extends Plugin {
             try { return result.put("detail", plan.detail).put("verification", "authoritative_state_pending"); }
             catch (Exception error) { throw new java.util.concurrent.CompletionException(error); }
         });
-        long stateBeforeWrite = lastStateAt;
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        long stateBeforeWrite = lastStateAt;
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        PendingGatewayTransaction operation = new PendingGatewayTransaction(
+            plan, stateBeforeWrite, deadline);
+        QcPendingOperations.Entry<PendingGatewayTransaction> pending = null;
+        try {
+            org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
+            if (!"none".equals(verification.optString("kind"))) {
+                pending = pendingOperations.register(operation, result);
+            }
+        } catch (Exception error) {
+            result.completeExceptionally(error);
+            return result;
+        }
+        QcPendingOperations.Entry<PendingGatewayTransaction> registered = pending;
         commandIo.execute(() -> {
             try {
                 if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the write.");
-                for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
                 org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
+                for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
                 if ("none".equals(verification.optString("kind"))) {
                     result.complete(new org.json.JSONObject().put("accepted", true).put("detail", plan.detail)
                         .put("verification", "authoritative_state_pending"));
                 } else {
-                    pollRelayVerification(result, () -> stateDecoder.gatewayVerificationMatches(plan),
-                        stateBeforeWrite, System.currentTimeMillis() + timeoutMs, plan.detail);
+                    resolvePendingGatewayTransactions(lastStateAt, System.currentTimeMillis());
+                    pendingOperations.timeout(registered, timeoutMs, keepalive,
+                        () -> new RelayException("READBACK_TIMEOUT", "The QC did not confirm the requested state in time."));
                 }
-            } catch (Exception error) { result.completeExceptionally(error); }
+            } catch (Exception error) {
+                if (registered != null) pendingOperations.remove(registered);
+                result.completeExceptionally(error);
+            }
         });
         return result;
     }
@@ -399,22 +489,19 @@ public class QcUsbPlugin extends Plugin {
         QcNativeStateDecoder.PlannedGatewayRead plan = stateDecoder.gatewayRead(
             method, JSObject.fromJSONObject(params), requestId);
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
-        PendingGatewayRead pending = new PendingGatewayRead(plan, result);
-        pendingGatewayReads.put(requestId, pending);
+        QcPendingOperations.Entry<PendingGatewayRead> pending = pendingOperations.register(
+            new PendingGatewayRead(plan), result);
         commandIo.execute(() -> {
             try {
                 if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the read.");
                 for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
             } catch (Exception error) {
-                pendingGatewayReads.remove(requestId);
+                pendingOperations.remove(pending);
                 result.completeExceptionally(error);
             }
         });
-        keepalive.schedule(() -> {
-            if (pendingGatewayReads.remove(requestId, pending)) {
-                result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested reply in time."));
-            }
-        }, plan.timeoutMs, TimeUnit.MILLISECONDS);
+        pendingOperations.timeout(pending, plan.timeoutMs, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested reply in time."));
         return result;
     }
 
@@ -494,51 +581,20 @@ public class QcUsbPlugin extends Plugin {
         }
         long before = lastPresetLibraryAt;
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
+        QcPendingOperations.Entry<PendingPresetLibraryRead> pending = pendingOperations.register(
+            new PendingPresetLibraryRead(read, before), result);
         commandIo.execute(() -> {
             try {
                 if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the catalog read.");
                 writeMessage(stateDecoder.readCommand(4));
-                pollPresetLibrary(result, read, before, System.currentTimeMillis() + 25000);
-            } catch (Exception error) { result.completeExceptionally(error); }
-        });
-        return result;
-    }
-
-    private void pollPresetLibrary(CompletableFuture<org.json.JSONObject> result, RelayJsonRead read,
-                                   long before, long deadline) {
-        if (result.isDone()) return;
-        if (lastPresetLibraryAt > before) {
-            try {
-                result.complete(read.get());
-                return;
-            } catch (Exception ignored) {}
-        }
-        if (System.currentTimeMillis() >= deadline) {
-            result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested preset catalog in time."));
-            return;
-        }
-        keepalive.schedule(() -> pollPresetLibrary(result, read, before, deadline), 100, TimeUnit.MILLISECONDS);
-    }
-
-    private interface RelayVerification { boolean matches(); }
-
-    private void pollRelayVerification(CompletableFuture<org.json.JSONObject> result, RelayVerification verification,
-                                       long stateBeforeWrite, long deadline, String detail) {
-        if (result.isDone()) return;
-        if (lastStateAt > stateBeforeWrite && verification.matches()) {
-            try {
-                org.json.JSONObject value = new org.json.JSONObject().put("accepted", true).put("verified", true).put("observedAt", lastStateAt);
-                if (detail != null) value.put("detail", detail);
-                result.complete(value);
+            } catch (Exception error) {
+                pendingOperations.remove(pending);
+                result.completeExceptionally(error);
             }
-            catch (Exception error) { result.completeExceptionally(error); }
-            return;
-        }
-        if (System.currentTimeMillis() >= deadline) {
-            result.completeExceptionally(new RelayException("READBACK_TIMEOUT", "The QC did not confirm the requested state in time."));
-            return;
-        }
-        keepalive.schedule(() -> pollRelayVerification(result, verification, stateBeforeWrite, deadline, detail), 50, TimeUnit.MILLISECONDS);
+        });
+        pendingOperations.timeout(pending, 25_000, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested preset catalog in time."));
+        return result;
     }
 
     private CompletableFuture<org.json.JSONObject> relayMidi(int controller, int value) {
@@ -883,7 +939,10 @@ public class QcUsbPlugin extends Plugin {
                 if (decoded != null) {
                     messagesReceived++;
                     lastMessageType = decoded.messageType;
-                    if (decoded.messageType == 4) lastPresetLibraryAt = System.currentTimeMillis();
+                    if (decoded.messageType == 4) {
+                        lastPresetLibraryAt = System.currentTimeMillis();
+                        resolvePendingPresetLibraryReads(lastPresetLibraryAt);
+                    }
                     if (decoded.messageType == 52 && resetReply != null) resetReply.countDown();
                     dispatchGatewayResponse(decoded.messageType, decoded.payload);
                     publishStateBatch(decoded.states, decoded.tempoClock);
@@ -941,39 +1000,114 @@ public class QcUsbPlugin extends Plugin {
 
     private static final class PendingGatewayRead {
         final QcNativeStateDecoder.PlannedGatewayRead plan;
-        final CompletableFuture<org.json.JSONObject> result;
 
-        PendingGatewayRead(
-            QcNativeStateDecoder.PlannedGatewayRead plan,
-            CompletableFuture<org.json.JSONObject> result
+        PendingGatewayRead(QcNativeStateDecoder.PlannedGatewayRead plan) {
+            this.plan = plan;
+        }
+    }
+
+    private static final class PendingGatewayTransaction {
+        final QcNativeStateDecoder.PlannedGatewayWrite plan;
+        final long afterObservedAt;
+        final long deadline;
+
+        PendingGatewayTransaction(
+            QcNativeStateDecoder.PlannedGatewayWrite plan, long afterObservedAt,
+            long deadline
         ) {
             this.plan = plan;
-            this.result = result;
+            this.afterObservedAt = afterObservedAt;
+            this.deadline = deadline;
+        }
+    }
+
+    private static final class PendingPresetLibraryRead {
+        final RelayJsonRead read;
+        final long afterObservedAt;
+
+        PendingPresetLibraryRead(RelayJsonRead read, long afterObservedAt) {
+            this.read = read;
+            this.afterObservedAt = afterObservedAt;
+        }
+    }
+
+    private void resolvePendingGatewayTransactions(long observedAt, long now) {
+        for (QcPendingOperations.Entry<PendingGatewayTransaction> entry : pendingOperations.entries(PendingGatewayTransaction.class)) {
+            PendingGatewayTransaction pending = entry.operation;
+            if (entry.result.isDone()) {
+                pendingOperations.remove(entry);
+                continue;
+            }
+            int state = stateDecoder.gatewayTransactionState(
+                pending.plan, pending.afterObservedAt, pending.deadline, observedAt, now);
+            if (state == 0) continue;
+            if (!pendingOperations.remove(entry)) continue;
+            if (state == 1) {
+                try {
+                    entry.result.complete(new org.json.JSONObject()
+                        .put("accepted", true).put("verified", true)
+                        .put("observedAt", observedAt).put("detail", pending.plan.detail));
+                } catch (Exception error) {
+                    entry.result.completeExceptionally(error);
+                }
+            } else {
+                entry.result.completeExceptionally(new RelayException(
+                    "READBACK_TIMEOUT", "The QC did not confirm the requested state in time."));
+            }
+        }
+    }
+
+    private void resolvePendingPresetLibraryReads(long observedAt) {
+        for (QcPendingOperations.Entry<PendingPresetLibraryRead> entry : pendingOperations.entries(PendingPresetLibraryRead.class)) {
+            PendingPresetLibraryRead pending = entry.operation;
+            if (entry.result.isDone() || observedAt <= pending.afterObservedAt) continue;
+            try {
+                org.json.JSONObject value = pending.read.get();
+                if (pendingOperations.remove(entry)) {
+                    entry.result.complete(value);
+                }
+            } catch (Exception ignored) {
+                // The decoder may still be assembling a multi-message catalog.
+                // A later type-4 event will retry this read without polling.
+            }
         }
     }
 
     private void dispatchGatewayResponse(int messageType, byte[] payload) {
         if (messageType == 40) {
-            PendingBackup pending = pendingBackup;
+            QcPendingOperations.Entry<PendingBackup> pending = pendingBackup;
             if (pending != null) {
                 try {
-                    JSObject update = stateDecoder.consumeBackupChunk(payload, pending.name);
+                    JSObject update = stateDecoder.consumeBackupChunk(payload, pending.operation.name);
+                    int chunks = update.getInteger("chunks", pending.operation.chunks);
+                    int ignored = update.getInteger("ignoredPrefixChunks", pending.operation.ignoredPrefixChunks);
+                    if (chunks > pending.operation.chunks || ignored > pending.operation.ignoredPrefixChunks) pending.operation.lastActivityAt = System.currentTimeMillis();
+                    pending.operation.chunks = chunks;
+                    pending.operation.ignoredPrefixChunks = ignored;
+                    pending.operation.started = update.getBoolean("started", pending.operation.started);
                     if (update.getBoolean("complete", false) && pendingBackup == pending) {
                         pendingBackup = null;
-                        pending.result.complete(JSObject.fromJSONObject((org.json.JSONObject) update.get("backup")));
+                        if (pendingOperations.remove(pending)) {
+                            org.json.JSONObject document = (org.json.JSONObject) update.get("backup");
+                            metadataIo.execute(() -> {
+                                try { pending.result.complete(saveBackupDocument(document, pending.operation.name)); }
+                                catch (Exception error) { pending.result.completeExceptionally(error); }
+                            });
+                        }
                     }
                 } catch (Exception error) {
                     if (pendingBackup == pending) pendingBackup = null;
+                    pendingOperations.remove(pending);
                     pending.result.completeExceptionally(error);
                 }
             }
         }
-        for (var entry : pendingGatewayReads.entrySet()) {
-            PendingGatewayRead pending = entry.getValue();
-            if (pending.plan.responseType != messageType || pending.result.isDone()) continue;
+        for (QcPendingOperations.Entry<PendingGatewayRead> entry : pendingOperations.entries(PendingGatewayRead.class)) {
+            PendingGatewayRead pending = entry.operation;
+            if (pending.plan.responseType != messageType || entry.result.isDone()) continue;
             try {
                 org.json.JSONObject value = stateDecoder.decodeGatewayResponse(pending.plan, payload);
-                if (pendingGatewayReads.remove(entry.getKey(), pending)) pending.result.complete(value);
+                if (pendingOperations.remove(entry)) entry.result.complete(value);
             } catch (Exception ignored) {
                 // A response type may be shared by unrelated or differently
                 // correlated device messages. Keep waiting for this plan's
@@ -1005,6 +1139,8 @@ public class QcUsbPlugin extends Plugin {
             states.put(state);
         }
         stateDecoder.sessionStateObserved(observedAt, presetSynchronized);
+        resolvePendingReady();
+        resolvePendingGatewayTransactions(observedAt, observedAt);
         JSObject frame = new JSObject();
         frame.put("observedAt", observedAt);
         frame.put("states", states);
@@ -1071,14 +1207,10 @@ public class QcUsbPlugin extends Plugin {
         currentSetlistFactory = false;
         currentPresetName = null;
         currentMasterVolume = -1;
-        for (PendingGatewayRead pending : pendingGatewayReads.values()) {
-            pending.result.completeExceptionally(new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected during the read."));
-        }
-        pendingGatewayReads.clear();
-        PendingBackup backup = pendingBackup;
+        pendingOperations.failAll(() -> new RelayException(
+            "NOT_CONNECTED", "Quad Cortex USB disconnected during a pending operation."));
         pendingBackup = null;
-        if (backup != null) backup.result.completeExceptionally(
-            new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected during the backup."));
+        pendingReady = null;
         synchronized (stateEventLock) {
             stateEventLog.clear();
             nextStateSequence = 1;

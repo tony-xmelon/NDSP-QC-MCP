@@ -18,8 +18,8 @@ pub enum ResponseDecodeError {
     InvalidPng,
     #[error("the QC backup exceeded the 32 MiB safety limit")]
     OversizedBackup,
-    #[error("the QC backup contained more than one final chunk")]
-    DuplicateBackupTerminator,
+    #[error("the QC backup stream ended with an incomplete or unsupported document")]
+    InvalidBackupDocument,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -56,37 +56,88 @@ pub struct TempoClock {
 #[derive(Debug, Default)]
 pub struct BackupAssembler {
     document: String,
-    final_chunks: u8,
+    started: bool,
+    chunks: usize,
+    ignored_prefix_chunks: usize,
+    ignored_prefix_terminators: usize,
 }
 
 impl BackupAssembler {
     pub fn reset(&mut self) {
         self.document.clear();
-        self.final_chunks = 0;
+        self.started = false;
+        self.chunks = 0;
+        self.ignored_prefix_chunks = 0;
+        self.ignored_prefix_terminators = 0;
+    }
+
+    pub fn started(&self) -> bool {
+        self.started
+    }
+
+    pub fn chunks(&self) -> usize {
+        self.chunks
+    }
+
+    pub fn ignored_prefix_chunks(&self) -> usize {
+        self.ignored_prefix_chunks
+    }
+
+    pub fn ignored_prefix_terminators(&self) -> usize {
+        self.ignored_prefix_terminators
     }
 
     pub fn push(&mut self, payload: &[u8]) -> Result<Option<String>, ResponseDecodeError> {
         let message = pa::LocalBackupMessage::decode(payload)?;
-        if let Some(pa::local_backup_message::BackupJson::BackupJson(chunk)) = message.backup_json {
-            self.document.push_str(&chunk);
-            if self.document.len() > 32 * 1024 * 1024 {
-                self.reset();
-                return Err(ResponseDecodeError::OversizedBackup);
-            }
-        }
-        if matches!(
+        let terminal = matches!(
             message.is_last_chunk,
             Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true))
-        ) {
-            self.final_chunks = self.final_chunks.saturating_add(1);
+        );
+        let chunk = match message.backup_json {
+            Some(pa::local_backup_message::BackupJson::BackupJson(chunk)) => chunk,
+            None => String::new(),
+        };
+
+        if !self.started {
+            // Current QC firmware does not echo request_id on LocalBackup
+            // replies. A new client can therefore inherit the tail of a
+            // transfer started by an earlier session. Synchronize only at a
+            // JSON document boundary and ignore every preceding fragment or
+            // terminator.
+            if !chunk.trim_start().starts_with('{') {
+                if !chunk.is_empty() || terminal {
+                    self.ignored_prefix_chunks += 1;
+                }
+                if terminal {
+                    self.ignored_prefix_terminators += 1;
+                }
+                return Ok(None);
+            }
+            self.started = true;
         }
-        if self.final_chunks > 1 {
+
+        self.chunks += 1;
+        self.document.push_str(&chunk);
+        if self.document.len() > 32 * 1024 * 1024 {
             self.reset();
-            return Err(ResponseDecodeError::DuplicateBackupTerminator);
+            return Err(ResponseDecodeError::OversizedBackup);
         }
-        if self.final_chunks == 1 {
+
+        if terminal {
+            let valid = serde_json::from_str::<serde_json::Value>(&self.document)
+                .ok()
+                .is_some_and(|document| {
+                    document.get("type").and_then(serde_json::Value::as_str) == Some("backup")
+                        && document.get("creator").and_then(serde_json::Value::as_str)
+                            == Some("quad")
+                });
+            if !valid {
+                self.reset();
+                return Err(ResponseDecodeError::InvalidBackupDocument);
+            }
             let complete = std::mem::take(&mut self.document);
-            self.final_chunks = 0;
+            self.started = false;
+            self.chunks = 0;
             return Ok(Some(complete));
         }
         Ok(None)
@@ -263,14 +314,14 @@ mod tests {
         let mut backup = BackupAssembler::default();
         let first = pa::LocalBackupMessage {
             backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
-                "{\"type\":".into(),
+                "{\"type\":\"backup\",".into(),
             )),
             ..Default::default()
         }
         .encode_to_vec();
         let last = pa::LocalBackupMessage {
             backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
-                "\"backup\"}".into(),
+                "\"creator\":\"quad\"}".into(),
             )),
             is_last_chunk: Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true)),
             ..Default::default()
@@ -279,7 +330,79 @@ mod tests {
         assert_eq!(backup.push(&first).unwrap(), None);
         assert_eq!(
             backup.push(&last).unwrap().as_deref(),
-            Some("{\"type\":\"backup\"}")
+            Some("{\"type\":\"backup\",\"creator\":\"quad\"}")
         );
+
+        let stale_tail = pa::LocalBackupMessage {
+            backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
+                "old-tail".into(),
+            )),
+            is_last_chunk: Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert_eq!(backup.push(&stale_tail).unwrap(), None);
+        assert_eq!(backup.push(&first).unwrap(), None);
+        assert_eq!(
+            backup.push(&last).unwrap().as_deref(),
+            Some("{\"type\":\"backup\",\"creator\":\"quad\"}")
+        );
+    }
+
+    #[test]
+    fn backup_ignores_an_uncorrelated_stale_tail_before_the_next_document() {
+        let stale_tail = pa::LocalBackupMessage {
+            backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
+                "end-of-an-older-document".into(),
+            )),
+            is_last_chunk: Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let valid = pa::LocalBackupMessage {
+            backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
+                "{\"type\":\"backup\",\"creator\":\"quad\"}".into(),
+            )),
+            is_last_chunk: Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+
+        let mut backup = BackupAssembler::default();
+        assert_eq!(backup.push(&stale_tail).unwrap(), None);
+        assert!(!backup.started());
+        assert_eq!(backup.ignored_prefix_chunks(), 1);
+        assert_eq!(backup.ignored_prefix_terminators(), 1);
+        assert_eq!(
+            backup.push(&valid).unwrap().as_deref(),
+            Some("{\"type\":\"backup\",\"creator\":\"quad\"}")
+        );
+    }
+
+    #[test]
+    fn backup_rejects_a_partial_document_instead_of_splicing_a_retry() {
+        let first = pa::LocalBackupMessage {
+            backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
+                "{\"type\":\"backup\",".into(),
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let broken_last = pa::LocalBackupMessage {
+            backup_json: Some(pa::local_backup_message::BackupJson::BackupJson(
+                "not-json".into(),
+            )),
+            is_last_chunk: Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true)),
+            ..Default::default()
+        }
+        .encode_to_vec();
+
+        let mut backup = BackupAssembler::default();
+        assert_eq!(backup.push(&first).unwrap(), None);
+        assert_eq!(
+            backup.push(&broken_last).unwrap_err().to_string(),
+            "the QC backup stream ended with an incomplete or unsupported document"
+        );
+        assert!(!backup.started());
     }
 }

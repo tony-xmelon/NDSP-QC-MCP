@@ -37,6 +37,12 @@ class GridRoute(TypedDict):
     splitColumn: NotRequired[int]
     mixColumn: NotRequired[int]
 
+class IoPortState(TypedDict):
+    kind: Literal["input", "output", "headphones", "usb", "expression"]
+    id: int
+    label: str
+    plugged: bool
+
 class ModeSlot(TypedDict):
     slot: Literal[0, 1, 2]
     label: str
@@ -48,7 +54,7 @@ class BypassUpdate(TypedDict):
     bypassed: bool
 
 class QcStateUpdate(TypedDict):
-    kind: Literal["scene", "dirty", "master", "sceneLabel", "sceneColor", "position", "preset", "bypass", "bypassBatch", "mode", "tempo", "parameter"]
+    kind: Literal["scene", "dirty", "master", "sceneLabel", "sceneColor", "position", "preset", "bypass", "bypassBatch", "mode", "tempo", "parameter", "ioPorts"]
     activeScene: NotRequired[int]
     dirty: NotRequired[bool]
     masterVolume: NotRequired[float]
@@ -65,6 +71,7 @@ class QcStateUpdate(TypedDict):
     sceneColors: NotRequired[list[str]]
     blocks: NotRequired[list[GridBlock]]
     routes: NotRequired[list[GridRoute]]
+    ioPorts: NotRequired[list[IoPortState]]
     mode: NotRequired[Literal["PRESET", "SCENE", "STOMP", "HYBRID"]]
     modeSlots: NotRequired[list[ModeSlot]]
     footswitchModes: NotRequired[list[Literal["PRESET", "SCENE", "STOMP"]]]
@@ -137,6 +144,7 @@ class PresetSnapshot(TypedDict):
     footswitchStates: NotRequired[list[FootswitchState]]
     blocks: list[GridBlock]
     routes: list[GridRoute]
+    ioPorts: NotRequired[list[IoPortState]]
     tempo: int
     tempoLedEnabled: NotRequired[bool]
     tempoPulseEpochMs: NotRequired[int]

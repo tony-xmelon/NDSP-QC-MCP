@@ -15,12 +15,11 @@ final class QcUsbProfile {
     static final long INITIAL_SYNC_TIMEOUT_MS = 2000L;
     static final long PRESET_SYNC_TIMEOUT_MS = 15000L;
     static final long COMMAND_CONFIRMATION_TIMEOUT_MS = 3000L;
-    static final long CONFIRMATION_POLL_INTERVAL_MS = 100L;
     static final int FOOTSWITCH_BASE_CONTROLLER = 35;
     static final int TAP_TEMPO_CONTROLLER = 44;
     static final int MODE_SLOT_CONTROLLER = 47;
     static final int MIDI_PRESSED_VALUE = 127;
-    static final int[] LIVE_SUBSCRIPTIONS = {15, 2, 13, 14, 17, 33, 34, 21, 3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 57, 60};
+    static final int[] LIVE_SUBSCRIPTIONS = {3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 15, 57, 60, 17, 33, 34, 21, 2, 13, 14};
 
     private QcUsbProfile() {}
 }

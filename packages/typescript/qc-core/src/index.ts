@@ -1,9 +1,9 @@
 export { applyQcStateUpdate, applyQcStateUpdates, bypassAddress, clearPendingBypassChanges, markPendingBypass, movePresetInSnapshot, reconcilePendingBypass, reconcilePresetSnapshot, reconcileQcStateUpdates, recordPendingBypassChanges, reduceQcStateFrame, sceneLetter, selectModeSlotInSnapshot, selectSceneInSnapshot, setBlockBypassInSnapshot, setTempoInSnapshot, type PendingBypassIntent, type PendingBypassIntents, type QcStateUpdate } from "./state.ts";
-export { recordTempoTap, type TapTempoResult } from "./tempo.ts";
+export { recordTempoTap, synchronizeTempoPulseEpoch, type TapTempoResult } from "./tempo.ts";
 export { blockSelectionIntent, emptyBlockEditorSession, parameterDrafts, reduceBlockEditorSession, updateBlockParameter, updateBlockParameters, type BlockEditorSession, type BlockEditorSessionAction } from "./editor.ts";
 export { dispatchSurfaceCommand, surfaceCommand, type QcSurfaceAction, type QcSurfaceCommand, type QcSurfaceCommandHandlers } from "./surface-actions.ts";
 export { applyFootswitchPreview, footswitchIntent, footswitchLeds, optimisticallyPressFootswitch, type FootswitchIntent, type FootswitchLed } from "./footswitch.ts";
-export { assistantActionPrompt, assistantHelp, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, validateAssistantActions, type AssistantAction, type AssistantIntent, type AssistantReply, type ValidatedAssistantAction } from "./assistant.ts";
+export { assistantActionPrompt, assistantIntentToolName, assistantToolActionPrompt, assistantHelp, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, validateAssistantActions, type AssistantAction, type AssistantIntent, type AssistantReply, type ValidatedAssistantAction } from "./assistant.ts";
 export { SHARED_QC_ACTIONS, type SharedQcActionName } from "./generated-actions.ts";
 export { assistantActionCommand, assistantCommandDetail, assistantIntentCommand, type QcAssistantDeviceCommand } from "./assistant-execution.ts";
 export type { QcCommandResult, QcDeviceTransport } from "./transport.ts";
@@ -12,4 +12,4 @@ export { QcCommandCoordinator, type QcCommandToken, type QcOptimisticCommand } f
 export { inputRouteOptions, outputRouteOptions, routeDraft, routeDraftsFromSnapshot, routeOptionValue, routeOptionsForRow, routePickerGroup, routePickerLabel, updateRouteDraft, type RouteDraft, type RouteDrafts, type RouteOption, type RoutePickerGroup, type RouteSide } from "./routing.ts";
 export { demoBlockDetails } from "./demo-parameters.ts";
 export { appendConversationMessage, recentModelConversation, runToolConversation, type ConversationMessage, type ConversationRole, type ModelConversationMessage, type ToolExecutionResult, type ToolLoopResponse, type ToolLoopResult } from "./chat-session.ts";
-export { SHARED_QC_ASSISTANT_TOOLS, assistantAccessPermitsTool, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, isSharedQcAssistantTool, numericAssistantArgument, type AssistantAccessMode, type AssistantToolCall, type AssistantToolDefinition } from "./assistant-tools.ts";
+export { SHARED_QC_ASSISTANT_TOOLS, assistantAccessPermitsTool, assistantCompactToolCatalog, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, isSharedQcAssistantTool, numericAssistantArgument, validateAssistantToolCalls, type AssistantAccessMode, type AssistantToolCall, type AssistantToolDefinition } from "./assistant-tools.ts";

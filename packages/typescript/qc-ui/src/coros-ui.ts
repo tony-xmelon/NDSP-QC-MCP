@@ -5,6 +5,16 @@ export const GRID_ROUTE_BOUNDARIES = [75, 141, 228.5, 317, 404.5, 488, 572, 659.
 
 export const PRESET_TITLE_RIGHT_EDGE = 612;
 
+export function presetTitlePresentation(name: string, dirty: boolean) {
+  const normalizedName = name.trim() || "Unsaved";
+  const unsaved = normalizedName.toLocaleLowerCase() === "unsaved";
+  return {
+    text: `${normalizedName}${dirty ? "*" : ""}`,
+    dimmed: unsaved && !dirty,
+    italic: dirty
+  };
+}
+
 export function presetTitleLayout(locationWidth: number, titleWidthAtFullSize: number) {
   const start = 14 + Math.max(0, locationWidth) + 16;
   const maxWidth = Math.max(180, PRESET_TITLE_RIGHT_EDGE - start);
@@ -58,6 +68,22 @@ export function rowHasVisibleSignalRail(blockCount: number, route?: { input?: st
     || Boolean(route?.output && route.output !== "Internal")
     || route?.splitColumn !== undefined
     || route?.mixColumn !== undefined;
+}
+
+export function routedPortIsPlugged(
+  side: "input" | "output",
+  routeId: number | undefined,
+  ports: readonly { kind: string; id: number; plugged: boolean }[] | undefined
+): boolean | undefined {
+  if (routeId === undefined || routeId === 0 || !ports?.length) return undefined;
+  const members = side === "input"
+    ? ({ 3: [1, 2], 6: [4, 5] } as Record<number, number[]>)[routeId] ?? [routeId]
+    : ({ 1: [1, 4, 5], 2: [2, 6, 7], 3: [3, 8, 9], 19: [1, 2, 3, 4, 5, 6, 7, 8, 9] } as Record<number, number[]>)[routeId] ?? [routeId];
+  const kind = side;
+  const relevant = ports.filter((port) => port.kind === kind && members.includes(port.id));
+  const usesUsb = side === "input" ? routeId >= 8 && routeId <= 13 : routeId >= 10 && routeId <= 22 && ![16, 17, 18, 19].includes(routeId);
+  if (usesUsb || (side === "output" && routeId === 19)) relevant.push(...ports.filter((port) => port.kind === "usb"));
+  return relevant.length ? relevant.some((port) => port.plugged) : undefined;
 }
 
 export const GRID_CONTEXT_MENU = [

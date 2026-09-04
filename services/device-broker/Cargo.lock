@@ -447,6 +447,7 @@ dependencies = [
  "prost",
  "qc-device-runtime",
  "qc-protocol",
+ "qc-windows-midi",
  "serde",
  "serde_json",
  "thiserror",
@@ -475,6 +476,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "qc-windows-midi"
+version = "0.1.0"
+dependencies = [
+ "qc-protocol",
+ "windows-sys",
 ]
 
 [[package]]

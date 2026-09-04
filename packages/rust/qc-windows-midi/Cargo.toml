@@ -1,0 +1,12 @@
+[package]
+name = "qc-windows-midi"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Shared Quad Cortex Windows MIDI output transport"
+
+[dependencies]
+qc-protocol = { path = "../qc-protocol" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Media_Audio"] }

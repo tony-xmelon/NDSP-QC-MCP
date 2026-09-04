@@ -37,6 +37,13 @@ export interface GridRoute {
   mixColumn?: number;
 }
 
+export interface IoPortState {
+  kind: "input" | "output" | "headphones" | "usb" | "expression";
+  id: number;
+  label: string;
+  plugged: boolean;
+}
+
 export interface ModeSlot {
   slot: 0 | 1 | 2;
   label: string;
@@ -50,7 +57,7 @@ export interface BypassUpdate {
 }
 
 export interface QcStateUpdate {
-  kind: "scene" | "dirty" | "master" | "sceneLabel" | "sceneColor" | "position" | "preset" | "bypass" | "bypassBatch" | "mode" | "tempo" | "parameter";
+  kind: "scene" | "dirty" | "master" | "sceneLabel" | "sceneColor" | "position" | "preset" | "bypass" | "bypassBatch" | "mode" | "tempo" | "parameter" | "ioPorts";
   activeScene?: number;
   dirty?: boolean;
   masterVolume?: number;
@@ -67,6 +74,7 @@ export interface QcStateUpdate {
   sceneColors?: string[];
   blocks?: GridBlock[];
   routes?: GridRoute[];
+  ioPorts?: IoPortState[];
   mode?: "PRESET" | "SCENE" | "STOMP" | "HYBRID";
   modeSlots?: ModeSlot[];
   footswitchModes?: ("PRESET" | "SCENE" | "STOMP")[];
@@ -143,6 +151,7 @@ export interface PresetSnapshot {
   footswitchStates?: FootswitchState[];
   blocks: GridBlock[];
   routes: GridRoute[];
+  ioPorts?: IoPortState[];
   tempo: number;
   tempoLedEnabled?: boolean;
   tempoPulseEpochMs?: number;

@@ -138,6 +138,24 @@ SHARED_QC_ACTIONS = {
     "access": "modify",
     "description": "Immediately select a performance scene, numbered 0 through 7."
   },
+  "copy_scene": {
+    "rpc": "device.copyScene",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Copy or swap two scenes in the current preset and verify the resulting scene state."
+  },
+  "set_scene_label": {
+    "rpc": "device.setSceneLabel",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Set or clear the label of one scene in the current preset."
+  },
+  "set_scene_color": {
+    "rpc": "device.setSceneColor",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Set the display color of one scene in the current preset."
+  },
   "press_footswitch": {
     "rpc": "device.pressFootswitch",
     "classification": "live-write",

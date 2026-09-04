@@ -59,7 +59,9 @@ fn probe() -> ProbeResult {
 
 fn main() {
     if std::env::args().any(|argument| argument == "--stdio") {
-        if let Err(error) = qc_device_broker::rpc::serve_stdio(DeviceController::start()) {
+        if let Err(error) =
+            qc_device_broker::rpc::serve_stdio(DeviceController::start_disconnected())
+        {
             eprintln!("{error}");
             std::process::exit(1);
         }

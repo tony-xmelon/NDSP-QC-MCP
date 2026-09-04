@@ -192,10 +192,57 @@ class QcTools:
 
     def select_scene(self, scene: int, expected_preset_name: str) -> Any:
         """Temporarily select a bounded scene, guarded by the current preset name."""
-        if isinstance(scene, bool) or not 0 <= scene < SCENE_COUNT:
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
             raise ValueError(f"scene must be an integer from 0 through {SCENE_COUNT - 1} (A through H)")
         return self._request("select_scene", {
             "scene": scene,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def copy_scene(
+        self, from_scene: int, to_scene: int, swap: bool, expected_preset_name: str
+    ) -> Any:
+        """Copy or swap two scenes, guarded by the current preset name."""
+        for name, scene in (("from_scene", from_scene), ("to_scene", to_scene)):
+            if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+                raise ValueError(f"{name} must be an integer from 0 through {SCENE_COUNT - 1} (A through H)")
+        if from_scene == to_scene:
+            raise ValueError("from_scene and to_scene must be different")
+        if not isinstance(swap, bool):
+            raise ValueError("swap must be true or false")
+        return self._request("copy_scene", {
+            "fromScene": from_scene,
+            "toScene": to_scene,
+            "swap": swap,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_scene_label(self, scene: int, label: str | None, expected_preset_name: str) -> Any:
+        """Set or clear a scene label, guarded by the current preset name."""
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+            raise ValueError(f"scene must be an integer from 0 through {SCENE_COUNT - 1} (A through H)")
+        if label is not None:
+            if not isinstance(label, str):
+                raise ValueError("label must be a string or null")
+            if len(label) > 32:
+                raise ValueError("label must contain at most 32 characters")
+            if any(ord(character) < 32 or ord(character) == 127 for character in label):
+                raise ValueError("label must not contain control characters")
+        return self._request("set_scene_label", {
+            "scene": scene,
+            "label": label,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
+    def set_scene_color(self, scene: int, color: int, expected_preset_name: str) -> Any:
+        """Set a scene ARGB color, guarded by the current preset name."""
+        if isinstance(scene, bool) or not isinstance(scene, int) or not 0 <= scene < SCENE_COUNT:
+            raise ValueError(f"scene must be an integer from 0 through {SCENE_COUNT - 1} (A through H)")
+        if isinstance(color, bool) or not isinstance(color, int) or not 0 <= color <= 0xFFFFFFFF:
+            raise ValueError("color must be an ARGB integer from 0 through 4294967295")
+        return self._request("set_scene_color", {
+            "scene": scene,
+            "color": color,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
         })
 

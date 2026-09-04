@@ -334,6 +334,12 @@ class FakeDevice:
     def tap_screen(self, x, y): return {"detail": f"tap {x}:{y}"}
     def select_scene(self, scene, expected_preset_name=""):
         return {"detail": f"scene {scene}", "snapshot": self.snapshot()}
+    def copy_scene(self, from_scene, to_scene, swap=False, expected_preset_name=""):
+        return {"detail": f"scene-copy {from_scene}:{to_scene}:{swap}", "snapshot": self.snapshot()}
+    def set_scene_label(self, scene, label, expected_preset_name=""):
+        return {"detail": f"scene-label {scene}:{label}", "snapshot": self.snapshot()}
+    def set_scene_color(self, scene, color, expected_preset_name=""):
+        return {"detail": f"scene-color {scene}:{color}", "snapshot": self.snapshot()}
     def toggle_bypass(self, row, column, expected_scene, expected_bypassed, desired_bypassed, expected_preset_name=""):
         return {"detail": f"bypass {row}:{column}:{expected_scene}:{expected_bypassed}:{desired_bypassed}", "snapshot": self.snapshot()}
     def move_block(self, row, from_column, to_column, expected_model_id, expected_preset_name=""):
@@ -454,6 +460,60 @@ class PyQuadCortexParityTests(unittest.TestCase):
             ("preset", "My Presets", 12, False), ("capture",), ("tap", 799, 479),
         ])
 
+    def test_scene_management_delegates_and_verifies_device_readback(self):
+        class Preset:
+            name = "Test"
+
+            def __init__(self):
+                self.scene_labels = [f"Scene {chr(65 + index)}" for index in range(8)]
+                self.scene_colors = [0xFF000000 + index for index in range(8)]
+
+        preset = Preset()
+        calls = []
+
+        def copy_scene(source, destination, swap=False):
+            calls.append(("copy", source, destination, swap))
+            old_destination = (preset.scene_labels[destination], preset.scene_colors[destination])
+            preset.scene_labels[destination] = preset.scene_labels[source]
+            preset.scene_colors[destination] = preset.scene_colors[source]
+            if swap:
+                preset.scene_labels[source], preset.scene_colors[source] = old_destination
+
+        def set_scene_label(scene, label):
+            calls.append(("label", scene, label))
+            preset.scene_labels[scene] = " " if label is None else label
+
+        def set_scene_color(scene, color):
+            calls.append(("color", scene, color))
+            preset.scene_colors[scene] = color
+
+        qc = SimpleNamespace(
+            read_current_preset=lambda: preset,
+            copy_scene=copy_scene,
+            set_scene_label=set_scene_label,
+            set_scene_color=set_scene_color,
+            preset_dirty=lambda: True,
+        )
+        device = PyQuadCortexDevice()
+        device._qc = qc
+        device.snapshot = lambda: {"presetName": "Test"}
+
+        self.assertIn("copied", device.copy_scene(0, 1, False, "Test")["detail"])
+        self.assertIn("label updated", device.set_scene_label(2, None, "Test")["detail"])
+        self.assertIn("color updated", device.set_scene_color(3, 0xFFFF02C2, "Test")["detail"])
+        self.assertEqual(calls, [
+            ("copy", 0, 1, False),
+            ("label", 2, None),
+            ("color", 3, 0xFFFF02C2),
+        ])
+
+        with self.assertRaisesRegex(ValueError, "different"):
+            device.copy_scene(1, 1, False, "Test")
+        with self.assertRaisesRegex(ValueError, "32"):
+            device.set_scene_label(0, "x" * 33, "Test")
+        with self.assertRaisesRegex(ValueError, "4294967295"):
+            device.set_scene_color(0, 0x100000000, "Test")
+
     def test_python_adapter_rejects_invalid_values_before_device_io(self):
         device = PyQuadCortexDevice()
         device._qc = SimpleNamespace()
@@ -550,7 +610,7 @@ class ServiceTests(unittest.TestCase):
     def test_status_reports_save_as_and_remaining_write_lock(self):
         result = self.request("system.status")["result"]
         self.assertTrue(result["gatewayAvailable"])
-        self.assertEqual(result["gatewayApiVersion"], 2)
+        self.assertEqual(result["gatewayApiVersion"], 3)
         self.assertIn("modelRepoParameterMetadata", result["capabilities"])
         self.assertNotIn("nativeBroker", result["capabilities"])
         self.assertIn("nativeStateEvents", result["capabilities"])
@@ -592,6 +652,15 @@ class ServiceTests(unittest.TestCase):
 
     def test_live_control_methods_are_dispatched_with_params(self):
         scene = self.request("device.selectScene", {"scene": 3, "expectedPresetName": "Test"})
+        scene_copy = self.request("device.copyScene", {
+            "fromScene": 1, "toScene": 2, "swap": True, "expectedPresetName": "Test"
+        })
+        scene_label = self.request("device.setSceneLabel", {
+            "scene": 2, "label": None, "expectedPresetName": "Test"
+        })
+        scene_color = self.request("device.setSceneColor", {
+            "scene": 2, "color": 0xFFFF02C2, "expectedPresetName": "Test"
+        })
         bypass = self.request("device.toggleBypass", {
             "row": 2, "column": 4, "expectedScene": 3, "expectedBypassed": False,
             "desiredBypassed": True, "expectedPresetName": "Test"
@@ -680,6 +749,9 @@ class ServiceTests(unittest.TestCase):
         })
         backup = self.request("device.createBackup", {"name": "Native copy"})
         self.assertEqual(scene["result"]["detail"], "scene 3")
+        self.assertEqual(scene_copy["result"]["detail"], "scene-copy 1:2:True")
+        self.assertEqual(scene_label["result"]["detail"], "scene-label 2:None")
+        self.assertEqual(scene_color["result"]["detail"], "scene-color 2:4294902466")
         self.assertEqual(bypass["result"]["detail"], "bypass 2:4:3:False:True")
         self.assertEqual(moved["result"]["detail"], "move 2:4:6:123")
         self.assertEqual(models["result"]["models"][0]["name"], "Fake model")

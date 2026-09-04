@@ -1,0 +1,68 @@
+{
+  "target": "windows",
+  "transport": {
+    "kind": "mcp-http",
+    "endpoint": "https://relay.example.com/mcp",
+    "bearerTokenEnv": "QC_MCP_BEARER_TOKEN",
+    "timeoutMs": 60000,
+    "protocolVersion": "2025-03-26"
+  },
+  "safety": {
+    "expectedSerialSuffix": "LAST4"
+  },
+  "scratchPreset": {
+    "setlistKey": "REPLACE_WITH_USER_SETLIST_KEY",
+    "position": 0,
+    "requiredNamePrefix": "QC MCP TEST"
+  },
+  "presetScreenshot": {
+    "folderName": "REPLACE_WITH_FOLDER_NAME",
+    "position": 0,
+    "isFactory": false
+  },
+  "parameter": {
+    "row": 0,
+    "column": 0,
+    "index": 0,
+    "testValue": 0.55
+  },
+  "temporaryBlock": {
+    "modelId": 0,
+    "row": 3,
+    "addColumn": 6,
+    "moveColumn": 7,
+    "footswitch": 7
+  },
+  "routing": {
+    "row": 3,
+    "testInputId": 1,
+    "testOutputId": 1,
+    "testSplitColumn": 2,
+    "testMixColumn": 6
+  },
+  "performance": {
+    "scene": 1,
+    "sceneCopyDestination": 2,
+    "sceneTestLabel": "QC TEST",
+    "sceneTestColor": 6,
+    "footswitchIndex": 0,
+    "modeSlot": 1,
+    "restoreModeSlot": 0,
+    "tempo": 123,
+    "masterVolume": 60
+  },
+  "persistent": {
+    "namePrefix": "QC-MCP-TEST",
+    "slotA": { "setlistKey": "REPLACE_WITH_USER_SETLIST_KEY", "position": 254 },
+    "slotB": { "setlistKey": "REPLACE_WITH_USER_SETLIST_KEY", "position": 255 }
+  },
+  "system": {
+    "temporaryDeviceName": "QC MCP TEST"
+  },
+  "screenTap": {
+    "x": 20,
+    "y": 20,
+    "restoreX": 20,
+    "restoreY": 20
+  }
+}

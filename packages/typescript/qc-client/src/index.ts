@@ -64,11 +64,12 @@ export const demoSnapshot: PresetSnapshot = {
   masterVolume: 40,
   dirty: false,
   routes: [
-    { row: 0, input: "In 1", output: "Out 1/2" },
-    { row: 1, input: "In 2", output: "Out 3/4" },
-    { row: 2, input: "Return 1", output: "Send 1" },
-    { row: 3, input: "USB 5", output: "USB 3/4" }
+    { row: 0, inputId: 1, outputId: 1, input: "In 1", output: "Out 1/2" },
+    { row: 1, inputId: 2, outputId: 2, input: "In 2", output: "Out 3/4" },
+    { row: 2, inputId: 4, outputId: 8, input: "Return 1", output: "Send 1" },
+    { row: 3, inputId: 8, outputId: 22, input: "USB 5", output: "USB 3/4" }
   ],
+  ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: true }],
   blocks: [
     { id: "in-1", name: "IN 1", kind: "input", row: 0, column: -1 },
     { id: "gate", name: "Adaptive Gate", kind: "utility", category: "Utility", row: 0, column: 0, bypassed: true },
@@ -263,6 +264,9 @@ export interface GatewayTransport {
   captureScreen(): Promise<DeviceImage>;
   tapScreen(x: number, y: number): Promise<DeviceActionResult>;
   selectScene(scene: number, expectedPresetName: string): Promise<DeviceActionResult>;
+  copyScene(fromScene: number, toScene: number, swap: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
+  setSceneLabel(scene: number, label: string | null, expectedPresetName: string): Promise<DeviceActionResult>;
+  setSceneColor(scene: number, color: number, expectedPresetName: string): Promise<DeviceActionResult>;
   toggleBypass(row: number, column: number, expectedScene: number, expectedBypassed: boolean, desiredBypassed: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   moveBlock(row: number, fromColumn: number, toColumn: number, expectedModelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   addBlock(row: number, column: number, modelId: number, expectedPresetName: string): Promise<DeviceActionResult>;
@@ -279,6 +283,8 @@ export interface GatewayTransport {
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
   previewParameter(row: number, column: number, parameterIndex: number, value: number, expectedScene: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
+  setParameterSceneMode(row: number, column: number, parameterIndex: number, enabled: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
+  setParameterExpression(row: number, column: number, parameterIndex: number, pedal: 0 | 1 | 2, minimum: number, maximum: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setTempo(bpm: number, expectedTempo: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setMasterVolume(value: number, expectedValue: number): Promise<DeviceActionResult>;
   pressFootswitch(index: number, expectedMode: PresetSnapshot["mode"], expectedPresetName: string): Promise<DeviceActionResult>;

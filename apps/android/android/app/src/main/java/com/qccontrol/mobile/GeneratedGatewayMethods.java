@@ -22,6 +22,9 @@ final class GeneratedGatewayMethods {
         "device.captureScreen",
         "device.tapScreen",
         "device.selectScene",
+        "device.copyScene",
+        "device.setSceneLabel",
+        "device.setSceneColor",
         "device.toggleBypass",
         "device.moveBlock",
         "device.addBlock",
@@ -77,6 +80,9 @@ final class GeneratedGatewayMethods {
             case "device.captureScreen": return "CORRELATED_READ";
             case "device.tapScreen": return "TAP_SCREEN";
             case "device.selectScene": return "PLANNED_WRITE";
+            case "device.copyScene": return "PLANNED_WRITE";
+            case "device.setSceneLabel": return "PLANNED_WRITE";
+            case "device.setSceneColor": return "PLANNED_WRITE";
             case "device.toggleBypass": return "PLANNED_WRITE";
             case "device.moveBlock": return "PLANNED_WRITE";
             case "device.addBlock": return "PLANNED_WRITE";

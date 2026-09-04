@@ -1,11 +1,13 @@
 use crate::worker::DeviceController;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use qc_device_runtime::request::{
-    self as runtime_request, finalize_device_backup, GatewayResponseProjection,
-    GatewayVerification, GatewayWritePlan, PlannedWrite, PresetMutationPlan,
+    self as runtime_request, finalize_device_backup, GatewayResponseProjection, GatewayTransaction,
+    GatewayTransactionState, GatewayVerification, GatewayWritePlan, PlannedWrite,
+    PresetMutationPlan,
 };
 use qc_protocol::domain;
 use qc_protocol::responses::decode_tempo_clock;
+use qc_windows_midi::PerformanceMidi;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{self, Read, Write};
@@ -35,6 +37,7 @@ pub fn serve_stdio(controller: DeviceController) -> Result<(), String> {
     let stdin = io::stdin();
     let mut input = stdin.lock();
     let output = Arc::new(Mutex::new(io::stdout()));
+    let performance_midi = Mutex::new(PerformanceMidi::default());
     let event_output = Arc::clone(&output);
     let events = controller.subscribe_state_events();
     thread::Builder::new()
@@ -56,7 +59,7 @@ pub fn serve_stdio(controller: DeviceController) -> Result<(), String> {
         })
         .map_err(|error| format!("Could not start native event stream: {error}"))?;
     while let Some(request) = read_request(&mut input)? {
-        let response = handle(&controller, request);
+        let response = handle(&controller, &performance_midi, request);
         let mut output = output
             .lock()
             .map_err(|_| "Native broker output lock was poisoned".to_string())?;
@@ -65,7 +68,11 @@ pub fn serve_stdio(controller: DeviceController) -> Result<(), String> {
     Ok(())
 }
 
-fn handle(controller: &DeviceController, request: Request) -> Value {
+fn handle(
+    controller: &DeviceController,
+    performance_midi: &Mutex<PerformanceMidi>,
+    request: Request,
+) -> Value {
     let id = request.id.clone();
     if request.jsonrpc != "2.0" || !(id.is_u64() || id.is_i64()) {
         return error(id, -32600, "Invalid JSON-RPC request");
@@ -78,26 +85,18 @@ fn handle(controller: &DeviceController, request: Request) -> Value {
             "platform": "Rust device gateway",
             "gatewayAvailable": true,
             "gatewayApiVersion": 2,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen"],
+            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "hostMidiPerformance"],
             "message": "Shared Rust QC engine active"
         })),
         "device.status" => {
             serde_json::to_value(controller.status()).map_err(|error| error.to_string())
         }
-        "device.reconnect" => {
-            controller.reconnect();
-            Ok(ready_connection_state(
-                controller,
-                "Quad Cortex handshake complete",
-            ))
-        }
-        "device.resetSession" => {
-            controller.reconnect();
-            Ok(ready_connection_state(
-                controller,
-                "Communication session reset",
-            ))
-        }
+        "device.reconnect" => controller
+            .reconnect()
+            .map(|_| ready_connection_state(controller, "Quad Cortex handshake complete")),
+        "device.resetSession" => controller
+            .reset_session()
+            .map(|_| ready_connection_state(controller, "Communication session reset")),
         "device.disconnect" => {
             controller.disconnect();
             Ok(connection_state(controller, "Quad Cortex session closed"))
@@ -120,13 +119,27 @@ fn handle(controller: &DeviceController, request: Request) -> Value {
         "device.tapScreen" => gateway_tap_screen(controller, &request.params),
         "device.tempoClock" => gateway_tempo_clock(controller),
         "device.selectScene" => gateway_select_scene(controller, &request.params),
+        "device.copyScene" | "device.setSceneLabel" | "device.setSceneColor" => {
+            gateway_operation(controller, &request.params, &request.method)
+        }
         "device.toggleBypass" => gateway_toggle_bypass(controller, &request.params),
         "device.blockDetails" => gateway_block_details(controller, &request.params),
         "device.previewParameter" => gateway_parameter(controller, &request.params, true),
         "device.setParameter" => gateway_parameter(controller, &request.params, false),
+        "device.setParameterSceneMode" | "device.setParameterExpression" => {
+            gateway_operation(controller, &request.params, &request.method)
+        }
         "device.setTempo" => gateway_set_tempo(controller, &request.params),
         "device.setMasterVolume" => gateway_set_master_volume(controller, &request.params),
         "device.masterVolume" => gateway_master_volume(controller),
+        "device.pressFootswitch" | "device.tapTempo" | "device.selectModeSlot" => {
+            gateway_performance_midi(
+                controller,
+                performance_midi,
+                &request.method,
+                &request.params,
+            )
+        }
         "device.addBlock" => gateway_operation(controller, &request.params, "device.addBlock"),
         "device.removeBlock" => {
             gateway_operation(controller, &request.params, "device.removeBlock")
@@ -187,6 +200,12 @@ fn connection_state(controller: &DeviceController, detail: &str) -> Value {
 
 fn ready_connection_state(controller: &DeviceController, detail: &str) -> Value {
     let status = controller.wait_for_ready(Duration::from_secs(35));
+    if status.phase == "ready" {
+        // USB synchronization and state decoding run on separate workers.
+        // A successful reconnect must not return until the first decoded
+        // preset is queryable by the very next gateway call.
+        let _ = controller.wait_for_gateway_snapshot(Duration::from_secs(3), |_| true);
+    }
     json!({
         "phase": status.phase,
         "detail": if status.phase == "ready" { detail } else { &status.detail },
@@ -253,26 +272,27 @@ fn execute_gateway_read(
         return plan.projection.decode(&reply.payload);
     }
 
-    let after_sequence = controller.event_cursor();
+    let events = controller.subscribe_raw_events();
     for message in messages {
         controller.send_command(message)?;
     }
     let deadline = std::time::Instant::now() + timeout;
     loop {
-        if let Some(value) = controller
-            .events_since(after_sequence, Some(plan.response_type), 256)
-            .into_iter()
-            .find_map(|reply| plan.projection.decode(&reply.payload).ok())
-        {
-            return Ok(value);
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        match events.recv_timeout(remaining) {
+            Ok(reply) if reply.message_type == plan.response_type => {
+                if let Ok(value) = plan.projection.decode(&reply.payload) {
+                    return Ok(value);
+                }
+            }
+            Ok(_) => {}
+            Err(_) => {
+                return Err(format!(
+                    "The Quad Cortex did not return a valid {method} reply within {} seconds",
+                    timeout.as_secs()
+                ));
+            }
         }
-        if std::time::Instant::now() >= deadline {
-            return Err(format!(
-                "The Quad Cortex did not return a valid {method} reply within {} seconds",
-                timeout.as_secs()
-            ));
-        }
-        std::thread::sleep(Duration::from_millis(10));
     }
 }
 
@@ -375,6 +395,64 @@ fn execute_planned_write(
         PlannedWrite::HidOperation(operation) => controller.send_operation(operation.clone()),
         PlannedWrite::MidiControlChange { .. } => {
             Err("Host MIDI must be executed by the native application transport".into())
+        }
+    }
+}
+
+fn gateway_performance_midi(
+    controller: &DeviceController,
+    performance_midi: &Mutex<PerformanceMidi>,
+    method: &str,
+    params: &Value,
+) -> Result<Value, String> {
+    let plan = plan_gateway_write(controller, method, params)?;
+    let PlannedWrite::MidiControlChange { controller, value } = plan.write else {
+        return Err(format!("{method} did not produce a host MIDI write"));
+    };
+    let endpoint = performance_midi
+        .lock()
+        .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
+        .send(controller, value)?;
+    Ok(json!({
+        "detail": format!("{} immediately through {endpoint}; live USB state will reconcile the result.", plan.detail),
+        "immediate": true,
+        "transport": endpoint,
+    }))
+}
+
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
+}
+
+fn wait_for_transaction_event(
+    controller: &DeviceController,
+    events: &std::sync::mpsc::Receiver<crate::worker::DecodedStateFrame>,
+    verification: GatewayVerification,
+    after_observed_at_ms: u128,
+    timeout: Duration,
+) -> Option<qc_device_runtime::GatewaySnapshot> {
+    let started_at_ms = unix_ms();
+    let transaction = GatewayTransaction::new(
+        verification,
+        after_observed_at_ms,
+        started_at_ms,
+        timeout.as_millis().min(u128::from(u64::MAX)) as u64,
+    );
+    loop {
+        let remaining = transaction.remaining_ms(unix_ms());
+        if remaining == 0 {
+            return None;
+        }
+        let frame = events.recv_timeout(Duration::from_millis(remaining)).ok()?;
+        let snapshot = controller.gateway_snapshot()?;
+        match transaction.state(&snapshot, None, frame.observed_at, unix_ms()) {
+            GatewayTransactionState::Verified => return Some(snapshot),
+            GatewayTransactionState::TimedOut => return None,
+            GatewayTransactionState::Pending => {}
         }
     }
 }
@@ -485,8 +563,37 @@ fn gateway_operation(
     method: &str,
 ) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, method, params)?;
+    let events = controller.subscribe_state_events();
+    let after_observed_at_ms = u128::from(unix_ms());
     execute_gateway_write(controller, &plan)?;
-    Ok(json!({"detail": plan.detail}))
+    let request_id = next_request_id();
+    request_command(
+        controller,
+        qc_protocol::commands::read_current_preset(request_id),
+        15,
+        Some(request_id),
+        Duration::from_secs(15),
+    )?;
+    let snapshot = wait_for_transaction_event(
+        controller,
+        &events,
+        plan.verification.clone(),
+        after_observed_at_ms,
+        Duration::from_secs(2),
+    )
+    .ok_or_else(|| {
+        format!(
+            "{} was sent, but authoritative preset readback did not confirm it",
+            plan.detail
+        )
+    })?;
+    if !plan.verification.matches(&snapshot, None) {
+        return Err(format!(
+            "{} was sent, but authoritative preset readback rejected it",
+            plan.detail
+        ));
+    }
+    Ok(json!({"detail": plan.detail, "snapshot": snapshot}))
 }
 
 fn gateway_visibility(
@@ -502,6 +609,22 @@ fn gateway_visibility(
     let plan = plan_gateway_write(controller, method, params)?;
     execute_gateway_write(controller, &plan)?;
     Ok(json!({"detail": plan.detail}))
+}
+
+fn wait_for_recovered_position(
+    controller: &DeviceController,
+    setlist_key: &str,
+    position: u32,
+    require_clean: bool,
+) -> Option<qc_device_runtime::GatewaySnapshot> {
+    let matches = |snapshot: &qc_device_runtime::GatewaySnapshot| {
+        snapshot.setlist_key.trim_end_matches('/') == setlist_key.trim_end_matches('/')
+            && snapshot.preset_position == position
+            && (!require_clean || !snapshot.dirty)
+    };
+    controller
+        .wait_for_gateway_snapshot(Duration::from_secs(4), matches)
+        .filter(matches)
 }
 
 fn execute_preset_recall(
@@ -522,27 +645,16 @@ fn execute_preset_recall(
             && (!plan.require_clean || !snapshot.dirty)
     };
     let device_events = controller.subscribe_state_events();
-    let wait_for_event = |timeout: Duration,
-                          predicate: &dyn Fn(&qc_device_runtime::GatewaySnapshot) -> bool|
-     -> Option<qc_device_runtime::GatewaySnapshot> {
-        let deadline = std::time::Instant::now() + timeout;
-        loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            if remaining.is_zero() || device_events.recv_timeout(remaining).is_err() {
-                return None;
-            }
-            if let Some(snapshot) = controller
-                .gateway_snapshot()
-                .filter(|value| predicate(value))
-            {
-                return Some(snapshot);
-            }
-        }
-    };
+    let after_observed_at_ms = u128::from(unix_ms());
+    let verification = plan.verification();
     let confirm = || -> Result<qc_device_runtime::GatewaySnapshot, String> {
-        if let Some(after) = wait_for_event(Duration::from_millis(650), &|snapshot| {
-            plan.matches(snapshot)
-        }) {
+        if let Some(after) = wait_for_transaction_event(
+            controller,
+            &device_events,
+            verification.clone(),
+            after_observed_at_ms,
+            Duration::from_millis(650),
+        ) {
             return Ok(after);
         }
 
@@ -559,9 +671,13 @@ fn execute_preset_recall(
             Some(request_id),
             Duration::from_secs(1),
         )?;
-        wait_for_event(Duration::from_millis(300), &|snapshot| {
-            plan.matches(snapshot)
-        })
+        wait_for_transaction_event(
+            controller,
+            &device_events,
+            verification.clone(),
+            after_observed_at_ms,
+            Duration::from_millis(300),
+        )
         .ok_or_else(|| "The QC position readback did not reach the state engine".to_string())
     };
 
@@ -573,7 +689,7 @@ fn execute_preset_recall(
             // the QC's HID command channel is wedged even though its stream
             // can still look connected. Closing that session flushes any
             // accepted recall; the fresh handshake then reads the real slot.
-            controller.reconnect();
+            controller.reset_session()?;
             let status = controller.wait_for_ready(Duration::from_secs(12));
             if status.phase != "ready" {
                 return Err(format!(
@@ -581,10 +697,23 @@ fn execute_preset_recall(
                     status.phase, status.detail
                 ));
             }
-            let recovered =
-                wait_for_event(Duration::from_secs(2), &target_matches).ok_or_else(|| {
-                    "The recovered QC session did not publish its active position".to_string()
-                })?;
+            // The original command may have been dropped by the wedged HID
+            // channel rather than merely missing its unsolicited echo. Replay
+            // the idempotent recall/reload once on the fresh session.
+            controller.send_command(recall_message(next_request_id()))?;
+            // wait_for_ready may observe the fresh handshake after its state
+            // frame has already been published. The synchronized snapshot is
+            // authoritative after a session reset, so inspect it before
+            // waiting for another unsolicited position frame.
+            let recovered = wait_for_recovered_position(
+                controller,
+                &plan.setlist_key,
+                plan.position,
+                plan.require_clean,
+            )
+            .ok_or_else(|| {
+                "The recovered QC session did not publish its active position".to_string()
+            })?;
             if target_matches(&recovered) {
                 recovered
             } else {
@@ -715,24 +844,21 @@ fn execute_preset_mutation(
 ) -> Result<Value, String> {
     let mut observed = None;
     for stage in plan.stages {
-        let before_revision = controller
-            .gateway_snapshot()
-            .map(|snapshot| snapshot.preset_revision)
-            .unwrap_or_default();
+        let events = controller.subscribe_state_events();
+        let before_observed_at_ms = u128::from(unix_ms());
         execute_planned_write(controller, &stage.write)?;
         let verification = stage.verification;
-        let after = controller
-            .wait_for_gateway_snapshot(Duration::from_millis(stage.timeout_ms), |snapshot| {
-                let fresh = !matches!(verification, GatewayVerification::Preset { .. })
-                    || snapshot.preset_revision > before_revision;
-                fresh && verification.matches(snapshot, None)
-            })
-            .ok_or_else(|| {
-                "The preset operation did not produce a verified device snapshot".to_string()
-            })?;
-        let fresh = !matches!(verification, GatewayVerification::Preset { .. })
-            || after.preset_revision > before_revision;
-        if !fresh || !verification.matches(&after, None) {
+        let after = wait_for_transaction_event(
+            controller,
+            &events,
+            verification.clone(),
+            before_observed_at_ms,
+            Duration::from_millis(stage.timeout_ms),
+        )
+        .ok_or_else(|| {
+            "The preset operation did not produce a verified device snapshot".to_string()
+        })?;
+        if !verification.matches(&after, None) {
             return Err(
                 "The preset operation completed, but live-state verification failed.".into(),
             );
@@ -772,7 +898,7 @@ fn gateway_rename_current_preset(
 
 fn gateway_create_backup(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let name = required_text(params, "name")?;
-    let raw = controller.create_backup(Duration::from_secs(60))?;
+    let raw = controller.create_backup(Duration::from_secs(120))?;
     finalize_device_backup(&raw, &name)
 }
 
@@ -1002,9 +1128,12 @@ mod tests {
 
     #[test]
     fn system_status_identifies_the_rust_gateway_contract() {
-        let controller = DeviceController::start();
+        let controller = DeviceController::start_disconnected();
+        assert_eq!(controller.status().phase, "disconnected");
+        let performance_midi = Mutex::new(PerformanceMidi::default());
         let response = handle(
             &controller,
+            &performance_midi,
             Request {
                 jsonrpc: "2.0".into(),
                 id: json!(1),

@@ -4,8 +4,8 @@ Status snapshot: 2026-09-04
 
 Sources reviewed:
 
-- `stokes-audio/pyquadcortex` main at `a4f2d9be7da86053e0f03619c645d59180fe4e8c`
-  (2026-08-28), including its CorOS 4.x manual coverage audit.
+- `stokes-audio/pyquadcortex` main at `b018891b2d450c84a3a165b04bddb09bab4725a2`
+  (checked 2026-09-04), including its CorOS 4.x manual coverage audit.
 - `VanIseghemThomas/OpenCortex` main at
   `c9f9f983881ba908a45d2087ed64d434f97ed5d5` (2026-08-13).
 - Neural DSP's Quad Cortex manual for the user-visible product surface.
@@ -53,6 +53,42 @@ mode, splitter/mixer routing, stomp and expression assignments, preset MIDI Out,
 tempo/metronome settings, modes and Gig View, I/O controls, Global EQ, master
 volume, setlists/folders/favourites/recents, preset save/move/delete/copy,
 catalog/model pinning, capture listing/loading, and IR listing/loading.
+
+## Native Rust parity audit
+
+Rust is the deployed implementation; pyquadcortex is the comparison oracle.
+Parity is measured by user-visible capability rather than matching Python helper
+methods one-for-one.
+
+### Contracted command surface: 100%
+
+The version-3 product contract is now fully aligned: all 48 device actions are
+available to the shared Windows and Android application layer, the Python and
+Rust MCP servers, the Python compatibility gateway (with the pending
+pyquadcortex PRs), and the native Rust gateway. Including `system.status`, both
+native hosts expose all 49 gateway RPC methods. Generation and parity tests fail
+when a contract action or RPC is absent from any of those layers.
+
+This 100% figure describes the deliberately supported product command surface.
+It does not relabel unsafe, unsupported, partially researched, or internal
+pyquadcortex helpers as product commands. The remaining upstream capability
+families below are a separate expansion backlog and must not be represented as
+implemented until their Rust wire format and hardware readback are verified.
+
+| Capability family | Native Rust status |
+|---|---|
+| Session/framing, live preset state, model catalogue, blocks, bypass, parameters, routing, footswitch assignment, preset recall/save/copy, master volume, tempo, tuner/Gig View visibility, screen capture/tap, backup | Implemented |
+| Physical I/O connection state | Implemented by decoding the already-requested `IOSettings` message; projected to the shared snapshot and clients |
+| Scene copy/swap, labels and colours | Implemented in this audit with typed commands, shared validation, state-based label/colour verification, RPC and generated Windows/Android bindings |
+| Expression assignment reads | Current upstream addition reviewed: native block details already expose pedal/min/max for placed blocks; an aggregate view across lane input/output, mixer and splitter containers remains to be added |
+| Parameter scene mode and expression writes; stomp labels/momentary mode; Preset MIDI Out | Protocol is understood upstream; native Rust operations remain to be added |
+| General settings, full I/O writes, tuner settings, Global EQ, mode-cycle settings | Protocol is hardware-verified upstream; native Rust read/write projections remain to be added |
+| Favourites/recents, pinned models, captures and IR browsing/loading, setlist create/delete/duplicate and preset delete/move | Library operations remain to be added to the native Rust public contract |
+| Capture creation, imports, cloud/account operations, calibration, native bulk copy and firmware operations | Not parity targets: upstream marks these partial, unsupported, unexplored or unsafe |
+
+No unsupported candidate message is promoted merely because its protobuf type
+exists. Each remaining family requires an exact wire fixture, sparse-write rules,
+readback semantics and a native contract test before it becomes public.
 
 ## Surface not fully covered by pyquadcortex
 

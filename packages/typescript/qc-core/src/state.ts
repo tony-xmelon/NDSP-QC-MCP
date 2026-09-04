@@ -208,6 +208,15 @@ export function applyQcStateUpdate(snapshot: PresetSnapshot, state: QcStateUpdat
     tempo: state.tempo ?? snapshot.tempo,
     tempoLedEnabled: state.tempoLedEnabled ?? snapshot.tempoLedEnabled
   };
+  if (state.kind === "ioPorts" && state.ioPorts?.length) {
+    const ports = [...(snapshot.ioPorts ?? [])];
+    for (const update of state.ioPorts) {
+      const index = ports.findIndex((port) => port.kind === update.kind && port.id === update.id);
+      if (index >= 0) ports[index] = update;
+      else ports.push(update);
+    }
+    return { ...snapshot, ioPorts: ports };
+  }
   if (state.kind === "position" && state.position !== undefined) {
     const bank = Math.floor(state.position / 8) + 1;
     const setlistName = state.setlistKey?.split("/").filter(Boolean).at(-1) ?? snapshot.setlistName;

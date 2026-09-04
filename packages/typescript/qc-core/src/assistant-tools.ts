@@ -42,6 +42,64 @@ export function assistantToolCatalog(names: readonly SharedQcActionName[]): stri
   })));
 }
 
+/** Compact schema catalog for prompt-only providers that do not expose native function calling. */
+export function assistantCompactToolCatalog(mode: AssistantAccessMode): string {
+  return SHARED_QC_ACTIONS
+    .filter((action) => assistantAccessPermitsTool(mode, action.name))
+    .map((action) => {
+      const argumentsList = Object.entries(action.properties)
+        .map(([name, type]) => `${name}:${type}${action.required.includes(name as never) ? "" : "?"}`)
+        .join(",");
+      return `${action.name}(${argumentsList}) — ${action.description}`;
+    })
+    .join("\n");
+}
+
+function schemaAccepts(schema: Record<string, unknown>, value: unknown): boolean {
+  const declared = Array.isArray(schema.type) ? schema.type : [schema.type];
+  const typeMatches = declared.some((type) => {
+    if (type === "null") return value === null;
+    if (type === "boolean") return typeof value === "boolean";
+    if (type === "string") return typeof value === "string";
+    if (type === "number") return typeof value === "number" && Number.isFinite(value);
+    if (type === "integer") return typeof value === "number" && Number.isInteger(value);
+    return false;
+  });
+  if (!typeMatches) return false;
+  if (typeof value === "number") {
+    if (typeof schema.minimum === "number" && value < schema.minimum) return false;
+    if (typeof schema.maximum === "number" && value > schema.maximum) return false;
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) return false;
+  return true;
+}
+
+/** Validate prompt-generated calls against the same generated contract used for native function tools. */
+export function validateAssistantToolCalls(reply: unknown, mode: AssistantAccessMode = "full", limit = 8): AssistantToolCall[] {
+  if (!reply || typeof reply !== "object" || !Array.isArray((reply as { actions?: unknown }).actions)) return [];
+  const calls: AssistantToolCall[] = [];
+  const seen = new Set<string>();
+  for (const candidate of (reply as { actions: unknown[] }).actions.slice(0, limit)) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const { name, args } = candidate as { name?: unknown; args?: unknown };
+    if (typeof name !== "string" || !isSharedQcAssistantTool(name) || !assistantAccessPermitsTool(mode, name)) continue;
+    const definition = SHARED_QC_ACTIONS.find((action) => action.name === name);
+    if (!definition || !args || typeof args !== "object" || Array.isArray(args)) continue;
+    const values = args as Record<string, unknown>;
+    const properties = definition.inputSchema.properties as Record<string, Record<string, unknown>>;
+    if (Object.keys(values).some((key) => !(key in properties))) continue;
+    if (definition.required.some((key) => !(key in values))) continue;
+    if (Object.entries(values).some(([key, value]) => !schemaAccepts(properties[key], value))) continue;
+    const call = { name, arguments: values };
+    const key = JSON.stringify(call);
+    if (!seen.has(key)) {
+      seen.add(key);
+      calls.push(call);
+    }
+  }
+  return calls;
+}
+
 export function assistantSystemInstructions(additional: readonly string[] = []): string {
   return [
     "You are the conversational assistant inside QC Control. Answer ordinary questions naturally and concisely.",

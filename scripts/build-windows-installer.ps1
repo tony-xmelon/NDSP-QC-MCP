@@ -24,14 +24,11 @@ $rustHost = ($rustHostLine -split ":", 2)[1].Trim()
 $mediaFetcherTarget = Join-Path $binaryDirectory "qc-media-fetch-$rustHost.exe"
 $mediaFfmpegTarget = Join-Path $binaryDirectory "qc-media-ffmpeg-$rustHost.exe"
 $mediaDenoTarget = Join-Path $binaryDirectory "qc-media-deno-$rustHost.exe"
-
 & node (Join-Path $PSScriptRoot "version-app.mjs") sync
 if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Windows app version." }
 
 New-Item -ItemType Directory -Force -Path $binaryDirectory | Out-Null
 New-Item -ItemType Directory -Force -Path $sidecarBuildDirectory | Out-Null
-New-Item -ItemType Directory -Force -Path (Join-Path $sidecarBuildDirectory "spec") | Out-Null
-
 if (-not (Test-Path -LiteralPath $mediaFetcherTarget -PathType Leaf)) {
     Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe" -OutFile $mediaFetcherTarget
 }

@@ -1,6 +1,6 @@
 [package]
 name = "qc-voice-control"
-version = "0.1.81"
+version = "0.1.84"
 description = "Unofficial modular desktop controller for Quad Cortex"
 authors = ["Antoni Ivanov"]
 edition = "2021"
@@ -19,6 +19,7 @@ base64 = "0.22"
 rand = "0.9"
 qc-protocol = { path = "../../../packages/rust/qc-protocol" }
 qc-device-runtime = { path = "../../../packages/rust/qc-device-runtime" }
+qc-windows-midi = { path = "../../../packages/rust/qc-windows-midi" }
 qc-relay-client = { path = "../../../packages/rust/qc-relay-client" }
 rfd = "0.15"
 reqwest = { version = "0.13", features = ["form", "json"] }
@@ -28,6 +29,3 @@ sha2 = "0.10"
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "process", "sync", "time"] }
 webbrowser = "1"
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Media_Audio"] }

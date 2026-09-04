@@ -2,17 +2,26 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { demoSnapshot, type BlockDetails } from "../packages/typescript/qc-client/src/index.ts";
-import { assistantActionPrompt, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, validateAssistantActions } from "../packages/typescript/qc-core/src/assistant.ts";
+import { assistantActionPrompt, assistantToolActionPrompt, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, validateAssistantActions } from "../packages/typescript/qc-core/src/assistant.ts";
 import { blockSelectionIntent, emptyBlockEditorSession, parameterDrafts, reduceBlockEditorSession, updateBlockParameter } from "../packages/typescript/qc-core/src/editor.ts";
 import { applyFootswitchPreview, footswitchIntent, footswitchLeds, optimisticallyPressFootswitch } from "../packages/typescript/qc-core/src/footswitch.ts";
 import { applyQcStateUpdate, applyQcStateUpdates, clearPendingBypassChanges, markPendingBypass, movePresetInSnapshot, reconcilePendingBypass, reconcilePresetSnapshot, reconcileQcStateUpdates, recordPendingBypassChanges, reduceQcStateFrame, selectModeSlotInSnapshot, setBlockBypassInSnapshot, setTempoInSnapshot, type PendingBypassIntents } from "../packages/typescript/qc-core/src/state.ts";
 import { dispatchSurfaceCommand, surfaceCommand } from "../packages/typescript/qc-core/src/surface-actions.ts";
-import { recordTempoTap } from "../packages/typescript/qc-core/src/tempo.ts";
+import { recordTempoTap, synchronizeTempoPulseEpoch } from "../packages/typescript/qc-core/src/tempo.ts";
+
+test("tempo pulse phase remains stable across the QC's 24 clock ticks", () => {
+  const epoch = synchronizeTempoPulseEpoch(undefined, 10_000, 0, 120);
+  assert.equal(epoch, 10_000);
+  assert.equal(synchronizeTempoPulseEpoch(epoch, 10_000 + 500 / 24, 1, 120), epoch);
+  assert.equal(synchronizeTempoPulseEpoch(epoch, 10_000 + 12 * 500 / 24, 12, 120), epoch);
+  assert.equal(synchronizeTempoPulseEpoch(epoch, 10_500, 0, 120), epoch);
+  assert.equal(synchronizeTempoPulseEpoch(epoch, 10_570, 0, 120), 10_070);
+});
 import { QcCommandCoordinator } from "../packages/typescript/qc-core/src/command-coordinator.ts";
 import { inputRouteOptions, routeOptionValue, routeOptionsForRow, routePickerGroup, routePickerLabel } from "../packages/typescript/qc-core/src/routing.ts";
 import { assistantActionCommand, assistantCommandDetail, assistantIntentCommand } from "../packages/typescript/qc-core/src/assistant-execution.ts";
 import { appendConversationMessage, recentModelConversation, runToolConversation } from "../packages/typescript/qc-core/src/chat-session.ts";
-import { SHARED_QC_ASSISTANT_TOOLS, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, numericAssistantArgument } from "../packages/typescript/qc-core/src/assistant-tools.ts";
+import { SHARED_QC_ASSISTANT_TOOLS, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, numericAssistantArgument, validateAssistantToolCalls } from "../packages/typescript/qc-core/src/assistant-tools.ts";
 
 test("core stays independent of UI and native runtimes", () => {
   const core = new URL("../packages/typescript/qc-core/src/", import.meta.url);
@@ -89,6 +98,21 @@ test("live QC updates have one canonical snapshot reducer", () => {
   });
   assert.equal(bypassed.blocks.find((block) => block.row === 0 && block.column === 1)?.bypassed, true);
   assert.equal(bypassed.blocks.find((block) => block.row === 0 && block.column === 2)?.bypassed, true);
+});
+
+test("partial native I/O updates merge into the shared snapshot", () => {
+  const withInput = applyQcStateUpdate(demoSnapshot, {
+    kind: "ioPorts",
+    ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: true }]
+  });
+  const withOutput = applyQcStateUpdate(withInput, {
+    kind: "ioPorts",
+    ioPorts: [{ kind: "output", id: 4, label: "Out 1", plugged: false }]
+  });
+  assert.deepEqual(withOutput.ioPorts, [
+    { kind: "input", id: 1, label: "In 1", plugged: true },
+    { kind: "output", id: 4, label: "Out 1", plugged: false }
+  ]);
 });
 
 test("new optimistic bypass intent cannot be rolled back by an older device echo", () => {
@@ -367,4 +391,18 @@ test("assistant model prompt and action allow-list share one core policy", () =>
   const readOnly = assistantActionPrompt(demoSnapshot, "USB connected", undefined, "scene C", "read-only");
   assert.doesNotMatch(readOnly, /"name":"set_tempo"/);
   assert.match(readOnly, /No mutation shortcuts are enabled/);
+});
+
+test("text-only model providers use the generated tool contract", () => {
+  const prompt = assistantToolActionPrompt(demoSnapshot, "USB connected", "amp", "set tempo to 96", "full");
+  assert.match(prompt, /set_tempo\(bpm:tempo,expected_tempo:tempo,expected_preset_name:string\)/);
+  assert.match(prompt, /copy_preset\(/);
+  assert.match(prompt, /"selectedBlock":\{"id":"amp"/);
+  assert.deepEqual(validateAssistantToolCalls({ actions: [{ name: "set_tempo", args: { bpm: 96, expected_tempo: 120, expected_preset_name: "Brit 2203" } }] }), [{
+    name: "set_tempo",
+    arguments: { bpm: 96, expected_tempo: 120, expected_preset_name: "Brit 2203" }
+  }]);
+  assert.deepEqual(validateAssistantToolCalls({ actions: [{ name: "set_master_volume", args: { value: 100, expected_value: 40, confirm_risky_operation: "yes" } }] }), []);
+  assert.deepEqual(validateAssistantToolCalls({ actions: [{ name: "set_tempo", args: { bpm: 96, expected_tempo: 120, expected_preset_name: "Brit 2203", raw_usb: true } }] }), []);
+  assert.deepEqual(validateAssistantToolCalls({ actions: [{ name: "set_parameter", args: {} }] }, "performance"), []);
 });

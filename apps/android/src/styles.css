@@ -15,7 +15,7 @@ button { touch-action: manipulation; }
   width: 100%;
   height: 100dvh;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   gap: 9px;
   overflow: hidden;
@@ -91,6 +91,27 @@ button { touch-action: manipulation; }
 .quick-controls small { color: #707780; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
 .quick-controls .tempo-control.is-active small { color: #59ba78; }
 
+.workflow-actions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.workflow-actions button { min-width: 0; min-height: 30px; padding: 4px; border: 1px solid #293139; border-radius: 8px; background: #12171b; color: #9da8b1; font-size: 9px; font-weight: 800; letter-spacing: .05em; }
+.workflow-actions button:disabled { opacity: .35; }
+.mobile-workflow-backdrop { position: fixed; z-index: 200; inset: 0; display: grid; align-items: end; padding: max(12px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); background: #000a; backdrop-filter: blur(5px); }
+.mobile-workflow-panel { position: relative; max-height: 86dvh; overflow: auto; padding: 20px 16px 18px; border: 1px solid #343b43; border-radius: 18px 18px 10px 10px; background: #111419; box-shadow: 0 -18px 50px #000b; }
+.mobile-workflow-close { position: absolute; z-index: 1; top: 10px; right: 10px; width: 32px; height: 32px; border: 1px solid #394049; border-radius: 10px; background: #1a1f25; color: #dce1e5; font-size: 23px; line-height: 1; }
+.mobile-workflow-panel h2 { margin: 4px 42px 16px 0; font-size: 21px; }
+.mobile-workflow-panel p { color: #8e969f; font-size: 12px; line-height: 1.45; }
+.mobile-workflow-panel .dialog-kicker { color: #58df82; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.mobile-workflow-panel .routing-editor, .mobile-workflow-panel .block-management, .mobile-workflow-panel .add-block-form, .mobile-workflow-panel .scene-editor { display: grid; gap: 10px; }
+.mobile-workflow-panel .routing-editor section { display: grid; gap: 7px; padding: 10px; border: 1px solid #292f35; border-radius: 12px; background: #0c0f12; }
+.mobile-workflow-panel label { display: grid; grid-template-columns: minmax(74px, .6fr) minmax(0, 1fr) auto; align-items: center; gap: 7px; color: #abb3ba; font-size: 11px; }
+.mobile-workflow-panel label > span { display: grid; }
+.mobile-workflow-panel label small { color: #717981; font-size: 9px; }
+.mobile-workflow-panel select, .mobile-workflow-panel input { min-width: 0; min-height: 34px; padding: 5px 8px; border: 1px solid #343b43; border-radius: 8px; background: #171b20; color: #e1e4e7; }
+.mobile-workflow-panel button { min-height: 34px; padding: 5px 10px; border: 1px solid #3a424b; border-radius: 8px; background: #1a2026; color: #d8dce0; }
+.mobile-workflow-panel button.primary { border-color: #4aa76a; background: #183923; color: #71ee98; }
+.mobile-workflow-panel button.danger { border-color: #74383d; color: #ff8b91; }
+.mobile-workflow-panel button:disabled { opacity: .4; }
+.mobile-workflow-panel .dialog-actions, .mobile-workflow-panel .block-management-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
 .mobile-chat { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; overflow: hidden; border: 1px solid #23272c; border-radius: 15px; background: #0d0f12cc; box-shadow: inset 0 1px #ffffff0a; }
 .chat-heading { min-height: 35px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid #20242a; color: #a3aab2; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
 .chat-heading > span { display: flex; align-items: center; gap: 6px; }
@@ -102,6 +123,7 @@ button { touch-action: manipulation; }
 .message > span { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid #2c3238; border-radius: 8px; background: #171b20; color: #5fe88a; font-size: 8px; font-weight: 900; }
 .message.user > span { color: #b0b6bd; }
 .message p { width: fit-content; max-width: 100%; margin: 0; padding: 8px 10px; border-radius: 5px 12px 12px 12px; background: #171a1f; color: #d6d9dd; font-size: 13px; line-height: 1.4; }
+.message-image { display: block; width: min(100%, 360px); max-height: 260px; margin-top: 10px; border: 1px solid #ffffff1f; border-radius: 10px; object-fit: contain; background: #050708; }
 .message.user p { background: #20262d; color: #f1f2f3; }
 .chat-model-bar { min-height: 33px; display: grid; grid-template-columns: minmax(118px, .9fr) minmax(86px, .65fr) minmax(0, 1.1fr); align-items: center; gap: 8px; padding: 4px 8px; border-top: 1px solid #20242a; background: #0b0d10; }
 .chat-model-bar select { width: 100%; min-width: 0; height: 25px; padding: 0 25px 0 8px; border: 1px solid #2d333a; border-radius: 7px; outline: 0; background: #15191e; color: #cdd2d7; font-size: 10px; }
@@ -124,11 +146,12 @@ button { touch-action: manipulation; }
 @keyframes tempo-flash { 0%, 18% { opacity: 1; } 19%, 100% { opacity: .3; } }
 
 @media (orientation: landscape) and (max-height: 600px) {
-  .android-app { grid-template-columns: minmax(420px, 1.25fr) minmax(300px, .75fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 8px 12px; }
+  .android-app { grid-template-columns: minmax(420px, 1.25fr) minmax(300px, .75fr); grid-template-rows: auto auto auto minmax(0, 1fr); gap: 8px 12px; }
   .mobile-header { grid-column: 1 / -1; }
   .mobile-screen { grid-column: 1; grid-row: 2; }
   .quick-controls { grid-column: 1; grid-row: 3; align-self: start; }
-  .mobile-chat { grid-column: 2; grid-row: 2 / 4; }
+  .workflow-actions { grid-column: 1; grid-row: 4; }
+  .mobile-chat { grid-column: 2; grid-row: 2 / 5; }
 }
 
 @media (max-height: 650px) and (orientation: portrait) {

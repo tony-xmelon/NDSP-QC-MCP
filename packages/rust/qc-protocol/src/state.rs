@@ -5,7 +5,7 @@
 //! the small camelCase state-event contract consumed by `@ndsp-qc/core`.
 
 pub use crate::generated_payloads::{
-    BlockDetails, BlockParameter, BypassUpdate, GridBlock, GridRoute, ModeSlot,
+    BlockDetails, BlockParameter, BypassUpdate, GridBlock, GridRoute, IoPortState, ModeSlot,
     QcStateUpdate as StateUpdate, ScalePoint,
 };
 use crate::proto::cortex_protobuf_v2 as pa;
@@ -66,6 +66,7 @@ impl StateUpdate {
             scene_colors: None,
             blocks: None,
             routes: None,
+            io_ports: None,
             mode: None,
             mode_slots: None,
             footswitch_modes: None,
@@ -613,6 +614,7 @@ impl StateDecoder {
         match message_type {
             1 => self.decode_grid(&decoded),
             2 => self.decode_position(&decoded),
+            3 => self.decode_io_settings(&decoded),
             13 => self.decode_scene(&decoded),
             14 => self.decode_mode(&decoded),
             15 => self.decode_preset_message(&decoded),
@@ -624,6 +626,70 @@ impl StateDecoder {
             51 => self.decode_model_repo(&decoded),
             _ => Ok(Vec::new()),
         }
+    }
+
+    fn decode_io_settings(&self, payload: &[u8]) -> Result<Vec<StateUpdate>, StateDecodeError> {
+        let message: pa::IoSettingsMessage = decode(3, payload)?;
+        let Some(pa::io_settings_message::Settings::Settings(settings)) = message.settings else {
+            return Ok(Vec::new());
+        };
+        let mut ports = Vec::new();
+        for port in settings.in_port {
+            if let Some(pa::input_port_settings::Plugged::Plugged(plugged)) = port.plugged {
+                ports.push(IoPortState {
+                    kind: "input".into(),
+                    id: port.input_port_id as i32,
+                    label: input_label(port.input_port_id),
+                    plugged,
+                });
+            }
+        }
+        for port in settings.out_port {
+            if let Some(pa::output_port_settings::Plugged::Plugged(plugged)) = port.plugged {
+                ports.push(IoPortState {
+                    kind: "output".into(),
+                    id: port.output_port_id as i32,
+                    label: output_label(port.output_port_id),
+                    plugged,
+                });
+            }
+        }
+        if let Some(pa::port_settings::HpPort::HpPort(port)) = settings.hp_port {
+            if let Some(pa::headphones_settings::Plugged::Plugged(plugged)) = port.plugged {
+                ports.push(IoPortState {
+                    kind: "headphones".into(),
+                    id: 0,
+                    label: "Headphones".into(),
+                    plugged,
+                });
+            }
+        }
+        if let Some(pa::port_settings::UsbPort::UsbPort(port)) = settings.usb_port {
+            if let Some(pa::usb_port_settings::Plugged::Plugged(plugged)) = port.plugged {
+                ports.push(IoPortState {
+                    kind: "usb".into(),
+                    id: 0,
+                    label: "USB".into(),
+                    plugged,
+                });
+            }
+        }
+        for port in settings.exp_port {
+            if let Some(pa::exp_port_settings::Plugged::Plugged(plugged)) = port.plugged {
+                ports.push(IoPortState {
+                    kind: "expression".into(),
+                    id: port.exp_port_id,
+                    label: format!("EXP {}", port.exp_port_id + 1),
+                    plugged,
+                });
+            }
+        }
+        if ports.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut update = StateUpdate::new("ioPorts");
+        update.io_ports = Some(ports);
+        Ok(vec![update])
     }
 
     pub fn block_details(&self, row: u32, column: u32) -> Option<BlockDetails> {
@@ -1867,6 +1933,60 @@ mod tests {
         assert_eq!(json["mode"], "HYBRID");
         assert_eq!(json["modeSlots"][2]["label"], "SCENE / STOMP");
         assert!(json.get("activeScene").is_none());
+    }
+
+    #[test]
+    fn decodes_physical_io_presence_from_native_io_settings() {
+        let payload = pa::IoSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            settings: Some(pa::io_settings_message::Settings::Settings(
+                pa::PortSettings {
+                    in_port: vec![pa::InputPortSettings {
+                        input_port_id: 1,
+                        plugged: Some(pa::input_port_settings::Plugged::Plugged(true)),
+                        ..Default::default()
+                    }],
+                    out_port: vec![pa::OutputPortSettings {
+                        output_port_id: 4,
+                        plugged: Some(pa::output_port_settings::Plugged::Plugged(false)),
+                        ..Default::default()
+                    }],
+                    hp_port: Some(pa::port_settings::HpPort::HpPort(pa::HeadphonesSettings {
+                        plugged: Some(pa::headphones_settings::Plugged::Plugged(true)),
+                        ..Default::default()
+                    })),
+                    usb_port: Some(pa::port_settings::UsbPort::UsbPort(pa::UsbPortSettings {
+                        plugged: Some(pa::usb_port_settings::Plugged::Plugged(true)),
+                        ..Default::default()
+                    })),
+                    exp_port: vec![pa::ExpPortSettings {
+                        exp_port_id: 0,
+                        plugged: Some(pa::exp_port_settings::Plugged::Plugged(false)),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                },
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+
+        let states = StateDecoder::new().decode(3, &payload).unwrap();
+        let ports = states[0].io_ports.as_ref().unwrap();
+        assert_eq!(states[0].kind, "ioPorts");
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "input" && port.id == 1 && port.plugged));
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "output" && port.id == 4 && !port.plugged));
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "headphones" && port.plugged));
+        assert!(ports.iter().any(|port| port.kind == "usb" && port.plugged));
+        assert!(ports
+            .iter()
+            .any(|port| port.kind == "expression" && port.label == "EXP 1"));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { QC_GRID_COLUMNS, QC_GRID_ROWS, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot } from "@ndsp-qc/client";
 import { footswitchLeds, routePickerGroup, routePickerLabel, sceneLetter as sceneLabel, type QcSurfaceAction } from "@ndsp-qc/core";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
@@ -6,7 +6,7 @@ import { blockUsesActiveFill, officialBlockVisual, pluginBadge } from "./block-v
 import { CorOsParameterEditor, type CorOsParameterEditorProps } from "./parameter-editor";
 import { parameterEditorAccent, parameterEditorControlSlots, parameterEditorPageSize } from "./parameter-model";
 import { REFERENCE_BLOCK_ICONS } from "./reference-block-icons";
-import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, rejoinSplitPath, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
+import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
 import "./surface-shell.css";
 import "./live-surface.css";
 
@@ -150,9 +150,9 @@ function HardwareSwitch({ role, label, active, assigned = false, accent, compact
     rotate(event.deltaY < 0 ? 1 : -1);
   };
   const tempoPeriodMs = pulseBpm ? 60_000 / pulseBpm : undefined;
-  const tempoPhaseMs = tempoPeriodMs && pulseEpochMs !== undefined
+  const tempoPhaseMs = useMemo(() => tempoPeriodMs && pulseEpochMs !== undefined
     ? ((Date.now() - pulseEpochMs) % tempoPeriodMs + tempoPeriodMs) % tempoPeriodMs
-    : undefined;
+    : undefined, [tempoPeriodMs, pulseEpochMs]);
   return <button
     className={`hardware-switch${active ? " is-active" : ""}${pressed ? " is-pressed" : ""}${assigned ? " is-assigned" : ""}${compact ? " is-compact" : ""}${pulseBpm ? " is-tempo-pulse" : ""}`}
     style={{ "--switch-accent": accent ?? "var(--accent)", "--tempo-period": tempoPeriodMs ? `${tempoPeriodMs}ms` : undefined, "--tempo-phase-delay": tempoPhaseMs !== undefined ? `${-tempoPhaseMs}ms` : undefined } as CSSProperties}
@@ -324,7 +324,8 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   const presetBank = snapshot.presetLocation.slice(0, -1);
   const presetSlot = snapshot.presetLocation.slice(-1);
   const presetLocation = `${presetBank}${presetSlot}`;
-  const presetTitle = `${snapshot.presetName}${snapshot.dirty ? "*" : ""}`;
+  const titlePresentation = presetTitlePresentation(snapshot.presetName, snapshot.dirty);
+  const presetTitle = titlePresentation.text;
   const measureHeaderText = (text: string, italic = false) => {
     if (typeof document === "undefined") return text.length * 40;
     const context = document.createElement("canvas").getContext("2d");
@@ -352,6 +353,12 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     return "+";
   };
   const displayOutput = (row: number) => routes[row]?.output === "Internal" ? "+" : routes[row]?.output;
+  const connectionMark = (side: "input" | "output", row: number) => {
+    const routeId = side === "input" ? routes[row]?.inputId : routes[row]?.outputId;
+    if (!routedPortIsPlugged(side, routeId, snapshot.ioPorts)) return null;
+    const x = side === "input" ? 19 : 759;
+    return <path d={`M${x} ${rowY[row] - 33}h22`} stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />;
+  };
   const routeLines = (label: string | undefined) => {
     const value = label ?? "+";
     const words = value.split(" ");
@@ -430,7 +437,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <rect width="800" height="480" fill="#020202" />
-      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill="#f4f4f4" letterSpacing="-1">{presetBank}</tspan><tspan fill="#3ee77b" letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill="#f4f4f4" fontSize={presetTitleFontSize} fontStyle={snapshot.dirty ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill="#f4f4f4" letterSpacing="-1">{presetBank}</tspan><tspan fill="#3ee77b" letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}${titlePresentation.dimmed ? " is-unsaved" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill={titlePresentation.dimmed ? "#29292b" : "#f4f4f4"} fontSize={presetTitleFontSize} fontStyle={titlePresentation.italic ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M633 13A13 13 0 1 1 620 26" />
         <path d="M626 15L634 9V20Z" fill="#f0f0f0" stroke="none" />
@@ -443,13 +450,17 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
       <rect x="654" y="9" width="31" height="31" rx="4" fill="#f2cf32" /><text x="669.5" y="34" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill="#f2f2f2"><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
       <g transform="translate(652 55)"><ModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill="#f0f0f0" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
-      <g fill="#171719" stroke="#050505" strokeWidth="1.5" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" textAnchor="middle">
+      <g fill="#121315" stroke="#060607" strokeWidth="1.2" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" textAnchor="middle">
         {rowY.flatMap((y, row) => [<rect key={`in-${row}`} x="8" y={y - 39} width="44" height="78" rx="15" />, <rect key={`out-${row}`} x="748" y={y - 39} width="44" height="78" rx="15" />])}
-        <path d="M19 118h22" stroke="#f28c22" strokeWidth="3" strokeLinecap="round" />
+        {rowY.flatMap((_, row) => [connectionMark("input", row), connectionMark("output", row)])}
         {rowY.map((y, row) => <g key={`rails-${row}`}>{railLabel(displayInput(row), 30, y)}{railLabel(displayOutput(row), 770, y)}</g>)}
       </g>
-      <g fill="none" stroke="#8f9092" strokeWidth="1.4">{rowY.map((_, row) => rowRail(row))}</g>
+      <g fill="none" stroke="#b5b6b8" strokeWidth="1.7">{rowY.map((_, row) => rowRail(row))}</g>
       {rowY.map((_, row) => splitPath(row))}
+      {!screenBlocks.length && <g aria-label="Empty device slot">
+        <rect x="66" y="119" width="64" height="64" rx="14" fill="#111214" stroke="#080809" strokeWidth="1.2" />
+        <g stroke="#a8a9ab" strokeWidth="1.8" strokeLinecap="round"><path d="M88 151h20" /><path d="M98 141v20" /></g>
+      </g>}
       <g>{screenBlocks.map(renderBlock)}</g>
     </svg>
     <div className="coros-vector-actions" aria-label="Grid controls">

@@ -246,6 +246,31 @@ async fn model_query_is_not_forwarded_to_parameterless_gateway_method() {
 }
 
 #[tokio::test]
+async fn preview_expected_value_is_validated_but_not_forwarded() {
+    let (server, backend) = server();
+    server
+        .execute(
+            &route(),
+            "preview_parameter",
+            Some(
+                json!({
+                    "row":0,"column":1,"parameter_index":2,"value":0.6,
+                    "expected_value":0.4,"expected_scene":1,"expected_preset_name":"Test"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let calls = backend.0.lock().unwrap();
+    assert_eq!(calls[0].0, "device.previewParameter");
+    assert!(!calls[0].1.contains_key("expectedValue"));
+    assert_eq!(calls[0].1["parameterIndex"], 2);
+}
+
+#[tokio::test]
 async fn newer_device_actions_enforce_confirmation_and_screen_bounds() {
     let (server, backend) = server();
 
@@ -353,4 +378,43 @@ async fn nullable_grid_guards_are_forwarded_instead_of_dropped() {
     assert!(calls[0].1.contains_key("splitColumn"));
     assert!(calls[0].1["splitColumn"].is_null());
     assert_eq!(calls[0].1["expectedMixColumn"], -1);
+}
+
+#[tokio::test]
+async fn scene_management_validates_and_preserves_nullable_labels() {
+    let (server, backend) = server();
+    server
+        .execute(
+            &route(),
+            "set_scene_label",
+            Some(
+                json!({"scene":2,"label":null,"expected_preset_name":"Lead"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let calls = backend.0.lock().unwrap();
+    assert_eq!(calls[0].0, "device.setSceneLabel");
+    assert!(calls[0].1.contains_key("label"));
+    assert!(calls[0].1["label"].is_null());
+    drop(calls);
+
+    assert!(
+        server
+            .execute(
+                &route(),
+                "copy_scene",
+                Some(
+                    json!({"from_scene":3,"to_scene":3,"swap":false,"expected_preset_name":"Lead"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+            )
+            .await
+            .is_err()
+    );
 }

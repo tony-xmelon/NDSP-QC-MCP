@@ -4,6 +4,7 @@ import test from "node:test";
 
 test("the mobile control deck exposes all eleven QC footswitches on two rows", () => {
   const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const performanceWorkflow = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
   const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
   const domain = JSON.parse(readFileSync(new URL("../../../contracts/qc-domain.v1.json", import.meta.url), "utf8"));
 
@@ -12,7 +13,8 @@ test("the mobile control deck exposes all eleven QC footswitches on two rows", (
   assert.match(appSource, /className="navigation-controls"/);
   assert.doesNotMatch(appSource, />SCENE</);
   assert.match(appSource, /footswitchLeds\(snapshot\)/);
-  assert.match(appSource, /beginFootswitch/);
+  assert.match(appSource, /useQcWorkflows\(\{/);
+  assert.match(performanceWorkflow, /controller\.beginFootswitch/);
   assert.match(appSource, /className=\{`tempo-control/);
   assert.match(styles, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(styles, /grid-template-rows: repeat\(2, minmax\(48px, 1fr\)\)/);
@@ -23,17 +25,25 @@ test("the mobile control deck exposes all eleven QC footswitches on two rows", (
 
 test("tapping a live Grid block opens the shared parameter editor and commits over USB", () => {
   const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const gridWorkflow = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-grid-workflow.ts", import.meta.url), "utf8");
+  const parameterWorkflow = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-parameter-workflow.ts", import.meta.url), "utf8");
+  const parameterBindings = readFileSync(new URL("../../../packages/typescript/qc-ui/src/qc-parameter-editor-bindings.ts", import.meta.url), "utf8");
+  const surfaceActions = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-qc-surface-actions.ts", import.meta.url), "utf8");
   const nativeSource = readFileSync(new URL("./native-services.ts", import.meta.url), "utf8");
   const coreSource = readFileSync(new URL("../../../packages/typescript/qc-core/src/state.ts", import.meta.url), "utf8");
+  const liveStateSource = readFileSync(new URL("../../../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
   const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
 
-  assert.match(appSource, /qcTransport\.blockDetails\(block\.row, block\.column, snapshotRef\.current\)/);
-  assert.match(appSource, /parameterEditor=\{blockDetails \?/);
-  assert.match(appSource, /qcTransport\.setParameter\(blockDetails\.row, blockDetails\.column, parameter\.index, value, snapshotRef\.current\)/);
+  assert.match(gridWorkflow, /gateway\.blockDetails\(block\.row, block\.column, snapshot\.presetName\)/);
+  assert.match(appSource, /parameterEditor=\{parameterEditorBindings\}/);
+  assert.match(parameterBindings, /const details = editor\.details;[\s\S]*if \(!details\) return undefined/);
+  assert.match(parameterWorkflow, /gateway\.setParameter\(row, column, parameter\.index, value/);
   assert.match(nativeSource, /createAndroidQcTransport[\s\S]*createQcGatewayTransport/);
   assert.doesNotMatch(nativeSource, /QcUsbNative\.(?:blockDetails|setParameter)/);
-  assert.match(appSource, /blockSelectionIntent\(selectedBlockId, blockId\)/);
-  assert.match(appSource, /reconcileFrame\(states\)/);
+  assert.match(appSource, /useQcSurfaceActions\(\{/);
+  assert.match(surfaceActions, /blockSelectionIntent\(selectedBlockId, blockId\)/);
+  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(coreSource, /dirty: state\.catalogRefresh \? snapshot\.dirty : false/);
   assert.match(styles, /\.preset-title\.is-dirty \{ font-style: italic; font-weight: 500; \}/);
 });

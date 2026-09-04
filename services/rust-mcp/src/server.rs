@@ -235,6 +235,20 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
     {
         return Err("direction must be -1 or 1".into());
     }
+    if spec.name == "copy_scene"
+        && args.get("from_scene").and_then(Value::as_i64)
+            == args.get("to_scene").and_then(Value::as_i64)
+    {
+        return Err("from_scene and to_scene must be different".into());
+    }
+    if spec.name == "set_scene_label"
+        && args
+            .get("label")
+            .and_then(Value::as_str)
+            .is_some_and(|label| label.chars().count() > 32 || label.chars().any(char::is_control))
+    {
+        return Err("label must contain at most 32 non-control characters".into());
+    }
     Ok(())
 }
 
@@ -257,16 +271,22 @@ fn apply_confirmation_gate(spec: &ActionSpec, args: &mut Map<String, Value>) -> 
 fn gateway_params(spec: &ActionSpec, args: Map<String, Value>) -> Map<String, Value> {
     args.into_iter()
         .filter_map(|(key, value)| {
-            let nullable_integer = spec.properties.iter().any(|property| {
+            let nullable = spec.properties.iter().any(|property| {
                 property.name == key
-                    && matches!(property.kind, crate::actions::Kind::NullableInteger { .. })
+                    && matches!(
+                        property.kind,
+                        crate::actions::Kind::NullableInteger { .. }
+                            | crate::actions::Kind::NullableString
+                    )
             });
-            if value.is_null() && !nullable_integer {
+            if value.is_null() && !nullable {
                 return None;
             }
-            // list_models.query is an MCP-side discovery convenience; the current
-            // gateway's device.listModels method intentionally accepts no params.
-            if spec.name == "list_models" && key == "query" {
+            // These are MCP-side validation/discovery fields. Their gateway
+            // methods intentionally do not accept them.
+            if (spec.name == "list_models" && key == "query")
+                || (spec.name == "preview_parameter" && key == "expected_value")
+            {
                 return None;
             }
             let gateway_key = match (spec.name, key.as_str()) {

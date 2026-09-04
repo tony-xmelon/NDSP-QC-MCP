@@ -8,10 +8,14 @@ description = "Native single-owner Quad Cortex USB broker"
 [dependencies]
 base64 = "0.22"
 flate2 = "1"
+# The pure-Rust Windows backend exposes independent read/write OVERLAPPED
+# state. The broker places those two lanes on dedicated threads while retaining
+# one exclusive HID handle.
 hidapi = { version = "2.6", default-features = false, features = ["windows-native"] }
 prost = "0.14"
 qc-protocol = { path = "../../packages/rust/qc-protocol" }
 qc-device-runtime = { path = "../../packages/rust/qc-device-runtime" }
+qc-windows-midi = { path = "../../packages/rust/qc-windows-midi" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

@@ -5,18 +5,49 @@ import test from "node:test";
 const source = (relative: string) => readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
 
 test("Windows and Android compose the same QC behavior and screen packages", () => {
+  const surfaceActions = source("packages/typescript/qc-ui/src/use-qc-surface-actions.ts");
   for (const app of [source("apps/windows/src/App.tsx"), source("apps/android/src/App.tsx")]) {
     assert.match(app, /from "@ndsp-qc\/core"/);
     assert.match(app, /QuadCortexSurface[\s\S]*from "@ndsp-qc\/ui"/);
-    assert.match(app, /surfaceCommand\(action\)/);
-    assert.match(app, /blockSelectionIntent\(selectedBlockId,/);
+    assert.match(app, /useQcSurfaceActions\(\{/);
+    assert.doesNotMatch(app, /surfaceCommand\(action\)|dispatchSurfaceCommand\(/);
     assert.match(app, /useBlockEditorSession\(\)/);
-    assert.match(app, /recordTempoTap\(/);
     assert.match(app, /useQcController\(demoSnapshot\)/);
+    assert.match(app, /useQcWorkflows\(/, "the complete shared workflow suite must be composed by both native shells");
+    assert.doesNotMatch(app, /use(?:PresetWorkflow|RoutingWorkflow|GridWorkflow|ParameterWorkflow|PerformanceWorkflow|SceneWorkflow|DeviceHistory)\(/);
     assert.match(app, /reconcileFrame/);
     assert.match(app, /parseAssistantIntent\(/);
     assert.doesNotMatch(app, /function (?:surfaceCommand|recordTempoTap|parseAssistantIntent|applyQcStateUpdate)\b/);
     assert.doesNotMatch(app, /String\.fromCharCode\(65 \+/);
+  }
+  assert.match(surfaceActions, /surfaceCommand\(action\)/);
+  assert.match(surfaceActions, /blockSelectionIntent\(selectedBlockId,/);
+  assert.match(surfaceActions, /grid\.footswitchAssignmentPending/);
+});
+
+test("the installed Windows runtime has no Python gateway or backup sidecar", () => {
+  const tauri = source("apps/windows/src-tauri/src/lib.rs");
+  const bundle = source("apps/windows/src-tauri/tauri.conf.json");
+  const installer = source("scripts/build-windows-installer.ps1");
+  const worker = source("services/device-broker/src/worker.rs");
+  const usb = source("services/device-broker/src/usb.rs");
+  assert.doesNotMatch(tauri, /QC_GATEWAY_RUNTIME|qc-device-gateway|\.venv|python\.exe/i);
+  assert.doesNotMatch(`${bundle}\n${installer}`, /qc-backup-helper|PyInstaller|backup_helper\.py/i);
+  assert.match(worker, /connected\.usb\.create_backup/);
+  assert.match(usb, /BackupAssembler/);
+});
+
+test("realtime surface commands have one shared cross-platform workflow", () => {
+  const workflow = source("packages/typescript/qc-ui/src/use-performance-workflow.ts");
+  assert.match(workflow, /controller\.runBypass\(transport/);
+  assert.match(workflow, /controller\.runFootswitch\(transport/);
+  assert.match(workflow, /controller\.runPresetMove\(transport/);
+  assert.match(workflow, /recordTempoTap\(/);
+  assert.doesNotMatch(workflow, /commandPending|setPending/, "realtime input must not be dropped behind a global busy flag");
+  for (const app of [source("apps/windows/src/App.tsx"), source("apps/android/src/App.tsx")]) {
+    assert.doesNotMatch(app, /recordTempoTap\(/);
+    assert.doesNotMatch(app, /runBypass\(qcTransport/);
+    assert.doesNotMatch(app, /runFootswitch\(qcTransport/);
   }
 });
 
@@ -159,14 +190,36 @@ test("one Rust state engine normalizes Windows and Android device frames", () =>
   const androidJni = source("packages/rust/qc-android/src/lib.rs");
   const androidPlugin = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
   const windows = source("apps/windows/src/App.tsx");
+  const windowsFrames = source("apps/windows/src/use-windows-device-frames.ts");
+  const liveState = source("packages/typescript/qc-ui/src/use-qc-live-state.ts");
   assert.match(engine, /pub struct StateDecoder/);
   assert.match(engine, /fn decode_grid/);
   assert.match(broker, /StateDecoder::new\(\)/);
   assert.match(androidJni, /qc_protocol::state::\{parse_model_repo, StateDecoder\}/);
   assert.match(androidPlugin, /stateDecoder\.decode\(type, payload\)/);
   assert.doesNotMatch(androidPlugin, /decodeGridUpdates|decodeQcState|decodeModelRepo/);
-  assert.match(windows, /"qc-state-frame"/);
-  assert.match(windows, /reconcileFrame\(frame\.states\)/);
+  assert.match(windows, /useWindowsDeviceFrames\(/);
+  assert.match(windowsFrames, /"qc-state-frame"/);
+  assert.match(windowsFrames, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(liveState, /reconcileFrame\(states, observedAt\)/);
+});
+
+test("Android owns one pending-operation lifecycle and has no confirmation polling loops", () => {
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  const pending = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcPendingOperations.java");
+  const broker = source("services/device-broker/src/worker.rs");
+  assert.match(android, /QcPendingOperations pendingOperations/);
+  assert.doesNotMatch(android, /pollRelayReady|pollRelayVerification|pollPresetLibrary/);
+  assert.match(pending, /class QcPendingOperations/);
+  assert.match(pending, /void failAll/);
+  assert.doesNotMatch(broker, /pending_scene|next_scene_poll|CONFIRMATION_POLL_INTERVAL_MS/);
+  assert.match(broker, /subscribe_state_events\(\)/);
+  assert.match(broker, /recv_timeout/);
+  const rpc = source("services/device-broker/src/rpc.rs");
+  const readFlow = rpc.slice(rpc.indexOf("fn execute_gateway_read"), rpc.indexOf("fn gateway_identity"));
+  assert.match(readFlow, /subscribe_raw_events\(\)/);
+  assert.match(readFlow, /recv_timeout\(remaining\)/);
+  assert.doesNotMatch(readFlow, /events_since|thread::sleep/);
 });
 
 test("one shared command coordinator owns optimistic state and stale-echo policy", () => {
@@ -174,6 +227,8 @@ test("one shared command coordinator owns optimistic state and stale-echo policy
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
   const reactController = source("packages/typescript/qc-ui/src/use-qc-controller.ts");
+  const performanceWorkflow = source("packages/typescript/qc-ui/src/use-performance-workflow.ts");
+  const liveState = source("packages/typescript/qc-ui/src/use-qc-live-state.ts");
   assert.match(coordinator, /class QcCommandCoordinator/);
   assert.match(coordinator, /beginFootswitch/);
   assert.match(coordinator, /reconcileSnapshot/);
@@ -182,36 +237,56 @@ test("one shared command coordinator owns optimistic state and stale-echo policy
   assert.match(reactController, /snapshotRef\.current = next/);
   assert.match(reactController, /const runCommand/);
   assert.match(reactController, /transport\.pressFootswitch/);
+  assert.match(liveState, /reconcileFrame\(states, observedAt\)/);
+  assert.match(liveState, /editor\.updateParameters\(changes\)/);
   for (const app of [windows, android]) {
-    assert.match(app, /beginFootswitch/);
-    assert.match(app, /failCommand/);
+    assert.match(app, /useQcController\(demoSnapshot\)/);
+    assert.match(app, /useQcWorkflows\(\{/);
+    assert.match(app, /useQcLiveState/);
     assert.doesNotMatch(app, /QcCommandCoordinator|recordPendingBypassChanges|clearPendingBypassChanges|pendingBypass/);
   }
+  assert.match(performanceWorkflow, /controller\.beginFootswitch/);
+  assert.match(performanceWorkflow, /controller\.failCommand/);
 });
 
-test("assistant performance actions use one shared resolver and executor", () => {
+test("assistant actions use one shared provider-neutral executor", () => {
   const resolver = source("packages/typescript/qc-core/src/assistant-execution.ts");
+  const executor = source("packages/typescript/qc-ui/src/qc-action-executor.ts");
   const controller = source("packages/typescript/qc-ui/src/use-qc-controller.ts");
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
-  assert.match(resolver, /assistantActionCommand/);
   assert.match(resolver, /assistantIntentCommand/);
   assert.match(controller, /const runAssistantCommand/);
   assert.match(windows, /assistantIntentCommand\(intent, selected\)/);
   assert.match(windows, /runAssistantCommand\(qcTransport, deviceCommand\)/);
-  assert.match(android, /assistantActionCommand\(action, liveSelected\)/);
   assert.match(android, /runAssistantCommand\(qcTransport,/);
-  assert.match(android, /assistantActionPrompt\(snapshot,/);
+  assert.match(android, /assistantToolActionPrompt\(snapshotRef\.current,/);
+  assert.match(android, /validateAssistantToolCalls\(parsed, controlAccessMode\)/);
+  assert.match(windows, /executeQcAction\(call,/);
+  assert.match(android, /executeQcAction\(action,/);
+  assert.match(executor, /export async function executeQcAction/);
+  assert.match(source("packages/typescript/qc-ui/src/assistant-parameter-edit.ts"), /resolveAssistantParameterEdit/);
+  for (const app of [windows, android]) assert.match(app, /resolveAssistantParameterEdit/);
   assert.doesNotMatch(android, /Allowed reversible hardware actions:/);
+});
+
+test("all generated QC actions are owned by the shared UI executor", () => {
+  const executor = source("packages/typescript/qc-ui/src/qc-action-executor.ts");
+  const contract = JSON.parse(source("contracts/qc-actions.v1.json")) as { actions: Array<{ name: string }> };
+  for (const action of contract.actions) assert.match(executor, new RegExp(`\\b${action.name}\\b`), `${action.name} must be handled centrally`);
+  assert.match(executor, /confirm_persistent_write/);
+  assert.match(executor, /confirm_risky_operation/);
+  assert.match(executor, /parameterNormalizedValue/);
 });
 
 test("routing labels, grouping, and row constraints live in shared core", () => {
   const routing = source("packages/typescript/qc-core/src/routing.ts");
   const windows = source("apps/windows/src/App.tsx");
   const surface = source("packages/typescript/qc-ui/src/quad-cortex-surface.tsx");
+  const workflow = source("packages/typescript/qc-ui/src/use-routing-workflow.ts");
   assert.match(routing, /inputRouteOptions/);
   assert.match(routing, /routeOptionsForRow/);
-  assert.match(windows, /inputRouteOptions[\s\S]*from "@ndsp-qc\/core"/);
+  assert.match(workflow, /routeOptionsForRow[\s\S]*from "@ndsp-qc\/core"/);
   assert.match(surface, /routePickerGroup[\s\S]*from "@ndsp-qc\/core"/);
   assert.doesNotMatch(windows, /const inputRoutes|const routeOptionsForRow/);
   assert.doesNotMatch(surface, /function routePickerLabel|function routePickerGroup/);
@@ -251,11 +326,15 @@ test("shared routing drafts and command journal keep the Windows composition roo
   const routing = source("packages/typescript/qc-core/src/routing.ts");
   const journal = source("packages/typescript/qc-ui/src/use-command-journal.ts");
   const windows = source("apps/windows/src/App.tsx");
-  const editor = source("apps/windows/src/routing-editor.tsx");
+  const editor = source("packages/typescript/qc-ui/src/routing-editor.tsx");
+  const workflow = source("packages/typescript/qc-ui/src/use-routing-workflow.ts");
+  const composition = source("packages/typescript/qc-ui/src/use-qc-workflows.ts");
   assert.match(routing, /routeDraftsFromSnapshot/);
   assert.match(routing, /updateRouteDraft/);
   assert.match(journal, /useCommandJournal/);
-  assert.match(windows, /useCommandJournal<UndoEntry>/);
+  assert.match(windows, /useQcWorkflows\(/);
+  assert.match(composition, /useDeviceHistory\(/);
+  assert.match(workflow, /recordHistory/);
   assert.match(windows, /<RoutingEditor/);
   assert.match(editor, /QC_GRID_COLUMNS/);
   assert.doesNotMatch(windows, /<div className="routing-editor">/);
@@ -309,6 +388,8 @@ test("one shared Rust gateway runtime owns verified reads and persistent preset 
   const androidJava = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
 
   assert.match(runtime, /pub enum GatewayVerification/);
+  assert.match(runtime, /pub struct GatewayTransaction/);
+  assert.match(runtime, /pub fn merge_expected_state/);
   assert.match(runtime, /pub fn plan_gateway_read/);
   assert.match(runtime, /pub fn plan_preset_mutation/);
   assert.match(runtime, /pub fn decode\(&self, payload: &\[u8\]\)/);
@@ -318,11 +399,17 @@ test("one shared Rust gateway runtime owns verified reads and persistent preset 
 
   assert.match(broker, /runtime_request::plan_gateway_read/);
   assert.match(broker, /plan\.projection\.decode/);
+  assert.match(broker, /GatewayTransaction::new/);
   assert.match(brokerWorker, /runtime_request::plan_preset_mutation/);
   assert.match(androidJni, /plan_gateway_read/);
   assert.match(androidJni, /projection\.decode/);
   assert.match(androidJni, /plan_preset_mutation/);
+  assert.match(androidJni, /GatewayTransaction::new/);
+  assert.match(androidJni, /merge_expected_state/);
   assert.match(androidJava, /stateDecoder\.recordSavedPreset\(workflow\)/);
+  assert.match(androidJava, /resolvePendingGatewayTransactions/);
+  assert.match(androidJava, /resolvePendingPresetLibraryReads/);
+  assert.doesNotMatch(androidJava, /pollRelayVerification|pollPresetLibrary/);
 
   for (const host of [broker, androidJava]) {
     assert.doesNotMatch(host, /VersionMessage|ScreenshotMessage|CompilerInhibitedModulesMessage|RemoteControlMessage|png_dimensions/);

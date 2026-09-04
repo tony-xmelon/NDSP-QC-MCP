@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, rejoinSplitPath, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
+import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
+
+test("empty preset titles match the QC clean and dirty Unsaved states", () => {
+  assert.deepEqual(presetTitlePresentation("", false), { text: "Unsaved", dimmed: true, italic: false });
+  assert.deepEqual(presetTitlePresentation("Unsaved", false), { text: "Unsaved", dimmed: true, italic: false });
+  assert.deepEqual(presetTitlePresentation("", true), { text: "Unsaved*", dimmed: false, italic: true });
+  assert.deepEqual(presetTitlePresentation("Brit 2203", false), { text: "Brit 2203", dimmed: false, italic: false });
+});
 
 test("Grid contextual menu starts with the device Create New command", () => {
   assert.equal(GRID_CONTEXT_MENU[0].label, "Create New");
@@ -13,12 +20,13 @@ test("Grid contextual menu starts with the device Create New command", () => {
 
 test("Edit menu separates preset and device clipboards", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const presetWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-preset-workflow.ts", import.meta.url), "utf8");
   assert.match(appSource, /label: "Copy Preset"/);
   assert.match(appSource, /label: "Paste Preset"/);
   assert.match(appSource, /label: "Copy Device"/);
   assert.match(appSource, /label: "Paste Device"/);
   assert.doesNotMatch(appSource, /label: "(?:Copy|Paste) (?:Settings|Parameters)"/);
-  assert.match(appSource, /tauriTransport\.copyPreset\(/);
+  assert.match(presetWorkflow, /gateway\.copyPreset\(/);
 });
 
 test("Preset menu owns Grid editing commands without a standalone Grid menu", () => {
@@ -47,6 +55,20 @@ test("an unassigned empty row does not connect its two plus endpoints", () => {
   assert.equal(rowHasVisibleSignalRail(1, { input: "Internal", output: "Internal" }), true);
   assert.equal(rowHasVisibleSignalRail(0, { input: "In 1", output: "Multi Out" }), true);
   assert.equal(rowHasVisibleSignalRail(0, { input: "Internal", output: "Internal", splitColumn: 0 }), true);
+});
+
+test("Grid endpoint connection marks derive from native physical port state", () => {
+  const ports = [
+    { kind: "input", id: 1, plugged: true },
+    { kind: "input", id: 2, plugged: false },
+    { kind: "output", id: 4, plugged: true },
+    { kind: "usb", id: 0, plugged: false }
+  ];
+  assert.equal(routedPortIsPlugged("input", 1, ports), true);
+  assert.equal(routedPortIsPlugged("input", 2, ports), false);
+  assert.equal(routedPortIsPlugged("input", 3, ports), true, "combined In 1/2 reflects either physical jack");
+  assert.equal(routedPortIsPlugged("output", 1, ports), true, "Out 1/2 reflects either physical jack");
+  assert.equal(routedPortIsPlugged("input", 0, ports), undefined, "Internal is not a physical jack");
 });
 
 test("Directory, Scene, and Mode menus follow their CorOS order and live device data", () => {
@@ -116,23 +138,24 @@ test("long preset names retain a hard gutter before Undo for every bank width", 
 
 test("splitter and mixer circles are selectable parameter targets", () => {
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
-  const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const gridWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-grid-workflow.ts", import.meta.url), "utf8");
   assert.match(surfaceSource, /kind: "select-routing-node"/);
   assert.match(surfaceSource, /Open row \$\{row \+ 1\} Splitter parameters/);
   assert.match(surfaceSource, /Open row \$\{row \+ 1\} Mixer parameters/);
   assert.match(surfaceSource, /stops\.sort\(\(left, right\) => left\.x - right\.x\)/, "routing nodes must participate in left-to-right row tab order");
-  assert.match(appSource, /tauriTransport\.blockDetails\(row, column, snapshot\.presetName\)/);
-  assert.match(appSource, /column = node === "splitter" \? 8 : 9/);
+  assert.match(gridWorkflow, /gateway\.blockDetails\(row, column, snapshot\.presetName\)/);
+  assert.match(gridWorkflow, /column = node === "splitter" \? 8 : 9/);
 });
 
 test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
   const routingSource = readFileSync(new URL("../packages/typescript/qc-core/src/routing.ts", import.meta.url), "utf8");
+  const routingWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-routing-workflow.ts", import.meta.url), "utf8");
   const domain = JSON.parse(readFileSync(new URL("../contracts/qc-domain.v1.json", import.meta.url), "utf8"));
   const styles = readFileSync(new URL("../packages/typescript/qc-ui/src/surface-shell.css", import.meta.url), "utf8");
   assert.match(appSource, /onOpenRouting=\{openRoutePicker\}/);
-  assert.match(appSource, /routingPicker=\{routePicker \?/);
+  assert.match(appSource, /routingPicker=\{routingWorkflow\.pickerProps\}/);
   assert.doesNotMatch(appSource, /window\.confirm\(`Set row \$\{row \+ 1\} \$\{kind\}/);
   assert.match(surfaceSource, /className=\{`coros-route-picker is-\$\{routingPicker\.side\}`\}/);
   assert.match(surfaceSource, /role="listbox"/);
@@ -149,7 +172,7 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   assert.deepEqual(domain.inputRoutes.slice(0, 4).map(({ id, label }: { id: number; label: string }) => [id, label]), [[1, "In 1"], [2, "In 2"], [4, "Return 1"], [5, "Return 2"]], "input ports must follow the CorOS mono-first order");
   assert.deepEqual(domain.outputRoutes.slice(0, 4).map(({ id, label }: { id: number; label: string }) => [id, label]), [[19, "Multi Out"], [1, "Out 1/2"], [2, "Out 3/4"], [3, "Send 1/2"]], "output ports must follow the CorOS stereo-first order");
   assert.doesNotMatch(routingSource.slice(routingSource.indexOf("inputRouteOptions"), routingSource.indexOf("outputRouteOptions")), /Sidechain/, "the internal sidechain buffer is not a selectable input port");
-  assert.match(appSource, /routeOptionsForRow\(routePicker\.side, routePicker\.row, value, snapshot\.routes\)/, "row routes must be filtered for the selected row");
+  assert.match(routingWorkflow, /routeOptionsForRow\(picker\.side, picker\.row, value, snapshot\.routes\)/, "row routes must be filtered for the selected row");
   assert.match(styles, /\.coros-route-picker\.is-input \{ left: 7\.2%; \}/);
   assert.match(styles, /\.coros-route-focus-layer \{ position: absolute; z-index: 23;/);
   assert.match(styles, /scrollbar-color: #96999b transparent/);
@@ -164,14 +187,19 @@ test("the Grid starts without an implicitly selected effect", () => {
 
 test("master volume has an independent two-way live synchronization path", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const controlsSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-continuous-control-workflow.ts", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
   const transportSource = readFileSync(new URL("../apps/windows/src/tauri-transport.ts", import.meta.url), "utf8");
   const gatewayBindings = readFileSync(new URL("../packages/typescript/qc-client/src/generated-gateway-methods.ts", import.meta.url), "utf8");
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
-  assert.match(appSource, /listen<[^>]*NativeStateFrames[\s\S]*?\("qc-state-frame"/, "hardware changes must arrive through the native event stream");
+  assert.match(appSource, /useWindowsDeviceFrames\(/, "the desktop shell must delegate native event ownership");
+  assert.match(frameSource, /type NativeFrame = NativeStateFrames<QcStateUpdate>/);
+  assert.match(frameSource, /listen<NativeFrame>\("qc-state-frame"/, "hardware changes must arrive through the native event stream");
   assert.doesNotMatch(appSource, /const synchronizeVolume/, "master volume must not be polled continuously");
   assert.match(appSource, /const current = await tauriTransport\.currentSnapshot\(\)[\s\S]*?tauriTransport\.currentMasterVolume\(\)[\s\S]*?masterVolume: synchronizedVolume/, "startup must merge the authoritative Master Volume report before enabling the knob");
-  assert.match(appSource, /tauriTransport\.setMasterVolume\(target, expected\)/, "app knob changes must still write to the hardware");
+  assert.match(appSource, /useContinuousControlWorkflow\(\{/);
+  assert.match(controlsSource, /gateway\.setMasterVolume\(target, expected\)/, "app knob changes must still write to the hardware");
   assert.match(appSource, /masterVolume: recovered \? current\.masterVolume : snapshotRef\.current\.masterVolume/, "ordinary whole-preset synchronization must preserve the latest faster volume sample while recovery accepts the newly reattached device state");
   assert.match(transportSource, /createGatewayClientTransport<GatewayTransport>/, "native gateway calls must use the generated contract adapter");
   assert.match(gatewayBindings, /"currentMasterVolume": \{ rpc: "device\.masterVolume", tauri: "current_master_volume"/);
@@ -184,19 +212,22 @@ test("master volume has an independent two-way live synchronization path", () =>
 test("tapping the selected Grid effect closes its parameter editor", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const coreSource = readFileSync(new URL("../packages/typescript/qc-core/src/editor.ts", import.meta.url), "utf8");
-  assert.match(appSource, /toggleBlockEditor: \(blockId\)[\s\S]*blockSelectionIntent\(selectedBlockId, blockId\) === "close"/);
+  const gridWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-grid-workflow.ts", import.meta.url), "utf8");
+  const surfaceActions = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-surface-actions.ts", import.meta.url), "utf8");
+  assert.match(appSource, /useQcSurfaceActions\(\{/);
+  assert.match(surfaceActions, /toggleBlockEditor: \(blockId\)[\s\S]*blockSelectionIntent\(selectedBlockId, blockId\) === "close"/);
   assert.match(coreSource, /selectedBlockId !== "" && selectedBlockId === requestedBlockId \? "close" : "open"/);
-  assert.match(appSource, /const closeBlockEditor = useCallback\(\(\) => \{[\s\S]*?setSelectedBlockId\(""\);[\s\S]*?editor\.close\(\)/);
+  assert.match(gridWorkflow, /const close = useCallback\(\(\) => \{[\s\S]*?setSelectedBlockId\(""\);[\s\S]*?editor\.close\(\)/);
 });
 
 test("switching Grid devices replaces the parameter screen atomically", () => {
-  const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
-  const blockFlow = appSource.slice(appSource.indexOf("const openBlockEditor"), appSource.indexOf("const openRoutingNodeEditor"));
-  const routingFlow = appSource.slice(appSource.indexOf("const openRoutingNodeEditor"), appSource.indexOf("const closeBlockEditor"));
+  const appSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-grid-workflow.ts", import.meta.url), "utf8");
+  const blockFlow = appSource.slice(appSource.indexOf("const openBlock"), appSource.indexOf("const openRoutingNode"));
+  const routingFlow = appSource.slice(appSource.indexOf("const openRoutingNode"), appSource.indexOf("useEffect", appSource.indexOf("const openRoutingNode")));
   assert.doesNotMatch(blockFlow, /editor\.close\(\)/, "the current parameter screen remains mounted while the replacement is read");
   assert.doesNotMatch(routingFlow, /editor\.close\(\)/, "routing-node transitions use the same no-flicker replacement");
-  assert.match(blockFlow, /setSelectedBlockId\(block\.id\);[\s\S]*?editor\.load\(details, true\)/, "selection and reset-page details commit together after readback");
-  assert.match(routingFlow, /setSelectedBlockId\(`routing-\$\{row\}-\$\{node\}`\);[\s\S]*?editor\.load\(details, true\)/);
+  assert.match(blockFlow, /setSelectedBlockId\(block\.id\);[\s\S]*?editor\.load\(next, true\)/, "selection and reset-page details commit together after readback");
+  assert.match(routingFlow, /setSelectedBlockId\(`routing-\$\{row\}-\$\{node\}`\);[\s\S]*?editor\.load\(next, true\)/);
 });
 
 test("startup synchronization is visible in the connection indicator", () => {
@@ -248,19 +279,21 @@ test("startup synchronization advances continuously and exposes completion", () 
 
 test("startup sync gates only on the active preset and defers library catalogs", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const presetWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-preset-workflow.ts", import.meta.url), "utf8");
   const connectFlow = appSource.slice(appSource.indexOf("const connect = async"), appSource.indexOf("const disconnectDevice = async"));
-  const browserFlow = appSource.slice(appSource.indexOf("const openPresetBrowser = async"), appSource.indexOf("const recallPreset = async"));
   assert.match(connectFlow, /const current = await tauriTransport\.currentSnapshot\(\)/, "startup must fetch the active preset");
   assert.doesNotMatch(connectFlow, /listModels|loadPresetDirectory|loadPresetFolders/, "catalogs must not block device readiness");
-  assert.match(browserFlow, /await loadPresetDirectory\(refresh, snapshot\.setlistKey\)/, "the active setlist should load when its browser opens");
-  assert.match(browserFlow, /void loadPresetFolders\(refresh\)/, "folder discovery should be queued from the browser instead of startup");
+  assert.match(presetWorkflow, /await loadDirectory\(refresh, snapshotRef\.current\.setlistKey\)/, "the active setlist should load when its browser opens");
+  assert.match(presetWorkflow, /void loadFolders\(refresh\)/, "folder discovery should be queued from the browser instead of startup");
 });
 
 test("USB detach keeps a recovery poll and automatically restores live mode after reattach", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const liveSync = appSource.slice(appSource.indexOf("const recovering = connection.phase"), appSource.indexOf("const refreshSnapshot = async"));
   assert.match(liveSync, /connection\.phase === "needs-attention"/);
-  assert.match(liveSync, /schedule\(liveSyncFailures\.current >= 2 \? 500 : nativeStateAvailable\.current \? 30000 : 250\)/, "recovery must continue while native state makes full snapshots infrequent");
+  assert.match(liveSync, /if \(!recovering && nativeStateAvailable\.current\) return/, "healthy native state must disable full-snapshot polling entirely");
+  assert.match(liveSync, /schedule\(liveSyncFailures\.current >= 2 \? 500 : 250\)/, "recovery must continue quickly while the event stream is unavailable");
+  assert.doesNotMatch(liveSync, /30000/, "healthy sessions must not retain a periodic snapshot poll");
   assert.match(liveSync, /phase: "ready", demo: false/, "first successful snapshot must restore the live UI");
   assert.match(liveSync, /event: "live-sync-recovered"/);
   assert.doesNotMatch(liveSync, /Live synchronization stopped/);
@@ -270,17 +303,20 @@ test("UP and DOWN navigate adjacent presets instead of banks", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const coreSource = readFileSync(new URL("../packages/typescript/qc-core/src/surface-actions.ts", import.meta.url), "utf8");
   const controllerSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-controller.ts", import.meta.url), "utf8");
+  const workflowSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
+  const surfaceActions = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-surface-actions.ts", import.meta.url), "utf8");
   const sharedTransport = readFileSync(new URL("../packages/typescript/qc-core/src/gateway-transport.ts", import.meta.url), "utf8");
-  const navigationFlow = appSource.slice(appSource.indexOf("const navigatePreset = useCallback"), appSource.indexOf("const openBlockEditor", appSource.indexOf("const navigatePreset = useCallback")));
+  const navigationFlow = workflowSource.slice(workflowSource.indexOf("const movePreset = useCallback"), workflowSource.indexOf("const navigateBank"));
   assert.match(coreSource, /action\.role === "bank:up"\) return \{ kind: "move-preset", delta: -1 \}/, "UP must resolve to the previous preset");
   assert.match(coreSource, /action\.role === "bank:down"\) return \{ kind: "move-preset", delta: 1 \}/, "DOWN must resolve to the next preset");
-  assert.match(appSource, /movePreset: \(delta\) => void navigatePreset\(delta\)/);
+  assert.match(appSource, /useQcSurfaceActions\(\{/);
+  assert.match(surfaceActions, /movePreset: \(delta\) => void performance\.movePreset\(delta\)/);
   assert.doesNotMatch(appSource, /action\.role === "bank:up"\) \{\s*void navigateBank/);
   assert.doesNotMatch(appSource, /action\.role === "bank:down"\) \{\s*void navigateBank/);
-  assert.match(navigationFlow, /const targetPosition = snapshotRef\.current\.presetPosition \+ direction/);
+  assert.match(navigationFlow, /const target = current\.presetPosition \+ direction/);
   assert.match(controllerSource, /presetMoveQueueRef\.current\.push\(\{ transport, delta, expected, token, resolve, reject \}\)/, "consecutive UP\/DOWN presses must preview immediately and queue their device writes");
   assert.match(controllerSource, /presetMoveQueueRef\.current\.shift\(\)/, "queued navigation must advance after each verified device write");
-  assert.match(navigationFlow, /runPresetMove\(qcTransport, direction\)/, "adjacent navigation must use the shared guarded transport path");
+  assert.match(navigationFlow, /controller\.runPresetMove\(transport, direction\)/, "adjacent navigation must use the shared guarded transport path");
   assert.match(sharedTransport, /gateway\.recallPreset\(state\.setlistKey, position, "", state\.presetPosition\)/, "both hosts must use the same position-guarded recall");
   assert.match(controllerSource, /while \(presetMoveQueueRef\.current\.length\)/, "queued navigation must be serialized against fresh device state");
   assert.doesNotMatch(navigationFlow, /listPresets/, "first navigation must not wait for the 256-slot directory download");
@@ -298,11 +334,13 @@ test("background catalogs never monopolize the device command channel", () => {
 
 test("realtime device state is pushed instead of polled", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
   const broker = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
   assert.match(broker, /"method": "device\.stateFrame"/);
   assert.match(rustSource, /emit\("qc-state-frame", frame\)/);
-  assert.match(appSource, /listen<[^>]*NativeStateFrames[\s\S]*?\("qc-state-frame"/);
+  assert.match(appSource, /useWindowsDeviceFrames\(/);
+  assert.match(frameSource, /listen<NativeFrame>\("qc-state-frame"/);
   assert.doesNotMatch(appSource, /const synchronizeNativeState/);
   assert.doesNotMatch(appSource, /const synchronizeTempoClock/);
   assert.doesNotMatch(appSource, /const synchronizeVolume/);
@@ -394,12 +432,15 @@ test("chat continues multi-step device work across bounded tool rounds", () => {
 
 test("each chat tool validates against the latest device snapshot", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const executorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-action-executor.ts", import.meta.url), "utf8");
   const controllerSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-controller.ts", import.meta.url), "utf8");
   assert.match(appSource, /snapshot, snapshotRef, setSnapshot/);
   assert.match(controllerSource, /snapshotRef\.current = next/);
   assert.match(appSource, /const liveSnapshot = snapshotRef\.current/);
   assert.match(appSource, /const commitToolSnapshot = \(next: PresetSnapshot\)/);
-  assert.match(appSource, /if \(result\.snapshot\) \{ commitToolSnapshot\(result\.snapshot\); setSelectedBlockId\(""\); \}/);
+  assert.match(appSource, /snapshot: liveSnapshot/);
+  assert.match(appSource, /else if \(result\.snapshot\) commitToolSnapshot\(result\.snapshot\)/);
+  assert.match(executorSource, /assertExpectedString\(call, "expected_preset_name", snapshot\.presetName\)/);
 });
 
 test("the chat plus button opens general file attachments without a manual QC-context toggle", () => {
@@ -458,12 +499,18 @@ test("Antigravity browsing is read-only and does not grant command or page-inter
 
 test("open parameter editor consumes device knob events and chat write readback", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
+  const liveStateSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
+  const parameterWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-parameter-workflow.ts", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
-  assert.match(appSource, /listen<NativeStateFrames<QcStateUpdate>/);
-  assert.match(appSource, /state\.kind === "parameter"/);
-  assert.match(appSource, /editor\.updateParameter\(\{ index: state\.parameterIndex \}, state\.normalizedValue\)/);
-  assert.match(appSource, /blockDetailsRef\.current = result\.block/);
+  assert.match(frameSource, /type NativeFrame = NativeStateFrames<QcStateUpdate>/);
+  assert.match(frameSource, /listen<NativeFrame>\("qc-state-frame"/);
+  assert.match(frameSource, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(liveStateSource, /state\.kind === "parameter"/);
+  assert.match(liveStateSource, /editor\.updateParameters\(changes\)/);
+  assert.match(parameterWorkflow, /detailsRef\.current = result\.block/);
+  assert.match(appSource, /parameterWorkflow\.updateDetails\(result\.block\)/);
   assert.match(runtimeSource, /GatewayVerification::Parameter/);
   assert.match(runtimeSource, /assert_expected_parameter/);
   assert.match(brokerSource, /runtime_request::assert_expected_parameter/);
@@ -471,18 +518,19 @@ test("open parameter editor consumes device knob events and chat write readback"
 
 test("interactive synchronization avoids human-visible debounce and full snapshot readback", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
   const editorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/parameter-editor.tsx", import.meta.url), "utf8");
+  const parameterWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-parameter-workflow.ts", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const parameterFlow = runtimeSource.slice(runtimeSource.indexOf('"device.previewParameter"'), runtimeSource.indexOf('"device.setTempo"'));
-  assert.match(appSource, /parameterCommitTimers\.current\.set[\s\S]*?}, 8\)\)/);
-  assert.match(appSource, /parameterPreviewQueue\.current = \{/);
-  assert.match(appSource, /await tauriTransport\.previewParameter/);
-  assert.match(appSource, /observedRevision !== parameterRevisionClock\.current/);
-  assert.match(appSource, /parameterRevisions\.current\.get\(parameter\.index\) === revision/);
+  assert.match(parameterWorkflow, /timers\.current\.set[\s\S]*?}, 8\)\)/);
+  assert.match(parameterWorkflow, /previewQueue\.current = \{/);
+  assert.match(parameterWorkflow, /await gateway\.previewParameter/);
+  assert.match(parameterWorkflow, /revisions\.current\.get\(parameter\.index\) === revision/);
   assert.match(parameterFlow, /"device\.previewParameter" \| "device\.setParameter"/);
   assert.match(parameterFlow, /GatewayVerification::None/);
   assert.match(editorSource, /window\.setTimeout\(finish, 55\)/);
-  assert.match(appSource, /"qc-state-frame"/);
+  assert.match(frameSource, /"qc-state-frame"/);
   assert.doesNotMatch(appSource, /window\.setTimeout\(\(\) => void reconcile\(\), 120\)/);
   assert.doesNotMatch(parameterFlow, /sleep|snapshot\(\)/);
 });
@@ -491,7 +539,8 @@ test("preset navigation waits on QC state events and reads only as recovery", ()
   const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   const recallFlow = brokerSource.slice(brokerSource.indexOf("fn execute_preset_recall"), brokerSource.indexOf("fn gateway_recall_preset"));
   assert.match(recallFlow, /subscribe_state_events\(\)/);
-  assert.match(recallFlow, /device_events\.recv_timeout\(remaining\)/);
+  assert.match(brokerSource, /fn wait_for_transaction_event[\s\S]*events\.recv_timeout\(Duration::from_millis\(remaining\)\)/);
+  assert.match(recallFlow, /wait_for_transaction_event/);
   assert.match(recallFlow, /read_setlist_position\(request_id\)/);
   assert.doesNotMatch(recallFlow, /wait_for_gateway_snapshot/);
   assert.doesNotMatch(recallFlow, /thread::sleep/);
@@ -499,14 +548,19 @@ test("preset navigation waits on QC state events and reads only as recovery", ()
 
 test("tempo writes preserve the original guard and the lamp follows the QC clock", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const controlsSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-continuous-control-workflow.ts", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
   const uiSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
   const cssSource = readFileSync(new URL("../packages/typescript/qc-ui/src/live-surface.css", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
-  assert.match(appSource, /tauriTransport\.setTempo\(target, expected, snapshot\.presetName\)/);
-  assert.match(appSource, /frame\.tempoClock/);
-  assert.match(appSource, /tick \* beatPeriodMs \/ 24/);
+  assert.match(appSource, /useContinuousControlWorkflow\(\{/);
+  assert.match(controlsSource, /gateway\.setTempo\(target, expected, controller\.snapshotRef\.current\.presetName\)/);
+  assert.match(controlsSource, /while \(queue\.target !== undefined\)/, "rapid encoder changes must coalesce without dropping the latest value");
+  assert.match(frameSource, /frame\.tempoClock/);
+  assert.match(frameSource, /synchronizeTempoPulseEpoch\([\s\S]*?current\.tempoPulseEpochMs, frame\.observedAt, tick, current\.tempo\)/);
   assert.match(uiSource, /pulseEpochMs=\{!parameterLeds \? snapshot\.tempoPulseEpochMs/);
-  assert.match(cssSource, /4\.1%[\s\S]*4\.2%/);
+  assert.match(uiSource, /useMemo\(\(\) => tempoPeriodMs[\s\S]*\[tempoPeriodMs, pulseEpochMs\]\)/);
+  assert.match(cssSource, /15\.9%[\s\S]*16%/);
   assert.match(runtimeSource, /"device\.setTempo" \| "device\.command\.tempo"[\s\S]*GatewayVerification::Tempo/);
 });
 
@@ -514,6 +568,7 @@ test("Antigravity warms at startup and model writes execute directly", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8") + readFileSync(new URL("../apps/windows/src/menu-bar.tsx", import.meta.url), "utf8");
   const chatSource = readFileSync(new URL("../apps/windows/src-tauri/src/chat.rs", import.meta.url), "utf8");
   const transportSource = readFileSync(new URL("../apps/windows/src/tauri-transport.ts", import.meta.url), "utf8");
+  const executorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-action-executor.ts", import.meta.url), "utf8");
   assert.match(appSource, /settings\.provider === "antigravity-cli"/);
   assert.match(appSource, /modelChat\.warm\(\)/);
   assert.match(transportSource, /warm_chat_provider/);
@@ -523,8 +578,9 @@ test("Antigravity warms at startup and model writes execute directly", () => {
   assert.match(chatSource, /pub async fn warm\(bridge: &ChatBridge\)/);
   assert.match(chatSource, /worker\.stdin\.flush\(\)\.await/);
   assert.match(chatSource, /worker\.lines\.next_line\(\)/);
-  assert.match(appSource, /tauriTransport\.toggleBypass\(block\.row, block\.column/);
-  assert.match(appSource, /tauriTransport\.setParameter\(row, column, parameterIndex/);
+  assert.match(appSource, /executeQcAction\(call,/);
+  assert.match(executorSource, /gateway\.toggleBypass\(row, column/);
+  assert.match(executorSource, /gateway\.setParameter\(row, column, parameterIndex/);
   assert.doesNotMatch(appSource, /The model requested more than one QC action/);
 });
 
@@ -559,12 +615,14 @@ test("switching the Google subscription account invalidates the authenticated wo
 
 test("preset rename is available from UI and chat with verified device readback", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const executorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-action-executor.ts", import.meta.url), "utf8");
   const transportSource = readFileSync(new URL("../apps/windows/src/tauri-transport.ts", import.meta.url), "utf8");
   const gatewayBindings = readFileSync(new URL("../packages/typescript/qc-client/src/generated-gateway-methods.ts", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   assert.match(appSource, /Rename Current Preset/);
-  assert.match(appSource, /call\.name === "rename_current_preset"/);
+  assert.match(appSource, /executeQcAction\(call,/);
+  assert.match(executorSource, /call\.name === "rename_current_preset"/);
   assert.match(transportSource, /createGatewayClientTransport<GatewayTransport>/);
   assert.match(gatewayBindings, /"renameCurrentPreset": \{ rpc: "device\.renameCurrentPreset", tauri: "rename_current_preset"/);
   assert.match(runtimeSource, /"device\.renameCurrentPreset"/);
@@ -575,26 +633,27 @@ test("preset rename is available from UI and chat with verified device readback"
 test("chat saves an Unsaved preset to its trusted current device slot", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const chatSource = readFileSync(new URL("../apps/windows/src/model-chat.ts", import.meta.url), "utf8");
+  const presetWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-preset-workflow.ts", import.meta.url), "utf8");
   assert.match(chatSource, /name: "save_current_unsaved_preset"/);
   assert.match(chatSource, /active preset is named Unsaved[\s\S]*use save_current_unsaved_preset/);
   assert.match(appSource, /call\.name === "save_current_unsaved_preset"/);
   assert.match(appSource, /snapshot\.presetName !== "Unsaved"/);
   assert.match(appSource, /savePresetAs\(liveSnapshot\.setlistKey, liveSnapshot\.presetPosition, name, liveSnapshot\.presetName, liveSnapshot\.presetPosition, false\)/);
-  assert.match(appSource, /const commitSavedPreset = \(result: SavePresetResult\)/);
-  assert.match(appSource, /presetName: result\.savedName/);
-  assert.match(appSource, /snapshotRef\.current[\s\S]*dirty: false/, "a successful save must synchronously replace the stale Unsaved snapshot");
+  assert.match(presetWorkflow, /const commitSavedPreset = useCallback\(\(result: SavePresetResult\)/);
+  assert.match(presetWorkflow, /presetName: result\.savedName/);
+  assert.match(presetWorkflow, /result\.snapshot \?\? snapshotRef\.current[\s\S]*dirty: false/, "a successful save must synchronously replace the stale Unsaved snapshot");
 });
 
 test("the device Save button uses the CorOS screen instead of desktop dialogs", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
-  const saveFlow = appSource.slice(appSource.indexOf("const openDeviceSave"), appSource.indexOf("useEffect(() => {", appSource.indexOf("const openDeviceSave")));
-  assert.match(appSource, /savePreset=\{\{ open: savePresetScreenOpen/);
+  const saveFlow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-preset-workflow.ts", import.meta.url), "utf8");
+  assert.match(appSource, /savePreset=\{presetWorkflow\.saveProps\}/);
   assert.match(surfaceSource, /className="coros-save-preset"/);
   assert.match(surfaceSource, /\["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"\]/);
   assert.doesNotMatch(saveFlow, /setDialog\("save-device"\)|window\.confirm|listPresetSlots/);
   assert.doesNotMatch(appSource, /dialog === "save-device"/);
-  assert.match(saveFlow, /snapshot\.setlistKey,[\s\S]*snapshot\.presetPosition,[\s\S]*snapshot\.presetName !== "Unsaved"/);
+  assert.match(saveFlow, /current\.setlistKey,[\s\S]*current\.presetPosition,[\s\S]*current\.presetName !== "Unsaved"/);
   assert.match(saveFlow, /commitSavedPreset\(result\)/, "the Save button must display the verified device name immediately");
 });
 

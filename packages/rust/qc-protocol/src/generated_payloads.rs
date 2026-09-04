@@ -49,6 +49,15 @@ pub struct GridRoute {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct IoPortState {
+    pub kind: String,
+    pub id: i32,
+    pub label: String,
+    pub plugged: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ModeSlot {
     pub slot: u32,
     pub label: String,
@@ -99,6 +108,8 @@ pub struct QcStateUpdate {
     pub blocks: Option<Vec<GridBlock>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub routes: Option<Vec<GridRoute>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub io_ports: Option<Vec<IoPortState>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

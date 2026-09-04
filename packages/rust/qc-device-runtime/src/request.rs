@@ -98,6 +98,23 @@ pub enum GatewayVerification {
     Scene {
         scene: u32,
     },
+    SceneLabel {
+        scene: u32,
+        label: Option<String>,
+    },
+    SceneColor {
+        scene: u32,
+        color: String,
+    },
+    SceneCopy {
+        from_scene: u32,
+        to_scene: u32,
+        swap: bool,
+        from_label: String,
+        to_label: String,
+        from_color: Option<String>,
+        to_color: Option<String>,
+    },
     Tempo {
         bpm: u32,
     },
@@ -149,6 +166,84 @@ pub enum GatewayVerification {
     },
 }
 
+/// Event-driven lifecycle for a native device write.  Platform hosts own only
+/// the OS I/O handle and feed observed snapshots into this shared state
+/// machine; freshness, matching, and timeout semantics must not drift.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GatewayTransactionState {
+    Pending,
+    Verified,
+    TimedOut,
+}
+
+/// Merge optimistic UI state into gateway arguments using the canonical field
+/// names understood by all native hosts.
+pub fn merge_expected_state(params: &Value, expected: &Value) -> Value {
+    let mut merged = params.as_object().cloned().unwrap_or_default();
+    let Some(expected) = expected.as_object() else {
+        return Value::Object(merged);
+    };
+    for (target, sources) in [
+        ("expectedPresetName", &["presetName"][..]),
+        ("expectedPosition", &["position", "presetPosition"][..]),
+        ("expectedScene", &["activeScene", "scene"][..]),
+        ("expectedTempo", &["tempo"][..]),
+    ] {
+        if merged.contains_key(target) {
+            continue;
+        }
+        if let Some(value) = sources.iter().find_map(|key| expected.get(*key)) {
+            merged.insert(target.into(), value.clone());
+        }
+    }
+    Value::Object(merged)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GatewayTransaction {
+    verification: GatewayVerification,
+    after_observed_at_ms: u128,
+    deadline_ms: u64,
+}
+
+impl GatewayTransaction {
+    pub fn new(
+        verification: GatewayVerification,
+        after_observed_at_ms: u128,
+        started_at_ms: u64,
+        timeout_ms: u64,
+    ) -> Self {
+        Self {
+            verification,
+            after_observed_at_ms,
+            deadline_ms: started_at_ms.saturating_add(timeout_ms),
+        }
+    }
+
+    pub fn state(
+        &self,
+        snapshot: &GatewaySnapshot,
+        parameter_value: Option<f64>,
+        observed_at_ms: u128,
+        now_ms: u64,
+    ) -> GatewayTransactionState {
+        if observed_at_ms > self.after_observed_at_ms
+            && observed_at_ms <= u128::from(self.deadline_ms)
+            && self.verification.matches(snapshot, parameter_value)
+        {
+            GatewayTransactionState::Verified
+        } else if now_ms >= self.deadline_ms {
+            GatewayTransactionState::TimedOut
+        } else {
+            GatewayTransactionState::Pending
+        }
+    }
+
+    pub fn remaining_ms(&self, now_ms: u64) -> u64 {
+        self.deadline_ms.saturating_sub(now_ms)
+    }
+}
+
 impl GatewayVerification {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -170,6 +265,47 @@ impl GatewayVerification {
         match self {
             Self::None => true,
             Self::Scene { scene } => snapshot.active_scene == *scene,
+            Self::SceneLabel { scene, label } => {
+                snapshot
+                    .scenes
+                    .get(*scene as usize)
+                    .is_some_and(|actual| match label {
+                        Some(label) => actual == label,
+                        None => actual == &format!("Scene {}", (b'A' + *scene as u8) as char),
+                    })
+            }
+            Self::SceneColor { scene, color } => snapshot
+                .scene_colors
+                .as_ref()
+                .and_then(|colors| colors.get(*scene as usize))
+                .is_some_and(|actual| actual.eq_ignore_ascii_case(color)),
+            Self::SceneCopy {
+                from_scene,
+                to_scene,
+                swap,
+                from_label,
+                to_label,
+                from_color,
+                to_color,
+            } => {
+                let copied_label = snapshot
+                    .scenes
+                    .get(*to_scene as usize)
+                    .is_some_and(|actual| {
+                        scene_copy_label_matches(actual, from_label, *from_scene, *to_scene)
+                    });
+                let copied_color = scene_copy_color_matches(snapshot, *to_scene, from_color);
+                let swapped_label = !swap
+                    || snapshot
+                        .scenes
+                        .get(*from_scene as usize)
+                        .is_some_and(|actual| {
+                            scene_copy_label_matches(actual, to_label, *to_scene, *from_scene)
+                        });
+                let swapped_color =
+                    !swap || scene_copy_color_matches(snapshot, *from_scene, to_color);
+                snapshot.dirty && copied_label && copied_color && swapped_label && swapped_color
+            }
             Self::Tempo { bpm } => snapshot.tempo == *bpm,
             Self::MasterVolume { value } => snapshot.master_volume == *value,
             Self::Bypass {
@@ -253,6 +389,36 @@ impl GatewayVerification {
                     && (!require_clean || !snapshot.dirty)
             }
         }
+    }
+}
+
+fn default_scene_label(scene: u32) -> String {
+    format!("Scene {}", (b'A' + scene as u8) as char)
+}
+
+fn scene_copy_label_matches(
+    actual: &str,
+    before: &str,
+    before_scene: u32,
+    after_scene: u32,
+) -> bool {
+    actual == before
+        || (before == default_scene_label(before_scene)
+            && actual == default_scene_label(after_scene))
+}
+
+fn scene_copy_color_matches(
+    snapshot: &GatewaySnapshot,
+    scene: u32,
+    expected: &Option<String>,
+) -> bool {
+    match expected {
+        Some(expected) => snapshot
+            .scene_colors
+            .as_ref()
+            .and_then(|colors| colors.get(scene as usize))
+            .is_some_and(|actual| actual.eq_ignore_ascii_case(expected)),
+        None => true,
     }
 }
 
@@ -460,7 +626,7 @@ fn save_stage(
         instrument,
     };
     PresetMutationStage {
-        verification: verification_for_operation(&operation, &Value::Null),
+        verification: verification_for_operation(&operation, &Value::Null, None),
         write: PlannedWrite::HidOperation(operation),
         timeout_ms: 15_000,
     }
@@ -854,7 +1020,15 @@ pub fn assert_expected_state(
             })
             .and_then(|block| block.model_id);
         if actual != Some(expected as u32) {
-            return Err("The block at that grid position changed. Refresh and retry.".into());
+            return Err(format!(
+                "The block at row {row}, column {} changed: expected model {expected}, found {:?}. Refresh and retry.",
+                params
+                    .get("fromColumn")
+                    .or_else(|| params.get("column"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(u64::MAX),
+                actual
+            ));
         }
     }
     if let (Some(column), Some(expected)) = (
@@ -1036,6 +1210,24 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
                 value: normalized(params, "value")?,
             })
         }
+        "device.setParameterSceneMode" | "setParameterSceneMode" => {
+            Ok(DeviceOperation::SetParameterSceneMode {
+                row: row()?,
+                column: column("column")?,
+                parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
+                enabled: boolean(params, "enabled")?,
+            })
+        }
+        "device.setParameterExpression" | "setParameterExpression" => {
+            Ok(DeviceOperation::SetParameterExpression {
+                row: row()?,
+                column: column("column")?,
+                parameter_index: bounded_u32(params, "parameterIndex", u32::MAX)?,
+                pedal: bounded_u32(params, "pedal", 2)?,
+                minimum: normalized(params, "minimum")?,
+                maximum: normalized(params, "maximum")?,
+            })
+        }
         "listPresetFolders" => Ok(DeviceOperation::ListPresetFolders),
         "savePreset" => Ok(DeviceOperation::SavePreset {
             setlist_key: required_text(params, "setlistKey")?,
@@ -1047,11 +1239,40 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
                 .and_then(|value| i32::try_from(value).ok())
                 .unwrap_or(0),
         }),
+        "device.copyScene" | "copyScene" => Ok(DeviceOperation::CopyScene {
+            from_index: bounded_u32(params, "fromScene", domain::SCENE_COUNT - 1)?,
+            to_index: bounded_u32(params, "toScene", domain::SCENE_COUNT - 1)?,
+            swap: params.get("swap").and_then(Value::as_bool).unwrap_or(false),
+        }),
+        "device.setSceneLabel" | "setSceneLabel" => Ok(DeviceOperation::SetSceneLabel {
+            scene: bounded_u32(params, "scene", domain::SCENE_COUNT - 1)?,
+            label: match params.get("label") {
+                None | Some(Value::Null) => None,
+                Some(Value::String(label))
+                    if label.chars().count() <= 32 && !label.chars().any(char::is_control) =>
+                {
+                    Some(label.clone())
+                }
+                _ => return Err("label must be null or at most 32 visible characters".into()),
+            },
+        }),
+        "device.setSceneColor" | "setSceneColor" => Ok(DeviceOperation::SetSceneColor {
+            scene: bounded_u32(params, "scene", domain::SCENE_COUNT - 1)?,
+            color: params
+                .get("color")
+                .and_then(Value::as_u64)
+                .and_then(|value| u32::try_from(value).ok())
+                .ok_or_else(|| "color must be an unsigned 32-bit ARGB integer".to_string())?,
+        }),
         _ => Err(format!("unknown native device operation: {operation}")),
     }
 }
 
-fn verification_for_operation(operation: &DeviceOperation, params: &Value) -> GatewayVerification {
+fn verification_for_operation(
+    operation: &DeviceOperation,
+    params: &Value,
+    snapshot: Option<&GatewaySnapshot>,
+) -> GatewayVerification {
     match operation {
         DeviceOperation::AddBlock {
             row,
@@ -1117,8 +1338,43 @@ fn verification_for_operation(operation: &DeviceOperation, params: &Value) -> Ga
             name: Some(name.clone()),
             require_clean: true,
         },
+        DeviceOperation::SetSceneLabel { scene, label } => GatewayVerification::SceneLabel {
+            scene: *scene,
+            label: label.clone(),
+        },
+        DeviceOperation::SetSceneColor { scene, color } => GatewayVerification::SceneColor {
+            scene: *scene,
+            color: format!("#{:06x}", color & 0x00ff_ffff),
+        },
+        DeviceOperation::CopyScene {
+            from_index,
+            to_index,
+            swap,
+        } => snapshot
+            .and_then(|before| {
+                Some(GatewayVerification::SceneCopy {
+                    from_scene: *from_index,
+                    to_scene: *to_index,
+                    swap: *swap,
+                    from_label: before.scenes.get(*from_index as usize)?.clone(),
+                    to_label: before.scenes.get(*to_index as usize)?.clone(),
+                    from_color: before
+                        .scene_colors
+                        .as_ref()
+                        .and_then(|colors| colors.get(*from_index as usize))
+                        .cloned(),
+                    to_color: before
+                        .scene_colors
+                        .as_ref()
+                        .and_then(|colors| colors.get(*to_index as usize))
+                        .cloned(),
+                })
+            })
+            .unwrap_or(GatewayVerification::None),
         DeviceOperation::Command(_)
         | DeviceOperation::SetRoutingParameter { .. }
+        | DeviceOperation::SetParameterSceneMode { .. }
+        | DeviceOperation::SetParameterExpression { .. }
         | DeviceOperation::ListPresetFolders
         | DeviceOperation::ReadVersion
         | DeviceOperation::SetDeviceName(_)
@@ -1298,7 +1554,10 @@ pub fn plan_gateway_write(
         | "device.setBlockFootswitch"
         | "device.setChainInput"
         | "device.setChainOutput"
-        | "device.setChainSplit" => {
+        | "device.setChainSplit"
+        | "device.copyScene"
+        | "device.setSceneLabel"
+        | "device.setSceneColor" => {
             let operation_name = match method {
                 "device.addBlock" => "addBlock",
                 "device.removeBlock" => "removeBlock",
@@ -1306,11 +1565,14 @@ pub fn plan_gateway_write(
                 "device.setBlockFootswitch" => "setFootswitch",
                 "device.setChainInput" => "setChainInput",
                 "device.setChainOutput" => "setChainOutput",
+                "device.copyScene" => "copyScene",
+                "device.setSceneLabel" => "setSceneLabel",
+                "device.setSceneColor" => "setSceneColor",
                 _ => "setChainSplit",
             };
             let operation = operation(operation_name, params)?;
             GatewayWritePlan {
-                verification: verification_for_operation(&operation, params),
+                verification: verification_for_operation(&operation, params, snapshot),
                 write: PlannedWrite::HidOperation(operation),
                 detail: if method == "device.moveBlock" {
                     "Block moved".into()
@@ -1319,11 +1581,24 @@ pub fn plan_gateway_write(
                 },
             }
         }
+        "device.setParameterSceneMode" | "device.setParameterExpression" => {
+            let operation = operation(method, params)?;
+            GatewayWritePlan {
+                verification: GatewayVerification::None,
+                write: PlannedWrite::HidOperation(operation),
+                detail: if method == "device.setParameterSceneMode" {
+                    "Parameter scene behavior sent to the Quad Cortex"
+                } else {
+                    "Parameter expression assignment sent to the Quad Cortex"
+                }
+                .into(),
+            }
+        }
         "device.command.operation" => {
             let name = required_text(params, "operation")?;
             let operation = operation(&name, params)?;
             GatewayWritePlan {
-                verification: verification_for_operation(&operation, params),
+                verification: verification_for_operation(&operation, params, snapshot),
                 write: PlannedWrite::HidOperation(operation),
                 detail: format!("{name} accepted"),
             }
@@ -1349,6 +1624,51 @@ mod tests {
     use super::*;
     use qc_protocol::state::{GridBlock, GridRoute, PresetFileListing, PresetFolderListing};
     use serde_json::json;
+
+    #[test]
+    fn event_transactions_share_freshness_matching_and_timeout_policy() {
+        let before = GatewaySnapshot {
+            tempo: 100,
+            ..GatewaySnapshot::default()
+        };
+        let after = GatewaySnapshot {
+            tempo: 120,
+            ..before.clone()
+        };
+        let transaction =
+            GatewayTransaction::new(GatewayVerification::Tempo { bpm: 120 }, 5_000, 5_000, 650);
+        assert_eq!(
+            transaction.state(&after, None, 5_000, 5_001),
+            GatewayTransactionState::Pending,
+            "a matching snapshot that predates the write is not authoritative"
+        );
+        assert_eq!(
+            transaction.state(&before, None, 5_001, 5_100),
+            GatewayTransactionState::Pending,
+            "a fresh event with the wrong value does not acknowledge the write"
+        );
+        assert_eq!(
+            transaction.state(&after, None, 5_001, 5_100),
+            GatewayTransactionState::Verified
+        );
+        assert_eq!(transaction.remaining_ms(5_600), 50);
+        assert_eq!(
+            transaction.state(&after, None, 5_700, 5_700),
+            GatewayTransactionState::TimedOut
+        );
+    }
+
+    #[test]
+    fn expected_state_merge_is_shared_and_preserves_explicit_arguments() {
+        let merged = merge_expected_state(
+            &json!({"scene": 2, "expectedTempo": 90}),
+            &json!({"presetName": "Live", "presetPosition": 7, "activeScene": 1, "tempo": 120}),
+        );
+        assert_eq!(merged["expectedPresetName"], "Live");
+        assert_eq!(merged["expectedPosition"], 7);
+        assert_eq!(merged["expectedScene"], 1);
+        assert_eq!(merged["expectedTempo"], 90);
+    }
 
     #[test]
     fn expected_state_and_ranges_are_validated_once() {
@@ -1460,6 +1780,79 @@ mod tests {
         .unwrap();
         let native = plan_gateway_write("device.command.operation", &json!({"operation": "moveBlock", "row": 1, "fromColumn": 2, "toRow": 1, "toColumn": 4}), None).unwrap();
         assert_eq!(public.write, native.write);
+    }
+
+    #[test]
+    fn scene_management_is_validated_and_planned_in_shared_rust() {
+        let snapshot = GatewaySnapshot {
+            preset_name: "Scene Test".into(),
+            scenes: vec!["A".into(), "B".into(), "C".into(), "D".into()],
+            scene_colors: Some(vec!["#000000".into(); 8]),
+            ..GatewaySnapshot::default()
+        };
+        let copy = plan_gateway_write(
+            "device.copyScene",
+            &json!({"fromScene": 1, "toScene": 3, "swap": true, "expectedPresetName": "Scene Test"}),
+            Some(&snapshot),
+        ).unwrap();
+        assert!(matches!(
+            copy.write,
+            PlannedWrite::HidOperation(DeviceOperation::CopyScene {
+                from_index: 1,
+                to_index: 3,
+                swap: true
+            })
+        ));
+        let copied = GatewaySnapshot {
+            scenes: vec!["A".into(), "D".into(), "C".into(), "B".into()],
+            scene_colors: Some(vec!["#000000".into(); 8]),
+            dirty: true,
+            ..snapshot.clone()
+        };
+        assert!(copy.verification.matches(&copied, None));
+
+        let label = plan_gateway_write(
+            "device.setSceneLabel",
+            &json!({"scene": 2, "label": "Lead", "expectedPresetName": "Scene Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(
+            matches!(label.verification, GatewayVerification::SceneLabel { scene: 2, ref label } if label.as_deref() == Some("Lead"))
+        );
+
+        let clear = plan_gateway_write(
+            "device.setSceneLabel",
+            &json!({"scene": 2, "label": null, "expectedPresetName": "Scene Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        let cleared = GatewaySnapshot {
+            scenes: vec![
+                "Scene A".into(),
+                "Scene B".into(),
+                "Scene C".into(),
+                "Scene D".into(),
+            ],
+            ..snapshot.clone()
+        };
+        assert!(clear.verification.matches(&cleared, None));
+
+        let color = plan_gateway_write(
+            "device.setSceneColor",
+            &json!({"scene": 3, "color": 4294902466_u64, "expectedPresetName": "Scene Test"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert!(
+            matches!(color.verification, GatewayVerification::SceneColor { scene: 3, ref color } if color == "#ff02c2")
+        );
+        assert!(plan_gateway_write(
+            "device.copyScene",
+            &json!({"fromScene": 8, "toScene": 0}),
+            Some(&snapshot)
+        )
+        .is_err());
     }
 
     #[test]

@@ -284,6 +284,46 @@ pub static ACTIONS: &[ActionSpec] = &[
         properties: &[p!("scene", SCENE), p!("expected_preset_name", TEXT)],
     },
     ActionSpec {
+        name: "copy_scene",
+        rpc: "device.copyScene",
+        classification: Classification::LiveWrite,
+        description: "Copy or swap two scenes in the current preset and verify the resulting scene state.",
+        properties: &[
+            p!("from_scene", SCENE),
+            p!("to_scene", SCENE),
+            p!("swap", BOOL),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_scene_label",
+        rpc: "device.setSceneLabel",
+        classification: Classification::LiveWrite,
+        description: "Set or clear the label of one scene in the current preset.",
+        properties: &[
+            p!("scene", SCENE),
+            p!("label", Kind::NullableString),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
+        name: "set_scene_color",
+        rpc: "device.setSceneColor",
+        classification: Classification::LiveWrite,
+        description: "Set the display color of one scene in the current preset.",
+        properties: &[
+            p!("scene", SCENE),
+            p!(
+                "color",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(u32::MAX as i64)
+                }
+            ),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
         name: "press_footswitch",
         rpc: "device.pressFootswitch",
         classification: Classification::LiveWrite,

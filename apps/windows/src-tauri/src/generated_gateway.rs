@@ -18,6 +18,9 @@ pub mod rpc {
     pub const CAPTURE_SCREEN: &str = "device.captureScreen";
     pub const TAP_SCREEN: &str = "device.tapScreen";
     pub const SELECT_SCENE: &str = "device.selectScene";
+    pub const COPY_SCENE: &str = "device.copyScene";
+    pub const SET_SCENE_LABEL: &str = "device.setSceneLabel";
+    pub const SET_SCENE_COLOR: &str = "device.setSceneColor";
     pub const TOGGLE_BYPASS: &str = "device.toggleBypass";
     pub const MOVE_BLOCK: &str = "device.moveBlock";
     pub const ADD_BLOCK: &str = "device.addBlock";

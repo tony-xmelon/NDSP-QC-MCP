@@ -1,14 +1,16 @@
 import { Capacitor } from "@capacitor/core";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { demoSnapshot, QC_SCENE_COUNT, type BlockParameter, type GridBlock } from "@ndsp-qc/client";
-import { appendConversationMessage, assistantAccessPermitsTool, assistantActionCommand, assistantActionPrompt, assistantCommandDetail, assistantHelp, assistantIntentCommand, blockSelectionIntent, demoBlockDetails, dispatchSurfaceCommand, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, recordTempoTap, sceneLetter, surfaceCommand, validateAssistantActions, type ConversationMessage, type ValidatedAssistantAction } from "@ndsp-qc/core";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
+import { appendConversationMessage, assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { MicrophoneIcon, officialBlockVisual, QuadCortexSurface, useBlockEditorSession, useQcController, type HardwareAction } from "@ndsp-qc/ui";
-import { createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
+import { AddBlockPanel, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useBlockEditorSession, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
 type UsbState = "searching" | "available" | "connecting" | "syncing" | "connected" | "absent" | "error";
 type AndroidGeminiModel = GeminiModelId;
+type AndroidAttachment = { name: string; mediaType: "image/png"; data: string };
+type AssistantResponse = { text: string; attachments?: AndroidAttachment[] };
 
 const formFactor = formFactors[0];
 const skin = skins.find((entry) => entry.id === "official-svg") ?? skins[0];
@@ -27,12 +29,6 @@ const storedControlAccessMode = (): ControlAccessMode => {
   const value = window.localStorage.getItem(controlAccessModeKey);
   return value === "read-only" || value === "performance" || value === "modify" ? value : "full";
 };
-const assistantActionTool = (action: ValidatedAssistantAction): string => {
-  if (action.name === "next_preset" || action.name === "previous_preset") return "navigate_bank";
-  if (action.name === "set_selected_block_bypass") return "set_bypass";
-  return action.name;
-};
-
 function loadQuotaLedger(): GeminiQuotaLedger {
   try {
     const saved = JSON.parse(window.localStorage.getItem(androidQuotaStorageKey) ?? "{}");
@@ -46,19 +42,18 @@ function AppMark() {
 
 export function App() {
   const native = Capacitor.isNativePlatform();
+  const qcController = useQcController(demoSnapshot);
   const {
     snapshot, snapshotRef, setSnapshot, updateSnapshot,
-    beginScene, beginPresetMove, beginModeSlot, beginFootswitch, beginTempo,
-    failCommand, settleCommand, resetCommands, reconcileFrame,
-    runScene, runPresetMove, runModeSlot, runTempo, runBypass, runFootswitch, runAssistantCommand
-  } = useQcController(demoSnapshot);
+    resetCommands, reconcileFrame, runAssistantCommand
+  } = qcController;
   const qcTransport = useMemo(() => createAndroidQcTransport(() => snapshotRef.current), [snapshotRef]);
   const [selectedBlockId, setSelectedBlockId] = useState("");
   const editor = useBlockEditorSession();
-  const { details: blockDetails, drafts: parameterDrafts, page: parameterPage } = editor;
-  const [parameterBusy, setParameterBusy] = useState(false);
+  const { details: blockDetails } = editor;
+  const [devicePending, setDevicePending] = useState(false);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ConversationMessage[]>([
+  const [messages, setMessages] = useState<ConversationMessage<AndroidAttachment>[]>([
     { id: 1, role: "assistant", text: "Ready. Connect the Quad Cortex by USB, type a request, or use the microphone to speak." }
   ]);
   const [usbState, setUsbState] = useState<UsbState>(native ? "searching" : "absent");
@@ -74,17 +69,76 @@ export function App() {
   const [relayState, setRelayState] = useState<RelayState>("stopped");
   const [relayPaired, setRelayPaired] = useState(false);
   const [controlAccessMode, setControlAccessMode] = useState<ControlAccessMode>(storedControlAccessMode);
+  const [workflowPanel, setWorkflowPanel] = useState<"block" | "add" | "routing" | "scene" | null>(null);
   const nextMessageId = useRef(2);
-  const tapTimes = useRef<number[]>([]);
   const connectInFlight = useRef(false);
   const presetSynchronized = useRef(false);
   const usbSessionReady = useRef(false);
-  const openBlockAddress = useRef<{ row: number; column: number } | undefined>(undefined);
-
+  const appendAssistant = useCallback((text: string, attachments?: AndroidAttachment[]) => setMessages((current) => appendConversationMessage(current, nextMessageId.current++, "assistant", text, attachments)), []);
+  const workflowPrompts = useMemo(() => ({
+    confirm: (message: string) => window.confirm(message),
+    prompt: (message: string, initialValue: string) => window.prompt(message, initialValue)
+  }), []);
+  const workflows = useQcWorkflows({
+    controller: qcController,
+    transport: qcTransport,
+    gateway: androidGatewayTransport,
+    editor,
+    selectedBlockId,
+    setSelectedBlockId,
+    connected: usbState === "connected",
+    demo: !native,
+    pending: devicePending,
+    setPending: setDevicePending,
+    prompts: workflowPrompts,
+    panels: {
+      openRouting: () => setWorkflowPanel("routing"),
+      openBlock: () => setWorkflowPanel("block"),
+      openAddBlock: () => setWorkflowPanel("add"),
+      openScenes: () => setWorkflowPanel("scene"),
+      close: () => setWorkflowPanel(null)
+    },
+    notice: appendAssistant,
+    fail: (error) => appendAssistant(error instanceof Error ? error.message : String(error)),
+    performanceFail: (error) => {
+      setUsbState("error");
+      appendAssistant(error instanceof Error ? error.message : String(error));
+    }
+  });
+  const {
+    history: deviceHistory,
+    preset: presetWorkflow,
+    routing: routingWorkflow,
+    grid: gridWorkflow,
+    parameter: parameterWorkflow,
+    scene: sceneWorkflow,
+    performance: performanceWorkflow
+  } = workflows;
   const selectedBlock = useMemo(() => snapshot.blocks.find((block) => block.id === selectedBlockId), [selectedBlockId, snapshot.blocks]);
+  const parameterEditorBindings = qcParameterEditorBindings({
+    snapshot,
+    selectedBlockId,
+    editor,
+    grid: gridWorkflow,
+    parameter: parameterWorkflow,
+    performance: performanceWorkflow,
+    connected: usbState === "connected",
+    pending: devicePending,
+    notice: appendAssistant,
+    openExpression: () => setWorkflowPanel("block")
+  });
   const selectedQuota = quotaSummary(selectedModel, quotaLedger[selectedModel], quotaNow);
   const switchLeds = useMemo(() => footswitchLeds(snapshot), [snapshot]);
-  openBlockAddress.current = blockDetails ? { row: blockDetails.row, column: blockDetails.column } : undefined;
+  const consumeLiveState = useQcLiveState({
+    reconcileFrame,
+    editor,
+    onStates: (states) => {
+      if (states.some((state) => state.kind === "preset")) {
+        presetSynchronized.current = true;
+        if (usbSessionReady.current) setUsbState("connected");
+      }
+    }
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setQuotaNow(Date.now()), 5_000);
@@ -133,20 +187,7 @@ export function App() {
         }
       }),
       QcUsbNative.addListener("qcStateBatch", ({ states }) => {
-        for (const state of states) {
-          if (state.kind === "preset") {
-            presetSynchronized.current = true;
-            if (usbSessionReady.current) setUsbState("connected");
-          }
-        }
-        const reduced = reconcileFrame(states);
-        const reconciled = reduced.states;
-        for (const state of reconciled) {
-          if (state.kind === "parameter" && state.parameterIndex !== undefined && state.normalizedValue !== undefined &&
-              openBlockAddress.current?.row === state.row && openBlockAddress.current?.column === state.column) {
-            editor.updateParameter({ index: state.parameterIndex }, state.normalizedValue);
-          }
-        }
+        consumeLiveState(states);
       })
     ];
     // Register every native listener before scanning/handshaking so no initial
@@ -185,50 +226,8 @@ export function App() {
     return () => { cancelled = true; void listener.then((value) => value.remove()); };
   }, [native]);
 
-  useEffect(() => {
-    if (!native || !blockDetails) return;
-    let cancelled = false;
-    void qcTransport.blockDetails(blockDetails.row, blockDetails.column, snapshotRef.current).then((details) => {
-      if (cancelled) return;
-      editor.load(details);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [native, snapshot.activeScene, blockDetails?.row, blockDetails?.column]);
-
-  const appendAssistant = (text: string) => setMessages((current) => appendConversationMessage(current, nextMessageId.current++, "assistant", text));
-
-  const openBlockEditor = async (block: GridBlock) => {
-    setSelectedBlockId(block.id);
-    setParameterBusy(true);
-    try {
-      const details = native
-        ? await qcTransport.blockDetails(block.row, block.column, snapshotRef.current)
-        : demoBlockDetails(block, snapshot.activeScene);
-      editor.load(details, true);
-    } catch (error) {
-      setSelectedBlockId("");
-      editor.close();
-      appendAssistant(error instanceof Error ? error.message : `Could not read ${block.name} parameters.`);
-    } finally { setParameterBusy(false); }
-  };
-
-  const closeBlockEditor = () => {
-    setSelectedBlockId("");
-    editor.close();
-  };
-
-  const commitParameter = async (parameter: BlockParameter, value: number) => {
-    if (!blockDetails || parameter.normalizedValue === null || parameterBusy) return;
-    editor.updateParameter(parameter, value);
-    setParameterBusy(true);
-    try {
-      await qcTransport.setParameter(blockDetails.row, blockDetails.column, parameter.index, value, snapshotRef.current);
-      setSnapshot((current) => ({ ...current, dirty: true }));
-    } catch (error) {
-      editor.updateParameter(parameter, parameter.normalizedValue as number);
-      appendAssistant(error instanceof Error ? error.message : `Could not change ${parameter.name}.`);
-    } finally { setParameterBusy(false); }
-  };
+  const openBlockEditor = gridWorkflow.openBlock;
+  const closeBlockEditor = gridWorkflow.close;
 
   const usbDiagnostics = async () => {
     if (!native) return "USB diagnostics are available in the installed Android app.";
@@ -250,104 +249,63 @@ export function App() {
     await attemptUsbConnection(true);
   };
 
-  const setBlockBypass = async (block: GridBlock, bypassed: boolean) => {
-    await runBypass(qcTransport, block.id, block.row, block.column, bypassed);
-  };
-
-  const selectScene = async (index: number, reportFailure = false) => {
-    const scene = Math.max(0, Math.min(snapshot.scenes.length - 1, index));
-    if (reportFailure && usbState !== "connected") throw new Error("Connect the Quad Cortex over USB first.");
-    if (usbState === "connected") {
-      try { await runScene(qcTransport, scene); }
-      catch (error) {
-        setUsbState("error");
-        if (reportFailure) throw error;
-      }
-    } else settleCommand(beginScene(scene));
-  };
-
-  const movePreset = async (delta: -1 | 1, reportFailure = false) => {
-    if (reportFailure && usbState !== "connected") throw new Error("Connect the Quad Cortex over USB first.");
-    if (usbState === "connected") {
-      try { await runPresetMove(qcTransport, delta); return; }
-      catch (error) {
-        if (reportFailure) throw error;
-        setUsbState("error");
-        return;
-      }
-    }
-    settleCommand(beginPresetMove(delta, delta > 0 ? "Next preset" : "Previous preset"));
-  };
-
-  const selectModeSlot = async (slot: 0 | 1 | 2) => {
-    if (usbState !== "connected") { settleCommand(beginModeSlot(slot)); return; }
-    try { await runModeSlot(qcTransport, slot); }
-    catch (error) {
-      setUsbState("error");
-      appendAssistant(error instanceof Error ? error.message : `Could not select Mode Slot ${sceneLetter(slot)}.`);
-    }
-  };
-
+  const selectScene = performanceWorkflow.selectScene;
+  const movePreset = performanceWorkflow.movePreset;
   const pressFootswitch = async (index: number) => {
-    if (usbState === "connected") {
-      try { await runFootswitch(qcTransport, index); }
-      catch (error) {
-        setUsbState("error");
-        appendAssistant(error instanceof Error ? error.message : `Could not press Footswitch ${sceneLetter(index)}.`);
-      }
+    if (gridWorkflow.footswitchAssignmentPending && selectedBlock) {
+      gridWorkflow.setFootswitchAssignmentPending(false);
+      await gridWorkflow.assignFootswitch(selectedBlock.footswitch === index ? null : index);
       return;
     }
-    settleCommand(beginFootswitch(index));
+    await performanceWorkflow.pressFootswitch(index);
   };
 
-  const handleSurfaceAction = (action: HardwareAction) => {
-    dispatchSurfaceCommand(surfaceCommand(action), {
-      selectScene: (scene) => void selectScene(scene),
-      toggleBlockEditor: (blockId) => {
-        const block = snapshot.blocks.find((candidate) => candidate.id === blockId);
-        if (blockSelectionIntent(selectedBlockId, blockId) === "close") closeBlockEditor();
-        else if (block) void openBlockEditor(block);
-      },
-      selectModeSlot: (slot) => void selectModeSlot(slot),
-      pressFootswitch: (index) => void pressFootswitch(index),
-      movePreset: (delta) => void movePreset(delta),
-      tapTempo: () => void tapTempo()
-    });
-  };
-
-  const tapTempo = async () => {
-    const now = Date.now();
-    const result = recordTempoTap(tapTimes.current, now);
-    tapTimes.current = result.taps;
-    const token = result.bpm === undefined
-      ? undefined
-      : beginTempo(result.bpm);
-    if (usbState === "connected") {
-      try { await qcTransport.tapTempo(snapshotRef.current); }
-      catch (error) {
-        if (token) failCommand(token);
-        setUsbState("error");
-        appendAssistant(error instanceof Error ? error.message : "Could not send Tap Tempo.");
-      }
-    }
-    if (token && usbState !== "connected") settleCommand(token);
-  };
+  const tapTempo = performanceWorkflow.tapTempo;
+  const handleSurfaceAction = useQcSurfaceActions({
+    snapshot,
+    selectedBlockId,
+    blockDetails,
+    grid: gridWorkflow,
+    performance: performanceWorkflow,
+    openBlock: (block) => { void openBlockEditor(block); },
+    closeBlock: closeBlockEditor
+  });
 
   const localFallback = async (input: string): Promise<string> => {
     const intent = parseAssistantIntent(input);
     if (intent.kind === "inspect") return formatSnapshotSummary(snapshot);
-    const intentTool = intent.kind === "bypass" ? "set_bypass"
-      : intent.kind === "parameter" ? "set_parameter"
-        : intent.kind === "scene" ? "select_scene"
-          : intent.kind === "preset-step" || intent.kind === "bank" ? "navigate_bank"
-            : intent.kind === "recall" ? "recall_preset"
-              : intent.kind === "tempo" ? "set_tempo"
-                : intent.kind === "view" ? (intent.view === "tuner" ? "show_tuner" : "show_gig_view")
-                  : undefined;
+    const intentTool = assistantIntentToolName(intent);
     if (intentTool && !assistantAccessPermitsTool(controlAccessMode, intentTool)) return `Assistant ${controlAccessMode} access does not permit that operation. Manual on-screen controls remain available.`;
     if (intent.kind === "scene" && usbState !== "connected") {
       await selectScene(intent.index, false);
       return `Scene ${sceneLetter(intent.index)} selected in the preview.`;
+    }
+    if (intent.kind === "parameter") {
+      if (usbState !== "connected") return "Connect the Quad Cortex over USB first.";
+      if (!selectedBlock) return "Select a block on the Grid first.";
+      try {
+        const details = await androidGatewayTransport.blockDetails(selectedBlock.row, selectedBlock.column, snapshot.presetName);
+        const resolved = resolveAssistantParameterEdit(details, intent.parameter, intent.value);
+        const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}?`;
+        if (!window.confirm(`${label}\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary parameter edit cancelled.";
+        const result = await androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, snapshot.presetName);
+        if (result.snapshot) workflows.reconcile(result.snapshot);
+        if (blockDetails?.row === result.block.row && blockDetails.column === result.block.column) parameterWorkflow.updateDetails(result.block);
+        deviceHistory.record({ label: `${details.name} ${resolved.parameter.name}`, execute: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.parameter.normalizedValue as number, resolved.normalized, snapshot.activeScene, current.presetName), redo: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, current.presetName) });
+        return result.detail;
+      } catch (error) { return error instanceof Error ? error.message : "That QC parameter could not be changed."; }
+    }
+    if (intent.kind === "bypass" && selectedBlock?.bypassed !== undefined) {
+      const target = intent.desired === "toggle" ? !selectedBlock.bypassed : intent.desired === "bypassed";
+      if (target !== selectedBlock.bypassed && !window.confirm(`${target ? "Bypass" : "Enable"} ${selectedBlock.name} in Scene ${sceneLetter(snapshot.activeScene)}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary bypass edit cancelled.";
+    }
+    if (intent.kind === "bank") {
+      try { return await performanceWorkflow.navigateBank(intent.direction, true) ?? "Bank changed."; }
+      catch (error) { return error instanceof Error ? error.message : "Bank navigation failed."; }
+    }
+    if (intent.kind === "recall") {
+      try { return await presetWorkflow.recallLocation(intent.location); }
+      catch (error) { return error instanceof Error ? error.message : "Preset recall failed."; }
     }
     let deviceCommand;
     try {
@@ -365,9 +323,9 @@ export function App() {
       : "Browser preview is offline. On Android, Gemini chat, voice input, and direct Quad Cortex USB are enabled.";
   };
 
-  const askGemini = async (input: string): Promise<string> => {
-    if (!native) return localFallback(input);
-    const prompt = assistantActionPrompt(snapshot, `USB ${usbState}`, selectedBlock?.name, input, controlAccessMode);
+  const askGemini = async (input: string): Promise<AssistantResponse> => {
+    if (!native) return { text: await localFallback(input) };
+    const prompt = assistantToolActionPrompt(snapshotRef.current, `USB ${usbState}`, selectedBlockId, input, controlAccessMode);
     let result: Awaited<ReturnType<typeof GeminiNative.generate>>;
     try {
       result = await GeminiNative.generate({ prompt, model: selectedModel });
@@ -387,19 +345,35 @@ export function App() {
       throw error;
     }
     const parsed = parseAssistantReply(result.text);
-    if (!parsed) return result.text;
+    if (!parsed) return { text: result.text };
     const notes: string[] = [];
-    const proposed = validateAssistantActions(parsed);
-    const actions = proposed.filter((action) => assistantAccessPermitsTool(controlAccessMode, assistantActionTool(action)));
-    if (actions.length !== proposed.length) notes.push(`Some proposed actions were blocked by ${controlAccessMode} access.`);
+    const attachments: AndroidAttachment[] = [];
+    const proposedCount = Array.isArray(parsed.actions) ? parsed.actions.length : 0;
+    const actions = validateAssistantToolCalls(parsed, controlAccessMode);
+    if (actions.length !== proposedCount) notes.push(`Some proposed actions were invalid or blocked by ${controlAccessMode} access.`);
     for (const action of actions) {
       try {
-        if (usbState !== "connected") throw new Error("Connect the Quad Cortex first.");
-        const liveSelected = snapshotRef.current.blocks.find((block) => block.id === selectedBlockId);
-        await runAssistantCommand(qcTransport, assistantActionCommand(action, liveSelected));
+        const connectionAction = action.name === "reconnect_device" || action.name === "reset_device_session" || action.name === "disconnect_device";
+        if (usbState !== "connected" && !connectionAction) throw new Error("Connect the Quad Cortex first.");
+        const outcome = await executeQcAction(action, {
+          gateway: androidGatewayTransport,
+          snapshot: snapshotRef.current,
+          connected: usbState === "connected",
+          accessMode: controlAccessMode,
+          selectedBlockId
+        });
+        if (outcome.connection) {
+          setUsbState(outcome.connection.phase === "ready" ? "connected" : outcome.connection.phase === "disconnected" ? "absent" : "error");
+        }
+        if (outcome.savedPreset) presetWorkflow.commitSavedPreset(outcome.savedPreset);
+        else if (outcome.snapshot) workflows.reconcile(outcome.snapshot);
+        if (outcome.block && blockDetails?.row === outcome.block.row && blockDetails.column === outcome.block.column) parameterWorkflow.updateDetails(outcome.block);
+        if (outcome.clearSelection) closeBlockEditor();
+        if (outcome.image) attachments.push({ name: `qc-screen-${Date.now()}.png`, mediaType: "image/png", data: outcome.image.pngBase64 });
+        notes.push(outcome.detail);
       } catch (error) { notes.push(error instanceof Error ? error.message : "The QC command failed; reconnect and try again."); }
     }
-    return [parsed.reply?.trim() || "Done.", ...notes].join(" ");
+    return { text: [parsed.reply?.trim() || "Done.", ...notes].join(" "), attachments: attachments.length ? attachments : undefined };
   };
 
   const sendInput = async (input: string) => {
@@ -410,7 +384,10 @@ export function App() {
     setBusy(true);
     try {
       if (/^(usb\s+)?(diagnostics?|status)$/i.test(trimmed)) appendAssistant(await usbDiagnostics());
-      else appendAssistant(await askGemini(trimmed));
+      else {
+        const response = await askGemini(trimmed);
+        appendAssistant(response.text, response.attachments);
+      }
     }
     catch { appendAssistant(await localFallback(trimmed)); }
     finally { setBusy(false); }
@@ -477,33 +454,10 @@ export function App() {
 
     <section className="mobile-screen" aria-label="Quad Cortex display">
       <QuadCortexSurface formFactor={formFactor} snapshot={snapshot} selectedBlockId={selectedBlockId} skin={skin}
-        onAction={handleSurfaceAction} onOpenPreset={() => {}} onUndo={() => {}} canUndo={false}
-        onSave={() => {}} onOpenRouting={() => {}} onRefresh={() => {}}
-        parameterEditor={blockDetails ? {
-          details: blockDetails,
-          drafts: parameterDrafts,
-          accent: officialBlockVisual(selectedBlock ?? { id: "editor", name: blockDetails.name, kind: "utility", category: blockDetails.category, row: blockDetails.row, column: blockDetails.column }).color,
-          activeScene: snapshot.activeScene,
-          scenes: snapshot.scenes,
-          bypassed: Boolean(selectedBlock?.bypassed),
-          footswitch: selectedBlock?.footswitch,
-          disabled: parameterBusy,
-          page: parameterPage,
-          onPageChange: editor.setPage,
-          onDraftChange: editor.draft,
-          onCommit: (parameter, value) => void commitParameter(parameter, value),
-          onCommitBatch: (changes) => { for (const change of changes) void commitParameter(change.parameter, change.value); },
-          onToggleBypass: () => {
-            if (!selectedBlock) return;
-            const bypassed = !selectedBlock.bypassed;
-            void setBlockBypass(selectedBlock, bypassed).catch((error) => appendAssistant(error instanceof Error ? error.message : `Could not change ${selectedBlock.name}.`));
-          },
-          onSceneSelect: (scene) => void selectScene(scene),
-          onFootswitchAssignmentStart: () => {},
-          contextActionEnabled: { "save-device-preset": false, "change-device": false, "copy-device": false, "paste-device": false, "reset-defaults": false, "set-parameters-defaults": false, expression: false, "assign-looper-actions": false, "mute-bypass": false, remove: false },
-          onContextAction: () => {},
-          onClose: closeBlockEditor
-        } : undefined} />
+        onAction={handleSurfaceAction} onOpenPreset={() => void presetWorkflow.openDirectory()} onUndo={() => void deviceHistory.undo()} canUndo={Boolean(deviceHistory.undoEntry)} undoLabel={deviceHistory.undoEntry?.label}
+        onSave={presetWorkflow.openSave} onOpenRouting={routingWorkflow.openPicker} onRefresh={() => void presetWorkflow.refresh()}
+        savePreset={presetWorkflow.saveProps} presetDirectory={presetWorkflow.directoryProps} routingPicker={routingWorkflow.pickerProps}
+        parameterEditor={parameterEditorBindings} />
     </section>
 
     <nav className="quick-controls" aria-label="Quick device controls">
@@ -522,10 +476,18 @@ export function App() {
       <button className={`tempo-control${snapshot.tempoLedEnabled ? " is-active" : ""}`} style={{ "--tempo-bpm": snapshot.tempo } as CSSProperties} onClick={() => void tapTempo()} aria-label={`Tap tempo, ${snapshot.tempo} BPM`}><i className="control-led" aria-hidden="true" /><span>{snapshot.tempo}</span><small>TEMPO</small></button>
     </nav>
 
+    <nav className="workflow-actions" aria-label="Preset editing workflows">
+      <button disabled={usbState !== "connected" || devicePending} onClick={() => void gridWorkflow.openAdd()}>＋ BLOCK</button>
+      <button disabled={!blockDetails || devicePending} onClick={() => setWorkflowPanel("block")}>EDIT BLOCK</button>
+      <button disabled={usbState !== "connected" || devicePending} onClick={routingWorkflow.open}>ROUTING</button>
+      <button disabled={usbState !== "connected" || devicePending} onClick={sceneWorkflow.open}>SCENES</button>
+      <button disabled={!deviceHistory.redoEntry || devicePending} onClick={() => void deviceHistory.redo()}>REDO</button>
+    </nav>
+
     <section className="mobile-chat" aria-label="QC assistant">
       <div className="chat-heading"><span><i /> {busy ? "GEMINI THINKING" : "QC ASSISTANT"}</span><small>{selectedBlock ? `${selectedBlock.name} selected` : usbState === "connected" ? "QC connected" : "USB not connected"}</small></div>
       <div className="message-list" aria-live="polite">
-        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><p>{entry.text}</p></div>)}
+        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><div><p>{entry.text}</p>{entry.attachments?.map((attachment) => <img className="message-image" key={attachment.name} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} />)}</div></div>)}
         {busy && <div className="message assistant pending"><span>QC</span><p>•••</p></div>}
       </div>
       <div className="chat-model-bar">
@@ -553,5 +515,15 @@ export function App() {
         <button className="send-button" type="submit" disabled={!message.trim() || busy} aria-label="Send message">↑</button>
       </form>
     </section>
+
+    {workflowPanel && <div className="mobile-workflow-backdrop" role="presentation" onClick={() => setWorkflowPanel(null)}>
+      <section className="mobile-workflow-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title" onClick={(event) => event.stopPropagation()}>
+        <button className="mobile-workflow-close" aria-label="Close" onClick={() => setWorkflowPanel(null)}>×</button>
+        {workflowPanel === "routing" && <RoutingEditor snapshot={snapshot} drafts={routingWorkflow.drafts} pending={devicePending} setDrafts={routingWorkflow.setDrafts} applyRoute={(row, side) => void routingWorkflow.applyRoute(row, side)} applySplitRoute={(row) => void routingWorkflow.applySplit(row)} />}
+        {workflowPanel === "block" && <GridManagementPanel snapshot={snapshot} details={blockDetails} loading={gridWorkflow.detailsLoading} pending={devicePending} moveDestination={gridWorkflow.moveDestination} setMoveDestination={gridWorkflow.setMoveDestination} footswitchDraft={gridWorkflow.footswitchDraft} setFootswitchDraft={gridWorkflow.setFootswitchDraft} move={() => void gridWorkflow.move()} assignFootswitch={() => void gridWorkflow.assignFootswitch()} remove={() => void gridWorkflow.remove()} />}
+        {workflowPanel === "add" && <AddBlockPanel snapshot={snapshot} filteredModels={gridWorkflow.filteredModels} loading={gridWorkflow.modelsLoading} pending={devicePending} modelFilter={gridWorkflow.modelFilter} setModelFilter={gridWorkflow.setModelFilter} addCell={gridWorkflow.addCell} setAddCell={gridWorkflow.setAddCell} addModelId={gridWorkflow.addModelId} setAddModelId={gridWorkflow.setAddModelId} add={() => void gridWorkflow.add()} cancel={() => setWorkflowPanel(null)} />}
+        {workflowPanel === "scene" && <SceneEditor snapshot={snapshot} pending={devicePending} sourceScene={sceneWorkflow.sourceScene} setSourceScene={sceneWorkflow.setSourceScene} destinationScene={sceneWorkflow.destinationScene} setDestinationScene={sceneWorkflow.setDestinationScene} swap={sceneWorkflow.swap} setSwap={sceneWorkflow.setSwap} label={sceneWorkflow.label} setLabel={sceneWorkflow.setLabel} color={sceneWorkflow.color} setColor={sceneWorkflow.setColor} colors={sceneWorkflow.colors} copy={() => void sceneWorkflow.copy()} saveLabel={() => void sceneWorkflow.saveLabel()} saveColor={() => void sceneWorkflow.saveColor()} />}
+      </section>
+    </div>}
   </main>;
 }

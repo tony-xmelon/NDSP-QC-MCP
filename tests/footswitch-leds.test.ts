@@ -86,9 +86,13 @@ test("STOMP presses update the lamp and assigned blocks optimistically", () => {
 
 test("Windows footswitches use a persistent immediate MIDI lane and reconcile stale USB snapshots", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
+  const liveStateSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
   const controllerSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-controller.ts", import.meta.url), "utf8");
+  const workflowSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
-  const pressFlow = appSource.slice(appSource.indexOf("const pressFootswitch"), appSource.indexOf("const showDeviceView"));
+  const midiSource = readFileSync(new URL("../packages/rust/qc-windows-midi/src/lib.rs", import.meta.url), "utf8");
+  const pressFlow = workflowSource.slice(workflowSource.indexOf("const pressFootswitch"), workflowSource.indexOf("const movePreset"));
   const nativeCommand = rustSource.slice(rustSource.indexOf("async fn press_footswitch"), rustSource.indexOf("async fn select_mode_slot"));
 
   assert.doesNotMatch(pressFlow, /commandPending/, "a second tap must not be discarded while the first MIDI send is pending");
@@ -96,13 +100,15 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   assert.match(pressFlow, /beginFootswitch/);
   assert.match(pressFlow, /runFootswitch/);
   assert.match(controllerSource, /coordinatorRef\.current!\.fail/);
-  assert.match(appSource, /reconcileFrame\(frame\.states\)/);
+  assert.match(frameSource, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(nativeCommand, /state::<Mutex<PerformanceMidi>>/);
   assert.match(nativeCommand, /plan_host_midi\("device\.pressFootswitch"/);
   assert.match(nativeCommand, /\.send\(plan\.controller, plan\.value\)/);
   assert.doesNotMatch(nativeCommand, /background_gateway_request|with_gateway/, "performance MIDI must not queue behind the USB snapshot gateway");
-  assert.match(rustSource, /handle: Option<usize>/, "the Windows MIDI endpoint remains open between taps");
-  assert.match(rustSource, /impl Drop for PerformanceMidi/);
+  assert.match(rustSource, /use qc_windows_midi::PerformanceMidi/);
+  assert.match(midiSource, /handle: Option<usize>/, "the shared Windows MIDI endpoint remains open between taps");
+  assert.match(midiSource, /impl Drop for PerformanceMidi/);
 });
 
 test("Windows mode-slot changes share the immediate persistent MIDI lane", () => {

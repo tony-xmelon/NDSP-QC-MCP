@@ -2,15 +2,16 @@ import { QC_GRID_COLUMNS, type PresetSnapshot } from "@ndsp-qc/client";
 import { inputRouteOptions, outputRouteOptions, updateRouteDraft, type RouteDrafts } from "@ndsp-qc/core";
 import type { Dispatch, SetStateAction } from "react";
 
-type RoutingEditorProps = {
+export interface RoutingEditorProps {
   snapshot: PresetSnapshot;
   drafts: RouteDrafts;
   pending: boolean;
   setDrafts: Dispatch<SetStateAction<RouteDrafts>>;
-  applyRoute: (row: number, kind: "input" | "output") => void;
-  applySplitRoute: (row: number) => void;
-};
+  applyRoute(row: number, kind: "input" | "output"): void;
+  applySplitRoute(row: number): void;
+}
 
+/** Platform-neutral advanced routing workflow view. */
 export function RoutingEditor({ snapshot, drafts, pending, setDrafts, applyRoute, applySplitRoute }: RoutingEditorProps) {
   return <>
     <div className="dialog-kicker">SIGNAL ROUTING</div>

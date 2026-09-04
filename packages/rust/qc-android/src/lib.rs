@@ -2,9 +2,10 @@ use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use qc_device_runtime::request::{
-    assert_expected_parameter, finalize_device_backup, plan_gateway_read, plan_gateway_write,
-    plan_preset_mutation, plan_preset_recall, GatewayReadPlan, GatewayResponseProjection,
-    GatewayVerification, PlannedWrite, PresetMutationPlan,
+    assert_expected_parameter, finalize_device_backup, merge_expected_state, plan_gateway_read,
+    plan_gateway_write, plan_preset_mutation, plan_preset_recall, GatewayReadPlan,
+    GatewayResponseProjection, GatewayTransaction, GatewayTransactionState, GatewayVerification,
+    PlannedWrite, PresetMutationPlan,
 };
 use qc_device_runtime::{GatewaySnapshot, PresetLibrary};
 use qc_protocol::commands::{self, OutboundMessage};
@@ -55,6 +56,32 @@ fn bytes_result(env: &mut JNIEnv, result: Result<Vec<u8>, String>) -> jbyteArray
             ptr::null_mut()
         }
     }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeMergeExpectedState(
+    mut env: JNIEnv,
+    _class: JClass,
+    params_json: JString,
+    expected_json: JString,
+) -> jstring {
+    let result = (|| {
+        let params: Value = serde_json::from_str(
+            &env.get_string(&params_json)
+                .map_err(|error| error.to_string())?
+                .to_string_lossy(),
+        )
+        .map_err(|error| error.to_string())?;
+        let expected: Value = serde_json::from_str(
+            &env.get_string(&expected_json)
+                .map_err(|error| error.to_string())?
+                .to_string_lossy(),
+        )
+        .map_err(|error| error.to_string())?;
+        serde_json::to_string(&merge_expected_state(&params, &expected))
+            .map_err(|error| error.to_string())
+    })();
+    json_result(&mut env, result)
 }
 
 fn message_envelope(messages: Vec<OutboundMessage>) -> Result<Vec<u8>, String> {
@@ -414,12 +441,18 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDeco
     json_result(&mut env, result)
 }
 
+/// 0 = pending, 1 = verified, 2 = timed out. Freshness, matching, and timeout
+/// are evaluated by the same runtime used by the Windows broker.
 #[no_mangle]
-pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGatewayVerificationMatches(
+pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGatewayTransactionState(
     mut env: JNIEnv,
     _class: JClass,
     value: jlong,
     verification_json: JString,
+    after_observed_at_ms: jlong,
+    deadline_ms: jlong,
+    observed_at_ms: jlong,
+    now_ms: jlong,
 ) -> jint {
     let result = (|| {
         let verification_json = env
@@ -450,14 +483,26 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGate
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
-        Ok::<_, String>(verification.matches(&snapshot, parameter_value))
+        let transaction = GatewayTransaction::new(
+            verification,
+            after_observed_at_ms.max(0) as u128,
+            0,
+            deadline_ms.max(0) as u64,
+        );
+        Ok::<_, String>(transaction.state(
+            &snapshot,
+            parameter_value,
+            observed_at_ms.max(0) as u128,
+            now_ms.max(0) as u64,
+        ))
     })();
     match result {
-        Ok(true) => 1,
-        Ok(false) => 0,
+        Ok(GatewayTransactionState::Pending) => 0,
+        Ok(GatewayTransactionState::Verified) => 1,
+        Ok(GatewayTransactionState::TimedOut) => 2,
         Err(error) => {
             let _ = env.throw_new("java/lang/IllegalStateException", error);
-            0
+            2
         }
     }
 }
@@ -583,18 +628,30 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeCons
             .map_err(|error| error.to_string())?
             .to_string_lossy()
             .into_owned();
-        let complete = handle(value)
-            .backup
-            .lock()
-            .map_err(|_| "native QC backup lock was poisoned".to_string())?
-            .push(&bytes)
-            .map_err(|error| error.to_string())?;
+        let (complete, started, chunks, ignored_prefix_chunks, ignored_prefix_terminators) = {
+            let mut assembler = handle(value)
+                .backup
+                .lock()
+                .map_err(|_| "native QC backup lock was poisoned".to_string())?;
+            let complete = assembler.push(&bytes).map_err(|error| error.to_string())?;
+            (
+                complete,
+                assembler.started(),
+                assembler.chunks(),
+                assembler.ignored_prefix_chunks(),
+                assembler.ignored_prefix_terminators(),
+            )
+        };
         let backup = complete
             .map(|raw| finalize_device_backup(&raw, &name))
             .transpose()?;
         serde_json::to_string(&serde_json::json!({
             "complete": backup.is_some(),
             "backup": backup,
+            "started": started,
+            "chunks": chunks,
+            "ignoredPrefixChunks": ignored_prefix_chunks,
+            "ignoredPrefixTerminators": ignored_prefix_terminators,
         }))
         .map_err(|error| error.to_string())
     })();

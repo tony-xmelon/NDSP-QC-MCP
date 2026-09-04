@@ -22,7 +22,6 @@ final class QcUsbProfile {
     static final long INITIAL_SYNC_TIMEOUT_MS = ${profile.initialSyncTimeoutMs}L;
     static final long PRESET_SYNC_TIMEOUT_MS = ${profile.presetSyncTimeoutMs}L;
     static final long COMMAND_CONFIRMATION_TIMEOUT_MS = ${profile.commandConfirmationTimeoutMs}L;
-    static final long CONFIRMATION_POLL_INTERVAL_MS = ${profile.confirmationPollIntervalMs}L;
     static final int FOOTSWITCH_BASE_CONTROLLER = ${profile.midi.footswitchBaseController};
     static final int TAP_TEMPO_CONTROLLER = ${profile.midi.tapTempoController};
     static final int MODE_SLOT_CONTROLLER = ${profile.midi.modeSlotController};
@@ -47,7 +46,6 @@ pub const HANDSHAKE_ATTEMPT_TIMEOUT_MS: u64 = ${profile.handshakeAttemptTimeoutM
 pub const INITIAL_SYNC_TIMEOUT_MS: u64 = ${profile.initialSyncTimeoutMs};
 pub const PRESET_SYNC_TIMEOUT_MS: u64 = ${profile.presetSyncTimeoutMs};
 pub const COMMAND_CONFIRMATION_TIMEOUT_MS: u64 = ${profile.commandConfirmationTimeoutMs};
-pub const CONFIRMATION_POLL_INTERVAL_MS: u64 = ${profile.confirmationPollIntervalMs};
 pub const FOOTSWITCH_BASE_CONTROLLER: u8 = ${profile.midi.footswitchBaseController};
 pub const TAP_TEMPO_CONTROLLER: u8 = ${profile.midi.tapTempoController};
 pub const MODE_SLOT_CONTROLLER: u8 = ${profile.midi.modeSlotController};

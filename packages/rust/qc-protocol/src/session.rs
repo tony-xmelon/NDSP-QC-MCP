@@ -261,7 +261,10 @@ mod tests {
         assert_eq!(assembler.push(orphan).unwrap(), None);
 
         let complete = framing::encode(13, &[8, 1, 24, 2]);
-        assert_eq!(assembler.push(complete[0].to_vec()).unwrap(), Some((13, vec![8, 1, 24, 2])));
+        assert_eq!(
+            assembler.push(complete[0].to_vec()).unwrap(),
+            Some((13, vec![8, 1, 24, 2]))
+        );
     }
 
     #[test]

@@ -242,11 +242,13 @@ test("parameter contextual menus follow the CorOS device order and special cases
 test("footswitch assignment uses the hardware-switch workflow instead of a duplicate popup", () => {
   const editorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/parameter-editor.tsx", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
+  const surfaceActions = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-surface-actions.ts", import.meta.url), "utf8");
 
   assert.match(editorSource, /Waiting for a footswitch assignment/);
   assert.match(editorSource, /is-assigning/);
   assert.doesNotMatch(editorSource, /parameter-assignment-menu|menuitemradio/);
-  assert.match(appSource, /footswitchAssignmentPending && action\.phase === "release"/);
+  assert.match(appSource, /useQcSurfaceActions\(\{/);
+  assert.match(surfaceActions, /grid\.footswitchAssignmentPending && action\.phase === "release"/);
 });
 
 test("Flangerish Rate round-trips the measured CorOS frequency scale", () => {

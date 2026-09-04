@@ -1,14 +1,13 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use qc_device_runtime::request::plan_host_midi;
-use qc_protocol::profile;
 use qc_relay_client::{DeviceAdapter, DeviceError};
+use qc_windows_midi::PerformanceMidi;
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{mpsc, Mutex};
-use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 mod chat;
@@ -23,132 +22,6 @@ use std::os::windows::process::CommandExt;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[derive(Default)]
-struct PerformanceMidi {
-    last_sent: Option<Instant>,
-    handle: Option<usize>,
-    endpoint: Option<String>,
-}
-
-impl PerformanceMidi {
-    fn send(&mut self, controller: u8, value: u8) -> Result<String, String> {
-        self.send_raw(0xB0_u32 | ((controller as u32) << 8) | ((value as u32) << 16))
-    }
-
-    fn send_raw(&mut self, message: u32) -> Result<String, String> {
-        if let Some(last_sent) = self.last_sent {
-            let elapsed = last_sent.elapsed();
-            let gap = Duration::from_millis(profile::PERFORMANCE_MIDI_GAP_MS);
-            if elapsed < gap {
-                std::thread::sleep(gap - elapsed);
-            }
-        }
-        if self.handle.is_none() {
-            let (handle, endpoint) = open_qc_midi_output()?;
-            self.handle = Some(handle);
-            self.endpoint = Some(endpoint);
-        }
-        if let Err(error) =
-            send_qc_midi_short(self.handle.expect("MIDI handle was initialized"), message)
-        {
-            close_qc_midi_output(self.handle.take());
-            self.endpoint = None;
-            return Err(error);
-        }
-        self.last_sent = Some(Instant::now());
-        Ok(self
-            .endpoint
-            .clone()
-            .unwrap_or_else(|| "Quad Cortex MIDI".into()))
-    }
-}
-
-impl Drop for PerformanceMidi {
-    fn drop(&mut self) {
-        close_qc_midi_output(self.handle.take());
-    }
-}
-
-#[cfg(windows)]
-fn open_qc_midi_output() -> Result<(usize, String), String> {
-    use std::ptr::null_mut;
-    use windows_sys::Win32::Media::Audio::{
-        midiOutGetDevCapsW, midiOutGetNumDevs, midiOutOpen, HMIDIOUT, MIDIOUTCAPSW,
-    };
-
-    let mut endpoint = None;
-    for device_id in 0..unsafe { midiOutGetNumDevs() } {
-        let mut caps = MIDIOUTCAPSW::default();
-        let result = unsafe {
-            midiOutGetDevCapsW(
-                device_id as usize,
-                &mut caps,
-                std::mem::size_of::<MIDIOUTCAPSW>() as u32,
-            )
-        };
-        if result != 0 {
-            continue;
-        }
-        let name_units = caps.szPname;
-        let end = name_units
-            .iter()
-            .position(|unit| *unit == 0)
-            .unwrap_or(name_units.len());
-        let name = String::from_utf16_lossy(&name_units[..end]);
-        if name.to_lowercase().contains("quad cortex") {
-            endpoint = Some((device_id, name));
-            break;
-        }
-    }
-    let (device_id, name) = endpoint.ok_or_else(|| {
-        "Quad Cortex Windows MIDI output was not found. Enable MIDI over USB and reconnect."
-            .to_string()
-    })?;
-    let mut handle: HMIDIOUT = null_mut();
-    let opened = unsafe { midiOutOpen(&mut handle, device_id, 0, 0, 0) };
-    if opened != 0 {
-        return Err(format!(
-            "Could not open the Quad Cortex MIDI output (Windows MIDI error {opened})."
-        ));
-    }
-    Ok((handle as usize, name))
-}
-
-#[cfg(windows)]
-fn send_qc_midi_short(handle: usize, message: u32) -> Result<(), String> {
-    use windows_sys::Win32::Media::Audio::midiOutShortMsg;
-
-    let sent = unsafe { midiOutShortMsg(handle as _, message) };
-    if sent != 0 {
-        return Err(format!(
-            "Could not send the Quad Cortex MIDI command (Windows MIDI error {sent})."
-        ));
-    }
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn open_qc_midi_output() -> Result<(usize, String), String> {
-    Err("QC footswitch emulation currently requires Windows MIDI.".into())
-}
-
-#[cfg(not(windows))]
-fn send_qc_midi_short(_handle: usize, _message: u32) -> Result<(), String> {
-    Err("QC performance control currently requires Windows MIDI.".into())
-}
-
-#[cfg(windows)]
-fn close_qc_midi_output(handle: Option<usize>) {
-    use windows_sys::Win32::Media::Audio::midiOutClose;
-
-    if let Some(handle) = handle {
-        unsafe { midiOutClose(handle as _) };
-    }
-}
-
-#[cfg(not(windows))]
-fn close_qc_midi_output(_handle: Option<usize>) {}
 
 struct GatewayProcess {
     child: Child,
@@ -181,50 +54,12 @@ impl GatewayProcess {
             .and_then(|path| path.parent().map(Path::to_path_buf));
         let mut command = if let Ok(executable) = std::env::var("QC_GATEWAY_EXECUTABLE") {
             Command::new(executable)
-        } else if std::env::var("QC_GATEWAY_RUNTIME").as_deref() != Ok("python") {
+        } else {
             let executable = locate_native_broker(executable_directory.as_deref()).ok_or(
                 "The Rust QC device runtime was not found. Build services/device-broker before starting the app.",
             )?;
             Command::new(executable)
-        } else {
-            let packaged = executable_directory
-                .as_deref()
-                .and_then(locate_packaged_gateway);
-            if let Some(executable) = packaged {
-                Command::new(executable)
-            } else {
-                let repository = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .parent()
-                    .and_then(|path| path.parent())
-                    .and_then(|path| path.parent())
-                    .ok_or("Could not resolve the repository root")?
-                    .to_path_buf();
-                let python = repository.join(".venv").join("Scripts").join("python.exe");
-                let script = repository
-                    .join("services")
-                    .join("device-gateway")
-                    .join("main.py");
-                if !python.is_file() {
-                    return Err(format!(
-                        "Gateway Python runtime is missing: {}",
-                        python.display()
-                    ));
-                }
-                if !script.is_file() {
-                    return Err(format!(
-                        "Gateway entry point is missing: {}",
-                        script.display()
-                    ));
-                }
-                let mut command = Command::new(python);
-                command.arg(script);
-                command
-            }
         };
-        if let Some(native_broker) = locate_native_broker(executable_directory.as_deref()) {
-            command.env("QC_USE_NATIVE_BROKER", "1");
-            command.env("QC_NATIVE_BROKER_EXECUTABLE", native_broker);
-        }
         #[cfg(windows)]
         command.creation_flags(CREATE_NO_WINDOW);
         let mut child = command
@@ -380,16 +215,6 @@ fn locate_native_broker(executable_directory: Option<&Path>) -> Option<PathBuf> 
         );
     }
     candidates.into_iter().find(|path| path.is_file())
-}
-
-fn locate_packaged_gateway(executable_directory: &Path) -> Option<PathBuf> {
-    [
-        "qc-device-gateway.exe",
-        "qc-device-gateway-x86_64-pc-windows-msvc.exe",
-    ]
-    .into_iter()
-    .map(|name| executable_directory.join(name))
-    .find(|path| path.is_file())
 }
 
 fn locate_media_tool(
@@ -1025,47 +850,18 @@ impl DeviceAdapter for WindowsRelayAdapter {
     }
 
     async fn invoke(&self, method: &str, params: Value) -> Result<Value, DeviceError> {
-        if method == rpc::PRESS_FOOTSWITCH {
-            let index = params
-                .get("index")
-                .and_then(Value::as_u64)
-                .filter(|value| *value < u64::from(qc_protocol::domain::SCENE_COUNT + 3))
-                .ok_or_else(|| {
-                    DeviceError::new(
-                        "INVALID_ARGUMENT",
-                        "Footswitch index must be from 0 through 10",
-                        false,
-                    )
-                })? as u8;
+        if matches!(
+            method,
+            rpc::PRESS_FOOTSWITCH | rpc::TAP_TEMPO | rpc::SELECT_MODE_SLOT
+        ) {
+            let plan = plan_host_midi(method, &params)
+                .map_err(|message| DeviceError::new("INVALID_ARGUMENT", message, false))?;
             let app = self.app.clone();
             return tauri::async_runtime::spawn_blocking(move || {
                 app.state::<Mutex<PerformanceMidi>>()
                     .lock()
                     .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
-                    .send(
-                        profile::FOOTSWITCH_BASE_CONTROLLER + index,
-                        profile::MIDI_PRESSED_VALUE,
-                    )
-            })
-            .await
-            .map_err(|error| relay_device_error(error.to_string()))?
-            .map(|endpoint| json!({"accepted": true, "immediate": true, "transport": endpoint}))
-            .map_err(relay_device_error);
-        }
-        if method == rpc::SELECT_MODE_SLOT {
-            let slot = params
-                .get("slot")
-                .and_then(Value::as_u64)
-                .filter(|value| *value <= 2)
-                .ok_or_else(|| {
-                    DeviceError::new("INVALID_ARGUMENT", "Mode slot must be A, B, or C", false)
-                })? as u8;
-            let app = self.app.clone();
-            return tauri::async_runtime::spawn_blocking(move || {
-                app.state::<Mutex<PerformanceMidi>>()
-                    .lock()
-                    .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
-                    .send(profile::MODE_SLOT_CONTROLLER, slot)
+                    .send(plan.controller, plan.value)
             })
             .await
             .map_err(|error| relay_device_error(error.to_string()))?
@@ -1283,6 +1079,52 @@ async fn select_scene(
         app,
         rpc::SELECT_SCENE,
         json!({ "scene": scene, "expectedPresetName": expected_preset_name }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn copy_scene(
+    app: AppHandle,
+    from_scene: u8,
+    to_scene: u8,
+    swap: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::COPY_SCENE,
+        json!({ "fromScene": from_scene, "toScene": to_scene, "swap": swap, "expectedPresetName": expected_preset_name }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_scene_label(
+    app: AppHandle,
+    scene: u8,
+    label: Option<String>,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_SCENE_LABEL,
+        json!({ "scene": scene, "label": label, "expectedPresetName": expected_preset_name }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_scene_color(
+    app: AppHandle,
+    scene: u8,
+    color: u32,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_SCENE_COLOR,
+        json!({ "scene": scene, "color": color, "expectedPresetName": expected_preset_name }),
     )
     .await
 }
@@ -2206,24 +2048,6 @@ mod tests {
     }
 
     #[test]
-    fn packaged_gateway_is_found_beside_the_app() {
-        let directory = std::env::temp_dir().join(format!(
-            "qc-sidecar-test-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system clock")
-                .as_nanos()
-        ));
-        fs::create_dir(&directory).expect("sidecar test directory");
-        let sidecar = directory.join("qc-device-gateway.exe");
-        fs::write(&sidecar, b"test").expect("sidecar test file");
-        assert_eq!(locate_packaged_gateway(&directory), Some(sidecar.clone()));
-        fs::remove_file(&sidecar).expect("sidecar test file cleanup");
-        fs::remove_dir(&directory).expect("sidecar test directory cleanup");
-    }
-
-    #[test]
     fn diagnostics_are_allowlisted_and_redacted() {
         let report = json!({
             "generatedAt": "2026-08-30T17:00:00Z",
@@ -2351,6 +2175,9 @@ pub fn run() {
             capture_screen,
             tap_screen,
             select_scene,
+            copy_scene,
+            set_scene_label,
+            set_scene_color,
             toggle_bypass,
             move_block,
             add_block,

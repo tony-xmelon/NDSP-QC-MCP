@@ -136,6 +136,33 @@ pub enum DeviceOperation {
         x: f32,
         y: f32,
     },
+    CopyScene {
+        from_index: u32,
+        to_index: u32,
+        swap: bool,
+    },
+    SetSceneLabel {
+        scene: u32,
+        label: Option<String>,
+    },
+    SetSceneColor {
+        scene: u32,
+        color: u32,
+    },
+    SetParameterSceneMode {
+        row: u32,
+        column: u32,
+        parameter_index: u32,
+        enabled: bool,
+    },
+    SetParameterExpression {
+        row: u32,
+        column: u32,
+        parameter_index: u32,
+        pedal: u32,
+        minimum: f32,
+        maximum: f32,
+    },
 }
 
 impl DeviceOperation {
@@ -205,6 +232,19 @@ impl DeviceOperation {
             )],
             Self::CaptureScreen => vec![capture_screen()],
             Self::ScreenTap { x, y } => screen_tap(x, y).to_vec(),
+            Self::CopyScene {
+                from_index,
+                to_index,
+                swap,
+            } => vec![copy_scene(from_index, to_index, swap)],
+            Self::SetSceneLabel { scene, label } => vec![set_scene_label(scene, label)],
+            Self::SetSceneColor { scene, color } => vec![set_scene_color(scene, color)],
+            Self::SetParameterSceneMode { row, column, parameter_index, enabled } => {
+                vec![set_parameter_scene_mode(row, column, parameter_index, enabled)]
+            }
+            Self::SetParameterExpression { row, column, parameter_index, pedal, minimum, maximum } => {
+                vec![set_parameter_expression(row, column, parameter_index, pedal, minimum, maximum)]
+            }
         }
     }
 }
@@ -344,6 +384,46 @@ pub fn select_scene(scene: u32) -> OutboundMessage {
     )
 }
 
+/// Copy or swap complete scene state, including its label and colour.
+pub fn copy_scene(from_index: u32, to_index: u32, swap: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        22,
+        pa::SceneCopyMessage {
+            action: pa::message_action::Enum::Update as i32,
+            from_index: from_index as i32,
+            to_index: to_index as i32,
+            is_swap: swap,
+            ..Default::default()
+        },
+    )
+}
+
+/// Rename a scene. The QC represents an unlabelled scene as one space.
+pub fn set_scene_label(scene: u32, label: Option<String>) -> OutboundMessage {
+    OutboundMessage::encoded(
+        23,
+        pa::SceneLabelMessage {
+            action: pa::message_action::Enum::Update as i32,
+            index: scene as i32,
+            label: label.unwrap_or_else(|| " ".into()),
+            ..Default::default()
+        },
+    )
+}
+
+/// Set a scene's native ARGB colour value.
+pub fn set_scene_color(scene: u32, color: u32) -> OutboundMessage {
+    OutboundMessage::encoded(
+        48,
+        pa::SceneColorMessage {
+            action: pa::message_action::Enum::Update as i32,
+            index: scene as i32,
+            color,
+            ..Default::default()
+        },
+    )
+}
+
 pub fn set_bypass(row: u32, column: u32, bypassed: bool) -> OutboundMessage {
     let preset = BinaryPreset {
         bypass: vec![Bypass {
@@ -411,6 +491,53 @@ fn parameter_update(
         ..Default::default()
     };
     grid_update(preset)
+}
+
+fn parameter_metadata_update(row: u32, column: u32, parameter: Param) -> OutboundMessage {
+    grid_update(BinaryPreset {
+        chains: vec![Chain {
+            row: Some(chain::Row::Row(row)),
+            models: vec![Model {
+                column: Some(model::Column::Column(column)),
+                params: vec![parameter],
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+}
+
+/// Toggle per-scene storage for one block parameter. The flag travels alone.
+pub fn set_parameter_scene_mode(
+    row: u32,
+    column: u32,
+    parameter_index: u32,
+    enabled: bool,
+) -> OutboundMessage {
+    parameter_metadata_update(row, column, Param {
+        index: Some(param::Index::Index(parameter_index)),
+        scene_mode: Some(param::SceneMode::SceneMode(enabled)),
+        ..Default::default()
+    })
+}
+
+/// Assign EXP 1/2 to a block parameter, or clear it with pedal zero.
+pub fn set_parameter_expression(
+    row: u32,
+    column: u32,
+    parameter_index: u32,
+    pedal: u32,
+    minimum: f32,
+    maximum: f32,
+) -> OutboundMessage {
+    parameter_metadata_update(row, column, Param {
+        index: Some(param::Index::Index(parameter_index)),
+        expression: Some(param::Expression::Expression(pedal as i32)),
+        expression_min: Some(param::ExpressionMin::ExpressionMin(minimum)),
+        expression_max: Some(param::ExpressionMax::ExpressionMax(maximum)),
+        ..Default::default()
+    })
 }
 
 pub fn set_block(row: u32, column: u32, model_id: u32) -> OutboundMessage {
@@ -750,9 +877,7 @@ pub fn setlist_position_with_request_id(
         2,
         pa::SetlistPositionMessage {
             action: pa::message_action::Enum::Update as i32,
-            request_id: request_id.map(
-                pa::setlist_position_message::RequestId::RequestId,
-            ),
+            request_id: request_id.map(pa::setlist_position_message::RequestId::RequestId),
             folder_key: Some(pa::setlist_position_message::FolderKey::FolderKey(
                 setlist_key.into(),
             )),
@@ -894,6 +1019,41 @@ mod tests {
     }
 
     #[test]
+    fn scene_management_matches_the_hardware_verified_message_shapes() {
+        let copy = copy_scene(1, 3, true);
+        assert_eq!(copy.message_type, 22);
+        let decoded = pa::SceneCopyMessage::decode(copy.payload.as_slice()).unwrap();
+        assert_eq!(
+            (decoded.from_index, decoded.to_index, decoded.is_swap),
+            (1, 3, true)
+        );
+
+        let label = set_scene_label(2, Some("Lead".into()));
+        assert_eq!(label.message_type, 23);
+        assert_eq!(
+            pa::SceneLabelMessage::decode(label.payload.as_slice())
+                .unwrap()
+                .label,
+            "Lead"
+        );
+        assert_eq!(
+            pa::SceneLabelMessage::decode(set_scene_label(2, None).payload.as_slice())
+                .unwrap()
+                .label,
+            " "
+        );
+
+        let color = set_scene_color(4, 0xffff02c2);
+        assert_eq!(color.message_type, 48);
+        assert_eq!(
+            pa::SceneColorMessage::decode(color.payload.as_slice())
+                .unwrap()
+                .color,
+            0xffff02c2
+        );
+    }
+
+    #[test]
     fn tempo_is_clamped_and_normalized_once() {
         let message = set_tempo(280);
         let grid = pa::GridMessage::decode(message.payload.as_slice()).unwrap();
@@ -941,23 +1101,25 @@ mod tests {
             Some(9_001),
         );
         let decoded = pa::SetlistPositionMessage::decode(outbound.payload.as_slice()).unwrap();
-        assert_eq!(decoded.request_id, Some(
-            pa::setlist_position_message::RequestId::RequestId(9_001)
-        ));
-        assert_eq!(decoded.position, Some(
-            pa::setlist_position_message::Position::Position(42)
-        ));
+        assert_eq!(
+            decoded.request_id,
+            Some(pa::setlist_position_message::RequestId::RequestId(9_001))
+        );
+        assert_eq!(
+            decoded.position,
+            Some(pa::setlist_position_message::Position::Position(42))
+        );
     }
-
 
     #[test]
     fn active_setlist_position_reads_are_correlated_and_side_effect_free() {
         let outbound = read_setlist_position(7_321);
         let decoded = pa::SetlistPositionMessage::decode(outbound.payload.as_slice()).unwrap();
         assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
-        assert_eq!(decoded.request_id, Some(
-            pa::setlist_position_message::RequestId::RequestId(7_321)
-        ));
+        assert_eq!(
+            decoded.request_id,
+            Some(pa::setlist_position_message::RequestId::RequestId(7_321))
+        );
         assert!(decoded.position.is_none());
         assert!(decoded.folder_key.is_none());
     }

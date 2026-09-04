@@ -58,12 +58,12 @@ export const QcUsbNative = registerPlugin<QcUsbNativePlugin>("QcUsb");
 export const VoiceInputNative = registerPlugin<VoiceInputNativePlugin>("VoiceInput");
 export const QcRelayNative = registerPlugin<QcRelayNativePlugin>("QcRelay");
 
-const AndroidGatewayTransport = createGatewayClientTransport<GatewayTransport>(
+export const androidGatewayTransport = createGatewayClientTransport<GatewayTransport>(
   (method, params) => QcUsbNative.gatewayInvoke({ method, params }) as Promise<never>,
   "rpc"
 );
 
 /** Android and Windows deliberately share the exact UI transport adapter. */
 export function createAndroidQcTransport(currentSnapshot: () => PresetSnapshot): QcDeviceTransport {
-  return createQcGatewayTransport(AndroidGatewayTransport, currentSnapshot);
+  return createQcGatewayTransport(androidGatewayTransport, currentSnapshot);
 }
