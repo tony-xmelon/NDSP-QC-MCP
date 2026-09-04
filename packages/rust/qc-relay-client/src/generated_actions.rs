@@ -61,6 +61,12 @@ const ALLOWED: &[&str] = &[
     "device.savePresetAs",
     "device.renameCurrentPreset",
     "device.copyPreset",
+    "device.generalSettings",
+    "device.setGeneralInteger",
+    "device.setGeneralToggle",
+    "device.setSceneBypassBehavior",
+    "device.setMasterVolumeAssignment",
+    "device.setGlobalBypass",
 ];
 
 const READ_ONLY: &[&str] = &[
@@ -80,6 +86,7 @@ const READ_ONLY: &[&str] = &[
     "device.tunerSettings",
     "device.presetScreenshot",
     "device.captureScreen",
+    "device.generalSettings",
 ];
 
 const PERFORMANCE: &[&str] = &[

@@ -12,6 +12,81 @@ pub struct TunerSettings {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GlobalBypassRows {
+    pub row1: bool,
+    pub row2: bool,
+    pub row3: bool,
+    pub row4: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MasterVolumeAssignment {
+    pub out12: bool,
+    pub out34: bool,
+    pub send12: bool,
+    pub headphones: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneralSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screen_brightness: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub led_brightness: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dimmed_led_brightness: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lock_screen_and_volume_knob: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_bypass_cab: Option<GlobalBypassRows>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_bypass_ir: Option<GlobalBypassRows>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_bypass_behavior: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_over_usb: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_channel: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_duplicate_pc: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_disk_space: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_disk_space: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_midi_clock_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub master_volume_assignment: Option<MasterVolumeAssignment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stomp_mode_auto_assign: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub swap_tempo_tuner_access: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_clock_out: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disable_internet_connection_check: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_delay_compensation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset_dimmed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scene_dimmed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stomp_dimmed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub midi_clock_in: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gig_view_stomp_access: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hold_timing_index: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hold_timing_ms: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BypassExpression {
     pub pedal: u32,
     pub minimum: f32,

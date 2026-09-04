@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { demoSnapshot, type GridBlock } from "../packages/typescript/qc-client/src/index.ts";
 import { blockUsesActiveFill, OFFICIAL_BLOCK_CATEGORIES, officialBlockVisual, pluginBadge, PUBLISHED_PLUGIN_BADGES, type OfficialBlockVisualKey } from "../packages/typescript/qc-ui/src/block-visuals.ts";
-import { REFERENCE_BLOCK_ICONS } from "../packages/typescript/qc-ui/src/reference-block-icons.ts";
+import { REFERENCE_BLOCK_ICONS } from "../packages/typescript/qc-theme/src/reference-block-icons.ts";
 
 const block = (name: string, category: string, kind = "utility"): GridBlock => ({ id: name, name, category, kind, row: 0, column: 0 });
 

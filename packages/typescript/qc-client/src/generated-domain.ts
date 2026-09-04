@@ -6,6 +6,8 @@ export const QC_MINIMUM_TEMPO_BPM = 40;
 export const QC_MAXIMUM_TEMPO_BPM = 240;
 export const QC_IPC_MAX_FRAME_BYTES = 16777216;
 export const QC_SCENE_COLORS = ["#ff2727","#0a74e0","#ffd236","#ff02c2","#45f862","#ff7000","#6954ff","#00ffdd"] as const;
+export const QC_CATEGORY_COLORS = {"plugin":"#ff7000","amp":"#ff2727","capture":"#959595","cab":"#6954ff","overdrive":"#ffd236","delay":"#00ffdd","reverb":"#00ffdd","compressor":"#45f862","pitch":"#ffd236","modulation":"#3500f1","morph":"#87daff","synth":"#e44a5d","filter":"#87daff","equalizer":"#0a74e0","irLoader":"#6954ff","wah":"#959595","fxLoop":"#959595","looper":"#ff2727","utility":"#959595"} as const;
+export const QC_HARDWARE_COLORS = {"whiteLed":"#f4f4f4","idleLed":"#626367","metalHighlight":"#c5c6c8","metalMid":"#8f9194","metalShadow":"#222327"} as const;
 export const QC_INPUT_ROUTES = [
   { id: 1, label: "In 1", group: "MONO" },
   { id: 2, label: "In 2", group: "MONO" },

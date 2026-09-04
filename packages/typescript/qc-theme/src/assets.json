@@ -1,0 +1,30 @@
+{
+  "blockSprite": {
+    "url": "/qc-block-samples.svg",
+    "sourcePath": "packages/typescript/qc-theme/assets/qc-block-samples.svg",
+    "deployedPaths": ["apps/windows/public/qc-block-samples.svg", "apps/android/public/qc-block-samples.svg"],
+    "sha256": "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea",
+    "source": "Verified Neural DSP block sample sheet"
+  },
+  "chassisOverlay": {
+    "url": "/qc-overview-001.svg",
+    "sourcePath": "packages/typescript/qc-theme/assets/qc-overview-001.svg",
+    "deployedPaths": ["apps/windows/public/qc-overview-001.svg", "apps/android/public/qc-overview-001.svg"],
+    "sha256": "aa87572c76759925a2ff05676c8b47061b542bd8c5869a97d89f1da0af3519be",
+    "sourceWidth": 1202,
+    "sourceHeight": 2292,
+    "crop": { "x": 0, "y": 14, "width": 1096.94, "height": 719.079 },
+    "source": "Neural DSP Quad Cortex overview illustration"
+  },
+  "appIcon": {
+    "url": "/app-icon.svg",
+    "sourcePath": "packages/typescript/qc-theme/assets/app-icon.svg",
+    "deployedPaths": ["apps/windows/app-icon.svg", "apps/android/public/app-icon.svg"],
+    "sha256": "70033787ff1c83f1e8b80943c0c03fe5f655f34cdfe04cfe934dde49f92c4d82"
+  },
+  "appIconPng": {
+    "sourcePath": "packages/typescript/qc-theme/assets/app-icon.png",
+    "deployedPaths": ["apps/windows/src-tauri/icons/icon.png"],
+    "sha256": "5ef200e0d74a7b6883d8b07a0d38454cc22bac4ab2a670d2913e942265e70fc3"
+  }
+}

@@ -65,10 +65,7 @@ fn full_control_contract_covers_every_gateway_method() {
     )
     .unwrap();
     let covered = std::iter::once("system.status")
-        .chain(actions
-        .actions
-        .iter()
-        .map(|action| action.rpc.as_str()))
+        .chain(actions.actions.iter().map(|action| action.rpc.as_str()))
         .collect::<HashSet<_>>();
     let missing = gateway
         .methods

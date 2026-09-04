@@ -2,7 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $androidRoot = Join-Path $repoRoot "apps\android\android\app\src\main\res"
-$sourceIcon = Join-Path $repoRoot "apps\windows\src-tauri\icons\icon.png"
+$sourceIcon = Join-Path $repoRoot "packages\typescript\qc-theme\assets\app-icon.png"
+$nativeTheme = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\native-theme.json") -Raw | ConvertFrom-Json
 
 Add-Type -AssemblyName System.Drawing
 
@@ -13,7 +14,7 @@ function New-Canvas([int]$width, [int]$height, [bool]$transparent = $false) {
     $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-    if ($transparent) { $graphics.Clear([System.Drawing.Color]::Transparent) } else { $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml("#08090B")) }
+    if ($transparent) { $graphics.Clear([System.Drawing.Color]::Transparent) } else { $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml($nativeTheme.android.background)) }
     return @($bitmap, $graphics)
 }
 
@@ -60,8 +61,8 @@ try {
         $captionFont = [System.Drawing.Font]::new("Segoe UI", $captionSize, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
         $center = [System.Drawing.StringFormat]::new()
         $center.Alignment = [System.Drawing.StringAlignment]::Center
-        $brandBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#F4F6F8"))
-        $captionBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml("#71808B"))
+        $brandBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($nativeTheme.android.splashText))
+        $captionBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($nativeTheme.android.splashCaption))
         $textTop = $logoTop + $logoSize + [int]($shortEdge * 0.045)
         $graphics.DrawString("QC CONTROL", $brandFont, $brandBrush, [System.Drawing.RectangleF]::new(0, $textTop, $width, $brandSize * 1.35), $center)
         $graphics.DrawString("QUAD CORTEX COMPANION", $captionFont, $captionBrush, [System.Drawing.RectangleF]::new(0, $textTop + $brandSize * 1.5, $width, $captionSize * 1.4), $center)

@@ -359,5 +359,41 @@ SHARED_QC_ACTIONS = {
     "classification": "persistent-write",
     "access": "modify",
     "description": "Copy a device preset to a reviewed destination with explicit overwrite confirmation."
+  },
+  "get_general_settings": {
+    "rpc": "device.generalSettings",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the QC Device Settings and System settings without changing them."
+  },
+  "set_general_integer": {
+    "rpc": "device.setGeneralInteger",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change one validated integer Device Setting after explicit confirmation. Hold timing uses its wire index 0 through 5."
+  },
+  "set_general_toggle": {
+    "rpc": "device.setGeneralToggle",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change one validated on/off Device Setting after explicit confirmation."
+  },
+  "set_scene_bypass_behavior": {
+    "rpc": "device.setSceneBypassBehavior",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change the global scene block-bypass persistence behavior after explicit confirmation."
+  },
+  "set_master_volume_assignment": {
+    "rpc": "device.setMasterVolumeAssignment",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Replace all four Master Volume output assignments atomically after explicit confirmation."
+  },
+  "set_global_bypass": {
+    "rpc": "device.setGlobalBypass",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Replace all Cab and IR global-bypass row flags atomically after explicit confirmation."
   }
 }

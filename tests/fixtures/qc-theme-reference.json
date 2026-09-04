@@ -1,5 +1,7 @@
 {
   "captureSize": { "width": 800, "height": 480 },
+  "themeTokens": ["#000000", "#101010", "#313031", "#c6c3c6", "#dedfde", "#949694", "#ffffff", "#ffd331"],
+  "unsavedColor": "#313031",
   "screenshots": [
     "01-navigation-32E.png",
     "02-volume-62.png",

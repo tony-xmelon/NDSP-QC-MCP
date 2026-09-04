@@ -6,7 +6,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $referenceRoot = Join-Path $repoRoot "artifacts\hardware-ui"
 $manifest = Get-Content -LiteralPath (Join-Path $repoRoot "tests\fixtures\qc-theme-reference.json") -Raw | ConvertFrom-Json
-$themeTs = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\index.ts") -Raw
+$assetManifest = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\assets.json") -Raw | ConvertFrom-Json
+$themeColorSource = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\colors.json") -Raw
 $themeCss = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\theme.css") -Raw
 
 Add-Type -AssemblyName System.Drawing
@@ -73,9 +74,9 @@ try {
   }
 
   foreach ($file in $manifest.unsavedScreenshots) {
-    $count = Count-Color $bitmaps[$file] "#313031" @(0, 0, 800, 100)
+    $count = Count-Color $bitmaps[$file] $manifest.unsavedColor @(0, 0, 800, 100)
     $pass = $count -ge 500
-    $results.Add([pscustomobject]@{ kind = "palette"; name = "$file/unsaved"; expected = "#313031"; actual = $count; minimum = 500; pass = $pass })
+    $results.Add([pscustomobject]@{ kind = "palette"; name = "$file/unsaved"; expected = $manifest.unsavedColor; actual = $count; minimum = 500; pass = $pass })
     if (-not $pass) { $failures.Add("$file does not contain the captured Unsaved tone") }
   }
 
@@ -96,18 +97,13 @@ try {
   foreach ($bitmap in $bitmaps.Values) { $bitmap.Dispose() }
 }
 
-$themeColors = @("#000000", "#101010", "#313031", "#c6c3c6", "#dedfde", "#949694", "#ffffff", "#ffd331")
+$themeColors = @($manifest.themeTokens)
 foreach ($color in $themeColors) {
-  $pass = $themeTs.IndexOf($color, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $themeCss.IndexOf($color, [StringComparison]::OrdinalIgnoreCase) -ge 0
-  $results.Add([pscustomobject]@{ kind = "theme-token"; name = $color; expected = "TypeScript and CSS"; actual = $(if ($pass) { "both" } else { "missing" }); pass = $pass })
+  $pass = $themeColorSource.IndexOf($color, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $themeCss.IndexOf($color, [StringComparison]::OrdinalIgnoreCase) -ge 0
+  $results.Add([pscustomobject]@{ kind = "theme-token"; name = $color; expected = "canonical JSON and CSS"; actual = $(if ($pass) { "both" } else { "missing" }); pass = $pass })
   if (-not $pass) { $failures.Add("Shared theme is missing $color") }
 }
 
-$assets = @(
-  @{ name = "blockSprite"; expected = "24198023488bada41bffd5fbfe8c59b5f144fc1e3c762c57037ff07890bbccea"; files = @("apps\windows\public\qc-block-samples.svg", "apps\android\public\qc-block-samples.svg") },
-  @{ name = "chassisOverlay"; expected = "aa87572c76759925a2ff05676c8b47061b542bd8c5869a97d89f1da0af3519be"; files = @("apps\windows\public\qc-overview-001.svg", "apps\android\public\qc-overview-001.svg") },
-  @{ name = "appIcon"; expected = "70033787ff1c83f1e8b80943c0c03fe5f655f34cdfe04cfe934dde49f92c4d82"; files = @("apps\windows\app-icon.svg", "apps\android\public\app-icon.svg") }
-)
 function Get-Sha256Hex([string]$Path) {
   $stream = [System.IO.File]::OpenRead($Path)
   $hasher = [System.Security.Cryptography.SHA256]::Create()
@@ -118,12 +114,13 @@ function Get-Sha256Hex([string]$Path) {
     $stream.Dispose()
   }
 }
-foreach ($asset in $assets) {
-  foreach ($relative in $asset.files) {
+foreach ($assetProperty in $assetManifest.PSObject.Properties) {
+  $asset = $assetProperty.Value
+  foreach ($relative in @($asset.sourcePath) + @($asset.deployedPaths)) {
     $actual = Get-Sha256Hex (Join-Path $repoRoot $relative)
-    $pass = $actual -eq $asset.expected
-    $results.Add([pscustomobject]@{ kind = "asset"; name = "$($asset.name)/$relative"; expected = $asset.expected; actual = $actual; pass = $pass })
-    if (-not $pass) { $failures.Add("$relative differs from the canonical $($asset.name)") }
+    $pass = $actual -eq $asset.sha256
+    $results.Add([pscustomobject]@{ kind = "asset"; name = "$($assetProperty.Name)/$relative"; expected = $asset.sha256; actual = $actual; pass = $pass })
+    if (-not $pass) { $failures.Add("$relative differs from the canonical $($assetProperty.Name)") }
   }
 }
 

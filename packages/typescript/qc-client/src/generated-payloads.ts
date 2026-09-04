@@ -7,6 +7,49 @@ export interface TunerSettings {
   muted: boolean;
 }
 
+export interface GlobalBypassRows {
+  row1: boolean;
+  row2: boolean;
+  row3: boolean;
+  row4: boolean;
+}
+
+export interface MasterVolumeAssignment {
+  out12: boolean;
+  out34: boolean;
+  send12: boolean;
+  headphones: boolean;
+}
+
+export interface GeneralSettings {
+  screenBrightness?: number;
+  ledBrightness?: number;
+  dimmedLedBrightness?: number;
+  lockScreenAndVolumeKnob?: boolean;
+  globalBypassCab?: GlobalBypassRows;
+  globalBypassIr?: GlobalBypassRows;
+  sceneBypassBehavior?: "alwaysOverwrite" | "nonstompOverwrite" | "neverOverwrite";
+  midiOverUsb?: boolean;
+  midiChannel?: number;
+  ignoreDuplicatePc?: boolean;
+  availableDiskSpace?: number;
+  totalDiskSpace?: number;
+  internalMidiClockEnabled?: boolean;
+  masterVolumeAssignment?: MasterVolumeAssignment;
+  stompModeAutoAssign?: boolean;
+  swapTempoTunerAccess?: boolean;
+  midiClockOut?: "off" | "midiDinOnly" | "usbMidiOnly" | "bothUsbAndDinMidi";
+  disableInternetConnectionCheck?: boolean;
+  dynamicDelayCompensation?: boolean;
+  presetDimmed?: boolean;
+  sceneDimmed?: boolean;
+  stompDimmed?: boolean;
+  midiClockIn?: boolean;
+  gigViewStompAccess?: boolean;
+  holdTimingIndex?: number;
+  holdTimingMs?: number;
+}
+
 export interface BypassExpression {
   pedal: number;
   minimum: number;

@@ -2428,6 +2428,245 @@ export const SHARED_QC_ACTIONS = [
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "get_general_settings",
+    "rpc": "device.generalSettings",
+    "classification": "read",
+    "description": "Read the QC Device Settings and System settings without changing them.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_general_integer",
+    "rpc": "device.setGeneralInteger",
+    "classification": "persistent-write",
+    "description": "Change one validated integer Device Setting after explicit confirmation. Hold timing uses its wire index 0 through 5.",
+    "properties": {
+      "setting": "general-integer-setting",
+      "value": "integer",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setting",
+      "value",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setting": {
+          "type": "string",
+          "enum": [
+            "screenBrightness",
+            "ledBrightness",
+            "dimmedLedBrightness",
+            "holdTiming",
+            "midiChannel"
+          ]
+        },
+        "value": {
+          "type": "integer"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setting",
+        "value",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_general_toggle",
+    "rpc": "device.setGeneralToggle",
+    "classification": "persistent-write",
+    "description": "Change one validated on/off Device Setting after explicit confirmation.",
+    "properties": {
+      "setting": "general-toggle-setting",
+      "enabled": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "setting",
+      "enabled",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "setting": {
+          "type": "string",
+          "enum": [
+            "midiOverUsb",
+            "ignoreDuplicatePc",
+            "stompModeAutoAssign",
+            "swapTempoTunerAccess",
+            "disableInternetConnectionCheck",
+            "dynamicDelayCompensation",
+            "presetDimmed",
+            "midiClockIn",
+            "gigViewStompAccess"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "setting",
+        "enabled",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_scene_bypass_behavior",
+    "rpc": "device.setSceneBypassBehavior",
+    "classification": "persistent-write",
+    "description": "Change the global scene block-bypass persistence behavior after explicit confirmation.",
+    "properties": {
+      "behavior": "scene-bypass-behavior",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "behavior",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "behavior": {
+          "type": "string",
+          "enum": [
+            "alwaysOverwrite",
+            "nonstompOverwrite",
+            "neverOverwrite"
+          ]
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "behavior",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_master_volume_assignment",
+    "rpc": "device.setMasterVolumeAssignment",
+    "classification": "persistent-write",
+    "description": "Replace all four Master Volume output assignments atomically after explicit confirmation.",
+    "properties": {
+      "out12": "boolean",
+      "out34": "boolean",
+      "send12": "boolean",
+      "headphones": "boolean",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "out12",
+      "out34",
+      "send12",
+      "headphones",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "out12": {
+          "type": "boolean"
+        },
+        "out34": {
+          "type": "boolean"
+        },
+        "send12": {
+          "type": "boolean"
+        },
+        "headphones": {
+          "type": "boolean"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "out12",
+        "out34",
+        "send12",
+        "headphones",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_global_bypass",
+    "rpc": "device.setGlobalBypass",
+    "classification": "persistent-write",
+    "description": "Replace all Cab and IR global-bypass row flags atomically after explicit confirmation.",
+    "properties": {
+      "cab": "boolean-row-array",
+      "ir": "boolean-row-array",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "cab",
+      "ir",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cab": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "ir": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cab",
+        "ir",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
   }
 ] as const;
 export type SharedQcActionName = typeof SHARED_QC_ACTIONS[number]["name"];

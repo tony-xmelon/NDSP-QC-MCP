@@ -135,6 +135,26 @@ pub enum DeviceOperation {
     },
     ReadVersion,
     ReadTuner,
+    ReadGeneralSettings,
+    SetGeneralInteger {
+        setting: String,
+        value: i32,
+    },
+    SetGeneralToggle {
+        setting: String,
+        enabled: bool,
+    },
+    SetSceneBypassBehavior(i32),
+    SetMasterVolumeAssignment {
+        out12: bool,
+        out34: bool,
+        send12: bool,
+        headphones: bool,
+    },
+    SetGlobalBypass {
+        cab: [bool; 4],
+        ir: [bool; 4],
+    },
     SetDeviceName(String),
     Undo,
     Redo,
@@ -267,6 +287,23 @@ impl DeviceOperation {
                 enabled,
             )],
             Self::ListPresetFolders => vec![read(4)],
+            Self::ReadGeneralSettings => vec![read(9)],
+            Self::SetGeneralInteger { setting, value } => {
+                vec![set_general_integer(&setting, value)]
+            }
+            Self::SetGeneralToggle { setting, enabled } => {
+                vec![set_general_toggle(&setting, enabled)]
+            }
+            Self::SetSceneBypassBehavior(behavior) => vec![set_scene_bypass_behavior(behavior)],
+            Self::SetMasterVolumeAssignment {
+                out12,
+                out34,
+                send12,
+                headphones,
+            } => vec![set_master_volume_assignment(
+                out12, out34, send12, headphones,
+            )],
+            Self::SetGlobalBypass { cab, ir } => vec![set_global_bypass(cab, ir)],
             Self::SavePreset {
                 setlist_key,
                 position,
@@ -1048,6 +1085,149 @@ pub fn read_tuner() -> OutboundMessage {
     )
 }
 
+pub fn read_general_settings() -> OutboundMessage {
+    OutboundMessage::encoded(
+        9,
+        pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Read as i32,
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_general_integer(setting: &str, value: i32) -> OutboundMessage {
+    let mut message = pa::GeneralSettingsMessage {
+        action: pa::message_action::Enum::Update as i32,
+        ..Default::default()
+    };
+    match setting {
+        "screenBrightness" => {
+            message.screen_brightness =
+                Some(pa::general_settings_message::ScreenBrightness::ScreenBrightness(value))
+        }
+        "ledBrightness" => {
+            message.led_brightness = Some(
+                pa::general_settings_message::LedBrightness::LedBrightness(value),
+            )
+        }
+        "dimmedLedBrightness" => {
+            message.dimmed_led_brightness =
+                Some(pa::general_settings_message::DimmedLedBrightness::DimmedLedBrightness(value))
+        }
+        "holdTiming" => {
+            message.hold_timing = Some(pa::general_settings_message::HoldTiming::HoldTiming(value))
+        }
+        "midiChannel" => {
+            message.midi_channel = Some(pa::general_settings_message::MidiChannel::MidiChannel(
+                value,
+            ))
+        }
+        _ => panic!("unsupported validated GeneralSettings integer: {setting}"),
+    }
+    OutboundMessage::encoded(9, message)
+}
+
+pub fn set_general_toggle(setting: &str, enabled: bool) -> OutboundMessage {
+    let mut message = pa::GeneralSettingsMessage {
+        action: pa::message_action::Enum::Update as i32,
+        ..Default::default()
+    };
+    match setting {
+        "midiOverUsb" => {
+            message.midi_over_usb =
+                Some(pa::general_settings_message::MidiOverUsb::MidiOverUsb(enabled))
+        }
+        "ignoreDuplicatePc" => message.ignore_duplicate_pc = Some(
+            pa::general_settings_message::IgnoreDuplicatePc::IgnoreDuplicatePc(enabled),
+        ),
+        "stompModeAutoAssign" => message.stomp_mode_auto_assign = Some(
+            pa::general_settings_message::StompModeAutoAssign::StompModeAutoAssign(enabled),
+        ),
+        "swapTempoTunerAccess" => message.swap_tempo_tuner_access = Some(
+            pa::general_settings_message::SwapTempoTunerAccess::SwapTempoTunerAccess(enabled),
+        ),
+        "disableInternetConnectionCheck" => message.disable_internet_connection_check = Some(
+            pa::general_settings_message::DisableInternetConnectionCheck::DisableInternetConnectionCheck(enabled),
+        ),
+        "dynamicDelayCompensation" => message.enable_dynamic_delay_compensation = Some(
+            pa::general_settings_message::EnableDynamicDelayCompensation::EnableDynamicDelayCompensation(enabled),
+        ),
+        "presetDimmed" => message.enable_preset_dimmed = Some(
+            pa::general_settings_message::EnablePresetDimmed::EnablePresetDimmed(enabled),
+        ),
+        "midiClockIn" => message.midi_clock_in_enabled = Some(
+            pa::general_settings_message::MidiClockInEnabled::MidiClockInEnabled(enabled),
+        ),
+        "gigViewStompAccess" => message.gig_view_stomp_access_enabled = Some(
+            pa::general_settings_message::GigViewStompAccessEnabled::GigViewStompAccessEnabled(
+                enabled,
+            ),
+        ),
+        _ => panic!("unsupported validated GeneralSettings toggle: {setting}"),
+    }
+    OutboundMessage::encoded(9, message)
+}
+
+pub fn set_scene_bypass_behavior(behavior: i32) -> OutboundMessage {
+    OutboundMessage::encoded(
+        9,
+        pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            scene_block_bypass: Some(
+                pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(behavior),
+            ),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_master_volume_assignment(
+    out12: bool,
+    out34: bool,
+    send12: bool,
+    headphones: bool,
+) -> OutboundMessage {
+    OutboundMessage::encoded(
+        9,
+        pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            master_volume_assignment: Some(
+                pa::general_settings_message::MasterVolumeAssignment::MasterVolumeAssignment(
+                    pa::MasterVolumeAssignmentOptions {
+                        out12,
+                        out34,
+                        send12,
+                        headphones,
+                    },
+                ),
+            ),
+            ..Default::default()
+        },
+    )
+}
+
+pub fn set_global_bypass(cab: [bool; 4], ir: [bool; 4]) -> OutboundMessage {
+    let rows = |values: [bool; 4]| pa::GlobalBypassRows {
+        row1: values[0],
+        row2: values[1],
+        row3: values[2],
+        row4: values[3],
+    };
+    OutboundMessage::encoded(
+        9,
+        pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            global_bypass_cab: Some(
+                pa::general_settings_message::GlobalBypassCab::GlobalBypassCab(rows(cab)),
+            ),
+            global_bypass_ir: Some(
+                pa::general_settings_message::GlobalBypassIr::GlobalBypassIr(rows(ir)),
+            ),
+            ..Default::default()
+        },
+    )
+}
+
 pub fn set_device_name(name: impl Into<String>) -> OutboundMessage {
     OutboundMessage::encoded(
         10,
@@ -1660,5 +1840,38 @@ mod tests {
             folder.files[0].index,
             Some(pa::product_data::Index::Index(220))
         );
+    }
+
+    #[test]
+    fn general_settings_writes_are_sparse_and_nested_values_are_complete() {
+        let brightness = DeviceOperation::SetGeneralInteger {
+            setting: "screenBrightness".into(),
+            value: 59,
+        }
+        .encode();
+        let decoded = pa::GeneralSettingsMessage::decode(brightness[0].payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Update as i32);
+        assert!(decoded.screen_brightness.is_some());
+        assert!(decoded.led_brightness.is_none());
+        assert!(
+            decoded.power_option.is_none(),
+            "safe setting writes must never carry power commands"
+        );
+        assert!(decoded.reset_wifi_networks.is_none());
+
+        let assignment = DeviceOperation::SetMasterVolumeAssignment {
+            out12: true,
+            out34: false,
+            send12: true,
+            headphones: false,
+        }
+        .encode();
+        let decoded = pa::GeneralSettingsMessage::decode(assignment[0].payload.as_slice()).unwrap();
+        let pa::general_settings_message::MasterVolumeAssignment::MasterVolumeAssignment(value) =
+            decoded.master_volume_assignment.unwrap();
+        assert!(value.out12);
+        assert!(!value.out34);
+        assert!(value.send12);
+        assert!(!value.headphones);
     }
 }

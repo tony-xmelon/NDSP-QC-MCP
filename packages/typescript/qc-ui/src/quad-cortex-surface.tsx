@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { QC_GRID_COLUMNS, QC_GRID_ROWS, type GridBlock, type PresetEntry, type PresetList, type PresetSnapshot } from "@ndsp-qc/client";
 import { footswitchLeds, routePickerGroup, routePickerLabel, sceneLetter as sceneLabel, type QcSurfaceAction } from "@ndsp-qc/core";
 import type { FormFactorManifest, HardwareControl, SkinManifest } from "@ndsp-qc/form-factors";
-import { QC_COLORS, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
+import { QC_COLORS, QC_TYPOGRAPHY, QC_VISUAL_ASSETS, REFERENCE_BLOCK_ICONS } from "@ndsp-qc/theme";
 import { blockUsesActiveFill, officialBlockVisual, pluginBadge } from "./block-visuals";
 import { CorOsParameterEditor, type CorOsParameterEditorProps } from "./parameter-editor";
 import { parameterEditorAccent, parameterEditorControlSlots, parameterEditorPageSize } from "./parameter-model";
-import { REFERENCE_BLOCK_ICONS } from "./reference-block-icons";
 import { QcDirectoryIcon, QcModeGlyph, QcRouteGlyph } from "./theme-icons";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX, type CorOsContextAction } from "./coros-ui";
 import "./surface-shell.css";
@@ -88,7 +87,7 @@ function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; 
   /> : null;
   const pluginLabel = badge ? <g className="official-plugin-badge" aria-hidden="true">
     <rect x={x - size * .225} y={y - size * .565} width={size * .45} height={size * .205} rx={size * .065} fill={visual.color} />
-    <text x={x} y={y - size * .405} textAnchor="middle" fill={QC_COLORS.device.blockLabel} stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize={size * .145}>{badge}</text>
+    <text x={x} y={y - size * .405} textAnchor="middle" fill={QC_COLORS.device.blockLabel} stroke="none" fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="900" fontSize={size * .145}>{badge}</text>
   </g> : null;
   if (visual.referenceAsset) return <g><image className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} href={REFERENCE_BLOCK_ICONS[visual.referenceAsset]} preserveAspectRatio="xMidYMid meet" aria-hidden="true" />{fill}{pluginLabel}</g>;
   return <g><svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
@@ -325,7 +324,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const lines = routeLines(label);
     if (label === "+") return <g stroke={QC_COLORS.captured.utilityMark} strokeWidth="1.7" strokeLinecap="round"><path d={`M${x - 10} ${y}h20`} /><path d={`M${x} ${y - 10}v20`} /></g>;
     const firstY = y - (lines.length - 1) * 8.5;
-    return <text x={x} y={firstY} fill={QC_COLORS.captured.routeText} stroke="none" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" fontWeight="400" fontSize="14.5">{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 17 : 0}>{line}</tspan>)}</text>;
+    return <text x={x} y={firstY} fill={QC_COLORS.captured.routeText} stroke="none" fontFamily={QC_TYPOGRAPHY.deviceRoute} fontWeight="400" fontSize="14.5">{lines.map((line, index) => <tspan key={`${line}-${index}`} x={x} dy={index ? 17 : 0}>{line}</tspan>)}</text>;
   };
   const rowRail = (row: number) => rowHasVisibleSignalRail(tabBlocksByRow[row].length, routes[row])
     ? <path key={`row-${row}`} d={`M52 ${rowY[row]}H748`} />
@@ -338,7 +337,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
       {selected && <circle cx={x} cy={y} r="18" fill="none" stroke={QC_COLORS.captured.primaryText} strokeWidth="2" />}
       <circle cx={x} cy={y} r="15" fill={QC_COLORS.captured.screen} stroke="none" />
       <circle cx={x} cy={y} r="13" fill={color} stroke="none" />
-      <text x={x} y={y + 5.5} textAnchor="middle" fill={QC_COLORS.captured.primaryText} stroke="none" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="16">{kind}</text>
+      <text x={x} y={y + 5.5} textAnchor="middle" fill={QC_COLORS.captured.primaryText} stroke="none" fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="700" fontSize="16">{kind}</text>
     </g>;
   };
   const splitPath = (row: number) => {
@@ -394,7 +393,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <rect width="800" height="480" fill={QC_COLORS.captured.screen} />
-      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill={QC_COLORS.hardware.whiteLed} letterSpacing="-1">{presetBank}</tspan><tspan fill={QC_COLORS.device.presetSlotDefault} letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}${titlePresentation.dimmed ? " is-unsaved" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill={titlePresentation.dimmed ? QC_COLORS.captured.unsaved : QC_COLORS.hardware.whiteLed} fontSize={presetTitleFontSize} fontStyle={titlePresentation.italic ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
+      <g transform="matrix(.96 0 0 1 -4 0)" fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="800" fontSize="68"><text x="14" y="75"><tspan fill={QC_COLORS.hardware.whiteLed} letterSpacing="-1">{presetBank}</tspan><tspan fill={QC_COLORS.device.presetSlotDefault} letterSpacing="-1">{presetSlot}</tspan><tspan className={`preset-title${snapshot.dirty ? " is-dirty" : ""}${titlePresentation.dimmed ? " is-unsaved" : ""}`} dx="16" dy={presetTitleBaseline - 75} fill={titlePresentation.dimmed ? QC_COLORS.captured.unsaved : QC_COLORS.hardware.whiteLed} fontSize={presetTitleFontSize} fontStyle={titlePresentation.italic ? "italic" : "normal"} textLength={squeezePresetTitle ? presetTitleMaxWidth : undefined} lengthAdjust={squeezePresetTitle ? "spacingAndGlyphs" : undefined}>{presetTitle}</tspan></text></g>
       <g fill="none" stroke={QC_COLORS.hardware.whiteLed} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M633 13A13 13 0 1 1 620 26" />
         <path d="M626 15L634 9V20Z" fill={QC_COLORS.hardware.whiteLed} stroke="none" />
@@ -404,10 +403,10 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
         fill={QC_COLORS.hardware.whiteLed}
         fillRule="evenodd"
       />
-      <rect x="654" y="9" width="31" height="31" rx="4" fill={QC_COLORS.captured.sceneBadge} /><text x="669.5" y="34" textAnchor="middle" fill={QC_COLORS.device.panel} fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="25">{sceneLetter}</text>
+      <rect x="654" y="9" width="31" height="31" rx="4" fill={QC_COLORS.captured.sceneBadge} /><text x="669.5" y="34" textAnchor="middle" fill={QC_COLORS.device.panel} fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="800" fontSize="25">{sceneLetter}</text>
       <g fill={QC_COLORS.hardware.whiteLed}><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>
-      <g transform="translate(652 55)" color={QC_COLORS.hardware.whiteLed}><QcModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill={QC_COLORS.hardware.whiteLed} fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
-      <g fill={QC_COLORS.captured.routePill} stroke={QC_COLORS.captured.screen} strokeWidth="1.2" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" textAnchor="middle">
+      <g transform="translate(652 55)" color={QC_COLORS.hardware.whiteLed}><QcModeGlyph mode={snapshot.mode} /></g><text x="681" y="76" fill={QC_COLORS.hardware.whiteLed} fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="800" fontSize="22.5">{snapshot.mode}</text>
+      <g fill={QC_COLORS.captured.routePill} stroke={QC_COLORS.captured.screen} strokeWidth="1.2" fontFamily={QC_TYPOGRAPHY.deviceRoute} textAnchor="middle">
         {rowY.flatMap((y, row) => [<rect key={`in-${row}`} x="8" y={y - 39} width="44" height="78" rx="15" />, <rect key={`out-${row}`} x="748" y={y - 39} width="44" height="78" rx="15" />])}
         {rowY.flatMap((_, row) => [connectionMark("input", row), connectionMark("output", row)])}
         {rowY.map((y, row) => <g key={`rails-${row}`}>{railLabel(displayInput(row), 30, y)}{railLabel(displayOutput(row), 770, y)}</g>)}

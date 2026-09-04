@@ -12,13 +12,13 @@ test("empty preset titles match the QC clean and dirty Unsaved states", () => {
 
 test("neutral Grid colors match the native QC capture", () => {
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
-  const themeSource = readFileSync(new URL("../packages/typescript/qc-theme/src/index.ts", import.meta.url), "utf8");
+  const themeSource = readFileSync(new URL("../packages/typescript/qc-theme/src/colors.json", import.meta.url), "utf8");
   assert.match(surfaceSource, /QC_COLORS/);
-  assert.match(themeSource, /unsaved: "#313031"/);
-  assert.match(themeSource, /routePill: "#101010"/);
-  assert.match(themeSource, /routeText: "#dedfde"/);
-  assert.match(themeSource, /routeRail: "#c6c3c6"/);
-  assert.match(themeSource, /utilityMark: "#949694"/);
+  assert.match(themeSource, /"unsaved": "#313031"/);
+  assert.match(themeSource, /"routePill": "#101010"/);
+  assert.match(themeSource, /"routeText": "#dedfde"/);
+  assert.match(themeSource, /"routeRail": "#c6c3c6"/);
+  assert.match(themeSource, /"utilityMark": "#949694"/);
   assert.match(surfaceSource, /fill=\{QC_COLORS\.captured\.routePill\}/);
   assert.match(surfaceSource, /stroke=\{QC_COLORS\.captured\.utilityMark\}/);
   assert.doesNotMatch(surfaceSource, /titlePresentation\.dimmed \? "#29292b"/);
@@ -191,7 +191,7 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   assert.match(routingWorkflow, /routeOptionsForRow\(picker\.side, picker\.row, value, snapshot\.routes\)/, "row routes must be filtered for the selected row");
   assert.match(styles, /\.coros-route-picker\.is-input \{ left: 7\.2%; \}/);
   assert.match(styles, /\.coros-route-focus-layer \{ position: absolute; z-index: 23;/);
-  assert.match(styles, /scrollbar-color: #96999b transparent/);
+  assert.match(styles, /scrollbar-color: var\(--qc-palette-96999b\) transparent/);
   assert.doesNotMatch(styles.slice(styles.indexOf(".coros-route-picker-dismiss"), styles.indexOf(".context-menu-section")), /#45f862/, "the CorOS route list is neutral gray, not a green selection menu");
 });
 

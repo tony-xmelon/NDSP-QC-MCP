@@ -226,6 +226,12 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
                 .as_f64()
                 .is_some_and(|n| n >= min && max.is_none_or(|m| n <= m)),
             Kind::MidiMessages => valid_midi_messages(value),
+            Kind::StringEnum(values) => value
+                .as_str()
+                .is_some_and(|candidate| values.contains(&candidate)),
+            Kind::BooleanRows => value
+                .as_array()
+                .is_some_and(|rows| rows.len() == 4 && rows.iter().all(Value::is_boolean)),
         };
         if !valid {
             return Err(format!("invalid {}", p.name));

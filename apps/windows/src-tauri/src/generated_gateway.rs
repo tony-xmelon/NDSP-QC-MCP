@@ -15,6 +15,12 @@ pub mod rpc {
     pub const REDO: &str = "device.redo";
     pub const INHIBITED_MODULES: &str = "device.inhibitedModules";
     pub const TUNER_SETTINGS: &str = "device.tunerSettings";
+    pub const GENERAL_SETTINGS: &str = "device.generalSettings";
+    pub const SET_GENERAL_INTEGER: &str = "device.setGeneralInteger";
+    pub const SET_GENERAL_TOGGLE: &str = "device.setGeneralToggle";
+    pub const SET_SCENE_BYPASS_BEHAVIOR: &str = "device.setSceneBypassBehavior";
+    pub const SET_MASTER_VOLUME_ASSIGNMENT: &str = "device.setMasterVolumeAssignment";
+    pub const SET_GLOBAL_BYPASS: &str = "device.setGlobalBypass";
     pub const PRESET_SCREENSHOT: &str = "device.presetScreenshot";
     pub const CAPTURE_SCREEN: &str = "device.captureScreen";
     pub const TAP_SCREEN: &str = "device.tapScreen";

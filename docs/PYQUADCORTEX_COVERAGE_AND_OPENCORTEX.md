@@ -62,12 +62,12 @@ methods one-for-one.
 
 ### Contracted command surface: 100%
 
-The version-9 product contract is now fully aligned: all 60 device actions are
+The version-10 product contract is now fully aligned: all 66 device actions are
 available to the shared Windows and Android application layer, the Rust MCP
 server, and the native Rust gateway. The generated Python MCP schema follows the
 same public action contract, and the Python compatibility gateway now implements
 every contracted device RPC as well. Including `system.status`, both native hosts
-expose all 61 gateway RPC methods. Generation and parity tests fail
+expose all 67 gateway RPC methods. Generation and parity tests fail
 when a contract action or RPC is absent from any of those layers.
 
 This 100% figure describes the deliberately supported product command surface.
@@ -86,9 +86,10 @@ implemented until their Rust wire format and hardware readback are verified.
 | Expression-controlled block bypass | Implemented in native Rust with typed preset projection and authoritative readback for EXP 1/2, STOP/SWITCH/HEEL-TOE behavior, inversion, 0-5000 ms delay and latch emulation |
 | Splitter and mixer parameters | Native Rust reads and normalized writes use the correct bare combined-splitter and hash-keyed mixer containers; ordinary block dispatch cannot accidentally address these virtual columns |
 | Tuner settings read | Native Rust reads the selected tuner input, mute preference, reference offset and absolute reference pitch without engaging or changing the tuner |
+| General device settings | Native Rust now reads the complete sparse `GeneralSettings` reply and safely writes the hardware-verified brightness, hold timing, MIDI, dimming, access, lock, delay-compensation and scene-bypass fields. Whole-value Master Volume assignments and Cab/IR global-bypass rows are typed and atomic so partial submessage writes cannot clear unrelated flags. Power, reboot and Wi-Fi-reset commands are deliberately absent. |
 | STOMP labels and momentary mode | Native sparse Rust writes and preset readback are implemented. The public planner automatically chooses the QC's single/multi-label map and refuses momentary changes unless exactly one block is assigned, matching the device's silent hardware restriction |
 | Preset MIDI Out | Implemented in native Rust for all ten A-H/EXP sources and preset-load messages, including the hardware's MIDISettings wire route, 12-message replacement semantics, typed snapshots, readback verification, Windows/Android bindings, chat/MCP actions and physical conformance cases |
-| General settings, full I/O writes, Global EQ, mode-cycle settings | Protocol is hardware-verified upstream; native Rust read/write projections remain to be added. Tuner writes remain deliberately unexposed because any host tuner-setting write invisibly engages the tuner and can silence outputs, while only a physical open/close can disengage it without changing preferences |
+| Full I/O writes, Global EQ, mode-cycle settings | Protocol is hardware-verified upstream; native Rust read/write projections remain to be added. Tuner writes remain deliberately unexposed because any host tuner-setting write invisibly engages the tuner and can silence outputs, while only a physical open/close can disengage it without changing preferences |
 | Favourites/recents, pinned models, captures and IR browsing/loading, setlist create/delete/duplicate and preset delete/move | Library operations remain to be added to the native Rust public contract |
 | Capture creation, imports, cloud/account operations, calibration, native bulk copy and firmware operations | Not parity targets: upstream marks these partial, unsupported, unexplored or unsafe |
 

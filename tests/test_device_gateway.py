@@ -64,6 +64,64 @@ class NativeTransportSafetyTests(unittest.TestCase):
 
 
 class DevicePositionTests(unittest.TestCase):
+    def test_general_settings_project_sparse_state_and_validate_all_writes(self):
+        class Message(SimpleNamespace):
+            def HasField(self, field):
+                return hasattr(self, field)
+
+        settings = Message(
+            screen_brightness=72,
+            hold_timing=3,
+            scene_block_bypass=1,
+            global_bypass_cab=Message(row1=True, row2=False, row3=True, row4=False),
+            master_volume_assignment=Message(out12=True, out34=False, send12=True, headphones=True),
+        )
+
+        class Session:
+            def settings(self):
+                return settings
+
+            def update_settings(self, **values):
+                self.updated = values
+
+            def set_master_volume_assignment(self, **values):
+                self.assignment = values
+
+            def set_global_bypass(self, **values):
+                self.bypass = values
+
+        session = Session()
+        device = PyQuadCortexDevice()
+        device._qc = session
+        projected = device.general_settings()
+        self.assertEqual(projected["screenBrightness"], 72)
+        self.assertEqual(projected["holdTimingMs"], 800)
+        self.assertEqual(projected["sceneBypassBehavior"], "nonstompOverwrite")
+        self.assertEqual(projected["globalBypassCab"]["row3"], True)
+        self.assertEqual(projected["masterVolumeAssignment"]["send12"], True)
+
+        device.set_general_integer("holdTiming", 5)
+        self.assertEqual(session.updated, {"hold_timing": 5})
+        device.set_general_toggle("stompModeAutoAssign", False)
+        self.assertEqual(session.updated, {"stomp_mode_auto_assign": False})
+        device.set_scene_bypass_behavior("neverOverwrite")
+        self.assertEqual(session.updated, {"scene_block_bypass": 2})
+        device.set_master_volume_assignment(True, False, True, False)
+        self.assertEqual(session.assignment, {
+            "out12": True, "out34": False, "send12": True, "headphones": False,
+        })
+        device.set_global_bypass([True, False, True, False], [False, True, False, True])
+        self.assertEqual(session.bypass["cab"], [True, False, True, False])
+
+        with self.assertRaises(ValueError):
+            device.set_general_integer("holdTiming", 6)
+        with self.assertRaises(ValueError):
+            device.set_general_toggle("unknown", True)
+        with self.assertRaises(ValueError):
+            device.set_scene_bypass_behavior("sometimes")
+        with self.assertRaises(ValueError):
+            device.set_global_bypass([True], [False] * 4)
+
     def test_parameter_assignment_methods_use_public_api_and_verify_readback(self):
         parameter = {
             "index": 4, "writable": True, "sceneMode": False,

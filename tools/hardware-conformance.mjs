@@ -19,6 +19,7 @@ import {
 
 const root = resolve(import.meta.dirname, "..");
 const contract = JSON.parse(await readFile(resolve(root, "contracts/qc-actions.v1.json"), "utf8"));
+const themeColors = JSON.parse(await readFile(resolve(root, "packages/typescript/qc-theme/src/colors.json"), "utf8"));
 const argv = process.argv.slice(2);
 const option = (name) => {
   const index = argv.indexOf(name);
@@ -365,6 +366,7 @@ async function main() {
   let identity;
   let parameter;
   let originalMasterVolume;
+  let originalGeneralSettings;
   let transportStarted = false;
   let deviceAuthorized = false;
   let firstScreenTapSent = false;
@@ -419,6 +421,16 @@ async function main() {
       consecutiveMatches = value?.value === expected ? consecutiveMatches + 1 : 0;
       if (consecutiveMatches >= 2) return value;
       await sleep(100);
+    } while (Date.now() < deadline);
+    return value;
+  };
+  const waitForGeneralSettings = async (predicate, timeoutMs = 12000) => {
+    const deadline = Date.now() + timeoutMs;
+    let value;
+    do {
+      value = await transport.call("get_general_settings", {});
+      if (predicate(value)) return value;
+      await sleep(500);
     } while (Date.now() < deadline);
     return value;
   };
@@ -509,6 +521,10 @@ async function main() {
         && Number.isFinite(value.referenceOffsetHz) && typeof value.muted === "boolean",
       "Tuner settings are invalid."
     ));
+    originalGeneralSettings = await call("get_general_settings", {}, (value) => assert(
+      Number.isInteger(value.sceneBypassBehavior === "alwaysOverwrite" ? 0 : value.sceneBypassBehavior === "nonstompOverwrite" ? 1 : value.sceneBypassBehavior === "neverOverwrite" ? 2 : NaN),
+      "General settings did not include a valid scene bypass behavior."
+    ));
     const capturedScreen = await call("capture_screen", {}, (value) => assert(pngSignatureIsValid(value, 800, 480), "Live screen PNG is invalid."));
     if (config.discoveryScreenPath && typeof capturedScreen?.pngBase64 === "string") {
       const screenPath = resolve(root, config.discoveryScreenPath);
@@ -570,8 +586,7 @@ async function main() {
       await call("set_scene_color", { scene: originalScene, color: config.performance.sceneTestColor, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await snapshot();
       if (originalSceneColor) {
-        const colors = ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"];
-        const restoreColor = Math.max(0, colors.indexOf(originalSceneColor));
+        const restoreColor = Math.max(0, themeColors.scene.indexOf(originalSceneColor));
         await transport.call("set_scene_color", { scene: originalScene, color: restoreColor, expected_preset_name: currentSnapshot.presetName });
         currentSnapshot = await snapshot();
       }
@@ -804,6 +819,45 @@ async function main() {
 
     if (enabledHazards.has("persistent")) {
       await restoreScratch();
+      const originalHold = originalGeneralSettings.holdTimingIndex;
+      assert(Number.isInteger(originalHold) && originalHold >= 0 && originalHold <= 5, "A restorable hold timing is required.");
+      const testHold = originalHold === 5 ? 4 : originalHold + 1;
+      await call("set_general_integer", { setting: "holdTiming", value: testHold, confirm_persistent_write: true });
+      let settings = await waitForGeneralSettings((value) => value.holdTimingIndex === testHold);
+      assert(settings.holdTimingIndex === testHold, "Hold timing setting did not read back.");
+      await transport.call("set_general_integer", { setting: "holdTiming", value: originalHold, confirm_persistent_write: true });
+
+      const originalToggle = originalGeneralSettings.stompModeAutoAssign;
+      assert(typeof originalToggle === "boolean", "A restorable STOMP auto-assign setting is required.");
+      await call("set_general_toggle", { setting: "stompModeAutoAssign", enabled: !originalToggle, confirm_persistent_write: true });
+      settings = await waitForGeneralSettings((value) => value.stompModeAutoAssign === !originalToggle);
+      assert(settings.stompModeAutoAssign === !originalToggle, "STOMP auto-assign setting did not read back.");
+      await transport.call("set_general_toggle", { setting: "stompModeAutoAssign", enabled: originalToggle, confirm_persistent_write: true });
+
+      const bypassBehaviors = ["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"];
+      const originalBehavior = originalGeneralSettings.sceneBypassBehavior;
+      const testBehavior = bypassBehaviors[(bypassBehaviors.indexOf(originalBehavior) + 1) % bypassBehaviors.length];
+      await call("set_scene_bypass_behavior", { behavior: testBehavior, confirm_persistent_write: true });
+      settings = await waitForGeneralSettings((value) => value.sceneBypassBehavior === testBehavior);
+      assert(settings.sceneBypassBehavior === testBehavior, "Scene bypass behavior did not read back.");
+      await transport.call("set_scene_bypass_behavior", { behavior: originalBehavior, confirm_persistent_write: true });
+
+      const master = originalGeneralSettings.masterVolumeAssignment;
+      assert(master && [master.out12, master.out34, master.send12, master.headphones].every((value) => typeof value === "boolean"), "Restorable Master Volume assignments are required.");
+      await call("set_master_volume_assignment", { out12: !master.out12, out34: master.out34, send12: master.send12, headphones: master.headphones, confirm_persistent_write: true });
+      settings = await waitForGeneralSettings((value) => value.masterVolumeAssignment?.out12 === !master.out12);
+      assert(settings.masterVolumeAssignment?.out12 === !master.out12, "Master Volume assignment did not read back.");
+      await transport.call("set_master_volume_assignment", { ...master, confirm_persistent_write: true });
+
+      const bypassRows = (rows) => [rows.row1, rows.row2, rows.row3, rows.row4];
+      const cab = bypassRows(originalGeneralSettings.globalBypassCab);
+      const ir = bypassRows(originalGeneralSettings.globalBypassIr);
+      const testCab = [!cab[0], ...cab.slice(1)];
+      await call("set_global_bypass", { cab: testCab, ir, confirm_persistent_write: true });
+      settings = await waitForGeneralSettings((value) => value.globalBypassCab?.row1 === testCab[0]);
+      assert(settings.globalBypassCab?.row1 === testCab[0], "Global Cab bypass did not read back.");
+      await transport.call("set_global_bypass", { cab, ir, confirm_persistent_write: true });
+
       const nameA = uniqueName(config.persistent.namePrefix, "A");
       const nameRenamed = uniqueName(config.persistent.namePrefix, "R");
       report.disposableSlotsModified = [config.persistent.slotA, config.persistent.slotB];
@@ -887,6 +941,19 @@ async function main() {
           const current = await transport.call("get_master_volume", {});
           if (current.value !== originalMasterVolume) {
             await transport.call("set_master_volume", { value: originalMasterVolume, expected_value: current.value, confirm_risky_operation: true });
+          }
+        });
+      }
+      if (enabledHazards.has("persistent") && originalGeneralSettings) {
+        await restoreAttempt("general-settings", async () => {
+          const settings = originalGeneralSettings;
+          if (Number.isInteger(settings.holdTimingIndex)) await transport.call("set_general_integer", { setting: "holdTiming", value: settings.holdTimingIndex, confirm_persistent_write: true });
+          if (typeof settings.stompModeAutoAssign === "boolean") await transport.call("set_general_toggle", { setting: "stompModeAutoAssign", enabled: settings.stompModeAutoAssign, confirm_persistent_write: true });
+          if (settings.sceneBypassBehavior) await transport.call("set_scene_bypass_behavior", { behavior: settings.sceneBypassBehavior, confirm_persistent_write: true });
+          if (settings.masterVolumeAssignment) await transport.call("set_master_volume_assignment", { ...settings.masterVolumeAssignment, confirm_persistent_write: true });
+          if (settings.globalBypassCab && settings.globalBypassIr) {
+            const rows = (value) => [value.row1, value.row2, value.row3, value.row4];
+            await transport.call("set_global_bypass", { cab: rows(settings.globalBypassCab), ir: rows(settings.globalBypassIr), confirm_persistent_write: true });
           }
         });
       }

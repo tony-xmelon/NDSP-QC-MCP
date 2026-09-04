@@ -1,5 +1,5 @@
 import { QC_SCENE_COLORS } from "./generated-domain.ts";
-import type { BlockDetails, DeviceActionResult, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
+import type { BlockDetails, DeviceActionResult, GeneralSettings, MidiOutMessage, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
 export * from "./generated-domain.ts";
 export * from "./generated-gateway-methods.ts";
 export * from "./generated-payloads.ts";
@@ -263,6 +263,12 @@ export interface GatewayTransport {
   redo(): Promise<DeviceActionResult>;
   inhibitedModules(): Promise<InhibitedModules>;
   tunerSettings(): Promise<TunerSettings>;
+  generalSettings(): Promise<GeneralSettings>;
+  setGeneralInteger(setting: "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" | "holdTiming" | "midiChannel", value: number): Promise<DeviceActionResult>;
+  setGeneralToggle(setting: "midiOverUsb" | "ignoreDuplicatePc" | "stompModeAutoAssign" | "swapTempoTunerAccess" | "disableInternetConnectionCheck" | "dynamicDelayCompensation" | "presetDimmed" | "midiClockIn" | "gigViewStompAccess", enabled: boolean): Promise<DeviceActionResult>;
+  setSceneBypassBehavior(behavior: "alwaysOverwrite" | "nonstompOverwrite" | "neverOverwrite"): Promise<DeviceActionResult>;
+  setMasterVolumeAssignment(out12: boolean, out34: boolean, send12: boolean, headphones: boolean): Promise<DeviceActionResult>;
+  setGlobalBypass(cab: [boolean, boolean, boolean, boolean], ir: [boolean, boolean, boolean, boolean]): Promise<DeviceActionResult>;
   presetScreenshot(folderName: string, position: number, isFactory?: boolean): Promise<DeviceImage>;
   captureScreen(): Promise<DeviceImage>;
   tapScreen(x: number, y: number): Promise<DeviceActionResult>;

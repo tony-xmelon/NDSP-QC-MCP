@@ -9,6 +9,46 @@ class TunerSettings(TypedDict):
     referenceHz: float
     muted: bool
 
+class GlobalBypassRows(TypedDict):
+    row1: bool
+    row2: bool
+    row3: bool
+    row4: bool
+
+class MasterVolumeAssignment(TypedDict):
+    out12: bool
+    out34: bool
+    send12: bool
+    headphones: bool
+
+class GeneralSettings(TypedDict):
+    screenBrightness: NotRequired[int]
+    ledBrightness: NotRequired[int]
+    dimmedLedBrightness: NotRequired[int]
+    lockScreenAndVolumeKnob: NotRequired[bool]
+    globalBypassCab: NotRequired[GlobalBypassRows]
+    globalBypassIr: NotRequired[GlobalBypassRows]
+    sceneBypassBehavior: NotRequired[Literal["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"]]
+    midiOverUsb: NotRequired[bool]
+    midiChannel: NotRequired[int]
+    ignoreDuplicatePc: NotRequired[bool]
+    availableDiskSpace: NotRequired[float]
+    totalDiskSpace: NotRequired[float]
+    internalMidiClockEnabled: NotRequired[bool]
+    masterVolumeAssignment: NotRequired[MasterVolumeAssignment]
+    stompModeAutoAssign: NotRequired[bool]
+    swapTempoTunerAccess: NotRequired[bool]
+    midiClockOut: NotRequired[Literal["off", "midiDinOnly", "usbMidiOnly", "bothUsbAndDinMidi"]]
+    disableInternetConnectionCheck: NotRequired[bool]
+    dynamicDelayCompensation: NotRequired[bool]
+    presetDimmed: NotRequired[bool]
+    sceneDimmed: NotRequired[bool]
+    stompDimmed: NotRequired[bool]
+    midiClockIn: NotRequired[bool]
+    gigViewStompAccess: NotRequired[bool]
+    holdTimingIndex: NotRequired[int]
+    holdTimingMs: NotRequired[int]
+
 class BypassExpression(TypedDict):
     pedal: int
     minimum: float

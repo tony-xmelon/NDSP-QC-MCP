@@ -65,7 +65,13 @@ final class GeneratedRemoteActions {
         "device.setChainSplit",
         "device.savePresetAs",
         "device.renameCurrentPreset",
-        "device.copyPreset"
+        "device.copyPreset",
+        "device.generalSettings",
+        "device.setGeneralInteger",
+        "device.setGeneralToggle",
+        "device.setSceneBypassBehavior",
+        "device.setMasterVolumeAssignment",
+        "device.setGlobalBypass"
     };
 
     private static final String[] READ_ONLY = {
@@ -84,7 +90,8 @@ final class GeneratedRemoteActions {
         "device.inhibitedModules",
         "device.tunerSettings",
         "device.presetScreenshot",
-        "device.captureScreen"
+        "device.captureScreen",
+        "device.generalSettings"
     };
 
     private static final String[] PERFORMANCE = {
@@ -145,7 +152,12 @@ final class GeneratedRemoteActions {
         "device.reloadPreset",
         "device.savePresetAs",
         "device.renameCurrentPreset",
-        "device.copyPreset"
+        "device.copyPreset",
+        "device.setGeneralInteger",
+        "device.setGeneralToggle",
+        "device.setSceneBypassBehavior",
+        "device.setMasterVolumeAssignment",
+        "device.setGlobalBypass"
     };
 
     static boolean contains(String method) { return contains(ALLOWED, method); }

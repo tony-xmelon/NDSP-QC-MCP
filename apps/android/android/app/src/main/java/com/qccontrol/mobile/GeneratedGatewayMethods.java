@@ -19,6 +19,12 @@ final class GeneratedGatewayMethods {
         "device.redo",
         "device.inhibitedModules",
         "device.tunerSettings",
+        "device.generalSettings",
+        "device.setGeneralInteger",
+        "device.setGeneralToggle",
+        "device.setSceneBypassBehavior",
+        "device.setMasterVolumeAssignment",
+        "device.setGlobalBypass",
         "device.presetScreenshot",
         "device.captureScreen",
         "device.tapScreen",
@@ -89,6 +95,12 @@ final class GeneratedGatewayMethods {
             case "device.redo": return "PLANNED_WRITE";
             case "device.inhibitedModules": return "CORRELATED_READ";
             case "device.tunerSettings": return "CORRELATED_READ";
+            case "device.generalSettings": return "CORRELATED_READ";
+            case "device.setGeneralInteger": return "PLANNED_WRITE";
+            case "device.setGeneralToggle": return "PLANNED_WRITE";
+            case "device.setSceneBypassBehavior": return "PLANNED_WRITE";
+            case "device.setMasterVolumeAssignment": return "PLANNED_WRITE";
+            case "device.setGlobalBypass": return "PLANNED_WRITE";
             case "device.presetScreenshot": return "CORRELATED_READ";
             case "device.captureScreen": return "CORRELATED_READ";
             case "device.tapScreen": return "TAP_SCREEN";

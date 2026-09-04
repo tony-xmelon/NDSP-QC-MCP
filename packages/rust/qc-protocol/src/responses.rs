@@ -1,7 +1,9 @@
 //! Platform-neutral decoding for correlated device replies that are not part
 //! of the continuous preset-state stream.
 
-use crate::generated_payloads::TunerSettings;
+use crate::generated_payloads::{
+    GeneralSettings, GlobalBypassRows, MasterVolumeAssignment, TunerSettings,
+};
 use crate::proto::cortex_protobuf_v2 as pa;
 use prost::Message;
 use serde::Serialize;
@@ -212,6 +214,129 @@ pub fn decode_tuner_settings(payload: &[u8]) -> Result<TunerSettings, ResponseDe
     })
 }
 
+pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, ResponseDecodeError> {
+    let message = pa::GeneralSettingsMessage::decode(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "general-settings action is not UPDATE",
+        ));
+    }
+    if message.scene_block_bypass.is_none() {
+        return Err(ResponseDecodeError::Incomplete("scene_block_bypass"));
+    }
+    let rows = |value: pa::GlobalBypassRows| GlobalBypassRows {
+        row1: value.row1,
+        row2: value.row2,
+        row3: value.row3,
+        row4: value.row4,
+    };
+    let hold_timing_index = message
+        .hold_timing
+        .map(|pa::general_settings_message::HoldTiming::HoldTiming(value)| value);
+    Ok(GeneralSettings {
+        screen_brightness: message.screen_brightness.map(
+            |pa::general_settings_message::ScreenBrightness::ScreenBrightness(value)| value,
+        ),
+        led_brightness: message
+            .led_brightness
+            .map(|pa::general_settings_message::LedBrightness::LedBrightness(value)| value),
+        dimmed_led_brightness: message.dimmed_led_brightness.map(
+            |pa::general_settings_message::DimmedLedBrightness::DimmedLedBrightness(value)| value,
+        ),
+        lock_screen_and_volume_knob: message.lock_screen_and_volume_knob.map(
+            |pa::general_settings_message::LockScreenAndVolumeKnob::LockScreenAndVolumeKnob(
+                value,
+            )| value,
+        ),
+        global_bypass_cab: message.global_bypass_cab.map(
+            |pa::general_settings_message::GlobalBypassCab::GlobalBypassCab(value)| rows(value),
+        ),
+        global_bypass_ir: message.global_bypass_ir.map(
+            |pa::general_settings_message::GlobalBypassIr::GlobalBypassIr(value)| rows(value),
+        ),
+        scene_bypass_behavior: message.scene_block_bypass.and_then(
+            |pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(value)| match value {
+                0 => Some("alwaysOverwrite".to_string()),
+                1 => Some("nonstompOverwrite".to_string()),
+                2 => Some("neverOverwrite".to_string()),
+                _ => None,
+            }
+        ),
+        midi_over_usb: message
+            .midi_over_usb
+            .map(|pa::general_settings_message::MidiOverUsb::MidiOverUsb(value)| value),
+        midi_channel: message
+            .midi_channel
+            .map(|pa::general_settings_message::MidiChannel::MidiChannel(value)| value),
+        ignore_duplicate_pc: message.ignore_duplicate_pc.map(
+            |pa::general_settings_message::IgnoreDuplicatePc::IgnoreDuplicatePc(value)| value,
+        ),
+        available_disk_space: message.available_disk_space.map(
+            |pa::general_settings_message::AvailableDiskSpace::AvailableDiskSpace(value)| value,
+        ),
+        total_disk_space: message.total_disk_space.map(
+            |pa::general_settings_message::TotalDiskSpace::TotalDiskSpace(value)| value,
+        ),
+        internal_midi_clock_enabled: message.internal_midi_clock_enabled.map(
+            |pa::general_settings_message::InternalMidiClockEnabled::InternalMidiClockEnabled(
+                value,
+            )| value,
+        ),
+        master_volume_assignment: message.master_volume_assignment.map(
+            |pa::general_settings_message::MasterVolumeAssignment::MasterVolumeAssignment(value)| {
+                MasterVolumeAssignment {
+                    out12: value.out12,
+                    out34: value.out34,
+                    send12: value.send12,
+                    headphones: value.headphones,
+                }
+            },
+        ),
+        stomp_mode_auto_assign: message.stomp_mode_auto_assign.map(
+            |pa::general_settings_message::StompModeAutoAssign::StompModeAutoAssign(value)| value,
+        ),
+        swap_tempo_tuner_access: message.swap_tempo_tuner_access.map(
+            |pa::general_settings_message::SwapTempoTunerAccess::SwapTempoTunerAccess(value)| value,
+        ),
+        midi_clock_out: message.midi_clock_out.and_then(
+            |pa::general_settings_message::MidiClockOut::MidiClockOut(value)| match value {
+                0 => Some("off".to_string()),
+                1 => Some("midiDinOnly".to_string()),
+                2 => Some("usbMidiOnly".to_string()),
+                3 => Some("bothUsbAndDinMidi".to_string()),
+                _ => None,
+            }
+        ),
+        disable_internet_connection_check: message.disable_internet_connection_check.map(
+            |pa::general_settings_message::DisableInternetConnectionCheck::DisableInternetConnectionCheck(value)| value,
+        ),
+        dynamic_delay_compensation: message.enable_dynamic_delay_compensation.map(
+            |pa::general_settings_message::EnableDynamicDelayCompensation::EnableDynamicDelayCompensation(value)| value,
+        ),
+        preset_dimmed: message.enable_preset_dimmed.map(
+            |pa::general_settings_message::EnablePresetDimmed::EnablePresetDimmed(value)| value,
+        ),
+        scene_dimmed: message.enable_scene_dimmed.map(
+            |pa::general_settings_message::EnableSceneDimmed::EnableSceneDimmed(value)| value,
+        ),
+        stomp_dimmed: message.enable_stomp_dimmed.map(
+            |pa::general_settings_message::EnableStompDimmed::EnableStompDimmed(value)| value,
+        ),
+        midi_clock_in: message.midi_clock_in_enabled.map(
+            |pa::general_settings_message::MidiClockInEnabled::MidiClockInEnabled(value)| value,
+        ),
+        gig_view_stomp_access: message.gig_view_stomp_access_enabled.map(
+            |pa::general_settings_message::GigViewStompAccessEnabled::GigViewStompAccessEnabled(
+                value,
+            )| value,
+        ),
+        hold_timing_index,
+        hold_timing_ms: hold_timing_index
+            .filter(|value| (0..=5).contains(value))
+            .map(|value| 500 + 100 * value),
+    })
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -313,6 +438,42 @@ mod tests {
             decode_tuner_settings(&incomplete),
             Err(ResponseDecodeError::Incomplete(_))
         ));
+    }
+
+    #[test]
+    fn general_settings_preserve_sparse_presence_and_derive_hold_milliseconds() {
+        let payload = pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            screen_brightness: Some(
+                pa::general_settings_message::ScreenBrightness::ScreenBrightness(59),
+            ),
+            scene_block_bypass: Some(
+                pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(1),
+            ),
+            hold_timing: Some(pa::general_settings_message::HoldTiming::HoldTiming(3)),
+            master_volume_assignment: Some(
+                pa::general_settings_message::MasterVolumeAssignment::MasterVolumeAssignment(
+                    pa::MasterVolumeAssignmentOptions {
+                        out12: true,
+                        out34: false,
+                        send12: true,
+                        headphones: false,
+                    },
+                ),
+            ),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let settings = decode_general_settings(&payload).unwrap();
+        assert_eq!(settings.screen_brightness, Some(59));
+        assert_eq!(settings.led_brightness, None);
+        assert_eq!(
+            settings.scene_bypass_behavior.as_deref(),
+            Some("nonstompOverwrite")
+        );
+        assert_eq!(settings.hold_timing_index, Some(3));
+        assert_eq!(settings.hold_timing_ms, Some(800));
+        assert_eq!(settings.master_volume_assignment.unwrap().send12, true);
     }
 
     #[test]

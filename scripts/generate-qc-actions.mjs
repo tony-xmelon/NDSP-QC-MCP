@@ -12,6 +12,10 @@ const schemaType = (kind) => {
   if (kind === "grid-column") return { type: "integer", minimum: 0, maximum: gridColumns - 1 };
   if (kind === "parameter-column") return { type: "integer", minimum: 0, maximum: gridColumns + 1 };
   if (kind === "lane-control") return { type: "string", enum: ["inputGate", "laneOutput"] };
+  if (kind === "general-integer-setting") return { type: "string", enum: ["screenBrightness", "ledBrightness", "dimmedLedBrightness", "holdTiming", "midiChannel"] };
+  if (kind === "general-toggle-setting") return { type: "string", enum: ["midiOverUsb", "ignoreDuplicatePc", "stompModeAutoAssign", "swapTempoTunerAccess", "disableInternetConnectionCheck", "dynamicDelayCompensation", "presetDimmed", "midiClockIn", "gigViewStompAccess"] };
+  if (kind === "scene-bypass-behavior") return { type: "string", enum: ["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"] };
+  if (kind === "boolean-row-array") return { type: "array", minItems: 4, maxItems: 4, items: { type: "boolean" } };
   if (kind === "scene-index") return { type: "integer", minimum: 0, maximum: scenes - 1 };
   if (kind === "tempo") return { type: "integer", minimum: minimumTempoBpm, maximum: maximumTempoBpm };
   if (kind === "screen-x") return { type: "integer", minimum: 0, maximum: 799 };

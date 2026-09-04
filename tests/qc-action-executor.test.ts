@@ -124,6 +124,39 @@ test("persistent shared actions require the generated confirmation field", async
   assert.equal(called, false);
 });
 
+test("general settings actions share one confirmed app execution path", async () => {
+  const calls: unknown[][] = [];
+  const gateway = {
+    generalSettings: async () => ({ holdTimingIndex: 3, holdTimingMs: 800 }),
+    setGeneralInteger: async (...args: unknown[]) => { calls.push(["integer", ...args]); return { detail: "sent" }; },
+    setGeneralToggle: async (...args: unknown[]) => { calls.push(["toggle", ...args]); return { detail: "sent" }; },
+    setSceneBypassBehavior: async (...args: unknown[]) => { calls.push(["scene", ...args]); return { detail: "sent" }; },
+    setMasterVolumeAssignment: async (...args: unknown[]) => { calls.push(["assignment", ...args]); return { detail: "sent" }; },
+    setGlobalBypass: async (...args: unknown[]) => { calls.push(["bypass", ...args]); return { detail: "sent" }; }
+  } as unknown as GatewayTransport;
+  const context = { gateway, snapshot: demoSnapshot, connected: true };
+  const read = await executeQcAction({ name: "get_general_settings", arguments: {} }, context);
+  assert.deepEqual(read.data, { holdTimingIndex: 3, holdTimingMs: 800 });
+
+  const confirmed = { confirm_persistent_write: true };
+  await executeQcAction({ name: "set_general_integer", arguments: { setting: "holdTiming", value: 4, ...confirmed } }, context);
+  await executeQcAction({ name: "set_general_toggle", arguments: { setting: "stompModeAutoAssign", enabled: false, ...confirmed } }, context);
+  await executeQcAction({ name: "set_scene_bypass_behavior", arguments: { behavior: "neverOverwrite", ...confirmed } }, context);
+  await executeQcAction({ name: "set_master_volume_assignment", arguments: { out12: true, out34: false, send12: true, headphones: false, ...confirmed } }, context);
+  await executeQcAction({ name: "set_global_bypass", arguments: { cab: [true, false, true, false], ir: [false, true, false, true], ...confirmed } }, context);
+  assert.deepEqual(calls, [
+    ["integer", "holdTiming", 4],
+    ["toggle", "stompModeAutoAssign", false],
+    ["scene", "neverOverwrite"],
+    ["assignment", true, false, true, false],
+    ["bypass", [true, false, true, false], [false, true, false, true]]
+  ]);
+
+  await assert.rejects(() => executeQcAction({
+    name: "set_general_integer", arguments: { setting: "holdTiming", value: 4, confirm_persistent_write: false }
+  }, context), /explicit user confirmation/);
+});
+
 test("device-global actions do not require an unrelated preset guard", async () => {
   const calls: string[] = [];
   const gateway = {

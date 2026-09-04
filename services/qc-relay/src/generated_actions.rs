@@ -369,4 +369,40 @@ pub static ACTIONS: &[ActionPolicy] = &[
         class: ActionClass::PersistentWrite,
         required_argument_confirmations: &["confirm_overwrite", "confirm_persistent_write"],
     },
+    ActionPolicy {
+        name: "get_general_settings",
+        rpc: "device.generalSettings",
+        class: ActionClass::Read,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_general_integer",
+        rpc: "device.setGeneralInteger",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_general_toggle",
+        rpc: "device.setGeneralToggle",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_scene_bypass_behavior",
+        rpc: "device.setSceneBypassBehavior",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_master_volume_assignment",
+        rpc: "device.setMasterVolumeAssignment",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_global_bypass",
+        rpc: "device.setGlobalBypass",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
 ];

@@ -66,6 +66,14 @@ const nullableIntegerArgument = (call: AssistantToolCall, name: string): number 
   return value;
 };
 
+const booleanRowsArgument = (call: AssistantToolCall, name: string): [boolean, boolean, boolean, boolean] => {
+  const value = call.arguments[name];
+  if (!Array.isArray(value) || value.length !== 4 || value.some((entry) => typeof entry !== "boolean")) {
+    throw new Error(`${call.name} requires exactly four boolean ${name} row values.`);
+  }
+  return value as [boolean, boolean, boolean, boolean];
+};
+
 const midiMessagesArgument = (call: AssistantToolCall): MidiOutMessage[] => {
   const value = call.arguments.messages;
   if (!Array.isArray(value) || value.length > 12) throw new Error(`${call.name} requires an array of no more than 12 MIDI messages.`);
@@ -212,6 +220,9 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (call.name === "get_tuner_settings") {
     return { detail: "Read the current tuner input, reference pitch, and mute preference.", data: await gateway.tunerSettings() };
   }
+  if (call.name === "get_general_settings") {
+    return { detail: "Read the current Quad Cortex Device Settings.", data: await gateway.generalSettings() };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -272,6 +283,32 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     if (!name) throw new Error("A device name is required.");
     const result = await gateway.setDeviceName(name);
     return { ...actionResult(result), data: result.identity };
+  }
+  if (call.name === "set_general_integer" || call.name === "set_general_toggle"
+    || call.name === "set_scene_bypass_behavior" || call.name === "set_master_volume_assignment"
+    || call.name === "set_global_bypass") {
+    confirmation(call, "confirm_persistent_write");
+    if (call.name === "set_general_integer") {
+      const setting = stringArgument(call, "setting") as Parameters<GatewayTransport["setGeneralInteger"]>[0];
+      return actionResult(await gateway.setGeneralInteger(setting, integerArgument(call, "value")));
+    }
+    if (call.name === "set_general_toggle") {
+      const setting = stringArgument(call, "setting") as Parameters<GatewayTransport["setGeneralToggle"]>[0];
+      return actionResult(await gateway.setGeneralToggle(setting, booleanArgument(call, "enabled")));
+    }
+    if (call.name === "set_scene_bypass_behavior") {
+      const behavior = stringArgument(call, "behavior") as Parameters<GatewayTransport["setSceneBypassBehavior"]>[0];
+      return actionResult(await gateway.setSceneBypassBehavior(behavior));
+    }
+    if (call.name === "set_master_volume_assignment") {
+      return actionResult(await gateway.setMasterVolumeAssignment(
+        booleanArgument(call, "out12"), booleanArgument(call, "out34"),
+        booleanArgument(call, "send12"), booleanArgument(call, "headphones")
+      ));
+    }
+    return actionResult(await gateway.setGlobalBypass(
+      booleanRowsArgument(call, "cab"), booleanRowsArgument(call, "ir")
+    ));
   }
   if (call.name === "undo_device" || call.name === "redo_device") {
     confirmation(call, "confirm_risky_operation");

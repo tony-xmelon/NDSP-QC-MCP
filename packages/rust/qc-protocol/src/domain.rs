@@ -8,6 +8,32 @@ pub const IPC_MAX_FRAME_BYTES: usize = 16777216;
 pub const SCENE_COLORS: &[&str] = &[
     "#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd",
 ];
+pub mod visual_colors {
+    pub const PLUGIN: &str = "#ff7000";
+    pub const AMP: &str = "#ff2727";
+    pub const CAPTURE: &str = "#959595";
+    pub const CAB: &str = "#6954ff";
+    pub const OVERDRIVE: &str = "#ffd236";
+    pub const DELAY: &str = "#00ffdd";
+    pub const REVERB: &str = "#00ffdd";
+    pub const COMPRESSOR: &str = "#45f862";
+    pub const PITCH: &str = "#ffd236";
+    pub const MODULATION: &str = "#3500f1";
+    pub const MORPH: &str = "#87daff";
+    pub const SYNTH: &str = "#e44a5d";
+    pub const FILTER: &str = "#87daff";
+    pub const EQUALIZER: &str = "#0a74e0";
+    pub const IR_LOADER: &str = "#6954ff";
+    pub const WAH: &str = "#959595";
+    pub const FX_LOOP: &str = "#959595";
+    pub const LOOPER: &str = "#ff2727";
+    pub const UTILITY: &str = "#959595";
+    pub const WHITE_LED: &str = "#f4f4f4";
+    pub const IDLE_LED: &str = "#626367";
+    pub const METAL_HIGHLIGHT: &str = "#c5c6c8";
+    pub const METAL_MID: &str = "#8f9194";
+    pub const METAL_SHADOW: &str = "#222327";
+}
 pub const INPUT_ROUTES: &[(u32, &str)] = &[
     (1, "In 1"),
     (2, "In 2"),

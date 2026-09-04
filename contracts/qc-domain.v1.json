@@ -8,7 +8,6 @@
     "maximumTempoBpm": 240,
     "ipcMaxFrameBytes": 16777216
   },
-  "sceneColors": ["#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd"],
   "inputRoutes": [
     { "id": 1, "label": "In 1", "group": "MONO" },
     { "id": 2, "label": "In 2", "group": "MONO" },

@@ -135,6 +135,44 @@ class QcTools:
         """Read tuner preferences without changing or engaging the tuner."""
         return self._request("get_tuner_settings")
 
+    def get_general_settings(self) -> Any:
+        """Read global Quad Cortex Device Settings."""
+        return self._request("get_general_settings")
+
+    def set_general_integer(self, setting: str, value: int, confirm_persistent_write: bool) -> Any:
+        """Set one validated integer Device Setting."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing device settings requires confirm_persistent_write=true.")
+        return self._request("set_general_integer", {"setting": setting, "value": value})
+
+    def set_general_toggle(self, setting: str, enabled: bool, confirm_persistent_write: bool) -> Any:
+        """Set one validated boolean Device Setting."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing device settings requires confirm_persistent_write=true.")
+        return self._request("set_general_toggle", {"setting": setting, "enabled": enabled})
+
+    def set_scene_bypass_behavior(self, behavior: str, confirm_persistent_write: bool) -> Any:
+        """Set global scene bypass persistence behavior."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing device settings requires confirm_persistent_write=true.")
+        return self._request("set_scene_bypass_behavior", {"behavior": behavior})
+
+    def set_master_volume_assignment(self, out12: bool, out34: bool, send12: bool,
+                                     headphones: bool, confirm_persistent_write: bool) -> Any:
+        """Replace all Master Volume output assignments."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing device settings requires confirm_persistent_write=true.")
+        return self._request("set_master_volume_assignment", {
+            "out12": out12, "out34": out34, "send12": send12, "headphones": headphones,
+        })
+
+    def set_global_bypass(self, cab: list[bool], ir: list[bool],
+                          confirm_persistent_write: bool) -> Any:
+        """Replace all Cab and IR global bypass rows."""
+        if confirm_persistent_write is not True:
+            raise ValueError("Changing device settings requires confirm_persistent_write=true.")
+        return self._request("set_global_bypass", {"cab": cab, "ir": ir})
+
     def get_preset_screenshot(
         self, folder_name: str, position: int, is_factory: bool
     ) -> Any:

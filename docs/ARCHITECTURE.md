@@ -110,7 +110,7 @@ ordering, editor metadata, routing rules, and stale-echo behavior while retainin
 platform-specific USB handle, permission, endpoint, and lifecycle code. HID
 reads, writes, performance MIDI, and ModelRepo parsing use independent lanes.
 Both native hosts retain the USB handle for the full connected session and
-expose the same 46 gateway methods. Their remaining native code is limited to
+  expose the same 67 gateway methods. Their remaining native code is limited to
 OS permission/interface discovery, endpoint I/O, serialized scheduling,
 lifecycle adaptation, and notifications. Shared Rust owns tempo-clock decoding,
 backup chunk assembly and validation, command planning, HID-versus-MIDI lane

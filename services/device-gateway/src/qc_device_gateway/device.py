@@ -10,7 +10,7 @@ import re
 import time
 from typing import Any
 
-from .domain import GRID_COLUMNS, GRID_ROWS, INPUT_ROUTE_LABELS, MAXIMUM_TEMPO_BPM, MINIMUM_TEMPO_BPM, OUTPUT_ROUTE_LABELS, SCENE_COUNT
+from .domain import CATEGORY_COLORS, GRID_COLUMNS, GRID_ROWS, HARDWARE_COLORS, INPUT_ROUTE_LABELS, MAXIMUM_TEMPO_BPM, MINIMUM_TEMPO_BPM, OUTPUT_ROUTE_LABELS, SCENE_COUNT
 from .generated_payloads import BlockDetails, DeviceActionResult, PresetSnapshot
 from .usb_profile import FOOTSWITCH_BASE_CONTROLLER, MIDI_PRESSED_VALUE, MODE_SLOT_CONTROLLER, TAP_TEMPO_CONTROLLER
 
@@ -225,52 +225,52 @@ def _block_color(category: str, name: str) -> str:
     value = category.casefold()
     model = name.casefold()
     if "plugin" in value:
-        return "#ff7000"
+        return CATEGORY_COLORS["plugin"]
     if "capture" in value:
-        return "#959595"
+        return CATEGORY_COLORS["capture"]
     if "amplifier" in value or value.endswith(" amp"):
-        return "#ff2727"
+        return CATEGORY_COLORS["amp"]
     if "looper" in value:
-        return "#ff2727"
+        return CATEGORY_COLORS["looper"]
     if "ir loader" in value or "irloader" in value:
-        return "#6954ff"
+        return CATEGORY_COLORS["irLoader"]
     if "cab" in value or "impulse response" in value:
-        return "#6954ff"
+        return CATEGORY_COLORS["cab"]
     if any(term in value for term in ("overdrive", "distortion", "drive", "boost", "fuzz")):
-        return "#ffd236"
+        return CATEGORY_COLORS["overdrive"]
     if "delay" in value:
-        return "#00ffdd"
+        return CATEGORY_COLORS["delay"]
     if "reverb" in value:
-        return "#00ffdd"
+        return CATEGORY_COLORS["reverb"]
     if "compressor" in value:
-        return "#45f862"
+        return CATEGORY_COLORS["compressor"]
     if "pitch" in value or "octav" in model:
-        return "#ffd236"
+        return CATEGORY_COLORS["pitch"]
     if "modulation" in value:
-        return "#3500f1"
+        return CATEGORY_COLORS["modulation"]
     if "morph" in value or "filter" in value:
-        return "#87daff"
+        return CATEGORY_COLORS["morph"]
     if "synth" in value:
-        return "#e44a5d"
+        return CATEGORY_COLORS["synth"]
     if "equalizer" in value or value == "eq":
-        return "#0a74e0"
+        return CATEGORY_COLORS["equalizer"]
     if "gate" in model or "utility" in value or "wah" in value or "fx loop" in value:
-        return "#959595"
-    return "#959595"
+        return CATEGORY_COLORS["utility"]
+    return CATEGORY_COLORS["utility"]
 
 
 def _stomp_color(targets: list[dict[str, Any]]) -> str:
     """Return the physical STOMP lamp color (not the Grid block color)."""
     if len(targets) > 1:
-        return "#f4f4f4"
+        return HARDWARE_COLORS["whiteLed"]
     if not targets:
-        return "#626367"
+        return HARDWARE_COLORS["idleLed"]
     target = targets[0]
     category_color = _block_color(
         str(target.get("category", target.get("kind", ""))),
         str(target.get("name", "")),
     )
-    return "#f4f4f4" if category_color == "#959595" else category_color
+    return HARDWARE_COLORS["whiteLed"] if category_color == CATEGORY_COLORS["utility"] else category_color
 
 
 def _effective_parameter_value(state: Any, scene: int) -> Any:
@@ -796,6 +796,90 @@ class PyQuadCortexDevice:
             "referenceHz": 440.0 + offset,
             "muted": bool(message.mute),
         }
+
+    def general_settings(self) -> dict[str, Any]:
+        """Compatibility projection of the native Rust GeneralSettings payload."""
+        message = _pyquadcortex_method(self._require_session(), "settings")()
+        scalar_fields = {
+            "screenBrightness": "screen_brightness", "ledBrightness": "led_brightness",
+            "dimmedLedBrightness": "dimmed_led_brightness",
+            "lockScreenAndVolumeKnob": "lock_screen_and_volume_knob",
+            "midiOverUsb": "midi_over_usb", "midiChannel": "midi_channel",
+            "ignoreDuplicatePc": "ignore_duplicate_pc", "availableDiskSpace": "available_disk_space",
+            "totalDiskSpace": "total_disk_space", "internalMidiClockEnabled": "internal_midi_clock_enabled",
+            "stompModeAutoAssign": "stomp_mode_auto_assign",
+            "swapTempoTunerAccess": "swap_tempo_tuner_access",
+            "disableInternetConnectionCheck": "disable_internet_connection_check",
+            "dynamicDelayCompensation": "enable_dynamic_delay_compensation",
+            "presetDimmed": "enable_preset_dimmed", "sceneDimmed": "enable_scene_dimmed",
+            "stompDimmed": "enable_stomp_dimmed", "midiClockIn": "midi_clock_in_enabled",
+            "gigViewStompAccess": "gig_view_stomp_access_enabled",
+            "holdTimingIndex": "hold_timing",
+        }
+        result = {public: getattr(message, wire) for public, wire in scalar_fields.items()
+                  if message.HasField(wire)}
+        if "holdTimingIndex" in result and 0 <= result["holdTimingIndex"] <= 5:
+            result["holdTimingMs"] = 500 + 100 * result["holdTimingIndex"]
+        if message.HasField("scene_block_bypass"):
+            behavior = {0: "alwaysOverwrite", 1: "nonstompOverwrite", 2: "neverOverwrite"}.get(int(message.scene_block_bypass))
+            if behavior is not None:
+                result["sceneBypassBehavior"] = behavior
+        if message.HasField("midi_clock_out"):
+            clock = {0: "off", 1: "midiDinOnly", 2: "usbMidiOnly", 3: "bothUsbAndDinMidi"}.get(int(message.midi_clock_out))
+            if clock is not None:
+                result["midiClockOut"] = clock
+        for public, wire in (("globalBypassCab", "global_bypass_cab"), ("globalBypassIr", "global_bypass_ir")):
+            if message.HasField(wire):
+                rows = getattr(message, wire)
+                result[public] = {f"row{index}": bool(getattr(rows, f"row{index}")) for index in range(1, 5)}
+        if message.HasField("master_volume_assignment"):
+            assignment = message.master_volume_assignment
+            result["masterVolumeAssignment"] = {name: bool(getattr(assignment, name)) for name in ("out12", "out34", "send12", "headphones")}
+        return result
+
+    def set_general_integer(self, setting: str, value: int) -> dict[str, Any]:
+        fields = {"screenBrightness": ("screen_brightness", 0, 100), "ledBrightness": ("led_brightness", 0, 100),
+                  "dimmedLedBrightness": ("dimmed_led_brightness", 0, 100), "holdTiming": ("hold_timing", 0, 5),
+                  "midiChannel": ("midi_channel", 0, 16)}
+        if setting not in fields or isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError("Unsupported GeneralSettings integer")
+        wire, minimum, maximum = fields[setting]
+        if not minimum <= value <= maximum:
+            raise ValueError(f"value must be {minimum} through {maximum}")
+        _pyquadcortex_method(self._require_session(), "update_settings")(**{wire: value})
+        return {"detail": "Global device setting sent to the Quad Cortex"}
+
+    def set_general_toggle(self, setting: str, enabled: bool) -> dict[str, Any]:
+        fields = {"midiOverUsb": "midi_over_usb",
+                  "ignoreDuplicatePc": "ignore_duplicate_pc", "stompModeAutoAssign": "stomp_mode_auto_assign",
+                  "swapTempoTunerAccess": "swap_tempo_tuner_access", "disableInternetConnectionCheck": "disable_internet_connection_check",
+                  "dynamicDelayCompensation": "enable_dynamic_delay_compensation", "presetDimmed": "enable_preset_dimmed",
+                  "midiClockIn": "midi_clock_in_enabled", "gigViewStompAccess": "gig_view_stomp_access_enabled"}
+        if setting not in fields or not isinstance(enabled, bool):
+            raise ValueError("Unsupported GeneralSettings toggle")
+        _pyquadcortex_method(self._require_session(), "update_settings")(**{fields[setting]: enabled})
+        return {"detail": "Global device setting sent to the Quad Cortex"}
+
+    def set_scene_bypass_behavior(self, behavior: str) -> dict[str, Any]:
+        values = {"alwaysOverwrite": 0, "nonstompOverwrite": 1, "neverOverwrite": 2}
+        if behavior not in values:
+            raise ValueError("Invalid scene bypass behavior")
+        _pyquadcortex_method(self._require_session(), "update_settings")(scene_block_bypass=values[behavior])
+        return {"detail": "Global device setting sent to the Quad Cortex"}
+
+    def set_master_volume_assignment(self, out12: bool, out34: bool, send12: bool, headphones: bool) -> dict[str, Any]:
+        if not all(isinstance(value, bool) for value in (out12, out34, send12, headphones)):
+            raise ValueError("Master Volume assignments must be booleans")
+        _pyquadcortex_method(self._require_session(), "set_master_volume_assignment")(
+            out12=out12, out34=out34, send12=send12, headphones=headphones)
+        return {"detail": "Master Volume assignments sent to the Quad Cortex"}
+
+    def set_global_bypass(self, cab: list[bool], ir: list[bool]) -> dict[str, Any]:
+        if any(not isinstance(rows, list) or len(rows) != 4 or not all(isinstance(value, bool) for value in rows)
+               for rows in (cab, ir)):
+            raise ValueError("cab and ir must each contain four booleans")
+        _pyquadcortex_method(self._require_session(), "set_global_bypass")(cab=cab, ir=ir)
+        return {"detail": "Global bypass rows sent to the Quad Cortex"}
 
     def preset_screenshot(
         self,

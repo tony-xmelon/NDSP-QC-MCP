@@ -1046,6 +1046,67 @@ async fn tuner_settings(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn general_settings(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::GENERAL_SETTINGS).await
+}
+
+#[tauri::command]
+async fn set_general_integer(app: AppHandle, setting: String, value: i32) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GENERAL_INTEGER,
+        json!({ "setting": setting, "value": value }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_general_toggle(
+    app: AppHandle,
+    setting: String,
+    enabled: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_GENERAL_TOGGLE,
+        json!({ "setting": setting, "enabled": enabled }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_scene_bypass_behavior(app: AppHandle, behavior: String) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_SCENE_BYPASS_BEHAVIOR,
+        json!({ "behavior": behavior }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_master_volume_assignment(
+    app: AppHandle,
+    out12: bool,
+    out34: bool,
+    send12: bool,
+    headphones: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_MASTER_VOLUME_ASSIGNMENT,
+        json!({ "out12": out12, "out34": out34, "send12": send12, "headphones": headphones }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_global_bypass(app: AppHandle, cab: Vec<bool>, ir: Vec<bool>) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_GLOBAL_BYPASS, json!({ "cab": cab, "ir": ir }))
+        .await
+}
+
+#[tauri::command]
 async fn preset_screenshot(
     app: AppHandle,
     folder_name: String,
@@ -2396,6 +2457,12 @@ pub fn run() {
             redo_device,
             inhibited_modules,
             tuner_settings,
+            general_settings,
+            set_general_integer,
+            set_general_toggle,
+            set_scene_bypass_behavior,
+            set_master_volume_assignment,
+            set_global_bypass,
             preset_screenshot,
             capture_screen,
             tap_screen,

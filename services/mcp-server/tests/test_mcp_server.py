@@ -212,6 +212,32 @@ class ToolSafetyTests(unittest.TestCase):
         self.assertEqual(self.backend.calls[-1][0], "device.copyPreset")
         self.assertTrue(self.backend.calls[-1][1]["confirmOverwrite"])
 
+    def test_general_settings_actions_share_the_persistent_confirmation_gate(self) -> None:
+        self.tools.get_general_settings()
+        self.assertEqual(self.backend.calls[-1], ("device.generalSettings", {}))
+
+        mutations = [
+            (self.tools.set_general_integer, ("holdTiming", 4, True),
+             ("device.setGeneralInteger", {"setting": "holdTiming", "value": 4})),
+            (self.tools.set_general_toggle, ("stompModeAutoAssign", False, True),
+             ("device.setGeneralToggle", {"setting": "stompModeAutoAssign", "enabled": False})),
+            (self.tools.set_scene_bypass_behavior, ("neverOverwrite", True),
+             ("device.setSceneBypassBehavior", {"behavior": "neverOverwrite"})),
+            (self.tools.set_master_volume_assignment, (True, False, True, False, True),
+             ("device.setMasterVolumeAssignment", {
+                 "out12": True, "out34": False, "send12": True, "headphones": False,
+             })),
+            (self.tools.set_global_bypass, ([True, False, True, False], [False, True, False, True], True),
+             ("device.setGlobalBypass", {
+                 "cab": [True, False, True, False], "ir": [False, True, False, True],
+             })),
+        ]
+        for method, arguments, expected in mutations:
+            method(*arguments)
+            self.assertEqual(self.backend.calls[-1], expected)
+            with self.assertRaisesRegex(ValueError, "confirm_persistent_write"):
+                method(*arguments[:-1], False)
+
 
 class McpSurfaceTests(unittest.TestCase):
     def test_server_publishes_only_intent_level_tools_and_resources(self) -> None:

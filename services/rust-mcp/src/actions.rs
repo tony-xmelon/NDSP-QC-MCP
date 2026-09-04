@@ -20,6 +20,8 @@ pub enum Kind {
     Integer { min: i64, max: Option<i64> },
     Number { min: f64, max: Option<f64> },
     MidiMessages,
+    StringEnum(&'static [&'static str]),
+    BooleanRows,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -812,6 +814,100 @@ pub static ACTIONS: &[ActionSpec] = &[
             p!("confirm_persistent_write", BOOL),
         ],
     },
+    ActionSpec {
+        name: "get_general_settings",
+        rpc: "device.generalSettings",
+        classification: Classification::Read,
+        description: "Read the QC Device Settings and System settings without changing them.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_general_integer",
+        rpc: "device.setGeneralInteger",
+        classification: Classification::PersistentWrite,
+        description: "Change one validated integer Device Setting after explicit confirmation. Hold timing uses its wire index 0 through 5.",
+        properties: &[
+            p!(
+                "setting",
+                Kind::StringEnum(&[
+                    "screenBrightness",
+                    "ledBrightness",
+                    "dimmedLedBrightness",
+                    "holdTiming",
+                    "midiChannel"
+                ])
+            ),
+            p!(
+                "value",
+                Kind::Integer {
+                    min: 0,
+                    max: Some(100)
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_general_toggle",
+        rpc: "device.setGeneralToggle",
+        classification: Classification::PersistentWrite,
+        description: "Change one validated on/off Device Setting after explicit confirmation.",
+        properties: &[
+            p!(
+                "setting",
+                Kind::StringEnum(&[
+                    "midiOverUsb",
+                    "ignoreDuplicatePc",
+                    "stompModeAutoAssign",
+                    "swapTempoTunerAccess",
+                    "disableInternetConnectionCheck",
+                    "dynamicDelayCompensation",
+                    "presetDimmed",
+                    "midiClockIn",
+                    "gigViewStompAccess"
+                ])
+            ),
+            p!("enabled", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_scene_bypass_behavior",
+        rpc: "device.setSceneBypassBehavior",
+        classification: Classification::PersistentWrite,
+        description: "Change the global scene block-bypass persistence behavior after explicit confirmation.",
+        properties: &[
+            p!(
+                "behavior",
+                Kind::StringEnum(&["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"])
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_master_volume_assignment",
+        rpc: "device.setMasterVolumeAssignment",
+        classification: Classification::PersistentWrite,
+        description: "Replace all four Master Volume output assignments atomically after explicit confirmation.",
+        properties: &[
+            p!("out12", BOOL),
+            p!("out34", BOOL),
+            p!("send12", BOOL),
+            p!("headphones", BOOL),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_global_bypass",
+        rpc: "device.setGlobalBypass",
+        classification: Classification::PersistentWrite,
+        description: "Replace all Cab and IR global-bypass row flags atomically after explicit confirmation.",
+        properties: &[
+            p!("cab", Kind::BooleanRows),
+            p!("ir", Kind::BooleanRows),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
 ];
 
 impl ActionSpec {
@@ -885,5 +981,9 @@ fn schema_for(kind: Kind) -> Value {
                 "required":["type","channel","param1","param2","param3"]
             }
         }),
+        Kind::StringEnum(values) => json!({"type":"string", "enum":values}),
+        Kind::BooleanRows => {
+            json!({"type":"array", "minItems":4, "maxItems":4, "items":{"type":"boolean"}})
+        }
     }
 }

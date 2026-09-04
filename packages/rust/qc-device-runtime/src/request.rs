@@ -8,8 +8,8 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
-    decode_captured_screen, decode_device_identity, decode_inhibited_modules,
-    decode_preset_screenshot, decode_tuner_settings, PngImage,
+    decode_captured_screen, decode_device_identity, decode_general_settings,
+    decode_inhibited_modules, decode_preset_screenshot, decode_tuner_settings, PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -532,6 +532,7 @@ pub struct PresetMutationPlan {
 pub enum GatewayResponseProjection {
     DeviceIdentity,
     TunerSettings,
+    GeneralSettings,
     InhibitedModules,
     PresetScreenshot {
         request_id: u64,
@@ -562,6 +563,10 @@ impl GatewayResponseProjection {
             .map_err(|error| error.to_string()),
             Self::TunerSettings => serde_json::to_value(
                 decode_tuner_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
+            Self::GeneralSettings => serde_json::to_value(
+                decode_general_settings(payload).map_err(|error| error.to_string())?,
             )
             .map_err(|error| error.to_string()),
             Self::InhibitedModules => serde_json::to_value(
@@ -639,6 +644,12 @@ pub fn plan_gateway_read(
             response_type: 6,
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::TunerSettings,
+        }),
+        "device.generalSettings" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadGeneralSettings,
+            response_type: 9,
+            timeout_ms: 5_000,
+            projection: GatewayResponseProjection::GeneralSettings,
         }),
         "device.inhibitedModules" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadInhibitedModules,
@@ -1260,6 +1271,82 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
     let row = || bounded_u32(params, "row", domain::GRID_ROWS - 1);
     let column = |field: &str| bounded_u32(params, field, domain::GRID_COLUMNS - 1);
     match operation {
+        "setGeneralInteger" => {
+            let setting = required_text(params, "setting")?;
+            let (minimum, maximum) = match setting.as_str() {
+                "screenBrightness" | "ledBrightness" | "dimmedLedBrightness" => (0, 100),
+                "holdTiming" => (0, 5),
+                "midiChannel" => (0, 16),
+                _ => return Err("unsupported GeneralSettings integer".into()),
+            };
+            let value = params
+                .get("value")
+                .and_then(Value::as_i64)
+                .and_then(|value| i32::try_from(value).ok())
+                .filter(|value| (minimum..=maximum).contains(value))
+                .ok_or_else(|| format!("value must be {minimum} through {maximum}"))?;
+            Ok(DeviceOperation::SetGeneralInteger { setting, value })
+        }
+        "setGeneralToggle" => {
+            let setting = required_text(params, "setting")?;
+            if !matches!(
+                setting.as_str(),
+                "midiOverUsb"
+                    | "ignoreDuplicatePc"
+                    | "stompModeAutoAssign"
+                    | "swapTempoTunerAccess"
+                    | "disableInternetConnectionCheck"
+                    | "dynamicDelayCompensation"
+                    | "presetDimmed"
+                    | "midiClockIn"
+                    | "gigViewStompAccess"
+            ) {
+                return Err("unsupported GeneralSettings toggle".into());
+            }
+            Ok(DeviceOperation::SetGeneralToggle {
+                setting,
+                enabled: boolean(params, "enabled")?,
+            })
+        }
+        "setSceneBypassBehavior" => {
+            let behavior =
+                match required_text(params, "behavior")?.as_str() {
+                    "alwaysOverwrite" => 0,
+                    "nonstompOverwrite" => 1,
+                    "neverOverwrite" => 2,
+                    _ => return Err(
+                        "behavior must be alwaysOverwrite, nonstompOverwrite, or neverOverwrite"
+                            .into(),
+                    ),
+                };
+            Ok(DeviceOperation::SetSceneBypassBehavior(behavior))
+        }
+        "setMasterVolumeAssignment" => Ok(DeviceOperation::SetMasterVolumeAssignment {
+            out12: boolean(params, "out12")?,
+            out34: boolean(params, "out34")?,
+            send12: boolean(params, "send12")?,
+            headphones: boolean(params, "headphones")?,
+        }),
+        "setGlobalBypass" => {
+            let rows = |field: &str| -> Result<[bool; 4], String> {
+                let values = params
+                    .get(field)
+                    .and_then(Value::as_array)
+                    .filter(|values| values.len() == 4)
+                    .ok_or_else(|| format!("{field} must contain four booleans"))?;
+                let mut rows = [false; 4];
+                for (index, value) in values.iter().enumerate() {
+                    rows[index] = value
+                        .as_bool()
+                        .ok_or_else(|| format!("{field}[{index}] must be a boolean"))?;
+                }
+                Ok(rows)
+            };
+            Ok(DeviceOperation::SetGlobalBypass {
+                cab: rows("cab")?,
+                ir: rows("ir")?,
+            })
+        }
         "addBlock" => Ok(DeviceOperation::AddBlock {
             row: row()?,
             column: column("column")?,
@@ -1624,6 +1711,12 @@ fn verification_for_operation(
         | DeviceOperation::Redo
         | DeviceOperation::ReadInhibitedModules
         | DeviceOperation::ReadTuner
+        | DeviceOperation::ReadGeneralSettings
+        | DeviceOperation::SetGeneralInteger { .. }
+        | DeviceOperation::SetGeneralToggle { .. }
+        | DeviceOperation::SetSceneBypassBehavior(_)
+        | DeviceOperation::SetMasterVolumeAssignment { .. }
+        | DeviceOperation::SetGlobalBypass { .. }
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -1640,6 +1733,24 @@ pub fn plan_gateway_write(
         assert_expected_state(method, snapshot, params)?;
     }
     let plan = match method {
+        "device.setGeneralInteger"
+        | "device.setGeneralToggle"
+        | "device.setSceneBypassBehavior"
+        | "device.setMasterVolumeAssignment"
+        | "device.setGlobalBypass" => {
+            let operation_name = match method {
+                "device.setGeneralInteger" => "setGeneralInteger",
+                "device.setGeneralToggle" => "setGeneralToggle",
+                "device.setSceneBypassBehavior" => "setSceneBypassBehavior",
+                "device.setMasterVolumeAssignment" => "setMasterVolumeAssignment",
+                _ => "setGlobalBypass",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: "Global device setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
         "device.selectScene" | "device.command.scene" => {
             let scene = bounded_u32(params, "scene", domain::SCENE_COUNT - 1)?;
             GatewayWritePlan {

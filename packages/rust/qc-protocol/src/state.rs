@@ -1370,9 +1370,9 @@ fn model_bypass_expression(model: &Model) -> Option<BypassExpression> {
 fn stomp_color(blocks: &[&GridBlock]) -> String {
     if blocks.len() != 1 {
         return if blocks.is_empty() {
-            "#626367"
+            domain::visual_colors::IDLE_LED
         } else {
-            "#f4f4f4"
+            domain::visual_colors::WHITE_LED
         }
         .into();
     }
@@ -1385,45 +1385,45 @@ fn stomp_color(blocks: &[&GridBlock]) -> String {
     .to_ascii_lowercase();
     let name = block.name.to_ascii_lowercase();
     let color = if block.plugin == Some(true) {
-        "#ff7000"
+        domain::visual_colors::PLUGIN
     } else if category.contains("capture") {
-        "#f4f4f4"
+        domain::visual_colors::WHITE_LED
     } else if category.contains("amplifier")
         || category.split_whitespace().any(|word| word == "amp")
     {
-        "#ff2727"
+        domain::visual_colors::AMP
     } else if category.contains("looper") {
-        "#ff2727"
+        domain::visual_colors::LOOPER
     } else if category.contains("ir loader")
         || category.contains("irloader")
         || category.contains("cab")
         || category.contains("impulse response")
     {
-        "#6954ff"
+        domain::visual_colors::CAB
     } else if ["overdrive", "distortion", "drive", "boost", "fuzz"]
         .iter()
         .any(|term| category.contains(term))
     {
-        "#ffd236"
+        domain::visual_colors::OVERDRIVE
     } else if category.contains("delay") || category.contains("reverb") {
-        "#00ffdd"
+        domain::visual_colors::DELAY
     } else if category.contains("compressor") {
-        "#45f862"
+        domain::visual_colors::COMPRESSOR
     } else if category.contains("pitch") || name.contains("octav") {
-        "#ffd236"
+        domain::visual_colors::PITCH
     } else if category.contains("modulation")
         || category.split_whitespace().any(|word| word == "mod")
     {
-        "#3500f1"
+        domain::visual_colors::MODULATION
     } else if category.contains("morph") || category.contains("filter") {
-        "#87daff"
+        domain::visual_colors::MORPH
     } else if category.contains("synth") {
-        "#e44a5d"
+        domain::visual_colors::SYNTH
     } else if category.contains("equalizer") || category.split_whitespace().any(|word| word == "eq")
     {
-        "#0a74e0"
+        domain::visual_colors::EQUALIZER
     } else {
-        "#f4f4f4"
+        domain::visual_colors::WHITE_LED
     };
     color.into()
 }

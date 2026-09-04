@@ -35,15 +35,15 @@ test("all nine ModelRepo parameter types retain the measured Cortex Control geom
     /\.coros-parameter \{[^}]*background: var\(--qc-device-control-surface\);/s,
     "parameter cells use the shared Cortex N40 theme token",
   );
-  assert.match(css, /\.parameter-knob::before \{[^}]*background: #1e1e1e;/s, "float and floatWithLed knobs use Cortex N30");
-  assert.match(css, /\.coros-parameter select \{[^}]*bottom: 10%;[^}]*width: 87\.5%;[^}]*background-color: #121212;[^}]*text-align: left;/s, "comboBox and string selectors match the 140x32 official control");
+  assert.match(css, /\.parameter-knob::before \{[^}]*background: var\(--qc-device-panel-raised\);/s, "float and floatWithLed knobs use the shared Cortex N30 token");
+  assert.match(css, /\.coros-parameter select \{[^}]*bottom: 10%;[^}]*width: 87\.5%;[^}]*background-color: var\(--qc-device-panel\);[^}]*text-align: left;/s, "comboBox and string selectors match the 140x32 official control");
   assert.match(css, /\.parameter-switch \{[^}]*left: 6%;[^}]*top: 40%;[^}]*width: 13\.5%;[^}]*height: 48%;/s, "two-way switch uses the embedded parameterView bounds");
   assert.match(css, /\.is-3-way \.parameter-switch \{[^}]*top: 30%;[^}]*height: 58%;/s, "three-way switch uses the embedded parameterView bounds");
-  assert.match(css, /\.parameter-toggle-button \{[^}]*width: 75%;[^}]*border: 0;[^}]*background: #121212;/s, "toggleButton uses the dedicated text-button style");
+  assert.match(css, /\.parameter-toggle-button \{[^}]*width: 75%;[^}]*border: 0;[^}]*background: var\(--qc-device-panel\);/s, "toggleButton uses the dedicated text-button style");
   assert.match(css, /\.graphic-eq-faders \.parameter-name \{ top: 87\.5%;/);
   assert.match(css, /\.graphic-eq-faders \.parameter-value \{ top: 3%;/);
-  assert.match(css, /\.parameter-gr-meter \{[^}]*right: 5%;[^}]*bottom: 8%;[^}]*left: 5%;[^}]*height: 1cqw;[^}]*background: #121212;/s);
-  assert.match(css, /\.parameter-gr-meter span \{[^}]*background: #ffd236;/s, "gain reduction uses Cortex pitch yellow");
+  assert.match(css, /\.parameter-gr-meter \{[^}]*right: 5%;[^}]*bottom: 8%;[^}]*left: 5%;[^}]*height: 1cqw;[^}]*background: var\(--qc-device-panel\);/s);
+  assert.match(css, /\.parameter-gr-meter span \{[^}]*background: var\(--qc-category-overdrive\);/s, "gain reduction uses the shared Cortex pitch-yellow token");
   assert.match(editorSource, /\(parameter\.ledValue \?\? 0\) > \.02/, "floatWithLed does not mistake the knob setting for its live indicator");
 });
 
