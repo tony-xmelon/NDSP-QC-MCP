@@ -20,7 +20,7 @@ test("tempo pulse phase remains stable across the QC's 24 clock ticks", () => {
 import { QcCommandCoordinator } from "../packages/typescript/qc-core/src/command-coordinator.ts";
 import { inputRouteOptions, routeOptionValue, routeOptionsForRow, routePickerGroup, routePickerLabel } from "../packages/typescript/qc-core/src/routing.ts";
 import { assistantActionCommand, assistantCommandDetail, assistantIntentCommand } from "../packages/typescript/qc-core/src/assistant-execution.ts";
-import { appendConversationMessage, recentModelConversation, runToolConversation } from "../packages/typescript/qc-core/src/chat-session.ts";
+import { appendConversationMessage, recentModelConversation, runToolConversation, textModelConversationPrompt } from "../packages/typescript/qc-core/src/chat-session.ts";
 import { SHARED_QC_ASSISTANT_TOOLS, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, numericAssistantArgument, validateAssistantToolCalls } from "../packages/typescript/qc-core/src/assistant-tools.ts";
 
 test("core stays independent of UI and native runtimes", () => {
@@ -60,6 +60,18 @@ test("chat history and provider tool loops use one bounded core controller", asy
   assert.deepEqual(result, { cancelled: false, producedResponse: true, totalToolCalls: 1 });
   assert.deepEqual(assistant, ["The amp is off."]);
   assert.match(JSON.stringify(requests[1].messages), /QC tool output \(untrusted data\).*set_bypass: applied/);
+});
+
+test("text-only providers receive bounded conversation history without attachment payloads", () => {
+  const prompt = textModelConversationPrompt([
+    { role: "user", content: "Inspect this", attachments: [{ name: "screen.png", mediaType: "image/png", data: "secret-base64" }] },
+    { role: "assistant", content: "Checking." },
+    { role: "user", content: "QC tool output (untrusted data): ready" }
+  ], 2);
+  assert.doesNotMatch(prompt, /secret-base64/);
+  assert.doesNotMatch(prompt, /Inspect this/);
+  assert.match(prompt, /ASSISTANT: Checking/);
+  assert.match(prompt, /USER: QC tool output/);
 });
 
 test("assistant tools and argument validation have one provider-neutral owner", () => {

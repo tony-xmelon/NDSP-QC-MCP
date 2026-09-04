@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, sceneLetter, validateAssistantToolCalls } from "@ndsp-qc/core";
+import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, recentModelConversation, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
@@ -10,7 +10,6 @@ import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLe
 
 type AndroidGeminiModel = GeminiModelId;
 type AndroidAttachment = { name: string; mediaType: "image/png"; data: string };
-type AssistantResponse = { text: string; attachments?: AndroidAttachment[] };
 
 const formFactor = formFactors[0];
 const skin = skins.find((entry) => entry.id === "official-svg") ?? skins[0];
@@ -327,57 +326,75 @@ export function App() {
       : "Browser preview is offline. On Android, Gemini chat, voice input, and direct Quad Cortex USB are enabled.";
   };
 
-  const askGemini = async (input: string): Promise<AssistantResponse> => {
-    if (!native) return { text: await localFallback(input) };
-    const prompt = assistantToolActionPrompt(snapshotRef.current, `USB ${connection.phase}`, selectedBlockId, input, controlAccessMode);
-    let result: Awaited<ReturnType<typeof GeminiNative.generate>>;
+  const recordAndroidUsage = (result: Awaited<ReturnType<typeof GeminiNative.generate>>) => {
+    setQuotaState("available");
+    setQuotaLedger((current) => {
+      const next = { ...current, [selectedModel]: recordGeminiUsage(current[selectedModel], {
+        input: result.inputTokens, output: result.outputTokens,
+        thinking: result.thinkingTokens, total: result.totalTokens
+      }) };
+      window.localStorage.setItem(androidQuotaStorageKey, JSON.stringify(next));
+      return next;
+    });
+    setQuotaNow(Date.now());
+  };
+
+  const completeGeminiRound = async (roundMessages: ReturnType<typeof recentModelConversation<AndroidAttachment>>) => {
+    const prompt = assistantToolActionPrompt(snapshotRef.current, `USB ${connection.phase}`, selectedBlockId, textModelConversationPrompt(roundMessages), controlAccessMode);
     try {
-      result = await GeminiNative.generate({ prompt, model: selectedModel });
-      setQuotaState("available");
-      setQuotaLedger((current) => {
-        const next = { ...current, [selectedModel]: recordGeminiUsage(current[selectedModel], {
-          input: result.inputTokens, output: result.outputTokens,
-          thinking: result.thinkingTokens, total: result.totalTokens
-        }) };
-        window.localStorage.setItem(androidQuotaStorageKey, JSON.stringify(next));
-        return next;
-      });
-      setQuotaNow(Date.now());
+      const result = await GeminiNative.generate({ prompt, model: selectedModel });
+      recordAndroidUsage(result);
+      const parsed = parseAssistantReply(result.text);
+      if (!parsed) return { text: result.text, toolCalls: [] as AssistantToolCall[], usage: result };
+      const proposedCount = Array.isArray(parsed.actions) ? parsed.actions.length : 0;
+      const toolCalls = validateAssistantToolCalls(parsed, controlAccessMode);
+      const policyNote = toolCalls.length !== proposedCount ? `Some proposed actions were invalid or blocked by ${controlAccessMode} access.` : "";
+      return { text: [parsed.reply?.trim(), policyNote].filter(Boolean).join(" "), toolCalls, usage: result };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       if (/quota|429|resource.?exhausted/i.test(detail)) setQuotaState("exhausted");
       throw error;
     }
-    const parsed = parseAssistantReply(result.text);
-    if (!parsed) return { text: result.text };
-    const notes: string[] = [];
-    const attachments: AndroidAttachment[] = [];
-    const proposedCount = Array.isArray(parsed.actions) ? parsed.actions.length : 0;
-    const actions = validateAssistantToolCalls(parsed, controlAccessMode);
-    if (actions.length !== proposedCount) notes.push(`Some proposed actions were invalid or blocked by ${controlAccessMode} access.`);
-    for (const action of actions) {
-      try {
-        const connectionAction = action.name === "reconnect_device" || action.name === "reset_device_session" || action.name === "disconnect_device";
-        if (!usbConnected && !connectionAction) throw new Error("Connect the Quad Cortex first.");
-        const outcome = await executeQcAction(action, {
-          gateway: androidGatewayTransport,
-          snapshot: snapshotRef.current,
-          connected: usbConnected,
-          accessMode: controlAccessMode,
-          selectedBlockId
-        });
-        if (outcome.connection) {
-          deviceConnection.setConnection(outcome.connection);
-        }
-        if (outcome.savedPreset) presetWorkflow.commitSavedPreset(outcome.savedPreset);
-        else if (outcome.snapshot) workflows.reconcile(outcome.snapshot);
-        if (outcome.block && blockDetails?.row === outcome.block.row && blockDetails.column === outcome.block.column) parameterWorkflow.updateDetails(outcome.block);
-        if (outcome.clearSelection) closeBlockEditor();
-        if (outcome.image) attachments.push({ name: `qc-screen-${Date.now()}.png`, mediaType: "image/png", data: outcome.image.pngBase64 });
-        notes.push(outcome.detail);
-      } catch (error) { notes.push(error instanceof Error ? error.message : "The QC command failed; reconnect and try again."); }
+  };
+
+  const executeGeminiTool = async (action: AssistantToolCall) => {
+    try {
+      const connectionAction = action.name === "reconnect_device" || action.name === "reset_device_session" || action.name === "disconnect_device";
+      if (!usbConnected && !connectionAction) throw new Error("Connect the Quad Cortex first.");
+      const outcome = await executeQcAction(action, {
+        gateway: androidGatewayTransport,
+        snapshot: snapshotRef.current,
+        connected: usbConnected,
+        accessMode: controlAccessMode,
+        selectedBlockId
+      });
+      if (outcome.connection) deviceConnection.setConnection(outcome.connection);
+      if (outcome.savedPreset) presetWorkflow.commitSavedPreset(outcome.savedPreset);
+      else if (outcome.snapshot) workflows.reconcile(outcome.snapshot);
+      if (outcome.block && blockDetails?.row === outcome.block.row && blockDetails.column === outcome.block.column) parameterWorkflow.updateDetails(outcome.block);
+      if (outcome.clearSelection) closeBlockEditor();
+      const attachments = outcome.image ? [{ name: `qc-screen-${Date.now()}.png`, mediaType: "image/png" as const, data: outcome.image.pngBase64 }] : [];
+      conversation.append("tool", outcome.detail, attachments);
+      return { detail: outcome.detail, attachments };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "The QC command failed; reconnect and try again.";
+      conversation.append("tool", detail);
+      return { detail };
     }
-    return { text: [parsed.reply?.trim() || "Done.", ...notes].join(" "), attachments: attachments.length ? attachments : undefined };
+  };
+
+  const runGeminiConversation = async (input: string) => {
+    const outcome = await runToolConversation<AssistantToolCall, Awaited<ReturnType<typeof GeminiNative.generate>>, AndroidAttachment>({
+      messages: [...recentModelConversation(messages, 6), { role: "user", content: input }],
+      instructions: "Use the text-only QC action contract and wait for verified tool output before claiming success.",
+      continuationInstructions: "Continue the original request using verified QC tool output. Do not repeat completed operations.",
+      complete: ({ messages: roundMessages }) => completeGeminiRound(roundMessages),
+      execute: executeGeminiTool,
+      toolName: (call) => call.name,
+      onAssistantText: (text) => appendAssistant(text),
+      maxToolCalls: 8
+    });
+    if (!outcome.producedResponse) appendAssistant("Gemini returned no response. Please try again.");
   };
 
   const sendInput = async (input: string) => {
@@ -385,10 +402,8 @@ export function App() {
     if (!submission) return;
     try {
       if (/^(usb\s+)?(diagnostics?|status)$/i.test(submission.promptText)) appendAssistant(await usbDiagnostics());
-      else {
-        const response = await askGemini(submission.promptText);
-        appendAssistant(response.text, response.attachments);
-      }
+      else if (native) await runGeminiConversation(submission.promptText);
+      else appendAssistant(await localFallback(submission.promptText));
     }
     catch { appendAssistant(await localFallback(submission.promptText)); }
     finally { conversation.finish(submission.token); }
@@ -486,7 +501,7 @@ export function App() {
     <section className="mobile-chat" aria-label="QC assistant">
       <div className="chat-heading"><span><i /> {busy ? "GEMINI THINKING" : "QC ASSISTANT"}</span><small>{selectedBlock ? `${selectedBlock.name} selected` : usbConnected ? "QC connected" : "USB not connected"}</small></div>
       <div className="message-list" aria-live="polite">
-        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "assistant" ? "QC" : "YOU"}</span><div><p>{entry.text}</p><AssistantAttachmentList attachments={entry.attachments} imageClassName="message-image" /></div></div>)}
+        {messages.map((entry) => <div key={entry.id} className={`message ${entry.role}`}><span>{entry.role === "user" ? "YOU" : "QC"}</span><div><p>{entry.text}</p><AssistantAttachmentList attachments={entry.attachments} imageClassName="message-image" /></div></div>)}
         {busy && <div className="message assistant pending"><span>QC</span><p>•••</p></div>}
       </div>
       <div className="chat-model-bar">

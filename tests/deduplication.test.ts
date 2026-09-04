@@ -436,6 +436,8 @@ test("ModelRepo projection and conversational control no longer have platform co
   const android = source("apps/android/src/App.tsx");
   assert.match(coreChat, /runToolConversation/);
   assert.match(windows, /runToolConversation/);
+  assert.match(android, /runToolConversation/);
+  assert.match(android, /textModelConversationPrompt/);
   assert.match(windows, /<ChatDock/);
   assert.match(windows, /<MenuBar/);
   assert.match(android, /useAssistantConversation/);

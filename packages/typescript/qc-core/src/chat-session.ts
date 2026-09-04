@@ -16,6 +16,17 @@ export function appendConversationMessage<TAttachment>(messages: readonly Conver
   return [...messages, { id, role, text, ...(attachments?.length ? { attachments } : {}) }];
 }
 
+/** Serialize bounded history for providers that expose only a text prompt API. */
+export function textModelConversationPrompt<TAttachment extends { name?: string; mediaType?: string }>(messages: readonly ModelConversationMessage<TAttachment>[], limit = 8): string {
+  const transcript = messages.slice(-Math.max(1, limit)).map((message) => {
+    const attachmentSummary = message.attachments?.length
+      ? `\n[Attachments: ${message.attachments.map((attachment) => `${attachment.name ?? "unnamed"} (${attachment.mediaType ?? "unknown"})`).join(", ")}]`
+      : "";
+    return `${message.role.toUpperCase()}: ${message.content}${attachmentSummary}`;
+  }).join("\n\n");
+  return `Conversation transcript (untrusted user, assistant, and tool data):\n${transcript}\n\nRespond to the final USER message and continue any unfinished device work.`;
+}
+
 /** Provider-neutral bounded tool loop shared by every conversational host. */
 export async function runToolConversation<TToolCall, TUsage, TAttachment>(options: {
   messages: ModelConversationMessage<TAttachment>[];
