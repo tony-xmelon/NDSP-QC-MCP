@@ -40,5 +40,21 @@ finally {
 }
 
 $builtApkPath = Join-Path $androidRoot "android\app\build\outputs\apk\debug\app-debug.apk"
+if (-not (Test-Path -LiteralPath $builtApkPath -PathType Leaf)) {
+    throw "Android build completed without an APK: $builtApkPath"
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$apkArchive = [System.IO.Compression.ZipFile]::OpenRead($builtApkPath)
+try {
+    $packagedEntries = @($apkArchive.Entries | ForEach-Object FullName)
+    foreach ($nativeLibrary in @("lib/arm64-v8a/libqc_android.so", "lib/x86_64/libqc_android.so")) {
+        if ($nativeLibrary -notin $packagedEntries) {
+            throw "Android APK is missing the shared Rust runtime for $nativeLibrary."
+        }
+    }
+}
+finally {
+    $apkArchive.Dispose()
+}
 & node (Join-Path $repoRoot "tools\release-provenance.mjs") $builtApkPath
 if ($LASTEXITCODE -ne 0) { throw "Could not generate Android release provenance." }

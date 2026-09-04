@@ -8,6 +8,9 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   const build = script("build-android-debug.ps1");
   const publish = script("publish-android-firebase.ps1");
   assert.match(build, /release-provenance\.mjs"\) \$builtApkPath/);
+  assert.match(build, /lib\/arm64-v8a\/libqc_android\.so/);
+  assert.match(build, /lib\/x86_64\/libqc_android\.so/);
+  assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-provenance.mjs"));
   assert.match(publish, /release-provenance\.mjs"\) \$apkPath/);
   assert.match(publish, /\[string\]\$Testers = "prezimir@gmail\.com"/);
   assert.ok(publish.indexOf("release-provenance.mjs") < publish.indexOf("appdistribution:distribute"));
