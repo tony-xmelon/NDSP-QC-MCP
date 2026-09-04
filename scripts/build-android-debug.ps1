@@ -28,6 +28,8 @@ $env:Path = "$(Join-Path $javaHome 'bin');$env:Path"
 
 Push-Location $androidRoot
 try {
+    & node (Join-Path $repoRoot "scripts\version-app.mjs") android sync
+    if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Android app version." }
     npm run android:sync
     if ($LASTEXITCODE -ne 0) { throw "Capacitor sync failed with exit code $LASTEXITCODE." }
     & ".\android\gradlew.bat" -p ".\android" assembleDebug

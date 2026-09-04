@@ -43,3 +43,13 @@ test("both distribution paths require a clean full software parity preflight", (
     assert.ok(build.indexOf("verify-software-parity.ps1") < build.indexOf("release-provenance.mjs"));
   }
 });
+
+test("Android package, Gradle, and lockfile share one release version", () => {
+  const appPackage = JSON.parse(readFileSync(new URL("../apps/android/package.json", import.meta.url), "utf8"));
+  const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+  const gradle = readFileSync(new URL("../apps/android/android/app/build.gradle", import.meta.url), "utf8");
+  assert.match(gradle, new RegExp(`^\\s*versionName "${appPackage.version.replaceAll(".", "[.]")}"$`, "m"));
+  assert.match(gradle, /^\s*versionCode\s+[1-9]\d*$/m);
+  assert.equal(packageLock.packages["apps/android"].version, appPackage.version);
+  assert.match(script("build-android-debug.ps1"), /version-app\.mjs"\) android sync/);
+});
