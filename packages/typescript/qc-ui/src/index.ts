@@ -58,7 +58,7 @@ export { qcConnectionPresentation, useQcConnectionWorkflow } from "./use-qc-conn
 export type { QcConnectionPresentation, QcConnectionTransition } from "./use-qc-connection-workflow";
 export { ASSISTANT_ACCESS_OPTIONS, AssistantAccessSelect, AssistantAttachmentList, CollapsibleAssistantResult } from "./assistant-chat-primitives";
 export type { AssistantAttachment } from "./assistant-chat-primitives";
-export { reconcileQcActionOutcome } from "./qc-action-outcome";
+export { executeAndReconcileQcAction, reconcileQcActionOutcome } from "./qc-action-outcome";
 export type { QcActionImageAttachment, QcActionOutcomeHandlers } from "./qc-action-outcome";
 export { useAssistantAutoScroll } from "./use-assistant-auto-scroll";
 export { ASSISTANT_ACCESS_MODE_STORAGE_KEY, readAssistantAccessMode, writeAssistantAccessMode } from "./assistant-access-storage";

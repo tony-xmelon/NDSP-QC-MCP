@@ -457,7 +457,7 @@ test("each chat tool validates against the latest device snapshot", () => {
   assert.match(appSource, /const liveSnapshot = snapshotRef\.current/);
   assert.match(appSource, /const commitToolSnapshot = \(next: PresetSnapshot\)/);
   assert.match(appSource, /snapshot: liveSnapshot/);
-  assert.match(appSource, /reconcileQcActionOutcome\(result,/);
+  assert.match(appSource, /executeAndReconcileQcAction\(call,/);
   assert.match(appSource, /commitSnapshot: commitToolSnapshot/);
   assert.match(executorSource, /assertExpectedString\(call, "expected_preset_name", snapshot\.presetName\)/);
 });
@@ -597,7 +597,7 @@ test("Antigravity warms at startup and model writes execute directly", () => {
   assert.match(chatSource, /pub async fn warm\(bridge: &ChatBridge\)/);
   assert.match(chatSource, /worker\.stdin\.flush\(\)\.await/);
   assert.match(chatSource, /worker\.lines\.next_line\(\)/);
-  assert.match(appSource, /executeQcAction\(call,/);
+  assert.match(appSource, /executeAndReconcileQcAction\(call,/);
   assert.match(executorSource, /gateway\.toggleBypass\(row, column/);
   assert.match(executorSource, /gateway\.setParameter\(row, column, parameterIndex/);
   assert.doesNotMatch(appSource, /The model requested more than one QC action/);
@@ -640,7 +640,7 @@ test("preset rename is available from UI and chat with verified device readback"
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   assert.match(appSource, /Rename Current Preset/);
-  assert.match(appSource, /executeQcAction\(call,/);
+  assert.match(appSource, /executeAndReconcileQcAction\(call,/);
   assert.match(executorSource, /call\.name === "rename_current_preset"/);
   assert.match(transportSource, /createGatewayClientTransport<GatewayTransport>/);
   assert.match(gatewayBindings, /"renameCurrentPreset": \{ rpc: "device\.renameCurrentPreset", tauri: "rename_current_preset"/);

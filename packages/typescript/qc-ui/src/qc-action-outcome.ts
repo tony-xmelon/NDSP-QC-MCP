@@ -1,5 +1,6 @@
 import type { BlockDetails, ConnectionState, PresetSnapshot, SavePresetResult } from "@ndsp-qc/client";
-import type { QcActionExecutionResult } from "./qc-action-executor";
+import type { AssistantToolCall } from "@ndsp-qc/core";
+import { executeQcAction, type QcActionExecutionContext, type QcActionExecutionResult } from "./qc-action-executor.ts";
 
 export interface QcActionImageAttachment {
   name: string;
@@ -29,4 +30,14 @@ export function reconcileQcActionOutcome(result: QcActionExecutionResult, handle
     mediaType: "image/png",
     data: result.image.pngBase64
   } : undefined;
+}
+
+/** Execute and reconcile one generated action without duplicating shell orchestration. */
+export async function executeAndReconcileQcAction(
+  call: AssistantToolCall,
+  context: QcActionExecutionContext,
+  handlers: QcActionOutcomeHandlers
+): Promise<{ result: QcActionExecutionResult; attachment?: QcActionImageAttachment }> {
+  const result = await executeQcAction(call, context);
+  return { result, attachment: reconcileQcActionOutcome(result, handlers) };
 }

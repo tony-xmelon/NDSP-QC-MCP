@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { demoSnapshot, type BlockDetails, type ConnectionState, type SavePresetResult } from "../packages/typescript/qc-client/src/index.ts";
-import { reconcileQcActionOutcome } from "../packages/typescript/qc-ui/src/qc-action-outcome.ts";
+import { executeAndReconcileQcAction, reconcileQcActionOutcome } from "../packages/typescript/qc-ui/src/qc-action-outcome.ts";
 
 test("tool outcomes reconcile through one ordered cross-platform path", () => {
   const events: string[] = [];
@@ -35,4 +35,29 @@ test("unrelated open block details are not replaced", () => {
     clearSelection: () => undefined
   });
   assert.deepEqual(events, []);
+});
+
+test("native shells share one execute-and-reconcile transaction", async () => {
+  const events: string[] = [];
+  const connection: ConnectionState = { phase: "ready", detail: "connected", demo: false };
+  const gateway = {
+    reconnect: async () => connection,
+    currentSnapshot: async () => demoSnapshot
+  };
+  const { result } = await executeAndReconcileQcAction({
+    name: "reconnect_device",
+    arguments: { confirm_risky_operation: true }
+  }, {
+    gateway: gateway as never,
+    snapshot: demoSnapshot,
+    connected: false
+  }, {
+    setConnection: () => events.push("connection"),
+    commitSavedPreset: () => events.push("saved"),
+    commitSnapshot: () => events.push("snapshot"),
+    updateBlock: () => events.push("block"),
+    clearSelection: () => events.push("clear")
+  });
+  assert.equal(result.detail, "connected");
+  assert.deepEqual(events, ["connection", "snapshot", "clear"]);
 });

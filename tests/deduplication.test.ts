@@ -267,8 +267,8 @@ test("assistant actions use one shared provider-neutral executor", () => {
   assert.match(android, /runAssistantCommand\(qcTransport,/);
   assert.match(android, /assistantToolActionPrompt\(snapshotRef\.current,/);
   assert.match(android, /validateAssistantToolCalls\(parsed, controlAccessMode\)/);
-  assert.match(windows, /executeQcAction\(call,/);
-  assert.match(android, /executeQcAction\(action,/);
+  assert.match(windows, /executeAndReconcileQcAction\(call,/);
+  assert.match(android, /executeAndReconcileQcAction\(action,/);
   assert.match(executor, /export async function executeQcAction/);
   assert.match(source("packages/typescript/qc-ui/src/assistant-parameter-edit.ts"), /resolveAssistantParameterEdit/);
   for (const app of [windows, android]) {
@@ -522,8 +522,9 @@ test("assistant tool outcomes reconcile through one shared UI path", () => {
   const outcome = source("packages/typescript/qc-ui/src/qc-action-outcome.ts");
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
+  assert.match(outcome, /executeAndReconcileQcAction/);
   assert.match(outcome, /reconcileQcActionOutcome/);
-  for (const app of [windows, android]) assert.match(app, /reconcileQcActionOutcome/);
+  for (const app of [windows, android]) assert.match(app, /executeAndReconcileQcAction/);
   assert.doesNotMatch(windows, /if \(result\.connection\) setConnection/);
   assert.doesNotMatch(android, /if \(outcome\.connection\) deviceConnection/);
 });

@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -348,14 +348,13 @@ export function App() {
     try {
       const connectionAction = action.name === "reconnect_device" || action.name === "reset_device_session" || action.name === "disconnect_device";
       if (!usbConnected && !connectionAction) throw new Error("Connect the Quad Cortex first.");
-      const outcome = await executeQcAction(action, {
+      const { result: outcome, attachment } = await executeAndReconcileQcAction(action, {
         gateway: androidGatewayTransport,
         snapshot: snapshotRef.current,
         connected: usbConnected,
         accessMode: controlAccessMode,
         selectedBlockId
-      });
-      const attachment = reconcileQcActionOutcome(outcome, {
+      }, {
         setConnection: deviceConnection.setConnection,
         commitSavedPreset: presetWorkflow.commitSavedPreset,
         commitSnapshot: workflows.reconcile,
