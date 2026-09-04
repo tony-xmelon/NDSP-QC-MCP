@@ -13,6 +13,9 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-provenance.mjs"));
   assert.match(publish, /release-provenance\.mjs"\) \$apkPath/);
   assert.match(publish, /\[string\]\$Testers = "prezimir@gmail\.com"/);
+  assert.match(publish, /google-services\.json/);
+  assert.match(publish, /client_info\.mobilesdk_app_id/);
+  assert.doesNotMatch(publish, /\$firebaseAppId = "1:/);
   assert.ok(publish.indexOf("release-provenance.mjs") < publish.indexOf("appdistribution:distribute"));
 });
 

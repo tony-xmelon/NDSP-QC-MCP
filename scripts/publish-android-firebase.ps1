@@ -8,7 +8,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $androidPackage = Get-Content (Join-Path $repoRoot "apps\android\package.json") | ConvertFrom-Json
 $apkPath = Join-Path $repoRoot "artifacts\android\QC-Control-Android-$($androidPackage.version)-debug.apk"
 $builtApkPath = Join-Path $repoRoot "apps\android\android\app\build\outputs\apk\debug\app-debug.apk"
-$firebaseAppId = "1:762132554544:android:2e6417e3507a3d87e09ef5"
+$firebaseConfig = Get-Content -LiteralPath (Join-Path $repoRoot "apps\android\android\app\google-services.json") -Raw | ConvertFrom-Json
+$firebaseClients = @($firebaseConfig.client | Where-Object { $_.client_info.android_client_info.package_name -eq "com.qccontrol.mobile" })
+if ($firebaseClients.Count -ne 1 -or [string]::IsNullOrWhiteSpace($firebaseClients[0].client_info.mobilesdk_app_id)) {
+    throw "Firebase configuration must contain exactly one registered com.qccontrol.mobile client."
+}
+$firebaseAppId = $firebaseClients[0].client_info.mobilesdk_app_id
 
 Push-Location $repoRoot
 try {
