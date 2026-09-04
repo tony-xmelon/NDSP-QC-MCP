@@ -45,7 +45,17 @@ function Get-VerifiedDownload {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Path
     }
-    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    # Use the framework API directly so verification remains independent of
+    # PowerShell module/function discovery after the nested parity preflight.
+    $hashAlgorithm = [System.Security.Cryptography.SHA256]::Create()
+    $downloadStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $actual = ([System.BitConverter]::ToString($hashAlgorithm.ComputeHash($downloadStream))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $downloadStream.Dispose()
+        $hashAlgorithm.Dispose()
+    }
     if ($actual -ne $Sha256.ToLowerInvariant()) {
         throw "Downloaded build dependency failed SHA-256 verification: $Path (expected $Sha256, received $actual). Remove the cached file and deliberately update its pinned URL/checksum before retrying."
     }

@@ -37,7 +37,10 @@ test("Windows installer verifies every downloaded executable dependency", () => 
   const build = script("build-windows-installer.ps1");
   const contract = JSON.parse(readFileSync(new URL("../contracts/windows-sidecars.v1.json", import.meta.url), "utf8"));
   assert.match(build, /function Get-VerifiedDownload/);
-  assert.match(build, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
+  assert.match(build, /System\.Security\.Cryptography\.SHA256\]::Create\(\)/);
+  assert.match(build, /System\.IO\.File\]::OpenRead\(\$Path\)/);
+  assert.match(build, /\$hashAlgorithm\.ComputeHash\(\$downloadStream\)/);
+  assert.doesNotMatch(build, /\$sha256\s*=/i);
   assert.equal((build.match(/Get-VerifiedDownload -Uri/g) ?? []).length, 3);
   assert.equal(contract.components.length, 3);
   assert.ok(contract.components.every((component: { sha256: string }) => /^[a-f0-9]{64}$/.test(component.sha256)));
