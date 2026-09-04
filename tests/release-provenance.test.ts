@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSbom, npmComponents, parseCargoLock, parseGradleDeclarations, parseGradleDependencyReport, sha256 } from "../tools/release-provenance.mjs";
+import { buildSbom, npmComponents, parseCargoLock, parseGradleDeclarations, parseGradleDependencyReport, sha256, sidecarComponents } from "../tools/release-provenance.mjs";
 
 test("release hashes are stable SHA-256 values", () => {
   assert.equal(sha256("QC Control"), "908fe6920dbb1fe6c417dbf1dd500de708a852925329c0291964b01982209f07");
@@ -54,4 +54,18 @@ implementation project(':capacitor-android')
     { group: "com.google.firebase", name: "firebase-bom", version: "34.18.0" }
   ]);
   assert.equal(components.find((component) => component.name === "firebase-ai")?.properties.at(-1)?.value, "com.google.firebase:firebase-bom:34.18.0");
+});
+
+test("Windows sidecars retain their release identity and verified archive hash", () => {
+  const [component] = sidecarComponents({ components: [{
+    name: "Tool",
+    version: "1.2.3",
+    purl: "pkg:github/example/tool@1.2.3",
+    url: "https://example.invalid/tool.zip",
+    sha256: "a".repeat(64)
+  }] });
+  assert.equal(component.type, "application");
+  assert.equal(component.hashes[0].content, "a".repeat(64));
+  assert.equal(component.externalReferences[0].type, "distribution");
+  assert.equal(component.properties[0].value, "windows-sidecar");
 });

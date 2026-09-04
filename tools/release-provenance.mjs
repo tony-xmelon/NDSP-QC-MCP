@@ -13,7 +13,8 @@ const contractFiles = [
   "contracts/qc-actions.v1.json",
   "contracts/qc-domain.v1.json",
   "contracts/qc-payloads.v1.schema.json",
-  "contracts/qc-usb-profile.v1.json"
+  "contracts/qc-usb-profile.v1.json",
+  "contracts/windows-sidecars.v1.json"
 ];
 
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -135,6 +136,18 @@ export function parseGradleDeclarations(source, variablesSource = "") {
   return [...components.values()].sort((left, right) => `${left.group}:${left.name}@${left.version ?? ""}`.localeCompare(`${right.group}:${right.name}@${right.version ?? ""}`));
 }
 
+export function sidecarComponents(contract) {
+  return (contract.components ?? []).map((component) => ({
+    type: "application",
+    name: component.name,
+    version: component.version,
+    purl: component.purl,
+    hashes: [{ alg: "SHA-256", content: component.sha256 }],
+    externalReferences: [{ type: "distribution", url: component.url }],
+    properties: [{ name: "qc:ecosystem", value: "windows-sidecar" }]
+  }));
+}
+
 function resolvedGradleComponents() {
   const androidRoot = resolve(repositoryRoot, "apps/android/android");
   const wrapper = resolve(androidRoot, process.platform === "win32" ? "gradlew.bat" : "gradlew");
@@ -205,8 +218,8 @@ function uuidFromDigest(digest) {
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
-export function buildSbom(packageLock, cargoLocks, metadata = {}, gradle = []) {
-  const components = [...npmComponents(packageLock), ...rustComponents(cargoLocks), ...gradle];
+export function buildSbom(packageLock, cargoLocks, metadata = {}, gradle = [], external = []) {
+  const components = [...npmComponents(packageLock), ...rustComponents(cargoLocks), ...gradle, ...external];
   const componentDigest = sha256(JSON.stringify(components));
   return {
     bomFormat: "CycloneDX",
@@ -232,7 +245,8 @@ export function generateReleaseProvenance({ artifacts = defaultArtifacts(), outp
   const packageLock = JSON.parse(readFileSync(resolve(repositoryRoot, "package-lock.json"), "utf8"));
   const generatedAt = new Date().toISOString();
   const gradle = androidGradleInventory();
-  const sbom = buildSbom(packageLock, cargoLocks, { version: windowsPackage.version }, gradle.components);
+  const sidecars = sidecarComponents(JSON.parse(readFileSync(resolve(repositoryRoot, "contracts/windows-sidecars.v1.json"), "utf8")));
+  const sbom = buildSbom(packageLock, cargoLocks, { version: windowsPackage.version }, gradle.components, sidecars);
   const manifest = {
     schemaVersion: 1,
     product: "QC Control",
@@ -245,7 +259,8 @@ export function generateReleaseProvenance({ artifacts = defaultArtifacts(), outp
       npm: sbom.components.filter((component) => component.properties?.some((property) => property.name === "qc:ecosystem" && property.value === "npm")).length,
       cargo: sbom.components.filter((component) => component.properties?.some((property) => property.name === "qc:ecosystem" && property.value === "cargo")).length,
       gradle: gradle.components.length,
-      gradleResolved: gradle.resolved
+      gradleResolved: gradle.resolved,
+      windowsSidecars: sidecars.length
     },
     artifacts: artifactRecords,
     sbom: { format: "CycloneDX", specVersion: sbom.specVersion, componentCount: sbom.components.length, file: "sbom.cdx.json", sha256: sha256(JSON.stringify(sbom, null, 2) + "\n") }

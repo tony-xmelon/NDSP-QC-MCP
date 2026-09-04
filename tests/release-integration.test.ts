@@ -27,10 +27,13 @@ test("Windows installer builds checksum their external Cargo target artifact", (
 
 test("Windows installer verifies every downloaded executable dependency", () => {
   const build = script("build-windows-installer.ps1");
+  const contract = JSON.parse(readFileSync(new URL("../contracts/windows-sidecars.v1.json", import.meta.url), "utf8"));
   assert.match(build, /function Get-VerifiedDownload/);
   assert.match(build, /Get-FileHash -LiteralPath \$Path -Algorithm SHA256/);
   assert.equal((build.match(/Get-VerifiedDownload -Uri/g) ?? []).length, 3);
-  assert.equal((build.match(/-Sha256 "[a-f0-9]{64}"/g) ?? []).length, 3);
+  assert.equal(contract.components.length, 3);
+  assert.ok(contract.components.every((component: { sha256: string }) => /^[a-f0-9]{64}$/.test(component.sha256)));
+  assert.doesNotMatch(build, /https:\/\/github\.com/);
   assert.equal((build.match(/Invoke-WebRequest/g) ?? []).length, 1, "downloads must only occur inside the checksum-enforcing helper");
 });
 

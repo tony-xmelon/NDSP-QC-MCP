@@ -27,6 +27,14 @@ $rustHost = ($rustHostLine -split ":", 2)[1].Trim()
 $mediaFetcherTarget = Join-Path $binaryDirectory "qc-media-fetch-$rustHost.exe"
 $mediaFfmpegTarget = Join-Path $binaryDirectory "qc-media-ffmpeg-$rustHost.exe"
 $mediaDenoTarget = Join-Path $binaryDirectory "qc-media-deno-$rustHost.exe"
+$sidecarContract = Get-Content -LiteralPath (Join-Path $repositoryRoot "contracts\windows-sidecars.v1.json") -Raw | ConvertFrom-Json
+
+function Get-SidecarComponent {
+    param([Parameter(Mandatory = $true)][string]$Id)
+    $component = @($sidecarContract.components | Where-Object { $_.id -eq $Id })
+    if ($component.Count -ne 1) { throw "Windows sidecar contract must contain exactly one '$Id' component." }
+    return $component[0]
+}
 
 function Get-VerifiedDownload {
     param(
@@ -48,19 +56,22 @@ if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Windows app version.
 
 New-Item -ItemType Directory -Force -Path $binaryDirectory | Out-Null
 New-Item -ItemType Directory -Force -Path $sidecarBuildDirectory | Out-Null
-Get-VerifiedDownload -Uri "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.exe" -Path $mediaFetcherTarget -Sha256 "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a"
+$mediaFetcher = Get-SidecarComponent -Id "yt-dlp"
+Get-VerifiedDownload -Uri $mediaFetcher.url -Path $mediaFetcherTarget -Sha256 $mediaFetcher.sha256
 
-$denoArchive = Join-Path $sidecarBuildDirectory "deno-2.9.6.zip"
-$denoExtract = Join-Path $sidecarBuildDirectory "deno-2.9.6"
-Get-VerifiedDownload -Uri "https://github.com/denoland/deno/releases/download/v2.9.6/deno-x86_64-pc-windows-msvc.zip" -Path $denoArchive -Sha256 "15e5300b0ba3c3695a7621d90160a746ec9e710228cee639afa9d580f6e3cd11"
+$deno = Get-SidecarComponent -Id "deno"
+$denoArchive = Join-Path $sidecarBuildDirectory $deno.cacheName
+$denoExtract = Join-Path $sidecarBuildDirectory $deno.extractName
+Get-VerifiedDownload -Uri $deno.url -Path $denoArchive -Sha256 $deno.sha256
 Expand-Archive -LiteralPath $denoArchive -DestinationPath $denoExtract -Force
-Copy-Item -LiteralPath (Join-Path $denoExtract "deno.exe") -Destination $mediaDenoTarget -Force
+Copy-Item -LiteralPath (Join-Path $denoExtract $deno.executable) -Destination $mediaDenoTarget -Force
 
-$ffmpegArchive = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl.zip"
-$ffmpegExtract = Join-Path $sidecarBuildDirectory "ffmpeg-n8.1-win64-lgpl"
-Get-VerifiedDownload -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip" -Path $ffmpegArchive -Sha256 "87ea9cc2c40e8cbb853dccc65df3ae33d970285366828f040faccb17ff5c3d66"
+$ffmpeg = Get-SidecarComponent -Id "ffmpeg"
+$ffmpegArchive = Join-Path $sidecarBuildDirectory $ffmpeg.cacheName
+$ffmpegExtract = Join-Path $sidecarBuildDirectory $ffmpeg.extractName
+Get-VerifiedDownload -Uri $ffmpeg.url -Path $ffmpegArchive -Sha256 $ffmpeg.sha256
 Expand-Archive -LiteralPath $ffmpegArchive -DestinationPath $ffmpegExtract -Force
-$ffmpegSource = Get-ChildItem -LiteralPath $ffmpegExtract -Filter "ffmpeg.exe" -File -Recurse | Select-Object -First 1
+$ffmpegSource = Get-ChildItem -LiteralPath $ffmpegExtract -Filter $ffmpeg.executable -File -Recurse | Select-Object -First 1
 if (-not $ffmpegSource) { throw "The FFmpeg package did not contain ffmpeg.exe." }
 Copy-Item -LiteralPath $ffmpegSource.FullName -Destination $mediaFfmpegTarget -Force
 foreach ($windowsTarget in @("x86_64-pc-windows-msvc", "x86_64-pc-windows-gnu")) {
