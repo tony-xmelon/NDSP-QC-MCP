@@ -54,4 +54,23 @@ for (const surface of surfaces) {
     expect(materialViolations, materialViolations.map((violation) => `${violation.id}: ${violation.help}`).join("\n")).toEqual([]);
     expect(runtimeErrors, "app must render without uncaught exceptions or console errors").toEqual([]);
   });
+
+  test(`${surface.name} opens and closes the shared parameter editor`, async ({ page }) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(`pageerror: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") runtimeErrors.push(`console: ${message.text()}`);
+    });
+    await page.setViewportSize({ width: surface.width, height: surface.height });
+    await page.goto(surface.url);
+    const block = page.locator(".coros-vector-block-hit").first();
+    await expect(block).toBeVisible();
+    await block.click();
+    const close = page.getByRole("button", { name: "Close parameter editor" });
+    await expect(close).toBeVisible();
+    await close.click();
+    await expect(close).toBeHidden();
+    await expect(block).toBeVisible();
+    expect(runtimeErrors, "parameter workflow must not raise runtime errors").toEqual([]);
+  });
 }
