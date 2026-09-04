@@ -14,3 +14,4 @@ export { inputRouteOptions, outputRouteOptions, routeDraft, routeDraftsFromSnaps
 export { demoBlockDetails } from "./demo-parameters.ts";
 export { appendConversationMessage, recentModelConversation, runToolConversation, textModelConversationPrompt, type ConversationMessage, type ConversationRole, type ModelConversationMessage, type ToolExecutionResult, type ToolLoopResponse, type ToolLoopResult } from "./chat-session.ts";
 export { SHARED_QC_ASSISTANT_TOOLS, assistantAccessPermitsTool, assistantCompactToolCatalog, assistantSystemInstructions, assistantToolCatalog, booleanAssistantArgument, isReadOnlyQcAssistantTool, isSharedQcAssistantTool, numericAssistantArgument, parseAssistantAccessMode, validateAssistantToolCalls, type AssistantAccessMode, type AssistantToolCall, type AssistantToolDefinition } from "./assistant-tools.ts";
+export type { PublicRelayPort, PublicRelayState, PublicRelayStatus } from "./relay.ts";

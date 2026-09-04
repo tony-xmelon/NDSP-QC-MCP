@@ -1,11 +1,11 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
-import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
+import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
 type AndroidGeminiModel = GeminiModelId;

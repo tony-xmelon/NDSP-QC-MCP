@@ -1,5 +1,5 @@
 import { createGatewayClientTransport, type DiagnosticsReport, type GatewayTransport, type RuntimeStatus, type WorkspaceDocument, type WorkspaceFileResult } from "@ndsp-qc/client";
-import type { AssistantAccessMode } from "@ndsp-qc/core";
+import type { PublicRelayPort, PublicRelayStatus } from "@ndsp-qc/core";
 import { chatErrorMessage, type AntigravityModel, type ChatAttachment, type ChatCompletionRequest, type ChatCompletionResponse, type ChatQuota, type ChatSettings, type ChatSettingsUpdate, type GoogleOAuthResult } from "./model-chat";
 
 declare global {
@@ -26,17 +26,7 @@ export function reportVoiceEvent(event: string): Promise<void> {
   return callTauri<void>("report_voice_event", { event });
 }
 
-export type PublicRelayState = "stopped" | "connecting" | "connected" | "reconnecting" | "pairing_required" | "invalid_endpoint";
-export type ControlAccessMode = AssistantAccessMode;
-export interface PublicRelayStatus {
-  paired: boolean;
-  state: PublicRelayState;
-  accessMode: ControlAccessMode;
-  endpoint?: string;
-  deviceId?: string;
-}
-
-export const publicRelay = {
+export const publicRelay: PublicRelayPort = {
   status(): Promise<PublicRelayStatus> {
     return callTauri<PublicRelayStatus>("relay_status");
   },
@@ -49,7 +39,7 @@ export const publicRelay = {
   unpair(): Promise<PublicRelayStatus> {
     return callTauri<PublicRelayStatus>("unpair_public_relay");
   },
-  setAccessMode(mode: ControlAccessMode): Promise<PublicRelayStatus> {
+  setAccessMode(mode): Promise<PublicRelayStatus> {
     return callTauri<PublicRelayStatus>("set_public_relay_access_mode", { mode });
   }
 };

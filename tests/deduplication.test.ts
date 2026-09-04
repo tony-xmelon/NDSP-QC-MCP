@@ -497,10 +497,12 @@ test("assistant message rendering and access tiers have one shared UI owner", ()
   const windowsTransport = source("apps/windows/src/tauri-transport.ts");
   const android = source("apps/android/src/App.tsx");
   const androidServices = source("apps/android/src/native-services.ts");
+  const relay = source("packages/typescript/qc-core/src/relay.ts");
   assert.match(primitives, /AssistantAttachmentList/);
   assert.match(primitives, /AssistantAccessSelect/);
   for (const app of [windowsDock, android]) assert.match(app, /AssistantAttachmentList/);
-  for (const transport of [windowsTransport, androidServices]) assert.match(transport, /AssistantAccessMode/);
+  assert.match(relay, /AssistantAccessMode/);
+  for (const transport of [windowsTransport, androidServices]) assert.match(transport, /PublicRelay/);
   assert.doesNotMatch(windowsTransport, /"read-only" \| "performance"/);
   assert.doesNotMatch(androidServices, /"read-only" \| "performance"/);
 });
@@ -527,6 +529,21 @@ test("assistant tool outcomes reconcile through one shared UI path", () => {
   for (const app of [windows, android]) assert.match(app, /executeAndReconcileQcAction/);
   assert.doesNotMatch(windows, /if \(result\.connection\) setConnection/);
   assert.doesNotMatch(android, /if \(outcome\.connection\) deviceConnection/);
+});
+
+test("the outbound relay contract has one platform-neutral owner", () => {
+  const relay = source("packages/typescript/qc-core/src/relay.ts");
+  const windows = source("apps/windows/src/tauri-transport.ts");
+  const android = source("apps/android/src/native-services.ts");
+  assert.match(relay, /export type PublicRelayState/);
+  assert.match(relay, /export interface PublicRelayStatus/);
+  assert.match(relay, /export interface PublicRelayPort/);
+  assert.match(windows, /publicRelay: PublicRelayPort/);
+  assert.match(android, /Promise<PublicRelayStatus>/);
+  for (const adapter of [windows, android]) {
+    assert.doesNotMatch(adapter, /type PublicRelayState\s*=/);
+    assert.doesNotMatch(adapter, /interface PublicRelayStatus/);
+  }
 });
 
 test("both chat surfaces share user-respecting message auto-scroll", () => {

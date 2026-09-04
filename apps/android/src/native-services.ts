@@ -1,6 +1,6 @@
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { createGatewayClientTransport, type GatewayTransport, type PresetSnapshot } from "@ndsp-qc/client";
-import { createQcGatewayTransport, type AssistantAccessMode, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
+import { createQcGatewayTransport, type AssistantAccessMode, type PublicRelayState, type PublicRelayStatus, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
 
 export type { QcStateUpdate } from "@ndsp-qc/core";
 
@@ -42,15 +42,13 @@ interface VoiceInputNativePlugin {
   addListener(eventName: "voiceState", listener: (result: { state: string }) => void): Promise<PluginListenerHandle>;
 }
 
-export type RelayState = "stopped" | "connecting" | "connected" | "reconnecting" | "pairing_required" | "invalid_endpoint";
-export type ControlAccessMode = AssistantAccessMode;
 interface QcRelayNativePlugin {
-  status(): Promise<{ paired: boolean; state: RelayState; endpoint?: string; accessMode: ControlAccessMode }>;
+  status(): Promise<PublicRelayStatus>;
   pair(options: { endpoint: string; pairingCode: string; deviceName?: string }): Promise<{ paired: boolean; endpoint: string }>;
   start(): Promise<void>;
-  setAccessMode(options: { mode: ControlAccessMode }): Promise<{ accessMode: ControlAccessMode }>;
+  setAccessMode(options: { mode: AssistantAccessMode }): Promise<{ accessMode: AssistantAccessMode }>;
   unpair(): Promise<void>;
-  addListener(eventName: "relayState", listener: (result: { state: RelayState }) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: "relayState", listener: (result: { state: PublicRelayState }) => void): Promise<PluginListenerHandle>;
 }
 
 export const GeminiNative = registerPlugin<GeminiNativePlugin>("Gemini");
