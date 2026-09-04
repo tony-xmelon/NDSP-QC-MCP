@@ -564,6 +564,18 @@ SHARED_QC_ACTIONS = {
     "access": "full",
     "description": "Move a named preset to another slot in its user setlist after explicit confirmation."
   },
+  "set_tempo_metronome": {
+    "rpc": "device.setTempoMetronome",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change named fields of the loaded preset's tempo/metronome block. Null leaves a field unchanged; time signature is applied before beat cells."
+  },
+  "set_tempo_mode": {
+    "rpc": "device.setTempoMode",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Select whether the Quad Cortex uses the loaded preset tempo or its device-global tempo block."
+  },
   "set_general_integer": {
     "rpc": "device.setGeneralInteger",
     "classification": "persistent-write",

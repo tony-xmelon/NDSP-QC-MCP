@@ -139,6 +139,22 @@ class LooperStatus(TypedDict):
     quantizeEnabled: NotRequired[bool]
     updateType: NotRequired[int]
 
+class TempoSettings(TypedDict):
+    mode: NotRequired[Literal["PRESET", "GLOBAL"]]
+    bpm: NotRequired[int]
+    ledEnabled: NotRequired[bool]
+    volumeDb: NotRequired[float]
+    running: NotRequired[bool]
+    pan: NotRequired[float]
+    timeSignature: NotRequired[Literal["2/4", "3/4", "4/4", "5/4", "6/4", "7/4", "8/4", "9/4", "10/4", "11/4", "12/4", "13/4", "3/8", "6/8", "9/8", "12/8", "5/8 (3+2)", "5/8 (2+3)", "7/8 (3+2+2)", "7/8 (2+3+2)", "7/8 (2+2+3)"]]
+    subdivision: NotRequired[Literal["1/4", "1/8", "1/8T", "1/16"]]
+    sound: NotRequired[Literal["BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT"]]
+    routing: NotRequired[Literal["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2"]]
+    beats: list[Literal["OFF", "MUTE", "DOWN", "ON"]]
+
+class TempoModeSettings(TypedDict):
+    mode: Literal["PRESET", "GLOBAL"]
+
 class BypassExpression(TypedDict):
     pedal: int
     minimum: float

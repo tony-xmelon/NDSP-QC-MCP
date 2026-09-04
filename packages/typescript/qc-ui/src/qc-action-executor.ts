@@ -273,6 +273,9 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     }
     return { detail: `Read ${call.name.replaceAll("_", " ")} from the Quad Cortex.`, data };
   }
+  if (call.name === "get_global_tempo_settings") {
+    return { detail: "Read the device-global Quad Cortex tempo and metronome settings.", data: await gateway.globalTempoSettings() };
+  }
   if (call.name === "get_preset_screenshot" || call.name === "capture_screen") {
     const image = call.name === "capture_screen"
       ? await gateway.captureScreen()
@@ -442,6 +445,20 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     return actionResult(await gateway.movePreset(
       stringArgument(call, "setlist_key"), stringArgument(call, "name"), integerArgument(call, "position")
     ));
+  }
+  if (call.name === "set_tempo_metronome") {
+    confirmation(call, "confirm_persistent_write");
+    const beats = call.arguments.beats === null ? null : call.arguments.beats as string[];
+    return actionResult(await gateway.setTempoMetronome(
+      nullableBooleanArgument(call, "led_enabled"), nullableNumberArgument(call, "volume_db"),
+      nullableBooleanArgument(call, "running"), nullableNumberArgument(call, "pan"),
+      nullableStringArgument(call, "time_signature"), nullableStringArgument(call, "subdivision"),
+      nullableStringArgument(call, "sound"), nullableStringArgument(call, "routing"), beats
+    ));
+  }
+  if (call.name === "set_tempo_mode") {
+    confirmation(call, "confirm_persistent_write");
+    return actionResult(await gateway.setTempoMode(stringArgument(call, "mode") as "PRESET" | "GLOBAL"));
   }
   if (call.name === "undo_device" || call.name === "redo_device") {
     confirmation(call, "confirm_risky_operation");

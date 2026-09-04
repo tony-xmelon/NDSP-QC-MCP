@@ -713,6 +713,114 @@ pub fn decode_looper_status(payload: &[u8]) -> Result<LooperStatus, ResponseDeco
     })
 }
 
+fn tempo_value(parameter: &Param) -> Option<f32> {
+    parameter
+        .param_values
+        .first()
+        .and_then(|value| match value.value {
+            Some(param_value::Value::FloatValue(value)) => Some(value),
+            _ => None,
+        })
+}
+
+fn discrete(value: f32, steps: usize, labels: &[&str]) -> Option<String> {
+    let index = (value * (steps.saturating_sub(1)) as f32).round() as usize;
+    labels.get(index).map(|label| (*label).to_string())
+}
+
+/// Decode the preset/global TempoControl parameter vector. Unknown parameter 23
+/// is intentionally ignored; the 23 attributed parameters are preserved here.
+pub fn decode_tempo_settings(parameters: &[Param]) -> TempoSettings {
+    const SIGNATURES: &[&str] = &[
+        "2/4",
+        "3/4",
+        "4/4",
+        "5/4",
+        "6/4",
+        "7/4",
+        "8/4",
+        "9/4",
+        "10/4",
+        "11/4",
+        "12/4",
+        "13/4",
+        "3/8",
+        "6/8",
+        "9/8",
+        "12/8",
+        "5/8 (3+2)",
+        "5/8 (2+3)",
+        "7/8 (3+2+2)",
+        "7/8 (2+3+2)",
+        "7/8 (2+2+3)",
+    ];
+    const SUBDIVISIONS: &[&str] = &["1/4", "1/8", "1/8T", "1/16"];
+    const SOUNDS: &[&str] = &[
+        "BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT",
+    ];
+    const ROUTING: &[&str] = &["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2"];
+    const BEATS: &[&str] = &["OFF", "MUTE", "DOWN", "ON"];
+    let mut values = [None; 23];
+    for (position, parameter) in parameters.iter().enumerate() {
+        let index = match parameter.index {
+            Some(param::Index::Index(index)) => index as usize,
+            None => position,
+        };
+        if index < values.len() {
+            values[index] = tempo_value(parameter);
+        }
+    }
+    TempoSettings {
+        mode: None,
+        bpm: values[0].map(|value| (40.0 + 200.0 * value).round() as u32),
+        led_enabled: values[2].map(|value| value >= 0.5),
+        volume_db: values[3].map(|value| -60.0 + 69.0 * value),
+        running: values[4].map(|value| value >= 0.5),
+        pan: values[5],
+        time_signature: values[6].and_then(|value| discrete(value, 21, SIGNATURES)),
+        subdivision: values[7].and_then(|value| discrete(value, 4, SUBDIVISIONS)),
+        sound: values[8].and_then(|value| discrete(value, 6, SOUNDS)),
+        routing: values[9].and_then(|value| discrete(value, 5, ROUTING)),
+        beats: values[10..23]
+            .iter()
+            .filter_map(|value| value.and_then(|value| discrete(value, 4, BEATS)))
+            .collect(),
+    }
+}
+
+/// Decode only the device-wide PRESET/GLOBAL switch from a GlobalTempo params
+/// push. Clock-only messages are rejected so callers can wait for the right shape.
+pub fn decode_tempo_mode(payload: &[u8]) -> Result<TempoModeSettings, ResponseDecodeError> {
+    let message = pa::GlobalTempoMessage::decode(payload)?;
+    let value = message
+        .params
+        .iter()
+        .find_map(|parameter| {
+            matches!(parameter.index, Some(param::Index::Index(1)))
+                .then(|| tempo_value(parameter))
+                .flatten()
+        })
+        .ok_or(ResponseDecodeError::Incomplete(
+            "GlobalTempo mode parameter",
+        ))?;
+    let mode = match value {
+        value if (value - 0.0).abs() < 0.000_01 => "PRESET",
+        value if (value - 1.0).abs() < 0.000_01 => "GLOBAL",
+        _ => return Err(ResponseDecodeError::Mismatch("GlobalTempo mode value")),
+    };
+    Ok(TempoModeSettings { mode: mode.into() })
+}
+
+pub fn decode_global_tempo_settings(payload: &[u8]) -> Result<TempoSettings, ResponseDecodeError> {
+    let message = pa::GlobalTempoMessage::decode(payload)?;
+    if message.params.is_empty() {
+        return Err(ResponseDecodeError::Incomplete("GlobalTempo parameters"));
+    }
+    let mut settings = decode_tempo_settings(&message.params);
+    settings.mode = Some(decode_tempo_mode(payload)?.mode);
+    Ok(settings)
+}
+
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
     let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
@@ -1018,6 +1126,55 @@ mod tests {
             backup.push(&last).unwrap().as_deref(),
             Some("{\"type\":\"backup\",\"creator\":\"quad\"}")
         );
+    }
+
+    #[test]
+    fn tempo_settings_project_every_named_option_and_reject_clock_only_mode_reads() {
+        let parameter = |index: u32, value: f32| Param {
+            index: Some(param::Index::Index(index)),
+            param_values: vec![crate::proto::ParamValue {
+                value: Some(param_value::Value::FloatValue(value)),
+            }],
+            ..Default::default()
+        };
+        let params = vec![
+            parameter(0, 0.4),
+            parameter(1, 1.0),
+            parameter(2, 1.0),
+            parameter(3, 40.0 / 69.0),
+            parameter(4, 0.0),
+            parameter(5, 0.5),
+            parameter(6, 0.1),
+            parameter(7, 1.0 / 3.0),
+            parameter(8, 0.4),
+            parameter(9, 0.75),
+            parameter(10, 2.0 / 3.0),
+        ];
+        let payload = pa::GlobalTempoMessage {
+            action: pa::message_action::Enum::Update as i32,
+            params,
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let settings = decode_global_tempo_settings(&payload).unwrap();
+        assert_eq!(settings.mode.as_deref(), Some("GLOBAL"));
+        assert_eq!(settings.bpm, Some(120));
+        assert_eq!(settings.time_signature.as_deref(), Some("4/4"));
+        assert_eq!(settings.subdivision.as_deref(), Some("1/8"));
+        assert_eq!(settings.sound.as_deref(), Some("COWBELL"));
+        assert_eq!(settings.routing.as_deref(), Some("OUT 3/4"));
+        assert_eq!(settings.beats, vec!["DOWN"]);
+        let clock = pa::GlobalTempoMessage {
+            metronome_status: Some(pa::global_tempo_message::MetronomeStatus::MetronomeStatus(
+                Default::default(),
+            )),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_tempo_mode(&clock),
+            Err(ResponseDecodeError::Incomplete(_))
+        ));
     }
 
     #[test]

@@ -4033,6 +4033,45 @@ mod tests {
     }
 
     #[test]
+    fn tempo_metronome_preserves_signature_before_beats_and_validates_semantics() {
+        let plan = plan_gateway_write(
+            "device.setTempoMetronome",
+            &json!({
+                "timeSignature":"7/8 (2+2+3)", "ledEnabled":true, "volumeDb":-20.0,
+                "running":false, "pan":0.25, "subdivision":"1/8T", "sound":"COWBELL",
+                "routing":"OUT 3/4", "beats":["DOWN","OFF","MUTE"]
+            }),
+            None,
+        )
+        .unwrap();
+        let PlannedWrite::HidOperation(DeviceOperation::SetTempoParameters(values)) = plan.write
+        else {
+            panic!("wrong operation")
+        };
+        assert_eq!(values[0].0, 6);
+        assert_eq!(
+            values
+                .iter()
+                .rev()
+                .take(3)
+                .map(|value| value.0)
+                .collect::<Vec<_>>(),
+            vec![12, 11, 10]
+        );
+        assert!(
+            plan_gateway_write("device.setTempoMetronome", &json!({"beats":["LOUD"]}), None)
+                .is_err()
+        );
+        assert!(matches!(
+            plan_gateway_write("device.setTempoMode", &json!({"mode":"GLOBAL"}), None)
+                .unwrap()
+                .write,
+            PlannedWrite::HidOperation(DeviceOperation::SetTempoMode(true))
+        ));
+        assert!(plan_gateway_write("device.setTempoMode", &json!({"mode":"AUTO"}), None).is_err());
+    }
+
+    #[test]
     fn backup_validation_and_naming_are_shared_by_native_hosts() {
         let backup = finalize_device_backup(
             r#"{"type":"backup","creator":"quad","name":"device"}"#,

@@ -26,6 +26,18 @@ def _protocol_api():
     return getattr(pyquadcortex, "protocol", pyquadcortex)
 
 
+def _protocol_symbol(name: str, module: str):
+    """Resolve symbols exported by newer protocol facades with legacy fallback."""
+    protocol = _protocol_api()
+    exported = getattr(protocol, name, None)
+    if exported is not None:
+        return exported
+
+    from importlib import import_module
+
+    return getattr(import_module(f"{protocol.__name__}.{module}"), name)
+
+
 def _production_automation_proto():
     protocol = _protocol_api()
     from importlib import import_module

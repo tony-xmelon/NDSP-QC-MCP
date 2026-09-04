@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / "services" / "device-gateway" / "src"))
 from qc_device_gateway.framing import FramingError, read_frame, write_frame
 from qc_device_gateway.generated_gateway_dispatch import GATEWAY_API_VERSION
 from qc_device_gateway.service import GatewayService
-from qc_device_gateway.device import PyQuadCortexDevice, _block_color, _catalog_audit, _conditional_parameter_hidden, _device_type_name, _editor_parameter_state, _factory_model_metadata, _format_parameter_number, _parameter_enabled, _png_response, _stomp_color
+from qc_device_gateway.device import PyQuadCortexDevice, _block_color, _catalog_audit, _conditional_parameter_hidden, _device_type_name, _editor_parameter_state, _factory_model_metadata, _format_parameter_number, _parameter_enabled, _png_response, _protocol_symbol, _stomp_color
 from qc_device_gateway.native_transport import NativeBrokerTransport, _gunzip_bounded
 
 

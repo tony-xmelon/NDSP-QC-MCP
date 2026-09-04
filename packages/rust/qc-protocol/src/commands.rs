@@ -2421,6 +2421,31 @@ mod tests {
     }
 
     #[test]
+    fn tempo_metronome_and_mode_use_distinct_verified_containers() {
+        let frames = set_tempo_parameters(vec![(6, 0.5), (10, 2.0 / 3.0)]);
+        assert_eq!(frames.len(), 2);
+        for (frame, index) in frames.iter().zip([6_u32, 10]) {
+            assert_eq!(frame.message_type, 1);
+            let grid = pa::GridMessage::decode(frame.payload.as_slice()).unwrap();
+            let preset = match grid.preset.unwrap() {
+                pa::grid_message::Preset::Preset(value) => value,
+            };
+            assert_eq!(
+                preset.tempo_program_data[0].params[0].index,
+                Some(param::Index::Index(index))
+            );
+        }
+        let mode = set_tempo_mode(true);
+        assert_eq!(mode.message_type, 33);
+        let decoded = pa::GlobalTempoMessage::decode(mode.payload.as_slice()).unwrap();
+        assert_eq!(decoded.params[0].index, Some(param::Index::Index(1)));
+        assert!(matches!(
+            decoded.params[0].param_values[0].value,
+            Some(param_value::Value::FloatValue(1.0))
+        ));
+    }
+
+    #[test]
     fn master_volume_uses_the_normalized_device_scale_without_calibration() {
         let outbound = set_master_volume(0.57);
         assert_eq!(outbound.message_type, 17);
