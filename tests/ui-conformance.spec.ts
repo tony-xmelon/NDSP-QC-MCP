@@ -2,11 +2,11 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const surfaces = [
-  { name: "Android portrait", url: "http://127.0.0.1:4173", width: 393, height: 851, touchTargets: true },
-  { name: "Android compact portrait", url: "http://127.0.0.1:4173", width: 360, height: 640, touchTargets: true },
-  { name: "Android landscape", url: "http://127.0.0.1:4173", width: 800, height: 480, touchTargets: true },
-  { name: "Windows minimum", url: "http://127.0.0.1:1420", width: 920, height: 720, touchTargets: false },
-  { name: "Windows standard", url: "http://127.0.0.1:1420", width: 1280, height: 800, touchTargets: false }
+  { name: "Android portrait", url: "http://127.0.0.1:4173", width: 393, height: 851, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Android compact portrait", url: "http://127.0.0.1:4173", width: 360, height: 640, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Android landscape", url: "http://127.0.0.1:4173", width: 800, height: 480, touchTargets: true, sceneControl: "Footswitch C" },
+  { name: "Windows minimum", url: "http://127.0.0.1:1420", width: 920, height: 720, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" },
+  { name: "Windows standard", url: "http://127.0.0.1:1420", width: 1280, height: 800, touchTargets: false, sceneControl: "C encoder footswitch; encoder 50 percent" }
 ] as const;
 
 async function viewportMetrics(page: Page) {
@@ -72,5 +72,15 @@ for (const surface of surfaces) {
     await expect(close).toBeHidden();
     await expect(block).toBeVisible();
     expect(runtimeErrors, "parameter workflow must not raise runtime errors").toEqual([]);
+  });
+
+  test(`${surface.name} reconciles a scene footswitch press`, async ({ page }) => {
+    await page.setViewportSize({ width: surface.width, height: surface.height });
+    await page.goto(surface.url);
+    const scene = page.getByRole("button", { name: surface.sceneControl, exact: true });
+    await expect(scene).toBeVisible();
+    await expect(scene).toHaveAttribute("aria-pressed", "false");
+    await scene.click();
+    await expect(scene).toHaveAttribute("aria-pressed", "true");
   });
 }
