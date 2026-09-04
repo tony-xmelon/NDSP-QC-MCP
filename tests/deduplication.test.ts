@@ -479,6 +479,19 @@ test("assistant message rendering and access tiers have one shared UI owner", ()
   assert.doesNotMatch(androidServices, /"read-only" \| "performance"/);
 });
 
+test("assistant access persistence has one cross-platform owner", () => {
+  const storage = source("packages/typescript/qc-ui/src/assistant-access-storage.ts");
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  assert.match(storage, /ASSISTANT_ACCESS_MODE_STORAGE_KEY/);
+  assert.match(storage, /parseAssistantAccessMode/);
+  for (const app of [windows, android]) {
+    assert.match(app, /readAssistantAccessMode/);
+    assert.match(app, /writeAssistantAccessMode/);
+    assert.doesNotMatch(app, /localStorage\.setItem\([^,]*access-mode/i);
+  }
+});
+
 test("assistant tool outcomes reconcile through one shared UI path", () => {
   const outcome = source("packages/typescript/qc-ui/src/qc-action-outcome.ts");
   const windows = source("apps/windows/src/App.tsx");

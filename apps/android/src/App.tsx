@@ -1,10 +1,10 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantAccessMode, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, QcRelayNative, QcUsbNative, VoiceInputNative, type ControlAccessMode, type RelayState } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -23,8 +23,8 @@ const androidGeminiModels: ReadonlyArray<{ id: AndroidGeminiModel; label: string
 ];
 const androidModelStorageKey = "qc-control.android-gemini-model";
 const androidQuotaStorageKey = "qc-control.android-gemini-quota-v1";
-const controlAccessModeKey = "qc-control.device-access-mode-v1";
-const storedControlAccessMode = (): ControlAccessMode => parseAssistantAccessMode(window.localStorage.getItem(controlAccessModeKey));
+const legacyControlAccessModeKey = "qc-control.device-access-mode-v1";
+const storedControlAccessMode = (): ControlAccessMode => readAssistantAccessMode(window.localStorage, [legacyControlAccessModeKey]);
 function loadQuotaLedger(): GeminiQuotaLedger {
   try {
     const saved = JSON.parse(window.localStorage.getItem(androidQuotaStorageKey) ?? "{}");
@@ -221,7 +221,7 @@ export function App() {
       setRelayPaired(status.paired);
       setRelayState(status.state);
       setControlAccessMode(status.accessMode);
-      window.localStorage.setItem(controlAccessModeKey, status.accessMode);
+      writeAssistantAccessMode(window.localStorage, status.accessMode);
       if (status.paired && status.state === "stopped") void QcRelayNative.start();
     }).catch(() => {});
     return () => { cancelled = true; void listener.then((value) => value.remove()); };
@@ -439,14 +439,14 @@ export function App() {
   const changeControlAccessMode = async (mode: ControlAccessMode) => {
     const previous = controlAccessMode;
     setControlAccessMode(mode);
-    window.localStorage.setItem(controlAccessModeKey, mode);
+    writeAssistantAccessMode(window.localStorage, mode);
     if (!native) return;
     try {
       await QcRelayNative.setAccessMode({ mode });
       appendAssistant(`Assistant and remote access changed to ${mode}. Guarded confirmations still apply; manual controls remain available.`);
     } catch (error) {
       setControlAccessMode(previous);
-      window.localStorage.setItem(controlAccessModeKey, previous);
+      writeAssistantAccessMode(window.localStorage, previous);
       appendAssistant(error instanceof Error ? error.message : "Could not change the remote access mode.");
     }
   };

@@ -5,6 +5,7 @@ import { parseAssistantIntent } from "../packages/typescript/qc-core/src/assista
 import { resolveOfflineAssistantIntent } from "../packages/typescript/qc-core/src/assistant-intent-resolution.ts";
 import { SHARED_QC_ASSISTANT_TOOLS } from "../packages/typescript/qc-core/src/assistant-tools.ts";
 import { demoSnapshot } from "../packages/typescript/qc-client/src/index.ts";
+import { ASSISTANT_ACCESS_MODE_STORAGE_KEY, readAssistantAccessMode, writeAssistantAccessMode } from "../packages/typescript/qc-ui/src/assistant-access-storage.ts";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatErrorMessage, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, isReadOnlyChatTool, numericArgument, qcChatTools } from "../apps/windows/src/model-chat.ts";
 
 test("parses immediate performance commands", () => {
@@ -55,6 +56,18 @@ test("resolves offline assistant workflows identically for native shells", () =>
     () => resolveOfflineAssistantIntent({ kind: "parameter", parameter: "gain", value: "50%" }, demoSnapshot, "missing", "modify"),
     /Select a block/
   );
+});
+
+test("assistant access persistence is shared and migrates the Android legacy key", () => {
+  const values = new Map([["qc-control.device-access-mode-v1", "modify"]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); }
+  };
+  assert.equal(readAssistantAccessMode(storage, ["qc-control.device-access-mode-v1"]), "modify");
+  assert.equal(values.get(ASSISTANT_ACCESS_MODE_STORAGE_KEY), "modify");
+  writeAssistantAccessMode(storage, "read-only");
+  assert.equal(readAssistantAccessMode(storage), "read-only");
 });
 
 test("publishes strict schemas for every allowed QC model tool", () => {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantAccessMode, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
-import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, readAssistantAccessMode, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles, type ControlAccessMode, type PublicRelayStatus } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -27,8 +27,7 @@ const initialConnection: ConnectionState = {
 
 const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
 const remoteChatDisclosureKey = "qc.chat.remote-disclosure.v1";
-const assistantAccessModeKey = "qc.control.assistant-access-mode.v1";
-const storedAccessMode = (): ControlAccessMode => parseAssistantAccessMode(localStorage.getItem(assistantAccessModeKey));
+const storedAccessMode = (): ControlAccessMode => readAssistantAccessMode(localStorage);
 const appVersion = appPackage.version;
 const fallbackAntigravityModels: AntigravityModel[] = [
   { id: "gemini-3.7-flash-high", label: "Gemini 3.7 Flash (High)" },
@@ -1669,7 +1668,7 @@ export function App() {
 
           {settingsTab === "general" && <section className="settings-panel">
             <label className="setting-row borderless"><span>Device model<small>Hardware geometry, controls, and appearance</small></span><select value={formFactorId} onChange={(event) => setFormFactorId(event.target.value)}>{formFactors.map((item) => <option value={item.id} key={item.id}>{item.displayName}</option>)}</select></label>
-            <label className="setting-row"><span>Assistant device access<small>Read-only inspects; Performance permits buttons, volume, and tempo; Modify adds Grid, presets, and scenes; Full also permits system operations. Confirmation gates still apply.</small></span><AssistantAccessSelect value={assistantAccessMode} onChange={(mode) => { setAssistantAccessMode(mode); localStorage.setItem(assistantAccessModeKey, mode); setPendingAssistantAction(undefined); setNotice(`Assistant access changed to ${mode}.`); }} /></label>
+            <label className="setting-row"><span>Assistant device access<small>Read-only inspects; Performance permits buttons, volume, and tempo; Modify adds Grid, presets, and scenes; Full also permits system operations. Confirmation gates still apply.</small></span><AssistantAccessSelect value={assistantAccessMode} onChange={(mode) => { setAssistantAccessMode(mode); writeAssistantAccessMode(localStorage, mode); setPendingAssistantAction(undefined); setNotice(`Assistant access changed to ${mode}.`); }} /></label>
             <div className="relay-settings">
               <div className="relay-settings-heading"><span>Public MCP relay<small>Outbound-only connection for ChatGPT or Claude. No listening port is opened on this computer.</small></span><strong className={relayStatus?.state === "connected" ? "model-ready" : "model-offline"}>{relayStatus?.state.replaceAll("_", " ").toUpperCase() ?? "NOT PAIRED"}</strong></div>
               {relayStatus?.paired ? <>
