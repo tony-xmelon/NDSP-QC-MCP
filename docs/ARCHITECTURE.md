@@ -56,7 +56,7 @@ deployed path loads Python or pyquadcortex.
 
 `packages/rust/qc-relay-protocol` owns the shared relay wire frames and limits.
 `packages/rust/qc-relay-client` owns the reusable outbound Rust client used by
-Windows. The complete 46-method action allowlist and minimum access tier for
+Windows. The complete manifest-defined action allowlist and minimum access tier for
 Windows, Android, and the server are generated from `qc-actions.v1.json`. A
 contract test requires it to remain an exact gateway-method set, so a new
 Windows RPC cannot silently be omitted from Android.
@@ -81,7 +81,7 @@ Five protocol manifests currently prevent platform drift:
 - `qc-domain.v1.json` owns Grid/scene/tempo limits, scene colors, route IDs/labels/groups, and IPC frame limits.
 - `gateway-methods.v1.json` owns every gateway RPC, TypeScript client method,
   Tauri command binding, generated Android dispatch class, and the identical
-  46-method set supported by the legacy Python parity runtime. Python delegates
+  gateway-method set supported by the legacy Python parity runtime. Python delegates
   device identity/history and screenshot/remote-screen behavior to pyquadcortex.
 - `qc-actions.v1.json` owns the cross-surface assistant/MCP action names, RPC mapping, descriptions, schemas, and read/live/persistent safety class.
 - `qc-payloads.v1.schema.json` owns snapshots, native state events, Grid/editor structures, and action results generated for TypeScript, Rust, and Python.
@@ -117,7 +117,7 @@ ordering, editor metadata, routing rules, and stale-echo behavior while retainin
 platform-specific USB handle, permission, endpoint, and lifecycle code. HID
 reads, writes, performance MIDI, and ModelRepo parsing use independent lanes.
 Both native hosts retain the USB handle for the full connected session and
-  expose the same 67 gateway methods. Their remaining native code is limited to
+expose the same generated gateway-method set. Their remaining native code is limited to
 OS permission/interface discovery, endpoint I/O, serialized scheduling,
 lifecycle adaptation, and notifications. Shared Rust owns tempo-clock decoding,
 backup chunk assembly and validation, command planning, HID-versus-MIDI lane
