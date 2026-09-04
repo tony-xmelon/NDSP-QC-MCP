@@ -33,6 +33,7 @@
     "test:frontend": "node --experimental-strip-types --test tests/all-device-parameters.test.ts tests/assistant.test.ts tests/block-visuals.test.ts tests/coros-ui.test.ts tests/deduplication.test.ts tests/footswitch-leds.test.ts tests/hardware-conformance.test.ts tests/parameter-editor.test.ts tests/qc-action-executor.test.ts tests/qc-transport.test.ts tests/relay-client.test.ts tests/voice.test.ts",
     "test:hardware:plan": "node tools/hardware-conformance.mjs",
     "test:hardware:release": "node tools/verify-hardware-release.mjs",
+    "test:parity:software": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-software-parity.ps1",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {
