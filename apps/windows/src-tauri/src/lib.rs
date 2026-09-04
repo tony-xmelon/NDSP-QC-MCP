@@ -1570,6 +1570,9 @@ async fn lane_control_details(
     .await
 }
 
+// Tauri exposes command fields as function arguments; this signature mirrors
+// the generated gateway contract and keeps the adapter free of another DTO.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn set_parameter(
     app: AppHandle,
@@ -1658,6 +1661,7 @@ async fn set_lane_control_scene_mode(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn set_parameter_expression(
     app: AppHandle,
@@ -1685,6 +1689,7 @@ async fn set_parameter_expression(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn set_expression_bypass(
     app: AppHandle,
@@ -1913,6 +1918,7 @@ async fn save_preset_as(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn copy_preset(
     app: AppHandle,
@@ -2262,6 +2268,7 @@ fn chrono_free_timestamp() -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
 

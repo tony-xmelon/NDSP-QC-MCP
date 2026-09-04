@@ -824,7 +824,7 @@ fn parse_antigravity_response(
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .filter(|event| event.get("event").and_then(Value::as_str) == Some("result"))
         .filter_map(|event| event.get("result").cloned())
-        .last()
+        .next_back()
         .ok_or_else(|| {
             ChatError::new(
                 "invalid_provider_response",

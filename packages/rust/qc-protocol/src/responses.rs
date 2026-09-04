@@ -476,7 +476,7 @@ mod tests {
         );
         assert_eq!(settings.hold_timing_index, Some(3));
         assert_eq!(settings.hold_timing_ms, Some(800));
-        assert_eq!(settings.master_volume_assignment.unwrap().send12, true);
+        assert!(settings.master_volume_assignment.unwrap().send12);
     }
 
     #[test]
