@@ -86,8 +86,8 @@
       "id": "public-relay",
       "label": "Outbound authenticated public MCP relay",
       "parity": "required",
-      "owner": "native-equivalent",
-      "sharedEvidence": [{ "path": "contracts/qc-actions.v1.json", "contains": "accessTiers" }],
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-core/src/relay.ts", "contains": "export interface PublicRelayPort" }, { "path": "packages/typescript/qc-ui/src/use-public-relay-workflow.ts", "contains": "export function usePublicRelayWorkflow" }, { "path": "contracts/qc-actions.v1.json", "contains": "accessTiers" }],
       "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/tauri-transport.ts", "contains": "export const publicRelay" }] },
       "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/native-services.ts", "contains": "QcRelayNative" }] }
     },
