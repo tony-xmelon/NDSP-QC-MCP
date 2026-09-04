@@ -8,6 +8,7 @@ use qc_protocol::state::{
 use serde::Serialize;
 use std::collections::HashMap;
 
+pub mod generated_gateway;
 pub mod request;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

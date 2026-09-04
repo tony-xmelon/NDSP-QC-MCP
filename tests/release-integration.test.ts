@@ -33,6 +33,14 @@ test("Windows installer builds checksum their external Cargo target artifact", (
   assert.match(build, /without an NSIS artifact/);
 });
 
+test("packaged Windows gateway verification follows the generated contract", () => {
+  const verifier = readFileSync(new URL("../tools/verify-packaged-gateway.mjs", import.meta.url), "utf8");
+  assert.match(verifier, /contracts\/gateway-methods\.v1\.json/);
+  assert.match(verifier, /gatewayContract\.apiVersion/);
+  assert.match(verifier, /gatewayContract\.capabilities/);
+  assert.doesNotMatch(verifier, /expectedApiVersion\s*=\s*\d/);
+});
+
 test("Windows installer verifies every downloaded executable dependency", () => {
   const build = script("build-windows-installer.ps1");
   const contract = JSON.parse(readFileSync(new URL("../contracts/windows-sidecars.v1.json", import.meta.url), "utf8"));

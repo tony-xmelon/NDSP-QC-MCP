@@ -142,7 +142,7 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
   const generated = source("packages/typescript/qc-client/src/generated-gateway-methods.ts");
   const dispatch = source("services/device-gateway/src/qc_device_gateway/generated_gateway_dispatch.py");
   const pythonClient = source("packages/python/qc-gateway-client/src/qc_gateway_client/generated_gateway_methods.py");
-  const rust = source("apps/windows/src-tauri/src/generated_gateway.rs");
+  const rust = source("packages/rust/qc-device-runtime/src/generated_gateway.rs");
   const java = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedGatewayMethods.java");
   const transport = source("apps/windows/src/tauri-transport.ts");
   assert.ok(contract.methods.length >= 37, "the generated gateway must retain the complete baseline API");
@@ -153,6 +153,10 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
     assert.match(rust, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(java, new RegExp(method.rpc.replace(".", "\\.")));
   }
+  assert.match(rust, new RegExp(`API_VERSION: u64 = ${contract.apiVersion}`));
+  for (const capability of contract.capabilities) assert.match(rust, new RegExp(capability));
+  assert.match(source("apps/windows/src-tauri/src/lib.rs"), /qc_device_runtime::\{generated_gateway::rpc/);
+  assert.match(source("services/device-broker/src/rpc.rs"), /generated_gateway::API_VERSION/);
   assert.match(transport, /createGatewayClientTransport<GatewayTransport>/);
   assert.match(source("packages/python/qc-gateway-client/src/qc_gateway_client/client.py"), /method not in GATEWAY_METHODS/);
   assert.doesNotMatch(transport, /callTauri<[^>]+>\("(?:select_scene|toggle_bypass|current_snapshot)"/);

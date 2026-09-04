@@ -1,12 +1,15 @@
 use crate::worker::DeviceController;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use qc_device_runtime::request::{
-    self as runtime_request, finalize_device_backup, GatewayResponseProjection, GatewayTransaction,
-    GatewayTransactionState, GatewayVerification, GatewayWritePlan, PlannedWrite,
-    PresetMutationPlan,
+use qc_device_runtime::{
+    generated_gateway,
+    request::{
+        self as runtime_request, finalize_device_backup, GatewayResponseProjection,
+        GatewayTransaction, GatewayTransactionState, GatewayVerification, GatewayWritePlan,
+        PlannedWrite, PresetMutationPlan,
+    },
 };
-use qc_protocol::{domain, profile};
 use qc_protocol::responses::decode_tempo_clock;
+use qc_protocol::{domain, profile};
 use qc_windows_midi::PerformanceMidi;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -81,13 +84,18 @@ fn handle(
         return error(id, -32602, "JSON-RPC params must be an object");
     }
     let result = match request.method.as_str() {
-        "system.status" => Ok(json!({
-            "platform": "Rust device gateway",
-            "gatewayAvailable": true,
-            "gatewayApiVersion": 10,
-            "capabilities": ["nativeGateway", "nativeBroker", "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeLaneControls", "nativeGeneralSettings", "hostMidiPerformance"],
-            "message": "Shared Rust QC engine active"
-        })),
+        "system.status" => {
+            let mut capabilities = vec!["nativeGateway"];
+            capabilities.extend_from_slice(generated_gateway::CAPABILITIES);
+            capabilities.push("hostMidiPerformance");
+            Ok(json!({
+                "platform": "Rust device gateway",
+                "gatewayAvailable": true,
+                "gatewayApiVersion": generated_gateway::API_VERSION,
+                "capabilities": capabilities,
+                "message": "Shared Rust QC engine active"
+            }))
+        }
         "device.status" => {
             serde_json::to_value(controller.status()).map_err(|error| error.to_string())
         }
@@ -1368,7 +1376,17 @@ mod tests {
             },
         );
         assert_eq!(response["result"]["platform"], "Rust device gateway");
-        assert_eq!(response["result"]["gatewayApiVersion"], 10);
+        assert_eq!(
+            response["result"]["gatewayApiVersion"],
+            generated_gateway::API_VERSION
+        );
         assert_eq!(response["result"]["gatewayAvailable"], true);
+        for capability in generated_gateway::CAPABILITIES {
+            assert!(response["result"]["capabilities"]
+                .as_array()
+                .expect("capability array")
+                .iter()
+                .any(|value| value == capability));
+        }
     }
 }

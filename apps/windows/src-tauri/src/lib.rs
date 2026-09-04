@@ -1,5 +1,5 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use qc_device_runtime::request::plan_host_midi;
+use qc_device_runtime::{generated_gateway::rpc, request::plan_host_midi};
 use qc_relay_client::{DeviceAdapter, DeviceError};
 use qc_windows_midi::PerformanceMidi;
 use serde_json::{json, Value};
@@ -11,10 +11,8 @@ use std::sync::{mpsc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 mod chat;
-mod generated_gateway;
 mod relay;
 use chat::{ChatBridge, ChatError, ChatRequest, ChatResponse, ChatSettings, ChatSettingsView};
-use generated_gateway::rpc;
 use relay::{RelayBridge, RelayStatus};
 
 #[cfg(windows)]

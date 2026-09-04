@@ -1,8 +1,15 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const expectedApiVersion = 2;
-const requiredCapabilities = ["modelRepoParameterMetadata", "nativeBroker"];
+const gatewayContract = JSON.parse(
+  readFileSync(new URL("../contracts/gateway-methods.v1.json", import.meta.url), "utf8"),
+);
+const expectedApiVersion = gatewayContract.apiVersion;
+const requiredCapabilities = gatewayContract.capabilities;
+if (!Number.isInteger(expectedApiVersion) || expectedApiVersion < 1 || !Array.isArray(requiredCapabilities)) {
+  throw new Error("Gateway method contract does not declare a valid API version and capability set");
+}
 const executable = resolve(process.argv[2] ?? "");
 
 function frame(message) {
