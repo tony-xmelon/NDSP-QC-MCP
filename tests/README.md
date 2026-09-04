@@ -12,3 +12,8 @@ coverage, and every shared/native Rust crate used by the product. Invoke
 `scripts/verify-software-parity.ps1` directly with `-BuildApps` or
 `-BuildAndroid` when build artifacts are also required. Physical releases still
 require the separate Windows and Android hardware-conformance evidence.
+
+`npm run test:ui` exercises both rendered app surfaces at desktop, portrait,
+compact portrait, and landscape sizes. In addition to overflow and accessibility
+checks, it opens/closes an effect editor, reconciles a scene press, changes tap
+tempo, and verifies that rapid consecutive bypass changes are not dropped.

@@ -106,13 +106,19 @@ phone-first layout. Android owns a direct USB-host HID session with the Quad
 Cortex (USB permission is requested on first attachment), uses Firebase AI
 Logic with Gemini 3.7 Flash without embedding a personal Gemini key, and sends
 Android speech-recognition transcripts through the same chat/action path. The
-hardware-safe action allowlist supports scene and preset navigation,
-selected-block bypass, tuner, Gig View, and physical-control tap tempo. Live USB messages populate the
-preset grid, routes, scene metadata, setlist position, dirty state, and master
-volume.
+mobile shell composes the same preset, Grid, routing, scene, parameter,
+footswitch, history, save, and performance workflows as Windows, including the
+same guarded assistant action executor and offline intent resolver. Live USB
+messages populate the preset grid, routes, scene metadata, setlist position,
+dirty state, tempo, mode/footswitch state, and master volume through the shared
+Rust state engine.
 Firebase App Check uses Play Integrity, with
 the distributed debug certificate registered and off-Play tester builds
 explicitly allowed.
+
+Run `npm run app-parity:check` for the executable capability inventory. It
+distinguishes required Windows/Android parity from justified platform-only
+features and validates the shared/native evidence for every listed capability.
 
 The native transport and legacy parity adapter have been validated locally
 against a connected Quad Cortex. See [Native QC device broker](docs/NATIVE_BROKER.md).
