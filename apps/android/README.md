@@ -127,3 +127,10 @@ The Firebase Android app is registered as `com.qccontrol.mobile` in the `qc-cont
 ```powershell
 npm run android:publish:firebase -- -ReleaseNotes "Describe this build" -Testers "tester@example.com"
 ```
+
+`apps/android/package.json` is the Android version source. Increment it with
+`npm run version:android:patch` (or `:minor` / `:major`), or set an explicit
+version with `npm run version:android:set -- 1.2.3`. The shared version tool
+updates Gradle's `versionName`, increments `versionCode` for a new version, and
+synchronizes the workspace lockfile. Android builds verify that synchronization
+before packaging.
