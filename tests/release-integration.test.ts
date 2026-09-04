@@ -13,6 +13,11 @@ test("Android builds and Firebase publishing emit provenance for the exact APK",
   assert.ok(publish.indexOf("release-provenance.mjs") < publish.indexOf("appdistribution:distribute"));
 });
 
+test("release provenance fingerprints the executable app parity contract", () => {
+  const provenance = readFileSync(new URL("../tools/release-provenance.mjs", import.meta.url), "utf8");
+  assert.match(provenance, /contracts\/app-parity\.v1\.json/);
+});
+
 test("Windows installer builds checksum their external Cargo target artifact", () => {
   const build = script("build-windows-installer.ps1");
   assert.match(build, /release\\bundle\\nsis/);

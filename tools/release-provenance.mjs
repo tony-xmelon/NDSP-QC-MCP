@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const contractFiles = [
+  "contracts/app-parity.v1.json",
   "contracts/gateway-methods.v1.json",
   "contracts/gateway.v1.schema.json",
   "contracts/native-broker.v1.schema.json",
