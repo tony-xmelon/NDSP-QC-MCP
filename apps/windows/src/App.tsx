@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, demoBlockDetails, formatSnapshotSummary, parseAssistantAccessMode, parseAssistantIntent, recentModelConversation, runToolConversation, sceneLetter, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { AddBlockPanel, AssistantAccessSelect, executeQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
@@ -28,10 +28,7 @@ const initialConnection: ConnectionState = {
 const voiceDisclosureKey = "qc.voice.azure-disclosure.v1";
 const remoteChatDisclosureKey = "qc.chat.remote-disclosure.v1";
 const assistantAccessModeKey = "qc.control.assistant-access-mode.v1";
-const storedAccessMode = (): ControlAccessMode => {
-  const value = localStorage.getItem(assistantAccessModeKey);
-  return value === "read-only" || value === "performance" || value === "modify" ? value : "full";
-};
+const storedAccessMode = (): ControlAccessMode => parseAssistantAccessMode(localStorage.getItem(assistantAccessModeKey));
 const appVersion = appPackage.version;
 const fallbackAntigravityModels: AntigravityModel[] = [
   { id: "gemini-3.7-flash-high", label: "Gemini 3.7 Flash (High)" },

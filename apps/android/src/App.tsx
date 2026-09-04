@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantIntent, parseAssistantReply, recentModelConversation, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
+import { assistantAccessPermitsTool, assistantCommandDetail, assistantHelp, assistantIntentCommand, assistantIntentToolName, assistantToolActionPrompt, footswitchLeds, formatSnapshotSummary, parseAssistantAccessMode, parseAssistantIntent, parseAssistantReply, recentModelConversation, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantToolCall } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, executeQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QuadCortexSurface, reconcileQcActionOutcome, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantConversation, useBlockEditorSession, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows } from "@ndsp-qc/ui";
@@ -24,10 +24,7 @@ const androidGeminiModels: ReadonlyArray<{ id: AndroidGeminiModel; label: string
 const androidModelStorageKey = "qc-control.android-gemini-model";
 const androidQuotaStorageKey = "qc-control.android-gemini-quota-v1";
 const controlAccessModeKey = "qc-control.device-access-mode-v1";
-const storedControlAccessMode = (): ControlAccessMode => {
-  const value = window.localStorage.getItem(controlAccessModeKey);
-  return value === "read-only" || value === "performance" || value === "modify" ? value : "full";
-};
+const storedControlAccessMode = (): ControlAccessMode => parseAssistantAccessMode(window.localStorage.getItem(controlAccessModeKey));
 function loadQuotaLedger(): GeminiQuotaLedger {
   try {
     const saved = JSON.parse(window.localStorage.getItem(androidQuotaStorageKey) ?? "{}");

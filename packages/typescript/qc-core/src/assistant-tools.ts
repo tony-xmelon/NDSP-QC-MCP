@@ -11,6 +11,10 @@ const accessLevel: Record<AssistantAccessMode, number> = {
   full: 3
 };
 
+export function parseAssistantAccessMode(value: unknown, fallback: AssistantAccessMode = "full"): AssistantAccessMode {
+  return value === "read-only" || value === "performance" || value === "modify" || value === "full" ? value : fallback;
+}
+
 /** Provider-neutral tool declarations generated from the shared QC action contract. */
 export const SHARED_QC_ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = SHARED_QC_ACTIONS.map(
   ({ name, description, inputSchema }) => ({

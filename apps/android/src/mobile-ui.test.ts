@@ -80,7 +80,7 @@ test("assistant and relay access defaults to full control and enforces four tier
   const relaySource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/QcRelayService.java", import.meta.url), "utf8");
   const policySource = readFileSync(new URL("../android/app/src/main/java/com/qccontrol/mobile/RelayAccessPolicy.java", import.meta.url), "utf8");
 
-  assert.match(appSource, /value === "read-only" \|\| value === "performance" \|\| value === "modify" \? value : "full"/);
+  assert.match(appSource, /parseAssistantAccessMode\(window\.localStorage\.getItem\(controlAccessModeKey\)\)/);
   assert.match(appSource, /ariaLabel="Assistant and remote device access"/);
   assert.match(appSource, /assistantAccessPermitsTool\(controlAccessMode/);
   assert.match(primitivesSource, /value: "performance", label: "Performance"/);
