@@ -10,6 +10,8 @@
     "launcherBackground": "#080a0d",
     "brandScreen": "#2d8daf",
     "splashText": "#f4f6f8",
-    "splashCaption": "#71808b"
+    "splashCaption": "#71808b",
+    "splashFontFamily": "Segoe UI",
+    "appFontFamily": "sans"
   }
 }

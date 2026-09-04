@@ -3,14 +3,14 @@
   font-family: var(--qc-font-app);
   background: var(--qc-app-canvas);
   color: var(--qc-app-text);
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: var(--qc-transparent);
 }
 
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; min-width: 0; height: 100%; margin: 0; overflow: hidden; }
 button, input, select { font: inherit; }
 button { touch-action: manipulation; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #70d6ff; outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--qc-app-info); outline-offset: 2px; }
 
 .android-app {
   width: 100%;
@@ -21,7 +21,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   gap: 9px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% -20%, var(--qc-palette-222933) 0, transparent 42%),
+    radial-gradient(circle at 50% -20%, var(--qc-palette-222933) 0, var(--qc-transparent) 42%),
     linear-gradient(180deg, var(--qc-palette-0b0d10), var(--qc-app-canvas-deep) 65%);
 }
 
@@ -87,7 +87,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .quick-controls .navigation-controls button { min-height: 0; height: 100%; border-radius: 11px; }
 .quick-controls .tempo-control { grid-column: 5; grid-row: 2; }
 .quick-controls button:active { transform: translateY(1px); background: var(--qc-palette-0d0f12); }
-.quick-controls .footswitch-control.is-active { border-color: color-mix(in srgb, var(--switch-color) 75%, var(--qc-palette-2a2e34)); background: linear-gradient(180deg, color-mix(in srgb, var(--switch-color) 18%, var(--qc-palette-171a1f)), color-mix(in srgb, var(--switch-color) 9%, var(--qc-palette-101216))); color: var(--switch-color); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--switch-color) 22%, transparent), 0 0 11px color-mix(in srgb, var(--switch-color) 16%, transparent); }
+.quick-controls .footswitch-control.is-active { border-color: color-mix(in srgb, var(--switch-color) 75%, var(--qc-palette-2a2e34)); background: linear-gradient(180deg, color-mix(in srgb, var(--switch-color) 18%, var(--qc-palette-171a1f)), color-mix(in srgb, var(--switch-color) 9%, var(--qc-palette-101216))); color: var(--switch-color); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--switch-color) 22%, var(--qc-transparent)), 0 0 11px color-mix(in srgb, var(--switch-color) 16%, var(--qc-transparent)); }
 .quick-controls .control-led { width: 10px; height: 10px; display: block; border: 1px solid var(--qc-palette-8c9298); border-radius: 50%; background: var(--qc-palette-555b61); box-shadow: inset 0 0 0 1px var(--qc-palette-23272b); }
 .quick-controls .footswitch-control.is-assigned .control-led { border-color: color-mix(in srgb, var(--switch-color) 58%, var(--qc-palette-8c9298)); }
 .quick-controls .footswitch-control.is-active .control-led { border-color: var(--switch-color); background: var(--switch-color); box-shadow: 0 0 8px var(--switch-color); }
@@ -137,7 +137,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .chat-model-bar span { min-width: 0; overflow: hidden; color: var(--qc-palette-777f88); font-size: 9px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .chat-model-bar span[title] { cursor: help; }
 .message-composer { min-height: 54px; display: grid; grid-template-columns: 36px minmax(0, 1fr) 38px; align-items: center; gap: 5px; padding: 7px; border-top: 1px solid var(--qc-palette-20242a); background: var(--qc-palette-0a0c0e); }
-.message-composer input { min-width: 0; height: 38px; padding: 0 8px; border: 0; outline: 0; background: transparent; color: var(--qc-palette-f4f5f6); font-size: 14px; }
+.message-composer input { min-width: 0; height: 38px; padding: 0 8px; border: 0; outline: 0; background: var(--qc-transparent); color: var(--qc-palette-f4f5f6); font-size: 14px; }
 .message-composer input::placeholder { color: var(--qc-palette-656c74); }
 .voice-button, .send-button { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 11px; background: var(--qc-app-panel-raised); color: var(--qc-palette-8c949d); font-size: 17px; }
 .voice-button { display: grid; place-items: center; }

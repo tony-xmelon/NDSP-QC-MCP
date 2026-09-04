@@ -87,16 +87,16 @@ export function routedPortIsPlugged(
 }
 
 export const GRID_CONTEXT_MENU = [
-  { label: "Create New", icon: "＋", action: "create-new" },
-  { label: "Save as…", icon: "⇥", action: "save-as" },
-  { label: "Edit details", icon: "✎", action: "edit-details" },
-  { label: "Preset MIDI Out", icon: "M", action: "preset-midi-out" },
-  { label: "Add to favorites", icon: "☆", action: "favorite" },
-  { label: "Delete preset", icon: "⌫", action: "delete-preset", danger: true },
-  { label: "New Neural Capture", icon: "◇", action: "new-capture" },
-  { label: "Tempo", icon: "♩", action: "tempo" },
-  { label: "CPU monitor", icon: "▥", action: "cpu-monitor" },
-  { label: "Settings", icon: "⚙", action: "settings" }
+  { label: "Create New", icon: "add", action: "create-new" },
+  { label: "Save as…", icon: "save-as", action: "save-as" },
+  { label: "Edit details", icon: "edit", action: "edit-details" },
+  { label: "Preset MIDI Out", icon: "midi", action: "preset-midi-out" },
+  { label: "Add to favorites", icon: "favorite", action: "favorite" },
+  { label: "Delete preset", icon: "delete", action: "delete-preset", danger: true },
+  { label: "New Neural Capture", icon: "capture", action: "new-capture" },
+  { label: "Tempo", icon: "tempo", action: "tempo" },
+  { label: "CPU monitor", icon: "cpu", action: "cpu-monitor" },
+  { label: "Settings", icon: "settings", action: "settings" }
 ] as const;
 
 export const DIRECTORY_PRESET_CONTEXT_MENU = [

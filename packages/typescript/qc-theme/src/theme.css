@@ -1,4 +1,5 @@
 :root {
+  --qc-transparent: transparent;
   color-scheme: dark;
   --qc-screen: #000000;
   --qc-route-pill: #101010;
@@ -737,4 +738,20 @@
   --qc-palette-07110a: #07110a;
   --qc-palette-555c64: #555c64;
   --qc-palette-73ee98: #73ee98;
+}
+
+.qc-ui-icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qc-ui-icon .qc-ui-icon-fill {
+  fill: currentColor;
+  stroke: none;
 }

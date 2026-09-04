@@ -1,6 +1,7 @@
 import nativeTheme from "./native-theme.json" with { type: "json" };
 import colorTheme from "./colors.json" with { type: "json" };
 import visualAssets from "./assets.json" with { type: "json" };
+import brand from "./brand.json" with { type: "json" };
 
 export { REFERENCE_BLOCK_ICONS } from "./reference-block-icons.ts";
 
@@ -36,10 +37,12 @@ export const QC_GLYPH_FAMILIES = {
   routing: ["input", "output", "internal", "usb", "return", "multiOut", "send", "xlr", "row"] as const,
   directory: ["grid", "download", "cloud", "folder", "newFolder", "sort", "upload", "search", "done"] as const,
   editing: ["save", "change", "copy", "paste", "reset", "defaults", "expression", "looper", "mute", "remove"] as const,
-  communication: ["microphone", "attachment", "send", "expand"] as const
+  communication: ["microphone", "attachment", "file", "send", "stop", "expand"] as const,
+  interface: ["add", "subtract", "previous", "next", "up", "down", "more", "check", "close", "backspace", "saveAs", "edit", "midi", "favorite", "delete", "capture", "tempo", "cpu", "settings"] as const
 } as const;
 
 export const QC_NATIVE_THEME = nativeTheme;
+export const QC_BRAND = brand;
 
 export type QcCategoryColor = keyof typeof QC_COLORS.category;
 
@@ -49,5 +52,6 @@ export const QC_THEME = {
   geometry: QC_GEOMETRY,
   assets: QC_VISUAL_ASSETS,
   glyphs: QC_GLYPH_FAMILIES,
-  native: QC_NATIVE_THEME
+  native: QC_NATIVE_THEME,
+  brand: QC_BRAND
 } as const;

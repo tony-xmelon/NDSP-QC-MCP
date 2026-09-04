@@ -1,12 +1,14 @@
+import colors from "./colors.json" with { type: "json" };
+
 const svgData = (markup: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
 
 // Isolated artwork prevents the composite reference sheet from leaking
 // neighboring examples into a block. Pitch follows the official Transpose SVG.
 const pitch = svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
-  <rect width="70" height="70" rx="17" fill="#000"/>
-  <path d="M53 3C60.732 3 67 9.268 67 17v36c0 7.732-6.268 14-14 14H17C9.268 67 3 60.732 3 53V17C3 9.268 9.268 3 17 3h36ZM17 5C10.475 5 5.166 10.209 5.004 16.695L5 17v36c0 6.525 5.209 11.834 11.695 11.996L17 65h36c6.525 0 11.834-5.209 11.996-11.695L65 53V17c0-6.525-5.209-11.834-11.695-11.996L53 5H17Z" fill="#FFD236"/>
-  <path d="M20 22v27" fill="none" stroke="#959595" stroke-width="2"/>
-  <path d="M20 43c14 0 14-22 30-22" fill="none" stroke="#fff" stroke-width="2"/>
+  <rect width="70" height="70" rx="17" fill="${colors.captured.screen}"/>
+  <path d="M53 3C60.732 3 67 9.268 67 17v36c0 7.732-6.268 14-14 14H17C9.268 67 3 60.732 3 53V17C3 9.268 9.268 3 17 3h36ZM17 5C10.475 5 5.166 10.209 5.004 16.695L5 17v36c0 6.525 5.209 11.834 11.695 11.996L17 65h36c6.525 0 11.834-5.209 11.996-11.695L65 53V17c0-6.525-5.209-11.834-11.695-11.996L53 5H17Z" fill="${colors.category.overdrive}"/>
+  <path d="M20 22v27" fill="none" stroke="${colors.category.utility}" stroke-width="2"/>
+  <path d="M20 43c14 0 14-22 30-22" fill="none" stroke="${colors.captured.primaryText}" stroke-width="2"/>
 </svg>`);
 
 // Exact crops from Neural DSP's official Cortex Control reference image are

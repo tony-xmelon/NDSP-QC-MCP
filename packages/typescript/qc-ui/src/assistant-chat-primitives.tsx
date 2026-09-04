@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AssistantAccessMode } from "@ndsp-qc/core";
+import { QcUiIcon } from "./theme-icons";
 
 export interface AssistantAttachment {
   name: string;
@@ -37,13 +38,12 @@ export function AssistantAttachmentList<TAttachment extends AssistantAttachment>
   className?: string;
   imageClassName?: string;
   fileClassName?: string;
-  filePrefix?: string;
 }) {
   if (!props.attachments?.length) return null;
   return <div className={props.className}>
     {props.attachments.map((attachment, index) => attachment.mediaType.startsWith("image/")
       ? <img className={props.imageClassName} key={`${attachment.name}-${index}`} src={`data:${attachment.mediaType};base64,${attachment.data}`} alt={attachment.name} />
-      : <span className={props.fileClassName} key={`${attachment.name}-${index}`}>{props.filePrefix ?? "▤ "}{attachment.name}</span>)}
+      : <span className={props.fileClassName} key={`${attachment.name}-${index}`}><QcUiIcon kind="file" /> {attachment.name}</span>)}
   </div>;
 }
 

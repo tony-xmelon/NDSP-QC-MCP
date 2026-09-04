@@ -35,13 +35,13 @@ const sceneControls = "ABCDEFGH".split("").map((label) => ({
 
 export const largeQuadCortex: FormFactorManifest = {
   id: "quad-cortex-large",
-  displayName: "Quad Cortex — Large",
+  displayName: `${QC_BRAND.deviceName} — Large`,
   chassisAspectRatio: 29 / 19.5,
   defaultSkinId: "official-svg",
   controls: [
     ...sceneControls,
-    { id: "bank-down", label: "BANK ▼", role: "bank:down", group: "navigation" },
-    { id: "bank-up", label: "BANK ▲", role: "bank:up", group: "navigation" },
+    { id: "bank-down", label: "BANK DOWN", role: "bank:down", group: "navigation" },
+    { id: "bank-up", label: "BANK UP", role: "bank:up", group: "navigation" },
     { id: "tempo", label: "TEMPO", role: "tempo", group: "tempo" }
   ]
 };
@@ -64,4 +64,4 @@ export const skins: SkinManifest[] = [
   { id: "obsidian", displayName: "Graphite Hardware", className: "skin-obsidian" },
   { id: "high-contrast", displayName: "High Contrast", className: "skin-high-contrast" }
 ];
-import { QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
+import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";

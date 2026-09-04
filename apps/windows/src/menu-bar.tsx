@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { ConnectionState, RuntimeStatus } from "@ndsp-qc/client";
 import { chatCredentialStatus, type ChatQuota, type ChatSettings, type ChatUsage } from "./model-chat";
+import { QcUiIcon } from "@ndsp-qc/ui";
 
 export type ConnectionEvent = { at: string; event: string; result: "pending" | "success" | "warning" | "failure" | "info"; detail: string };
 export type MenuCommand =
@@ -176,7 +177,7 @@ export function MenuBar({ menus, onSelect, connection, syncProgress, busy, runti
                 }}
                 onKeyDown={(event) => moveFocus(menu.name, event, index)}
                 onClick={() => { closeMenu(false); onSelect(item.id); }}
-              ><span className="menu-check" aria-hidden="true">{item.checked ? "✓" : ""}</span><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</button>
+              ><span className="menu-check" aria-hidden="true">{item.checked ? <QcUiIcon kind="check" /> : null}</span><span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}</button>
           )}
         </div>}
       </div>)}

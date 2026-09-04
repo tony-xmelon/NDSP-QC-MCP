@@ -105,6 +105,16 @@ foreach ($color in $themeColors) {
 }
 
 function Get-Sha256Hex([string]$Path) {
+  if ([System.IO.Path]::GetExtension($Path) -eq ".svg") {
+    $canonical = ([System.IO.File]::ReadAllText($Path)).Replace("`r`n", "`n")
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($canonical)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+      return ([System.BitConverter]::ToString($hasher.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
+    } finally {
+      $hasher.Dispose()
+    }
+  }
   $stream = [System.IO.File]::OpenRead($Path)
   $hasher = [System.Security.Cryptography.SHA256]::Create()
   try {

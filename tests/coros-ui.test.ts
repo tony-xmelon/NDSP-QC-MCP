@@ -191,7 +191,7 @@ test("IN and OUT taps use the in-screen CorOS route picker instead of a modal", 
   assert.match(routingWorkflow, /routeOptionsForRow\(picker\.side, picker\.row, value, snapshot\.routes\)/, "row routes must be filtered for the selected row");
   assert.match(styles, /\.coros-route-picker\.is-input \{ left: 7\.2%; \}/);
   assert.match(styles, /\.coros-route-focus-layer \{ position: absolute; z-index: 23;/);
-  assert.match(styles, /scrollbar-color: var\(--qc-palette-96999b\) transparent/);
+  assert.match(styles, /scrollbar-color: var\(--qc-palette-96999b\) var\(--qc-transparent\)/);
   assert.doesNotMatch(styles.slice(styles.indexOf(".coros-route-picker-dismiss"), styles.indexOf(".context-menu-section")), /#45f862/, "the CorOS route list is neutral gray, not a green selection menu");
 });
 
@@ -698,7 +698,7 @@ test("chat follows new messages without stealing a user-controlled scroll positi
   assert.match(scrollSource, /if \(!element \|\| programmaticScroll\.current\) return;/, "programmatic scroll events must not be interpreted as user scrolling");
   assert.match(dockSource, /onWheel=\{props\.onUserScroll\}/);
   assert.match(styles, /\.conversation-preview::\-webkit-scrollbar \{ width: 5px; \}/);
-  assert.match(styles, /scrollbar-color: transparent transparent/);
+  assert.match(styles, /scrollbar-color: var\(--qc-transparent\) var\(--qc-transparent\)/);
 });
 
 test("the chat composer receives keyboard focus when the app starts", () => {
@@ -716,7 +716,9 @@ test("device and chat footers share one readable font size", () => {
 
 test("the Save action is one normal floppy without a status-dot overlay", () => {
   const surfaceSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
-  const saveIcon = surfaceSource.slice(surfaceSource.indexOf('d="M712 13H728'), surfaceSource.indexOf('<rect x="654"'));
+  const iconSource = readFileSync(new URL("../packages/typescript/qc-ui/src/theme-icons.tsx", import.meta.url), "utf8");
+  const saveIcon = iconSource.slice(iconSource.indexOf('kind === "save"'), iconSource.indexOf('return <g fill={QC_COLORS.hardware.whiteLed}>'));
+  assert.match(surfaceSource, /<QcScreenHeaderGlyph kind="save" \/>/);
   assert.match(saveIcon, /fill=\{QC_COLORS\.hardware\.whiteLed\}/);
   assert.doesNotMatch(saveIcon, /#45f862|snapshot\.dirty|<circle/);
 });
