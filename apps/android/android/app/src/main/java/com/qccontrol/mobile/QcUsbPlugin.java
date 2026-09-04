@@ -308,8 +308,8 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
-        pendingOperations.timeout(pending, 60_000, keepalive,
-            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 60 seconds."));
+        pendingOperations.timeout(pending, 180_000, keepalive,
+            () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish the native backup within 3 minutes."));
         scheduleBackupWatchdog(pending, 25_000);
         return result;
     }
@@ -512,6 +512,8 @@ public class QcUsbPlugin extends Plugin {
 
     private static boolean isIdempotentGatewayWrite(String method) {
         switch (method) {
+            case "device.recallPreset":
+            case "device.reloadPreset":
             case "device.selectScene":
             case "device.toggleBypass":
             case "device.setParameter":

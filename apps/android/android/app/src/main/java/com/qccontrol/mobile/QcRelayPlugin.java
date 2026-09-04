@@ -60,7 +60,11 @@ public final class QcRelayPlugin extends Plugin {
             Request request = new Request.Builder().url(endpoint + "/v1/device/pair")
                 .post(RequestBody.create(body.toString(), MediaType.get("application/json; charset=utf-8"))).build();
             http.newCall(request).enqueue(new Callback() {
-                @Override public void onFailure(Call ignored, IOException error) { call.reject("Could not reach the relay.", "PAIRING_NETWORK_ERROR", error); }
+                @Override public void onFailure(Call ignored, IOException error) {
+                    android.util.Log.e("QcRelayPlugin", "Pairing request failed: "
+                        + error.getClass().getName() + ": " + error.getMessage(), error);
+                    call.reject("Could not reach the relay.", "PAIRING_NETWORK_ERROR", error);
+                }
                 @Override public void onResponse(Call ignored, Response response) {
                     try (response) {
                         if (!response.isSuccessful()) { call.reject("The pairing code was rejected.", "PAIRING_REJECTED"); return; }

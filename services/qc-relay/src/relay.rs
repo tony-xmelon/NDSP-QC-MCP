@@ -192,7 +192,15 @@ impl RelayHub {
             session.pending.lock().await.remove(&id);
             return Err(RelayError::Disconnected);
         }
-        match tokio::time::timeout(self.inner.timeout, rx).await {
+        // Backups are progress-checked by the native host and can legitimately
+        // outlive the ordinary request window. Keep the shorter deadline for
+        // every other action so a disconnected device still fails promptly.
+        let request_timeout = if policy.rpc == "device.createBackup" {
+            self.inner.timeout.max(Duration::from_secs(195))
+        } else {
+            self.inner.timeout
+        };
+        match tokio::time::timeout(request_timeout, rx).await {
             Ok(Ok(result)) => result,
             Ok(Err(_)) => Err(RelayError::Disconnected),
             Err(_) => {
