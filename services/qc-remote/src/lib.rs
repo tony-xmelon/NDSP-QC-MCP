@@ -25,7 +25,12 @@ impl RelayBackend { pub fn new(hub: RelayHub) -> Self { Self { hub } } }
 impl QcBackend for RelayBackend {
     async fn request(&self, route: &PrincipalRoute, rpc: &'static str, params: Map<String, Value>) -> Result<Value, BackendError> {
         let principal = PrincipalId(route.principal_id.to_string());
-        let device = self.hub.active_device_for_principal(&principal).await.map_err(map_relay_error)?;
+        let device = if matches!(rpc, "device.reconnect" | "device.resetSession") {
+            self.hub.connected_device_for_principal(&principal).await
+        } else {
+            self.hub.active_device_for_principal(&principal).await
+        }
+        .map_err(map_relay_error)?;
         self.hub.dispatch_validated_rpc(&principal, device, rpc, Value::Object(params)).await.map_err(map_relay_error)
     }
 }
@@ -55,7 +60,14 @@ struct McpAuthState {
 pub fn application(state: AppState) -> Router {
     let backend = Arc::new(RelayBackend::new(state.hub.clone()));
     let auth_state = McpAuthState { config: state.config.clone(), bearer: state.bearer.clone() };
-    let mcp = qc_remote_mcp::mcp_router(move || Ok(QcMcp::new(backend.clone())))
+    let host = state.config.resource.host_str().expect("validated public relay URL");
+    let mut allowed_hosts = vec![host.to_owned()];
+    let port = state.config.resource.port_or_known_default().unwrap_or(443);
+    allowed_hosts.push(format!("{host}:{port}"));
+    let mcp = qc_remote_mcp::mcp_router_with_allowed_hosts(
+        move || Ok(QcMcp::new(backend.clone())),
+        allowed_hosts,
+    )
         .route_layer(middleware::from_fn_with_state(auth_state, authenticate_mcp));
     qc_relay::router(state).merge(mcp)
 }

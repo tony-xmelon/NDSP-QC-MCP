@@ -182,10 +182,29 @@ pub fn mcp_router<F>(make_handler: F) -> Router
 where
     F: Fn() -> Result<QcMcp, std::io::Error> + Clone + Send + Sync + 'static,
 {
+    mcp_router_with_config(make_handler, StreamableHttpServerConfig::default())
+}
+
+/// Mount the MCP service for an HTTPS reverse-proxy deployment while retaining
+/// rmcp's DNS-rebinding protection for the configured public host names.
+pub fn mcp_router_with_allowed_hosts<F>(make_handler: F, allowed_hosts: Vec<String>) -> Router
+where
+    F: Fn() -> Result<QcMcp, std::io::Error> + Clone + Send + Sync + 'static,
+{
+    mcp_router_with_config(
+        make_handler,
+        StreamableHttpServerConfig::default().with_allowed_hosts(allowed_hosts),
+    )
+}
+
+fn mcp_router_with_config<F>(make_handler: F, config: StreamableHttpServerConfig) -> Router
+where
+    F: Fn() -> Result<QcMcp, std::io::Error> + Clone + Send + Sync + 'static,
+{
     let service = StreamableHttpService::new(
         make_handler,
         Arc::new(LocalSessionManager::default()),
-        StreamableHttpServerConfig::default(),
+        config,
     );
     Router::new().route_service("/mcp", service)
 }

@@ -136,7 +136,9 @@ class McpHttpTransport {
     if (notification) return undefined;
     const text = await response.text();
     const messages = response.headers.get("content-type")?.includes("text/event-stream")
-      ? text.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => JSON.parse(line.slice(5).trim()))
+      ? text.split(/\r?\n/)
+        .filter((line) => line.startsWith("data:") && line.slice(5).trim())
+        .map((line) => JSON.parse(line.slice(5).trim()))
       : [JSON.parse(text)];
     const message = messages.find((candidate) => candidate.id === id) ?? messages.at(-1);
     if (message?.error) throw new Error(`${message.error.code}: ${message.error.message}`);
@@ -532,6 +534,9 @@ async function main() {
     if (status?.gatewayAvailable === true && status?.phase === undefined && status?.connected === undefined) {
       await transport.call("reconnect_device", { confirm_risky_operation: true });
     }
+    if (!discover && config.preflightResetSession === true && enabledHazards.has("system")) {
+      await transport.call("reset_device_session", { confirm_risky_operation: true });
+    }
 
     originalSnapshot = await call("get_current_preset", {}, (value) => {
       assert(Array.isArray(value.blocks) && Array.isArray(value.routes), "Preset snapshot is incomplete.");
@@ -570,7 +575,20 @@ async function main() {
     originalMasterVolume = masterState.value;
 
     if (enabledHazards.has("live") || enabledHazards.has("persistent") || enabledHazards.has("system") || enabledHazards.has("screen")) {
-      await recall(config.scratchPreset);
+      const scratchAlreadyActive = currentSnapshot.setlistKey === config.scratchPreset.setlistKey
+        && currentSnapshot.presetPosition === config.scratchPreset.position;
+      if (scratchAlreadyActive && currentSnapshot.dirty) {
+        await transport.call("reload_preset", {
+          expected_preset_name: currentSnapshot.presetName,
+          expected_position: currentSnapshot.presetPosition,
+          confirm_risky_operation: true
+        });
+        currentSnapshot = await waitForSnapshot((value) => !value.dirty);
+        assert(!currentSnapshot.dirty, "Configured scratch preset could not be reverted during preflight.");
+        originalSnapshot = currentSnapshot;
+      } else if (!scratchAlreadyActive) {
+        await recall(config.scratchPreset);
+      }
       assert(currentSnapshot.presetName.startsWith(config.scratchPreset.requiredNamePrefix), "Refusing mutations: active preset is not the configured scratch preset.");
       const block = currentSnapshot.blocks.find((candidate) => candidate.row === config.parameter.row && candidate.column === config.parameter.column);
       assert(block, "Configured parameter block is not occupied in the scratch preset.");
@@ -590,9 +608,12 @@ async function main() {
 
     if (enabledHazards.has("live")) {
       const originalScene = currentSnapshot.activeScene;
-      await call("select_scene", { scene: config.performance.scene, expected_preset_name: currentSnapshot.presetName });
-      currentSnapshot = await waitForSnapshot((value) => value.activeScene === config.performance.scene);
-      assert(currentSnapshot.activeScene === config.performance.scene, "Scene selection did not persist to snapshot.");
+      const selectedScene = config.performance.scene === originalScene
+        ? (originalScene + 1) % 8
+        : config.performance.scene;
+      await call("select_scene", { scene: selectedScene, expected_preset_name: currentSnapshot.presetName });
+      currentSnapshot = await waitForSnapshot((value) => value.activeScene === selectedScene);
+      assert(currentSnapshot.activeScene === selectedScene, "Scene selection did not persist to snapshot.");
       await transport.call("select_scene", { scene: originalScene, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => value.activeScene === originalScene);
 
@@ -644,7 +665,7 @@ async function main() {
       await call("tap_tempo", { expected_mode: currentSnapshot.mode, expected_preset_name: currentSnapshot.presetName });
       await sleep(350);
       await transport.call("tap_tempo", { expected_mode: currentSnapshot.mode, expected_preset_name: currentSnapshot.presetName });
-      currentSnapshot = await snapshot();
+      currentSnapshot = await waitForSnapshot((value) => value.tempo !== config.performance.tempo);
       await transport.call("set_tempo", { bpm: originalTempo, expected_tempo: currentSnapshot.tempo, expected_preset_name: currentSnapshot.presetName });
 
       const originalBypass = Boolean(currentSnapshot.blocks.find((candidate) => candidate.row === config.parameter.row && candidate.column === config.parameter.column)?.bypassed);
@@ -897,11 +918,19 @@ async function main() {
         new_name: nameRenamed, expected_preset_name: currentSnapshot.presetName,
         expected_position: currentSnapshot.presetPosition, confirm_persistent_write: true
       });
+      const renamedLibrary = await transport.call("list_presets", {
+        refresh: true,
+        setlist_key: config.persistent.slotA.setlistKey
+      });
+      assert(
+        renamedLibrary.presets?.some((preset) => preset.position === config.persistent.slotA.position && preset.name === nameRenamed),
+        "Renamed preset was not present in the authoritative preset catalog."
+      );
       currentSnapshot = await snapshot();
       const copySource = {
-        setlistKey: currentSnapshot.setlistKey,
-        position: currentSnapshot.presetPosition,
-        name: currentSnapshot.presetName
+        setlistKey: config.persistent.slotA.setlistKey,
+        position: config.persistent.slotA.position,
+        name: nameRenamed
       };
       await recall({
         setlistKey: config.persistent.slotB.setlistKey,
@@ -914,6 +943,8 @@ async function main() {
         confirm_overwrite: true, confirm_persistent_write: true
       });
       currentSnapshot = resultSnapshot(copied) ?? await snapshot();
+      await sleep(500);
+      currentSnapshot = await snapshot();
     }
 
     if (enabledHazards.has("system")) {

@@ -56,7 +56,12 @@ final class QcPendingOperations {
     }
 
     void failAll(Supplier<? extends Throwable> error) {
+        failAllExcept(null, error);
+    }
+
+    void failAllExcept(Entry<?> preserved, Supplier<? extends Throwable> error) {
         for (Entry<?> entry : entries.values()) {
+            if (entry == preserved) continue;
             if (remove(entry)) entry.result.completeExceptionally(error.get());
         }
     }
