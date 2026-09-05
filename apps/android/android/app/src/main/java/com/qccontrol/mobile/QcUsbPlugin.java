@@ -371,6 +371,13 @@ public class QcUsbPlugin extends Plugin {
                         + " raw HID reports and " + operation.decodedMessages + " decoded messages during the operation."));
                 return;
             }
+            if (operation.rawReports == 0) {
+                pendingBackup = null;
+                if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
+                    "READBACK_TIMEOUT", "The Quad Cortex did not return any HID reports for the native backup request. "
+                        + "Android did not repeat the request because an unobserved completed backup must not be started again."));
+                return;
+            }
             if (operation.attempts >= QcUsbProfile.BACKUP_MAXIMUM_ATTEMPTS) {
                 pendingBackup = null;
                 if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(

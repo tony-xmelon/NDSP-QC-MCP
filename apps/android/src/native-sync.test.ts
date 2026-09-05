@@ -254,6 +254,7 @@ test("Android and Windows apply the same safe native-backup retry boundary", () 
   assert.match(usbProfileSource, /BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L/);
   assert.match(usbProfileSource, /BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L/);
   assert.match(javaSource, /operation\.started[\s\S]*partial document was discarded/);
+  assert.match(javaSource, /operation\.rawReports == 0[\s\S]*must not be started again/);
   assert.match(javaSource, /operation\.attempts >= QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 3/);
   assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*BACKUP_MAXIMUM_ATTEMPTS/);
