@@ -1,0 +1,16 @@
+{
+  "appId": "com.qccontrol.mobile",
+  "appName": "QC Control",
+  "webDir": "dist",
+  "backgroundColor": "#08090b",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#08090b"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#08090b"
+    }
+  }
+}

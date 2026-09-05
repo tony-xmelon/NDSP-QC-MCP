@@ -41,6 +41,22 @@ const generatedText = [
 ];
 
 const brandedJson = [
+  ["apps/android/capacitor.config.json", () => ({
+    appId: brand.androidPackage,
+    appName: brand.appName,
+    webDir: "dist",
+    backgroundColor: nativeTheme.android.background,
+    android: {
+      allowMixedContent: false,
+      backgroundColor: nativeTheme.android.background
+    },
+    plugins: {
+      StatusBar: {
+        style: "DARK",
+        backgroundColor: nativeTheme.android.background
+      }
+    }
+  })],
   ["apps/windows/src-tauri/tauri.conf.json", (config) => ({
     ...config,
     productName: brand.appName,
