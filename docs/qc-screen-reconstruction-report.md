@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **90.77%** | **97.11%** |
-| Android | 36/36 (100%) | **90.76%** | **97.11%** |
+| Windows | 36/36 (100%) | **90.78%** | **97.11%** |
+| Android | 36/36 (100%) | **90.77%** | **97.11%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -114,7 +114,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Directory — Cloud upload | 91.02% | 90.89% |
 | Capture — Settings | 92.87% | 92.79% |
 | Capture — Training | 90.61% | 90.50% |
-| Capture — A/B test | 88.17% | 88.03% |
+| Capture — A/B test | 88.50% | 88.50% |
 | Capture — Metadata | 92.95% | 92.80% |
 | Plugin devices | 89.61% | 89.61% |
 | Plugin folders | 88.15% | 87.95% |
@@ -181,8 +181,10 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
   89.72%**, and Favorites from **88.37% / 88.29% to 91.21% / 91.20%**.
   Analog I/O's independently measured column and value geometry also rises to
   **87.73%** on both hosts without changing USB. The complete official-manual
-  benchmark now reaches **90.77% Windows / 90.76% Android** structural and
-  **97.11%** color similarity.
+  Enlarging and positioning Capture A/B's level dial against its measured
+  bounds also raises that screen from **88.17% / 88.03% to 88.50%** on both
+  hosts. The complete official-manual benchmark now reaches **90.78% Windows /
+  90.77% Android** structural and **97.11%** color similarity.
 - Corrected Plugin Devices' route rails and block surfaces, aligned its
   scene/header controls, restored the clipped row number, normalized the six
   category glyph bounds, and preserved list indentation when a plugin has no

@@ -90,6 +90,7 @@
 .capture-official-settings > main > section:nth-child(7) .capture-level-dial { right: 1.5cqw; bottom: .875cqw; }
 .capture-official-result .capture-result-actions { height: 11.125cqw; align-items: flex-start; padding-top: 1.5cqw; }
 .capture-official-result label { width: 18.125cqw; }
+.capture-official-result label .capture-level-dial { right: 1.125cqw; bottom: -.5cqw; width: 8.5cqw; height: 8.5cqw; }
 .capture-official-progress > main > nav { padding-top: .375cqw; }
 .capture-official-progress h1 { margin-bottom: 3.25cqw; }
 .capture-official-progress section > em { right: 2.25cqw; top: 18.25cqw; }
