@@ -53,8 +53,8 @@ export { useContinuousControlWorkflow } from "./use-continuous-control-workflow"
 export type { ContinuousControlWorkflowOptions } from "./use-continuous-control-workflow";
 export { useQcSurfaceActions } from "./use-qc-surface-actions";
 export type { QcSurfaceActionOptions } from "./use-qc-surface-actions";
-export { resolveAssistantParameterEdit } from "./assistant-parameter-edit";
-export type { AssistantParameterEdit } from "./assistant-parameter-edit";
+export { prepareAssistantParameterEdit, resolveAssistantParameterEdit } from "./assistant-parameter-edit";
+export type { AssistantParameterEdit, PreparedAssistantParameterEdit } from "./assistant-parameter-edit";
 export { useAssistantConversation } from "./use-assistant-conversation";
 export type { AssistantConversationOptions, AssistantSubmission } from "./use-assistant-conversation";
 export { qcConnectionPresentation, useQcConnectionWorkflow } from "./use-qc-connection-workflow";

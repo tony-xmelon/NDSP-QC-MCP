@@ -1,10 +1,16 @@
-import type { BlockDetails, BlockParameter } from "@ndsp-qc/client";
+import type { BlockDetails, BlockParameter, GatewayTransport, GridBlock, PresetSnapshot } from "@ndsp-qc/client";
+import { sceneLetter } from "@ndsp-qc/core";
 import { parameterNormalizedValue } from "./parameter-model.ts";
 
 export interface AssistantParameterEdit {
   parameter: BlockParameter;
   normalized: number;
   display: string;
+}
+
+export interface PreparedAssistantParameterEdit extends AssistantParameterEdit {
+  details: BlockDetails;
+  label: string;
 }
 
 /** Resolve an offline assistant parameter phrase identically on every host. */
@@ -34,4 +40,21 @@ export function resolveAssistantParameterEdit(details: BlockDetails, parameterNa
   if (!Number.isFinite(numeric)) throw new Error(`I could not interpret “${rawValue}” as a value for ${parameter.name}.`);
   if (parameter.scaleKnown === false) throw new Error(`${parameter.name} does not yet have a verified Quad Cortex display scale. It was not changed.`);
   return { parameter, normalized: parameterNormalizedValue(parameter, numeric), display: `${numeric}${parameter.units ? ` ${parameter.units}` : ""}` };
+}
+
+/** Read and prepare the same guarded temporary edit for desktop and mobile review UI. */
+export async function prepareAssistantParameterEdit(
+  gateway: GatewayTransport,
+  snapshot: PresetSnapshot,
+  block: Pick<GridBlock, "row" | "column">,
+  parameterName: string,
+  rawValue: string
+): Promise<PreparedAssistantParameterEdit> {
+  const details = await gateway.blockDetails(block.row, block.column, snapshot.presetName);
+  const edit = resolveAssistantParameterEdit(details, parameterName, rawValue);
+  return {
+    ...edit,
+    details,
+    label: `Set ${details.name} · ${edit.parameter.name} from ${edit.parameter.displayValue} to ${edit.display} in Scene ${sceneLetter(snapshot.activeScene)}`
+  };
 }

@@ -3,7 +3,7 @@ import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionSt
 import { assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, prepareAssistantParameterEdit, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -1083,10 +1083,8 @@ export function App() {
     }
     if (connection.demo) throw new Error("Connect the Quad Cortex before running that performance command.");
     if (resolution.kind === "parameter") {
-      const details = await tauriTransport.blockDetails(resolution.block.row, resolution.block.column, snapshot.presetName);
-      const resolved = resolveAssistantParameterEdit(details, resolution.parameter, resolution.value);
-      const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}`;
-      setPendingAssistantAction({ kind: "parameter", block: details, parameter: resolved.parameter, value: resolved.normalized, label });
+      const prepared = await prepareAssistantParameterEdit(tauriTransport, snapshot, resolution.block, resolution.parameter, resolution.value);
+      setPendingAssistantAction({ kind: "parameter", block: prepared.details, parameter: prepared.parameter, value: prepared.normalized, label: prepared.label });
       appendMessage("assistant", "I prepared a temporary parameter edit. Review it below before applying.");
       setNotice("Temporary parameter edit is waiting for review.");
       return;

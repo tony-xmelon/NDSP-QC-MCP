@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, prepareAssistantParameterEdit, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcUsbNative, subscribeRelayState, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -279,12 +279,10 @@ export function App() {
       }
       if (resolution.kind === "denied") return resolution.detail;
       if (resolution.kind === "parameter") {
-        const details = await androidGatewayTransport.blockDetails(resolution.block.row, resolution.block.column, snapshot.presetName);
-        const resolved = resolveAssistantParameterEdit(details, resolution.parameter, resolution.value);
-        const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}?`;
-        if (!window.confirm(`${label}\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary parameter edit cancelled.";
-        return await parameterWorkflow.applyResolvedParameter(details, resolved.parameter, resolved.normalized, true)
-          ?? `${details.name} · ${resolved.parameter.name} already has that value.`;
+        const prepared = await prepareAssistantParameterEdit(androidGatewayTransport, snapshot, resolution.block, resolution.parameter, resolution.value);
+        if (!window.confirm(`${prepared.label}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary parameter edit cancelled.";
+        return await parameterWorkflow.applyResolvedParameter(prepared.details, prepared.parameter, prepared.normalized, true)
+          ?? `${prepared.details.name} · ${prepared.parameter.name} already has that value.`;
       }
       if (resolution.kind === "bypass") {
         if (resolution.changed && !window.confirm(`${resolution.label}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary bypass edit cancelled.";

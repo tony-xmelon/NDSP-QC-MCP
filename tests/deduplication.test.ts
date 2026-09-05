@@ -400,9 +400,10 @@ test("assistant actions use one shared provider-neutral executor", () => {
   assert.match(windows, /executeAndReconcileQcAction\(call,/);
   assert.match(android, /executeAndReconcileQcAction\(action,/);
   assert.match(executor, /export async function executeQcAction/);
-  assert.match(source("packages/typescript/qc-ui/src/assistant-parameter-edit.ts"), /resolveAssistantParameterEdit/);
+  assert.match(source("packages/typescript/qc-ui/src/assistant-parameter-edit.ts"), /prepareAssistantParameterEdit/);
   for (const app of [windows, android]) {
-    assert.match(app, /resolveAssistantParameterEdit/);
+    assert.match(app, /prepareAssistantParameterEdit/);
+    assert.doesNotMatch(app, /(?:tauriTransport|androidGatewayTransport)\.blockDetails/);
     assert.doesNotMatch(app, /assistantIntentCommand|assistantIntentToolName/);
   }
   assert.doesNotMatch(android, /Allowed reversible hardware actions:/);

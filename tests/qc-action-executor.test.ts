@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { demoSnapshot, type GatewayTransport } from "../packages/typescript/qc-client/src/index.ts";
-import { resolveAssistantParameterEdit } from "../packages/typescript/qc-ui/src/assistant-parameter-edit.ts";
+import { prepareAssistantParameterEdit, resolveAssistantParameterEdit } from "../packages/typescript/qc-ui/src/assistant-parameter-edit.ts";
 import { executeQcAction } from "../packages/typescript/qc-ui/src/qc-action-executor.ts";
 
 test("current preset performs an authoritative gateway read", async () => {
@@ -308,4 +308,19 @@ test("offline parameter phrases resolve identically for both app hosts", () => {
   assert.equal(edit.parameter.name, "Gain");
   assert.equal(edit.normalized, .55);
   assert.equal(edit.display, "55%");
+});
+
+test("offline parameter review reads and labels the edit once for both app hosts", async () => {
+  const details = {
+    row: 0, column: 0, modelId: 1, name: "Amp", category: "Amp", scene: 0,
+    parameters: [{ index: 0, name: "Gain", normalizedValue: .4, displayValue: "4.0", units: "", type: "float", minimum: 0, maximum: 10, steps: null, sceneMode: false, options: [], writable: true }]
+  };
+  const reads: unknown[][] = [];
+  const gateway = {
+    blockDetails: async (...args: unknown[]) => { reads.push(args); return details; }
+  } as unknown as GatewayTransport;
+  const prepared = await prepareAssistantParameterEdit(gateway, demoSnapshot, { row: 0, column: 0 }, "gain", "55%");
+  assert.deepEqual(reads, [[0, 0, demoSnapshot.presetName]]);
+  assert.equal(prepared.normalized, .55);
+  assert.equal(prepared.label, `Set Amp · Gain from 4.0 to 55% in Scene A`);
 });
