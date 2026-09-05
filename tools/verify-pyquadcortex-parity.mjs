@@ -47,7 +47,8 @@ if (missing.length || unknown.length) {
 const sourcePath = process.env.PYQUADCORTEX_CLIENT;
 if (sourcePath) {
   const source = await readFile(sourcePath, "utf8");
-  const hash = createHash("sha256").update(source).digest("hex");
+  const canonicalSource = source.replace(/\r\n/g, "\n");
+  const hash = createHash("sha256").update(canonicalSource).digest("hex");
   if (hash !== manifest.upstream.clientSha256) {
     throw new Error(`Pinned pyquadcortex client hash changed: ${hash}`);
   }

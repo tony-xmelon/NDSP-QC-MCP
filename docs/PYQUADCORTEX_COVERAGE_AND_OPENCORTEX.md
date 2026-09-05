@@ -1,11 +1,12 @@
 # pyquadcortex coverage and deferred OpenCortex research
 
-Status snapshot: 2026-09-04
+Status snapshot: 2026-09-05
 
 Sources reviewed:
 
-- `stokes-audio/pyquadcortex` main at `b018891b2d450c84a3a165b04bddb09bab4725a2`
-  (checked 2026-09-04), including its CorOS 4.x manual coverage audit.
+- `stokes-audio/pyquadcortex` main at `7cd7efcadc3620bcb8cc3a9974a9baee78e42e12`
+  (checked 2026-09-05), including ADR-0020's device-profile decision and the
+  corrected identity-aware `version()` read.
 - `VanIseghemThomas/OpenCortex` main at
   `c9f9f983881ba908a45d2087ed64d434f97ed5d5` (2026-08-13).
 - Neural DSP's Quad Cortex manual for the user-visible product surface.
@@ -79,7 +80,8 @@ low-level Rust protocol primitive, but is deliberately not a product action
 because neither implementation includes the capture recorder/trainer workflow.
 Run `npm run parity:pyquadcortex` to reject non-native, missing, duplicated,
 unknown, or stale evidence; when `PYQUADCORTEX_CLIENT` is supplied, the audit
-also verifies the pinned upstream source hash.
+also verifies the pinned upstream source hash after normalizing text line
+endings, so the same upstream revision verifies on Windows and Unix checkouts.
 
 This 100% figure describes native supersession, not promotion of unsafe,
 partially researched, or internal helpers into product commands. Capability

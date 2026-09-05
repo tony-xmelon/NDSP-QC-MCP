@@ -3,8 +3,8 @@
   "requireNativeCoverage": true,
   "upstream": {
     "repository": "https://github.com/stokes-audio/pyquadcortex",
-    "commit": "b018891b2d450c84a3a165b04bddb09bab4725a2",
-    "clientSha256": "f639ca4bc92541ca8333dea3d2afb35ea1565640a94051f95814648debea072f"
+    "commit": "7cd7efcadc3620bcb8cc3a9974a9baee78e42e12",
+    "clientSha256": "a2a8412c8ae2a9e326ff80880e452480156e00b3ddb10be1f0476fe5195a6f70"
   },
   "upstreamMethods": [
     "catalog", "disconnect", "close", "add_listener", "remove_listener", "version",
