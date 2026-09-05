@@ -68,14 +68,20 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **89.68%** | **97.03%** |
-| Android | 36/36 (100%) | **89.60%** | **97.03%** |
+| Windows | 36/36 (100%) | **89.52%** | **97.01%** |
+| Android | 36/36 (100%) | **89.52%** | **97.01%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
 Directory, Capture, Settings, Looper, expression assignment, plugin, and Hybrid
 Gig View states, while its lower score identifies which nominally Built screens
 still need pixel-level reconstruction work.
+
+The Android official-reference driver now neutralizes the same inner-screen
+radius and shadow as the physical driver. A fresh 36/36 rerun produces identical
+host scores, proving that the remaining differences are in the shared renderer
+rather than capture-shell decoration. The complete per-state evidence and score
+join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ### Official-reference screen scores
 

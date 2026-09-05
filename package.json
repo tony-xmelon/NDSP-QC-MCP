@@ -53,6 +53,7 @@
     "test:ui": "playwright test",
     "verify:qc-corpora": "node tools/verify-qc-ui-corpora.mjs",
     "verify:qc-coverage": "node tools/verify_qc_screen_coverage.mjs",
+    "report:qc-coverage": "node tools/report_qc_screen_coverage.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

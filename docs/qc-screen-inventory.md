@@ -15,6 +15,11 @@ its shared renderer and exact physical, official-manual, or dual-host smoke
 evidence. Run `npm run verify:coverage` to reject missing, duplicate, stale, or
 unrouted entries.
 
+The generated [canonical coverage matrix](qc-screen-coverage-matrix.md) joins
+this inventory to the executable evidence ledger and the latest Windows and
+Android similarity results. It is the comprehensive per-state report; rows
+without authoritative evidence are explicitly shown without a visual score.
+
 Status vocabulary:
 
 - **Built**: a dedicated in-screen reconstruction exists.

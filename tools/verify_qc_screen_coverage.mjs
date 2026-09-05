@@ -7,6 +7,7 @@ const physical = readJson("references/qc-ui-corpus/coros-4.1.0/manifest.json");
 const official = readJson("references/qc-ui-official-manual/coros-4.1.0/manifest.json");
 const officialDetails = readJson("references/qc-ui-official-details/coros-4.1.0/manifest.json");
 const inventory = readFileSync("docs/qc-screen-inventory.md", "utf8");
+const matrix = readFileSync("docs/qc-screen-coverage-matrix.md", "utf8");
 const surface = [
   "packages/typescript/qc-ui/src/quad-cortex-surface.tsx",
   "packages/typescript/qc-ui/src/coros-screen-fixture-data.ts",
@@ -22,6 +23,10 @@ const coverageIds = coverage.states.map((state) => state.id);
 assert.equal(inventoryIds.length, 103, "canonical inventory must contain 103 states");
 assert.equal(new Set(coverageIds).size, coverageIds.length, "coverage state IDs must be unique");
 assert.deepEqual([...coverageIds].sort(), [...inventoryIds].sort(), "coverage ledger must map every canonical inventory state exactly once");
+const matrixCanonicalSection = matrix.split("## Authoritative evidence gaps")[0];
+const matrixIds = [...matrixCanonicalSection.matchAll(/^\| ((?:GL|IO|GR|DB|ED|DR|NC|ST|RC|OV)-\d+) \|/gm)].map((match) => match[1]);
+assert.equal(new Set(matrixIds).size, matrixIds.length, "coverage matrix canonical IDs must be unique");
+assert.deepEqual([...matrixIds].sort(), [...coverageIds].sort(), "coverage matrix must contain every ledger state exactly once");
 
 const physicalIds = new Set(physical.captures.map((capture) => capture.id));
 const officialIds = new Set(official.captures.map((capture) => capture.id));
@@ -80,4 +85,7 @@ assert.deepEqual([...referencedOfficialIds].sort(), [...comparableOfficialIds].s
 assert.deepEqual([...referencedOfficialDetailIds].sort(), [...officialDetailIds].sort(), "every official detail asset must be attached to one or more canonical states");
 assert.equal(dualHostStates.size, coverage.states.length, "every canonical state must have a verified dual-host capture path");
 const authoritativeStates = new Set([...directStates, ...detailedStates]);
+const smokeOnlyIds = coverage.states.filter((state) => !(state.physical?.length || state.official?.length || state.officialDetail?.length)).map((state) => state.id);
+const matrixSmokeOnlyIds = [...matrixCanonicalSection.matchAll(/^\| ((?:GL|IO|GR|DB|ED|DR|NC|ST|RC|OV)-\d+) \|[^\n]*\| smoke only \|/gm)].map((match) => match[1]);
+assert.deepEqual([...matrixSmokeOnlyIds].sort(), [...smokeOnlyIds].sort(), "coverage matrix smoke-only gaps must match the executable ledger");
 console.log(`PASS ${coverage.states.length}/103 canonical states mapped; ${directStates.size} have full-frame authoritative evidence; ${authoritativeStates.size} have full-frame or official-detail evidence; ${dualHostStates.size} have verified dual-host capture paths (${smokeStates.size} through the general smoke pack)`);
