@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **90.28%** | **97.07%** |
-| Android | 36/36 (100%) | **90.28%** | **97.07%** |
+| Windows | 36/36 (100%) | **90.47%** | **97.09%** |
+| Android | 36/36 (100%) | **90.47%** | **97.09%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -98,7 +98,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | USB I/O Settings | 88.08% | 88.02% |
 | Global EQ | 90.55% | 90.52% |
 | Brit 2203 Grid | 92.25% | 92.26% |
-| Empty slot | 87.30% | 87.36% |
+| Empty slot | 94.03% | 94.03% |
 | Amp device browser | 87.36% | 87.54% |
 | Virtual Device presets | 88.56% | 88.62% |
 | Virtual Device preset actions | 89.08% | 89.09% |
@@ -171,12 +171,20 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Reconstructed Empty Slot's scene, save, overflow, and PRESET controls from
+  native-sized vector primitives; corrected the category-tile dimensions and
+  glyph bounds; and restored the exact category-pane, icon-well, scrollbar,
+  and signal-line colors. The frame rises from **87.18% / 87.19% to 94.03%**
+  structural match on Windows / Android, while color similarity rises from
+  **97.72% to 98.46%**. The complete 36-screen official-manual benchmark now
+  reaches **90.47% / 97.09%** on both hosts.
 - Restored Directory — Plugin Presets' full-height 412px content panels,
   native toolbar spacing and vector icons, aligned its directory labels, and
   resized the plugin glyph and centered logo against the official frame. The
   screen rises from **87.14% to 96.42%** structural match on both hosts, while
-  color similarity improves from **98.35% to 98.53%**. The complete 36-screen
-  official-manual benchmark now reaches **90.28% / 97.07%** on both hosts.
+  color similarity improves from **98.35% to 98.53%**. At that checkpoint, the
+  complete 36-screen official-manual benchmark reached **90.28% / 97.07%** on
+  both hosts.
 - Refit Global EQ's response trace against the native curve, restored the
   measured 4px filter-tab gutters, and raised the three parameter values to
   their device baselines. The screen rises from **86.79% to 90.55% Windows /
