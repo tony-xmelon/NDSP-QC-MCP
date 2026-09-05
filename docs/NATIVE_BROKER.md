@@ -5,7 +5,7 @@ domain engine. Python is not part of either installed application's live path.
 
 ```text
 Windows React -> Tauri -> qc-device-broker -> qc-device-runtime -> qc-protocol -> Windows HID
-Android React -> Capacitor/JNI -------------------------------> qc-protocol -> Android USB
+Android React -> Capacitor/Java/JNI ---------> qc-device-runtime -> qc-protocol -> Android USB
 ```
 
 `qc-protocol` owns protobuf schemas, framing, session policy, typed outbound
@@ -41,8 +41,11 @@ handle. This matters for large device-originated transfers such as backup,
 which keep receiving reports and sending keepalives without tearing down the
 live session. LocalBackup assembly is boundary-aware because current firmware
 does not correlate its chunks with the request id.
-Windows performance footswitch and mode-slot actions remain direct Tauri MIDI
-operations because MIDI endpoint selection is an operating-system concern.
+All Windows performance-MIDI actions—footswitches, Tap Tempo, mode slots,
+Tuner, Gig View, and Looper controls—use the app-owned persistent Tauri MIDI
+lane, so they cannot queue behind a long broker USB transaction. Android sends
+the same shared MIDI plans through its independent native MIDI executor because
+USB endpoint ownership and packet I/O remain operating-system concerns.
 
 ## Python parity oracle
 
