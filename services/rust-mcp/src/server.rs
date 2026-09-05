@@ -244,6 +244,22 @@ fn validate(spec: &ActionSpec, args: &Map<String, Value>) -> Result<(), String> 
                         .as_f64()
                         .is_some_and(|n| n >= min && max.is_none_or(|m| n <= m))
             }
+            Kind::NullableStringEnum(values) => {
+                value.is_null()
+                    || value
+                        .as_str()
+                        .is_some_and(|candidate| values.contains(&candidate))
+            }
+            Kind::NullableStringArray { max_items, values } => {
+                value.is_null()
+                    || value.as_array().is_some_and(|items| {
+                        items.len() <= max_items
+                            && items.iter().all(|item| {
+                                item.as_str()
+                                    .is_some_and(|candidate| values.contains(&candidate))
+                            })
+                    })
+            }
             Kind::Boolean => value.is_boolean(),
             Kind::Integer { min, max } => value
                 .as_i64()

@@ -26,6 +26,11 @@ pub enum Kind {
         min: f64,
         max: Option<f64>,
     },
+    NullableStringEnum(&'static [&'static str]),
+    NullableStringArray {
+        max_items: usize,
+        values: &'static [&'static str],
+    },
     Boolean,
     Integer {
         min: i64,
@@ -1145,6 +1150,95 @@ pub static ACTIONS: &[ActionSpec] = &[
         ],
     },
     ActionSpec {
+        name: "get_global_tempo_settings",
+        rpc: "device.globalTempoSettings",
+        classification: Classification::Read,
+        description: "Read the device-global tempo block, including PRESET/GLOBAL mode, metronome options, routing, and all thirteen beat cells.",
+        properties: &[],
+    },
+    ActionSpec {
+        name: "set_tempo_metronome",
+        rpc: "device.setTempoMetronome",
+        classification: Classification::PersistentWrite,
+        description: "Change named fields of the loaded preset's tempo/metronome block. Null leaves a field unchanged; time signature is applied before beat cells.",
+        properties: &[
+            p!("led_enabled", Kind::NullableBoolean),
+            p!(
+                "volume_db",
+                Kind::NullableNumber {
+                    min: -60.0,
+                    max: Some(9.0)
+                }
+            ),
+            p!("running", Kind::NullableBoolean),
+            p!(
+                "pan",
+                Kind::NullableNumber {
+                    min: -1.0,
+                    max: Some(1.0)
+                }
+            ),
+            p!(
+                "time_signature",
+                Kind::NullableStringEnum(&[
+                    "2/4",
+                    "3/4",
+                    "4/4",
+                    "5/4",
+                    "6/4",
+                    "7/4",
+                    "8/4",
+                    "9/4",
+                    "10/4",
+                    "11/4",
+                    "12/4",
+                    "13/4",
+                    "3/8",
+                    "6/8",
+                    "9/8",
+                    "12/8",
+                    "5/8 (3+2)",
+                    "5/8 (2+3)",
+                    "7/8 (3+2+2)",
+                    "7/8 (2+3+2)",
+                    "7/8 (2+2+3)"
+                ])
+            ),
+            p!(
+                "subdivision",
+                Kind::NullableStringEnum(&["1/4", "1/8", "1/8T", "1/16"])
+            ),
+            p!(
+                "sound",
+                Kind::NullableStringEnum(&[
+                    "BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT"
+                ])
+            ),
+            p!(
+                "routing",
+                Kind::NullableStringEnum(&["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2"])
+            ),
+            p!(
+                "beats",
+                Kind::NullableStringArray {
+                    max_items: 13,
+                    values: &["OFF", "MUTE", "DOWN", "ON"]
+                }
+            ),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_tempo_mode",
+        rpc: "device.setTempoMode",
+        classification: Classification::PersistentWrite,
+        description: "Select whether the Quad Cortex uses the loaded preset tempo or its device-global tempo block.",
+        properties: &[
+            p!("mode", Kind::StringEnum(&["PRESET", "GLOBAL"])),
+            p!("confirm_persistent_write", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "get_looper_status",
         rpc: "device.looperStatus",
         classification: Classification::Read,
@@ -1495,6 +1589,14 @@ fn schema_for(kind: Kind) -> Value {
             }
             s
         }
+        Kind::NullableStringEnum(values) => json!({
+            "type":["string","null"],
+            "enum":values.iter().map(|value| Value::String((*value).into())).chain(std::iter::once(Value::Null)).collect::<Vec<_>>()
+        }),
+        Kind::NullableStringArray { max_items, values } => json!({
+            "type":["array","null"], "maxItems":max_items,
+            "items":{"type":"string", "enum":values}
+        }),
         Kind::Boolean => json!({"type":"boolean"}),
         Kind::Integer { min, max } => {
             let mut s = json!({"type":"integer","minimum":min});
