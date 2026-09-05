@@ -29,7 +29,11 @@ test("tempo synchronizes in both directions over the native USB bridge", () => {
   assert.match(generatedPayloadSource, /\| "tempo"/);
   assert.match(
     javaSource,
-    /case "PLANNED_WRITE":[\s\S]{0,400}return relayPlannedGatewayWrite\(method, params, \d+\)/,
+    /case "PLANNED_WRITE":[\s\S]{0,400}QcUsbProfile\.COMMAND_CONFIRMATION_TIMEOUT_MS/,
+  );
+  assert.match(
+    javaSource,
+    /case "PRESET_WRITE":[\s\S]{0,400}QcUsbProfile\.PRESET_SYNC_TIMEOUT_MS/,
   );
   assert.match(rustRuntimeRequestSource, /DeviceCommand::SetTempo\(bpm\)/);
   assert.match(rustCommandsSource, /pub fn set_tempo/);

@@ -420,8 +420,10 @@ public class QcUsbPlugin extends Plugin {
                 case "TAP_SCREEN": return relayTapScreen(params);
                 case "BACKUP": return relayCreateBackup(params);
                 case "PREVIEW_PARAMETER": return relayPreviewParameter(method, params);
-                case "PLANNED_WRITE": return relayPlannedGatewayWrite(method, params, 10000);
-                case "PRESET_WRITE": return relayPlannedGatewayWrite(method, params, 15000);
+                case "PLANNED_WRITE": return relayPlannedGatewayWrite(
+                    method, params, QcUsbProfile.COMMAND_CONFIRMATION_TIMEOUT_MS);
+                case "PRESET_WRITE": return relayPlannedGatewayWrite(
+                    method, params, QcUsbProfile.PRESET_SYNC_TIMEOUT_MS);
                 case "PERSISTENT_WRITE": return relayGatewayWorkflow(method, params);
                 default: return failedRelay("METHOD_NOT_ALLOWED", "The requested device operation is not supported by Android.");
             }
@@ -557,7 +559,8 @@ public class QcUsbPlugin extends Plugin {
 
     private CompletableFuture<org.json.JSONObject> relaySetDeviceName(org.json.JSONObject params) throws Exception {
         String expectedName = params.optString("name", "");
-        return relayPlannedGatewayWrite("device.setDeviceName", params, 2500)
+        return relayPlannedGatewayWrite(
+            "device.setDeviceName", params, QcUsbProfile.COMMAND_CONFIRMATION_TIMEOUT_MS)
             .thenCompose(ignored -> {
                 try { return relayGatewayRead("device.identity", new org.json.JSONObject()); }
                 catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
@@ -570,14 +573,18 @@ public class QcUsbPlugin extends Plugin {
     private CompletableFuture<org.json.JSONObject> relayTapScreen(org.json.JSONObject params) throws Exception {
         return relayGatewayRead("device.captureScreen", new org.json.JSONObject())
             .thenCompose(ignored -> {
-                try { return relayPlannedGatewayWrite("device.tapScreen", params, 2500); }
+                try {
+                    return relayPlannedGatewayWrite(
+                        "device.tapScreen", params, QcUsbProfile.COMMAND_CONFIRMATION_TIMEOUT_MS);
+                }
                 catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
             });
     }
 
     private CompletableFuture<org.json.JSONObject> relayPreviewParameter(String method, org.json.JSONObject params) throws Exception {
         double value = params.optDouble("value", Double.NaN);
-        return relayPlannedGatewayWrite(method, params, 2500)
+        return relayPlannedGatewayWrite(
+            method, params, QcUsbProfile.COMMAND_CONFIRMATION_TIMEOUT_MS)
             .thenApply(result -> {
                 try {
                     return result.put("acceptedValue", value);
@@ -772,7 +779,9 @@ public class QcUsbPlugin extends Plugin {
         result.put("interfaceId", selectedInterfaceId);
         result.put("inputEndpointAddress", selectedInputEndpointAddress);
         result.put("inputMaxPacketSize", selectedInputMaxPacketSize);
-        result.put("reportBytes", includeReportId ? 129 : 128);
+        result.put("reportBytes", includeReportId
+            ? QcNativeStateDecoder.REPORT_SIZE
+            : QcNativeStateDecoder.REPORT_SIZE - 1);
         result.put("midiAvailable", midiOutputEndpoint != null);
         result.put("midiInterfaceId", midiInterface == null ? -1 : midiInterface.getId());
         result.put("midiOutputEndpointAddress", midiOutputEndpoint == null ? -1 : midiOutputEndpoint.getAddress());

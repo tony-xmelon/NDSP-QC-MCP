@@ -514,6 +514,16 @@ test("one generated profile owns preset synchronization timeout across both host
   assert.doesNotMatch(android, /pendingOperations\.timeout\(pending, 25_000/);
 });
 
+test("Android confirmation deadlines come from the shared native USB profile", () => {
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  assert.match(android, /case "PLANNED_WRITE":[\s\S]{0,160}QcUsbProfile\.COMMAND_CONFIRMATION_TIMEOUT_MS/);
+  assert.match(android, /case "PRESET_WRITE":[\s\S]{0,160}QcUsbProfile\.PRESET_SYNC_TIMEOUT_MS/);
+  assert.match(android, /"device\.setDeviceName", params, QcUsbProfile\.COMMAND_CONFIRMATION_TIMEOUT_MS/);
+  assert.match(android, /"device\.tapScreen", params, QcUsbProfile\.COMMAND_CONFIRMATION_TIMEOUT_MS/);
+  assert.doesNotMatch(android, /relayPlannedGatewayWrite\([^\n]+,\s*(?:2500|10000|15000)\)/);
+  assert.doesNotMatch(android, /includeReportId \? 129 : 128/);
+});
+
 test("connection presentation and transitions have one shared app workflow", () => {
   const workflow = source("packages/typescript/qc-ui/src/use-qc-connection-workflow.ts");
   const windows = source("apps/windows/src/App.tsx");
