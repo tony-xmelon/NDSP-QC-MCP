@@ -3,7 +3,7 @@ import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionSt
 import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, coros410FixtureSnapshot, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction, type CorOsScreenView } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -13,15 +13,8 @@ import { useWindowsDeviceFrames } from "./use-windows-device-frames";
 import { divider, MenuBar, quotaResetLabel, type AppMenu, type ConnectionEvent, type MenuCommand, type MenuItem } from "./menu-bar";
 import appPackage from "../package.json";
 
-const fixtureParams = new URLSearchParams(window.location.search);
-const fixtureScreenView = fixtureParams.get("screen") as CorOsScreenView | null;
-const corpusFixtureEnabled = fixtureParams.get("fixture") === "coros410";
-const fixtureMode = fixtureParams.get("mode");
-const fixtureTempo = Number(fixtureParams.get("tempo"));
-const fixtureInitialSnapshot = corpusFixtureEnabled ? coros410FixtureSnapshot(demoSnapshot, {
-  ...(Number.isFinite(fixtureTempo) && fixtureTempo > 0 ? { tempo: fixtureTempo } : {}),
-  ...(["PRESET", "SCENE", "STOMP", "HYBRID"].includes(fixtureMode ?? "") ? { mode: fixtureMode as "PRESET" | "SCENE" | "STOMP" | "HYBRID" } : {})
-}) : demoSnapshot;
+const { enabled: corpusFixtureEnabled, screenView: fixtureScreenView, initialSnapshot: fixtureInitialSnapshot } =
+  corosFixtureConfiguration(window.location.search, demoSnapshot);
 
 type DialogName = "settings" | "about" | "device-info" | "shortcuts" | "privacy" | "legal" | "notices" | "guide" | "feedback" | "parameters" | "add-block" | "routing" | "scenes" | "workspace" | null;
 type SettingsTab = "model" | "providers" | "voice" | "general";

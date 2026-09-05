@@ -80,9 +80,11 @@ Five protocol manifests currently prevent platform drift:
 - `qc-usb-profile.v1.json` owns USB identity, handshake/sync timing, subscriptions, frame limits, keepalive policy, and performance MIDI mappings.
 - `qc-domain.v1.json` owns Grid/scene/tempo limits, scene colors, route IDs/labels/groups, and IPC frame limits.
 - `gateway-methods.v1.json` owns every gateway RPC, TypeScript client method,
-  Tauri command binding, generated Android dispatch class, and the identical
-  native method set exposed by Windows and Android. Methods still supported by
-  the source-only Python oracle are explicitly identified by the manifest.
+  generated Rust allowlist, generated Android dispatch class, and the identical
+  native method set exposed by Windows and Android. Windows sends the canonical
+  `{ method, params }` envelope through one allowlisted Tauri command; Android
+  sends the same envelope through one Capacitor command. Methods still supported
+  by the source-only Python oracle are explicitly identified by the manifest.
 - `qc-actions.v1.json` owns the cross-surface assistant/MCP action names, RPC mapping, descriptions, schemas, and read/live/persistent safety class.
 - `qc-payloads.v1.schema.json` owns snapshots, native state events, Grid/editor structures, and action results generated for TypeScript, Rust, and Python.
 

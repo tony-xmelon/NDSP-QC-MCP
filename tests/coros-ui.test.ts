@@ -4,6 +4,18 @@ import test from "node:test";
 import { demoSnapshot } from "../packages/typescript/qc-client/src/index.ts";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
 import { consumeQcNativeStateFrame } from "../packages/typescript/qc-ui/src/qc-native-state-frame.ts";
+import { corosFixtureConfiguration } from "../packages/typescript/qc-ui/src/coros-screen-fixture-data.ts";
+
+test("visual fixture query state is identical for every host", () => {
+  const fixture = corosFixtureConfiguration("?fixture=coros410&screen=tempo&mode=SCENE&tempo=91", demoSnapshot);
+  assert.equal(fixture.enabled, true);
+  assert.equal(fixture.screenView, "tempo");
+  assert.equal(fixture.initialSnapshot.mode, "SCENE");
+  assert.equal(fixture.initialSnapshot.tempo, 91);
+  const ordinary = corosFixtureConfiguration("?screen=grid", demoSnapshot);
+  assert.equal(ordinary.enabled, false);
+  assert.equal(ordinary.initialSnapshot, demoSnapshot);
+});
 
 test("native frame ordering, timestamps, and tempo clocks are host-independent", () => {
   const sequence = { current: 0 };

@@ -58,6 +58,31 @@ export function coros410FixtureSnapshot(base: PresetSnapshot, overrides: Partial
   };
 }
 
+export interface CorOsFixtureConfiguration {
+  enabled: boolean;
+  initialSnapshot: PresetSnapshot;
+  screenView: CorOsScreenView | null;
+}
+
+/** Resolve the visual-conformance URL once so every host captures identical state. */
+export function corosFixtureConfiguration(search: string, base: PresetSnapshot): CorOsFixtureConfiguration {
+  const params = new URLSearchParams(search);
+  const enabled = params.get("fixture") === "coros410";
+  const mode = params.get("mode");
+  const tempo = Number(params.get("tempo"));
+  const overrides: Partial<Pick<PresetSnapshot, "tempo" | "mode">> = {
+    ...(Number.isFinite(tempo) && tempo > 0 ? { tempo } : {}),
+    ...(["PRESET", "SCENE", "STOMP", "HYBRID"].includes(mode ?? "")
+      ? { mode: mode as PresetSnapshot["mode"] }
+      : {})
+  };
+  return {
+    enabled,
+    initialSnapshot: enabled ? coros410FixtureSnapshot(base, overrides) : base,
+    screenView: params.get("screen") as CorOsScreenView | null
+  };
+}
+
 export function fixtureSnapshot(view: CorOsScreenView, snapshot: PresetSnapshot): PresetSnapshot {
   return view === "grid-official-brit" ? officialBrit2203Snapshot(snapshot) : snapshot;
 }

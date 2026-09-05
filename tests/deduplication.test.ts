@@ -69,6 +69,17 @@ test("shared UI exclusively owns dirty-title and parameter-screen rendering", ()
   assert.doesNotMatch(android, /function CorOsGrid|function CorOsParameterEditor/);
 });
 
+test("Windows and Android resolve visual fixture state through one shared owner", () => {
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  const shared = source("packages/typescript/qc-ui/src/coros-screen-fixture-data.ts");
+  assert.match(shared, /export function corosFixtureConfiguration/);
+  assert.match(windows, /corosFixtureConfiguration\(window\.location\.search, demoSnapshot\)/);
+  assert.match(android, /corosFixtureConfiguration\(window\.location\.search, demoSnapshot\)/);
+  assert.doesNotMatch(windows, /new URLSearchParams/);
+  assert.doesNotMatch(android, /new URLSearchParams/);
+});
+
 test("reference-only CorOS screens are lazy-loaded outside the production startup bundle", () => {
   const surface = source("packages/typescript/qc-ui/src/quad-cortex-surface.tsx");
   const barrel = source("packages/typescript/qc-ui/src/index.ts");
