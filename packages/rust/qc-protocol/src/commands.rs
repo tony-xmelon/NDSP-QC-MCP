@@ -1489,6 +1489,23 @@ pub fn show_gig_view(show: bool) -> OutboundMessage {
     }
 }
 
+/// Reply to the QC's request for a host-owned Neural Capture dialog.
+///
+/// This exactly replaces pyquadcortex's `show_capture_dialog` wire operation,
+/// but is intentionally not an intent-level [`DeviceCommand`]. Sending `true`
+/// transfers the capture flow to the host; a client must not do that unless it
+/// implements the recorder, trainer, refiner, calibration, A/B, and save UI.
+pub fn acknowledge_capture_dialog(shown: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        36,
+        pa::NeuralCaptureMessage {
+            action: pa::message_action::Enum::Update as i32,
+            show_dialog: Some(pa::neural_capture_message::ShowDialog::ShowDialog(shown)),
+            ..Default::default()
+        },
+    )
+}
+
 pub fn read_version() -> OutboundMessage {
     OutboundMessage::encoded(
         10,
@@ -2102,6 +2119,15 @@ mod tests {
         assert_eq!(select_scene(3).payload, [0x08, 0x01, 0x18, 0x03]);
         assert_eq!(show_tuner(true).payload, [0x08, 0x01, 0x18, 0x01]);
         assert_eq!(show_gig_view(false).payload, [0x08, 0x01, 0x18, 0x00]);
+        assert_eq!(acknowledge_capture_dialog(true).message_type, 36);
+        assert_eq!(
+            acknowledge_capture_dialog(true).payload,
+            [0x08, 0x01, 0x28, 0x01]
+        );
+        assert_eq!(
+            acknowledge_capture_dialog(false).payload,
+            [0x08, 0x01, 0x28, 0x00]
+        );
         assert_eq!(keepalive().payload, [0x08, 0x01]);
         assert_eq!(read(51).payload, [0x08, 0x03]);
         assert_eq!(read_version().payload, [0x08, 0x03]);

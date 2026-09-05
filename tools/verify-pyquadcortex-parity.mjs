@@ -27,6 +27,17 @@ for (const group of manifest.coverage) {
   }
 }
 
+if (manifest.requireNativeCoverage) {
+  const nonNative = manifest.coverage.filter((group) => !group.status.startsWith("native"));
+  if (nonNative.length) {
+    throw new Error(
+      `Native supersession is incomplete: ${nonNative
+        .map((group) => `${group.methods.join(", ")} (${group.status})`)
+        .join("; ")}`,
+    );
+  }
+}
+
 const missing = [...expected].filter((method) => !covered.has(method));
 const unknown = [...covered.keys()].filter((method) => !expected.has(method));
 if (missing.length || unknown.length) {

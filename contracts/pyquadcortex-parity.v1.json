@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "requireNativeCoverage": true,
   "upstream": {
     "repository": "https://github.com/stokes-audio/pyquadcortex",
     "commit": "b018891b2d450c84a3a165b04bddb09bab4725a2",

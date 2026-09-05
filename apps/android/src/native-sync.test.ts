@@ -27,7 +27,10 @@ const gatewayContract = JSON.parse(readFileSync(new URL("../../../contracts/gate
 test("tempo synchronizes in both directions over the native USB bridge", () => {
   assert.match(sharedTransportSource, /gateway\.setTempo\(bpm, state\.tempo, state\.presetName\)/);
   assert.match(generatedPayloadSource, /\| "tempo"/);
-  assert.match(javaSource, /case "PLANNED_WRITE": return relayPlannedGatewayWrite/);
+  assert.match(
+    javaSource,
+    /case "PLANNED_WRITE":[\s\S]{0,400}return relayPlannedGatewayWrite\(method, params, 2500\)/,
+  );
   assert.match(rustRuntimeRequestSource, /DeviceCommand::SetTempo\(bpm\)/);
   assert.match(rustCommandsSource, /pub fn set_tempo/);
   assert.match(rustStateSource, /decode_global_tempo/);
@@ -174,7 +177,10 @@ test("Android remote relay consumes every generated MCP action with verified wri
   for (const method of ["device.identity", "device.inhibitedModules", "device.presetScreenshot", "device.captureScreen"]) {
     assert.match(rustRuntimeRequestSource, new RegExp(method.replace(".", "\\.")));
   }
-  assert.match(javaSource, /case "CORRELATED_READ": return relayGatewayRead\(method, params\)/);
+  assert.match(
+    javaSource,
+    /case "CORRELATED_READ":[\s\S]{0,250}relayGatewayRead\(method, params\)/,
+  );
   assert.match(javaSource, /relaySetDeviceName\(params\)/);
   assert.match(javaSource, /relayTapScreen\(params\)/);
   assert.match(nativeDecoderSource, /nativePlanGatewayRead/);
