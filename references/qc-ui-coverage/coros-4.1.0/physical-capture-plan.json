@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "corosVersion": "4.1.0",
+  "description": "Acquisition ledger for canonical states that have dual-host smoke coverage but no physical frame or official visual evidence. Routes are semantic: exact tap coordinates must be chosen from a fresh framebuffer immediately before each tap.",
+  "invariants": [
+    "Capture only the disposable scratch preset unless a state is independent of preset content.",
+    "Record a clean Grid framebuffer and preset identity before and after every route.",
+    "Never confirm delete, reset, update, shutdown, or recovery actions while collecting a dialog or menu frame.",
+    "Restore the original screen, scene, mode, preset identity, and dirty state after every capture.",
+    "Accept a physical frame only after two consecutive 800x480 captures are byte-identical."
+  ],
+  "states": [
+    { "id": "GL-14", "tier": "safe-navigation", "status": "ready", "route": "Grid > Preset menu > Delete", "capture": "Delete confirmation before any destructive confirmation", "restore": "Cancel the dialog and verify the original clean Grid" },
+    { "id": "IO-03", "tier": "safe-navigation", "status": "ready", "route": "I/O Settings > select OUT 1/L or OUT 2/R", "capture": "Analog output detail", "restore": "Close I/O Settings and verify Grid" },
+    { "id": "IO-04", "tier": "safe-navigation", "status": "ready", "route": "I/O Settings > select SEND or RETURN connector", "capture": "Send/Return detail", "restore": "Close I/O Settings and verify Grid" },
+    { "id": "IO-06", "tier": "safe-navigation", "status": "ready", "route": "I/O Settings > select headphone output", "capture": "Headphones detail", "restore": "Close I/O Settings and verify Grid" },
+    { "id": "IO-08", "tier": "controlled-transient", "status": "recipe-discovery", "route": "Locate the native Global Input Gate/Bypass editor from the current CorOS UI", "capture": "Global input gate/bypass state without changing its value", "restore": "Close the editor and verify the original inhibited-module state" },
+    { "id": "DB-04", "tier": "safe-navigation", "status": "ready", "route": "Empty Grid slot > device browser > Search", "capture": "Device search/results surface", "restore": "Close the browser without adding a block" },
+    { "id": "DB-05", "tier": "safe-navigation", "status": "ready", "route": "Empty Grid slot > device browser > Favorites/Recent", "capture": "Favorites/Recent device surface", "restore": "Close the browser without adding a block" },
+    { "id": "ED-05", "tier": "safe-navigation", "status": "requires-content", "route": "Open an existing Neural Capture block in a disposable preset", "capture": "Neural Capture block parameter editor", "restore": "Close the editor without changing parameters" },
+    { "id": "ED-08", "tier": "safe-navigation", "status": "ready", "route": "Open a Virtual Device > Presets > Save", "capture": "Virtual Device preset save editor before saving", "restore": "Cancel and verify the preset remains clean" },
+    { "id": "ED-13", "tier": "safe-navigation", "status": "ready", "route": "Grid > long-press an existing block", "capture": "Block contextual actions", "restore": "Dismiss without choosing an action" },
+    { "id": "ED-14", "tier": "controlled-transient", "status": "requires-trigger", "route": "Use a bounded test signal to reproduce the native clipping warning", "capture": "Clipping warning at safe monitor volume", "restore": "Remove the signal and verify meters return to idle" },
+    { "id": "ED-15", "tier": "controlled-transient", "status": "requires-disposable-preset", "route": "Load a disposable DSP-stress preset that is known to produce the native warning", "capture": "DSP capacity warning before accepting any edit", "restore": "Reload the original clean scratch preset" },
+    { "id": "DR-15", "tier": "safe-navigation", "status": "ready", "route": "Directory > long-press a disposable preset or item", "capture": "Directory item contextual actions", "restore": "Dismiss without choosing an action" },
+    { "id": "NC-02", "tier": "safe-navigation", "status": "ready", "route": "Grid/Preset menu > New Neural Capture", "capture": "Capture-type selection before starting calibration", "restore": "Cancel the wizard and verify Grid" },
+    { "id": "ST-04", "tier": "safe-navigation", "status": "ready", "route": "Settings > Support", "capture": "Support screen with identifiers redacted only in published evidence", "restore": "Return to Grid" },
+    { "id": "ST-05", "tier": "safe-navigation", "status": "ready", "route": "Settings > Wi-Fi", "capture": "Wi-Fi screen without joining or forgetting a network", "restore": "Return to Grid; do not alter network state" },
+    { "id": "ST-06", "tier": "external-evidence", "status": "do-not-trigger", "route": "Acquire during a user-initiated supported CorOS update or from an official full-frame source", "capture": "Update progress", "restore": "Never initiate or interrupt firmware update solely for corpus acquisition" },
+    { "id": "ST-07", "tier": "safe-navigation", "status": "ready", "route": "Settings > Storage / Factory Reset", "capture": "Storage screen before any reset confirmation", "restore": "Return to Grid without confirming reset" },
+    { "id": "ST-09", "tier": "safe-navigation", "status": "ready", "route": "Settings > Device information", "capture": "Device information with identifiers redacted only in published evidence", "restore": "Return to Grid" },
+    { "id": "ST-10", "tier": "safe-navigation", "status": "ready", "route": "Settings > Diagnostics", "capture": "Diagnostics overview without running destructive or long-lived tests", "restore": "Return to Grid" },
+    { "id": "RC-02", "tier": "disruptive", "status": "requires-scheduled-session", "route": "Enter Recovery Mode using the documented hardware boot gesture", "capture": "Recovery options before selecting an operation", "restore": "Exit or reboot normally; verify CorOS and the scratch preset after startup" },
+    { "id": "OV-01", "tier": "safe-navigation", "status": "ready", "route": "Open Edit Details or New Folder text entry", "capture": "On-screen keyboard with a non-sensitive disposable value", "restore": "Cancel text entry and verify no rename/folder creation" },
+    { "id": "OV-02", "tier": "safe-navigation", "status": "ready", "route": "Open a reversible action that presents the native confirmation overlay", "capture": "Confirmation overlay before acceptance", "restore": "Cancel the action and verify original state" },
+    { "id": "OV-03", "tier": "controlled-transient", "status": "recipe-discovery", "route": "Identify a harmless rejected operation that produces the native error overlay", "capture": "Error overlay with no persistent device mutation", "restore": "Dismiss and verify Grid and preset identity" },
+    { "id": "OV-04", "tier": "controlled-transient", "status": "ready", "route": "Start a supported read-heavy operation such as backup preparation or catalog refresh", "capture": "Busy/progress overlay while the operation is active", "restore": "Allow the operation to finish normally and verify Grid" }
+  ]
+}

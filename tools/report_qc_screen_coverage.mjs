@@ -12,6 +12,7 @@ const option = (name, fallback) => {
 
 const paths = {
   coverage: option("--coverage", "references/qc-ui-coverage/coros-4.1.0/coverage.json"),
+  capturePlan: option("--capture-plan", "references/qc-ui-coverage/coros-4.1.0/physical-capture-plan.json"),
   inventory: option("--inventory", "docs/qc-screen-inventory.md"),
   physicalWindows: option("--physical-windows"),
   physicalAndroid: option("--physical-android"),
@@ -23,6 +24,8 @@ const paths = {
 const readText = (path) => readFileSync(resolve(ROOT, path), "utf8");
 const readJson = (path) => JSON.parse(readText(path));
 const coverage = readJson(paths.coverage);
+const capturePlan = readJson(paths.capturePlan);
+const capturePlanById = new Map(capturePlan.states.map((state) => [state.id, state]));
 const inventory = readText(paths.inventory);
 
 const inventoryRows = new Map(
@@ -146,9 +149,13 @@ const lines = [
   "",
   "These states are implemented and captured on both hosts, but only against deterministic reconstruction fixtures. They require a physical framebuffer or an official visual before a visual-match percentage is meaningful.",
   "",
-  "| ID | Family | Screen/state | Renderer | Dual-host smoke view |",
-  "| --- | --- | --- | --- | --- |",
-  ...smokeOnly.map((row) => `| ${row.id} | ${row.family} | ${row.screen} | \`${row.renderer}\` | \`${(row.smoke ?? []).join(", ")}\` |`),
+  "| ID | Family | Screen/state | Renderer | Capture tier | Readiness | Dual-host smoke view |",
+  "| --- | --- | --- | --- | --- | --- | --- |",
+  ...smokeOnly.map((row) => {
+    const planned = capturePlanById.get(row.id);
+    if (!planned) throw new Error(`Physical capture plan missing for ${row.id}`);
+    return `| ${row.id} | ${row.family} | ${row.screen} | \`${row.renderer}\` | ${planned.tier} | ${planned.status} | \`${(row.smoke ?? []).join(", ")}\` |`;
+  }),
   "",
   "## Score source files",
   "",

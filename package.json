@@ -52,7 +52,7 @@
     "release:provenance": "node tools/release-provenance.mjs",
     "test:ui": "playwright test",
     "verify:qc-corpora": "node tools/verify-qc-ui-corpora.mjs",
-    "verify:qc-coverage": "node tools/verify_qc_screen_coverage.mjs",
+    "verify:qc-coverage": "node tools/verify_qc_screen_coverage.mjs && node tools/verify_qc_physical_capture_plan.mjs",
     "report:qc-coverage": "node tools/report_qc_screen_coverage.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=moderate && npm audit --audit-level=high",
     "typecheck": "npm run typecheck --workspaces --if-present"

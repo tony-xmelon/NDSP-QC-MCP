@@ -1270,6 +1270,16 @@ covered by a gateway test. No preset content was changed.
 5. Add visual thresholds once deliberately variable content and font rendering
    have per-family tolerances.
 
+The 25 states with smoke-only evidence now have a checked physical-acquisition
+ledger at
+`references/qc-ui-coverage/coros-4.1.0/physical-capture-plan.json`. It separates
+18 safe navigation captures from 5 controlled transient captures, 1 scheduled
+disruptive Recovery capture, and 1 update-progress state that must be collected
+only during a user-initiated supported update or from an official full-frame
+source. Every entry defines its semantic route, exact capture checkpoint, and
+restoration proof; exact tap coordinates remain intentionally dependent on a
+fresh framebuffer.
+
 ## Reproduce
 
 Run either host, capture its corpus, then compare:

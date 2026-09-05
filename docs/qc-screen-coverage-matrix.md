@@ -152,33 +152,33 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 
 These states are implemented and captured on both hosts, but only against deterministic reconstruction fixtures. They require a physical framebuffer or an official visual before a visual-match percentage is meaningful.
 
-| ID | Family | Screen/state | Renderer | Dual-host smoke view |
-| --- | --- | --- | --- | --- |
-| GL-14 | Preset | Delete confirmation | `fixture-delete` | `fixture-delete` |
-| IO-03 | I/O | Analog output detail | `io-output` | `io-output` |
-| IO-04 | I/O | Send/Return detail | `io-send-return` | `io-send-return` |
-| IO-06 | I/O | Headphones detail | `io-headphones` | `io-headphones` |
-| IO-08 | I/O | Global input gate and bypass | `fixture-input-gate` | `fixture-input-gate` |
-| DB-04 | Device browser | Search results | `device-search` | `device-search` |
-| DB-05 | Device browser | Favorites / Recent models | `device-favorites` | `device-favorites` |
-| ED-05 | Editor | Neural Capture block editor | `fixture-editor-capture` | `fixture-editor-capture` |
-| ED-08 | Editor | Save Virtual Device preset | `device-preset-save` | `device-preset-save` |
-| ED-13 | Editor | Block contextual actions | `block-context` | `block-context` |
-| ED-14 | Grid | I/O clipping warning | `fixture-warning-clip` | `fixture-warning-clip` |
-| ED-15 | Grid | DSP/side-chain limit warning | `fixture-warning-dsp` | `fixture-warning-dsp` |
-| DR-15 | Directory | Item contextual menu | `directory-item-context` | `directory-item-context` |
-| NC-02 | Capture V1 | Capture type selection | `capture-type` | `capture-type` |
-| ST-04 | Settings | Support settings | `settings-support` | `settings-support` |
-| ST-05 | Settings | Wi-Fi/network chooser | `settings-wifi` | `settings-wifi` |
-| ST-06 | Settings | Update availability/progress | `settings-update` | `settings-update` |
-| ST-07 | Settings | Storage and factory reset | `settings-storage` | `settings-storage` |
-| ST-09 | Settings | Device information | `settings-info` | `settings-info` |
-| ST-10 | Settings | Diagnostics/report flow | `settings-diagnostics` | `settings-diagnostics` |
-| RC-02 | Recovery | Recovery options | `recovery-options` | `recovery-options` |
-| OV-01 | System overlay | On-screen keyboard / text entry | `overlay-keyboard` | `overlay-keyboard` |
-| OV-02 | System overlay | Generic confirmation | `overlay-confirmation` | `overlay-confirmation` |
-| OV-03 | System overlay | Error / unavailable state | `overlay-error` | `overlay-error` |
-| OV-04 | System overlay | Busy / progress state | `overlay-busy` | `overlay-busy` |
+| ID | Family | Screen/state | Renderer | Capture tier | Readiness | Dual-host smoke view |
+| --- | --- | --- | --- | --- | --- | --- |
+| GL-14 | Preset | Delete confirmation | `fixture-delete` | safe-navigation | ready | `fixture-delete` |
+| IO-03 | I/O | Analog output detail | `io-output` | safe-navigation | ready | `io-output` |
+| IO-04 | I/O | Send/Return detail | `io-send-return` | safe-navigation | ready | `io-send-return` |
+| IO-06 | I/O | Headphones detail | `io-headphones` | safe-navigation | ready | `io-headphones` |
+| IO-08 | I/O | Global input gate and bypass | `fixture-input-gate` | controlled-transient | recipe-discovery | `fixture-input-gate` |
+| DB-04 | Device browser | Search results | `device-search` | safe-navigation | ready | `device-search` |
+| DB-05 | Device browser | Favorites / Recent models | `device-favorites` | safe-navigation | ready | `device-favorites` |
+| ED-05 | Editor | Neural Capture block editor | `fixture-editor-capture` | safe-navigation | requires-content | `fixture-editor-capture` |
+| ED-08 | Editor | Save Virtual Device preset | `device-preset-save` | safe-navigation | ready | `device-preset-save` |
+| ED-13 | Editor | Block contextual actions | `block-context` | safe-navigation | ready | `block-context` |
+| ED-14 | Grid | I/O clipping warning | `fixture-warning-clip` | controlled-transient | requires-trigger | `fixture-warning-clip` |
+| ED-15 | Grid | DSP/side-chain limit warning | `fixture-warning-dsp` | controlled-transient | requires-disposable-preset | `fixture-warning-dsp` |
+| DR-15 | Directory | Item contextual menu | `directory-item-context` | safe-navigation | ready | `directory-item-context` |
+| NC-02 | Capture V1 | Capture type selection | `capture-type` | safe-navigation | ready | `capture-type` |
+| ST-04 | Settings | Support settings | `settings-support` | safe-navigation | ready | `settings-support` |
+| ST-05 | Settings | Wi-Fi/network chooser | `settings-wifi` | safe-navigation | ready | `settings-wifi` |
+| ST-06 | Settings | Update availability/progress | `settings-update` | external-evidence | do-not-trigger | `settings-update` |
+| ST-07 | Settings | Storage and factory reset | `settings-storage` | safe-navigation | ready | `settings-storage` |
+| ST-09 | Settings | Device information | `settings-info` | safe-navigation | ready | `settings-info` |
+| ST-10 | Settings | Diagnostics/report flow | `settings-diagnostics` | safe-navigation | ready | `settings-diagnostics` |
+| RC-02 | Recovery | Recovery options | `recovery-options` | disruptive | requires-scheduled-session | `recovery-options` |
+| OV-01 | System overlay | On-screen keyboard / text entry | `overlay-keyboard` | safe-navigation | ready | `overlay-keyboard` |
+| OV-02 | System overlay | Generic confirmation | `overlay-confirmation` | safe-navigation | ready | `overlay-confirmation` |
+| OV-03 | System overlay | Error / unavailable state | `overlay-error` | controlled-transient | recipe-discovery | `overlay-error` |
+| OV-04 | System overlay | Busy / progress state | `overlay-busy` | controlled-transient | ready | `overlay-busy` |
 
 ## Score source files
 
@@ -186,4 +186,3 @@ These states are implemented and captured on both hosts, but only against determ
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
 - Official Windows: `.artifacts/ui-official-final10/windows-comparison/summary.json`
 - Official Android: `.artifacts/ui-official-final10/android-comparison/summary.json`
-
