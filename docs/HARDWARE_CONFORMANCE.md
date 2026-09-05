@@ -129,6 +129,27 @@ the exact Windows and Android artifacts in the clean-commit release manifest.
 A distributable release requires both reports to show every contract action as
 `passed`, no `failed`, `skipped`, or `not-run` action, and `complete: true`.
 
+### Firebase App Distribution and App Check
+
+The Android Firebase app has the stable distribution signing SHA-256 from the
+shared branding contract registered in project `qc-control-xmelon`. App Check
+is currently not activated; the App Check console still presents **Get
+started**. Treat activation or enforcement as a separate security change, not
+as an implicit part of uploading an APK.
+
+Before enforcing Play Integrity for Firebase AI Logic, verify the Android app's
+advanced App Check policy supports Firebase App Distribution installs:
+
+- `PLAY_RECOGNIZED` is not required.
+- `LICENSED` is not required.
+- the minimum device-recognition level is **Device integrity**.
+
+Record the reviewed policy with the release evidence. A Play-only policy can
+reject the correctly signed sideloaded tester APK even though its certificate
+is registered. Changing or enforcing the policy requires an explicit security
+review; `scripts/publish-android-firebase.ps1` intentionally does not mutate
+Firebase App Check settings.
+
 ## Windows backup transport
 
 The Windows broker owns all normal QC traffic through the shared Rust protocol

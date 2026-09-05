@@ -81,9 +81,13 @@ permission model, state-event cursors are backed by the native frame journal,
 and tempo projection, parameter preview, backup assembly, and backup validation
 reuse the shared Rust implementation.
 
-Firebase App Check uses Play Integrity. The Firebase app registers the debug
-distribution certificate and allows off-Play builds, so tester APKs can pass
-attestation without copying a per-device debug token.
+The Firebase app registers the stable distribution certificate used by tester
+APKs. App Check is not yet activated in the project. If Play Integrity is
+enabled for Firebase AI Logic, configure it for Firebase App Distribution's
+off-Play installs before enforcing it: do not require `PLAY_RECOGNIZED` or
+`LICENSED`, and retain the Device integrity minimum. This lets eligible tester
+devices attest without copying a per-device debug token while avoiding a policy
+that only Google Play installations can satisfy.
 
 ## Run in a browser
 

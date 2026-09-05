@@ -115,9 +115,11 @@ contracted read, performance, edit, library, and confirmed system surface. Live
 USB messages populate the preset grid, routes, scene metadata, setlist position,
 dirty state, tempo, mode/footswitch state, and master volume through the shared
 Rust state engine.
-Firebase App Check uses Play Integrity, with
-the distributed debug certificate registered and off-Play tester builds
-explicitly allowed.
+The Firebase project registers the stable distribution certificate used by
+the tester APK. App Check is not yet activated in the project. Before enabling
+Play Integrity enforcement for Firebase AI Logic, review the off-Play policy in
+the hardware-conformance release checklist so Firebase App Distribution builds
+are not rejected as unrecognized Play installs.
 
 Run `npm run app-parity:check` for the executable capability inventory. It
 distinguishes required Windows/Android parity from justified platform-only
