@@ -4,6 +4,16 @@ package com.qccontrol.mobile;
 final class GeneratedRemoteActions {
     private GeneratedRemoteActions() {}
 
+    static final String ACCESS_READ_ONLY = "read-only";
+    static final String ACCESS_PERFORMANCE = "performance";
+    static final String ACCESS_MODIFY = "modify";
+    static final String ACCESS_FULL = "full";
+
+    static boolean isAccessMode(String mode) {
+        return ACCESS_READ_ONLY.equals(mode) || ACCESS_PERFORMANCE.equals(mode)
+            || ACCESS_MODIFY.equals(mode) || ACCESS_FULL.equals(mode);
+    }
+
     private static final String[] ALLOWED = {
         "system.status",
         "device.reconnect",

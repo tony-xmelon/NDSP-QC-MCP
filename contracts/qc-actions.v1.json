@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "accessModes": ["read-only", "performance", "modify", "full"],
   "accessTiers": {
     "performance": ["press_footswitch", "tap_tempo", "navigate_bank", "show_tuner", "show_gig_view", "select_mode_slot", "control_looper", "set_master_volume", "set_tempo"],
     "modify": ["preview_parameter", "preview_lane_control_parameter", "undo_device", "redo_device", "select_scene", "copy_scene", "set_scene_label", "set_scene_color", "recall_preset", "reload_preset", "set_bypass", "set_parameter", "set_parameter_scene_mode", "set_parameter_expression", "set_lane_control_parameter", "set_lane_control_scene_mode", "set_expression_bypass", "move_block", "add_block", "remove_block", "load_capture", "load_ir", "set_block_footswitch", "set_stomp_momentary", "set_stomp_label", "set_midi_out", "set_preset_load_midi_out", "set_chain_input", "set_chain_output", "set_chain_split", "set_split_mute", "save_preset_as", "rename_current_preset", "copy_preset"],

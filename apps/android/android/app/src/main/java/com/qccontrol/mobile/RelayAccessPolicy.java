@@ -5,10 +5,10 @@ import android.content.SharedPreferences;
 
 /** Device-local authority for remote relay writes. Defaults to full control. */
 final class RelayAccessPolicy {
-    static final String FULL = "full";
-    static final String MODIFY = "modify";
-    static final String PERFORMANCE = "performance";
-    static final String READ_ONLY = "read-only";
+    static final String FULL = GeneratedRemoteActions.ACCESS_FULL;
+    static final String MODIFY = GeneratedRemoteActions.ACCESS_MODIFY;
+    static final String PERFORMANCE = GeneratedRemoteActions.ACCESS_PERFORMANCE;
+    static final String READ_ONLY = GeneratedRemoteActions.ACCESS_READ_ONLY;
     private static final String PREFS = "qc_relay_access";
     private static final String MODE = "mode";
 
@@ -18,7 +18,7 @@ final class RelayAccessPolicy {
     }
 
     static void setMode(Context context, String mode) {
-        if (!FULL.equals(mode) && !MODIFY.equals(mode) && !PERFORMANCE.equals(mode) && !READ_ONLY.equals(mode)) {
+        if (!GeneratedRemoteActions.isAccessMode(mode)) {
             throw new IllegalArgumentException("Access mode must be read-only, performance, modify, or full.");
         }
         preferences(context).edit().putString(MODE, mode).apply();

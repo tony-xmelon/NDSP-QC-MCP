@@ -1,18 +1,17 @@
-import { SHARED_QC_ACTIONS, type SharedQcActionName } from "./generated-actions.ts";
+import { SHARED_QC_ACCESS_MODES, SHARED_QC_ACTIONS, type SharedQcAccessMode, type SharedQcActionName } from "./generated-actions.ts";
 
 export type AssistantToolCall = { id?: string; name: string; arguments: Record<string, unknown> };
 export type AssistantToolDefinition = { name: string; description: string; inputSchema: Record<string, unknown> };
-export type AssistantAccessMode = "read-only" | "performance" | "modify" | "full";
+export type AssistantAccessMode = SharedQcAccessMode;
 
-const accessLevel: Record<AssistantAccessMode, number> = {
-  "read-only": 0,
-  performance: 1,
-  modify: 2,
-  full: 3
-};
+const accessLevel = Object.fromEntries(
+  SHARED_QC_ACCESS_MODES.map((mode, index) => [mode, index])
+) as Record<AssistantAccessMode, number>;
 
 export function parseAssistantAccessMode(value: unknown, fallback: AssistantAccessMode = "full"): AssistantAccessMode {
-  return value === "read-only" || value === "performance" || value === "modify" || value === "full" ? value : fallback;
+  return typeof value === "string" && (SHARED_QC_ACCESS_MODES as readonly string[]).includes(value)
+    ? value as AssistantAccessMode
+    : fallback;
 }
 
 /** Provider-neutral tool declarations generated from the shared QC action contract. */

@@ -38,10 +38,10 @@ pub enum AccessMode {
 impl AccessMode {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
-            "full" => Ok(Self::Full),
-            "modify" => Ok(Self::Modify),
-            "performance" => Ok(Self::Performance),
-            "read-only" => Ok(Self::ReadOnly),
+            generated_actions::ACCESS_FULL => Ok(Self::Full),
+            generated_actions::ACCESS_MODIFY => Ok(Self::Modify),
+            generated_actions::ACCESS_PERFORMANCE => Ok(Self::Performance),
+            generated_actions::ACCESS_READ_ONLY => Ok(Self::ReadOnly),
             _ => Err("Relay access mode must be read-only, performance, modify, or full".into()),
         }
     }

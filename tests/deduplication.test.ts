@@ -526,6 +526,24 @@ test("one generated profile owns native backup limits across both hosts", () => 
   assert.match(responses, /profile::BACKUP_MAXIMUM_DOCUMENT_BYTES/);
 });
 
+test("one generated action contract owns assistant and relay access modes", () => {
+  const contract = JSON.parse(source("contracts/qc-actions.v1.json"));
+  const generatedTs = source("packages/typescript/qc-core/src/generated-actions.ts");
+  const assistant = source("packages/typescript/qc-core/src/assistant-tools.ts");
+  const generatedRust = source("packages/rust/qc-relay-client/src/generated_actions.rs");
+  const rustClient = source("packages/rust/qc-relay-client/src/lib.rs");
+  const generatedJava = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedRemoteActions.java");
+  const androidPolicy = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/RelayAccessPolicy.java");
+  assert.deepEqual(contract.accessModes, ["read-only", "performance", "modify", "full"]);
+  assert.match(generatedTs, /SHARED_QC_ACCESS_MODES/);
+  assert.match(assistant, /SHARED_QC_ACCESS_MODES\.map/);
+  assert.match(generatedRust, /pub\(crate\) const ACCESS_READ_ONLY/);
+  assert.match(rustClient, /generated_actions::ACCESS_READ_ONLY/);
+  assert.match(generatedJava, /static final String ACCESS_READ_ONLY/);
+  assert.match(androidPolicy, /GeneratedRemoteActions\.isAccessMode/);
+  assert.doesNotMatch(androidPolicy, /static final String READ_ONLY = "read-only"/);
+});
+
 test("one generated profile owns preset synchronization timeout across both hosts", () => {
   const contract = JSON.parse(source("contracts/qc-usb-profile.v1.json"));
   const javaProfile = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java");
