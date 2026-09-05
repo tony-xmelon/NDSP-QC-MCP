@@ -86,8 +86,7 @@ a hardware-test candidate, not a distributable release, until the two canonical
 reports below pass the final gate.
 
 ```powershell
-$windowsCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\windows\\' }
-node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate --output artifacts\hardware-conformance\windows.json
+npm run test:hardware:windows -- --config C:\secure\qc-hardware-windows.json --execute
 ```
 
 Omit `--execute` first to validate the complete 102-action plan and exact
@@ -98,9 +97,13 @@ Repeat with the Android device paired. Use a copied configuration whose
 canonical report consumed by the release gate:
 
 ```powershell
-$androidCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\android\\' }
-node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-android.json --execute --all --require-all --release-candidate $androidCandidate --output artifacts\hardware-conformance\android.json
+npm run test:hardware:android -- --config C:\secure\qc-hardware-android.json --execute
 ```
+
+Both platform runners are safe dry runs when `--execute` is omitted. They first
+verify that the bundle contains exactly one same-commit Windows candidate and
+one same-commit Android candidate, select the requested platform artifact, force
+the complete action plan, and write only its canonical evidence report.
 
 Evidence is written under `artifacts/hardware-conformance/`; explicit output
 paths keep the final gate deterministic. Serials, tokens, credentials, and

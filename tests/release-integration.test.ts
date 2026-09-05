@@ -181,6 +181,20 @@ test("CI combines both same-commit candidates into one hardware-testable bundle"
   assert.match(runbook, /hardware-test candidate, not a distributable release/);
 });
 
+test("platform hardware runners select exact bundle candidates and canonical evidence paths", () => {
+  const runnerUrl = new URL("../tools/run-hardware-release.mjs", import.meta.url);
+  const runner = readFileSync(runnerUrl, "utf8");
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  execFileSync(process.execPath, ["--check", fileURLToPath(runnerUrl)], { stdio: "pipe" });
+  assert.match(runner, /verifyReleaseBundle\(\)/);
+  assert.match(runner, /candidates\.length !== 2/);
+  assert.match(runner, /selectPlatformCandidate\(candidates, platform\)/);
+  assert.match(runner, /"--all",\s*"--require-all"/);
+  assert.match(runner, /resolve\(root, "artifacts", "hardware-conformance", `\$\{platform\}\.json`\)/);
+  assert.equal(packageJson.scripts["test:hardware:windows"], "node tools/run-hardware-release.mjs windows");
+  assert.equal(packageJson.scripts["test:hardware:android"], "node tools/run-hardware-release.mjs android");
+});
+
 test("Android package, Gradle, and lockfile share one release version", () => {
   const appPackage = JSON.parse(readFileSync(new URL("../apps/android/package.json", import.meta.url), "utf8"));
   const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
