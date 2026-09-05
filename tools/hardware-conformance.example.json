@@ -4,7 +4,7 @@
     "kind": "mcp-http",
     "endpoint": "https://relay.example.com/mcp",
     "bearerTokenEnv": "QC_MCP_BEARER_TOKEN",
-    "timeoutMs": 60000,
+    "timeoutMs": 240000,
     "protocolVersion": "2025-03-26"
   },
   "safety": {

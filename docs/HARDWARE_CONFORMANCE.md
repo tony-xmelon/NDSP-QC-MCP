@@ -34,6 +34,12 @@ Copy `tools/hardware-conformance.example.json` outside source control, fill in
 the serial suffix and fixtures, and keep OAuth tokens only in the named
 environment variable.
 
+Keep `transport.timeoutMs` at 240000 or higher for a release run. The shared
+native backup collector can legitimately use its 180-second total window;
+the conformance transport must leave additional time for relay and response
+serialization instead of aborting a healthy backup at the former 60-second
+default.
+
 ## Commands
 
 Validate coverage and print the plan without connecting:

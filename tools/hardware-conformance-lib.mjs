@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const MUTATION_ACK = "I_ACCEPT_QC_HARDWARE_MUTATIONS";
+export const FULL_RUN_MINIMUM_TRANSPORT_TIMEOUT_MS = 210_000;
 
 export const CASES = Object.freeze({
   reconnect_device: { phase: "system", hazard: "system" },
@@ -183,6 +184,10 @@ export function validateConfig(config, { requireAll = false } = {}) {
   const missing = requiredFixturePaths.filter((path) => atPath(config, path) === undefined || atPath(config, path) === "");
   if (requireAll && missing.length) throw new Error(`Full physical coverage requires config values: ${missing.join(", ")}`);
   if (requireAll) {
+    if (!Number.isFinite(config.transport.timeoutMs)
+        || config.transport.timeoutMs < FULL_RUN_MINIMUM_TRANSPORT_TIMEOUT_MS) {
+      throw new Error(`Full physical coverage requires transport.timeoutMs >= ${FULL_RUN_MINIMUM_TRANSPORT_TIMEOUT_MS} so the shared 180-second native backup window can complete.`);
+    }
     if (!Number.isInteger(config.library.pinnedModelId) || config.library.pinnedModelId < 0) {
       throw new Error("library.pinnedModelId must be a non-negative integer.");
     }

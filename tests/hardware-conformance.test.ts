@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   CASES,
+  FULL_RUN_MINIMUM_TRANSPORT_TIMEOUT_MS,
   MUTATION_ACK,
   actionPlan,
   assertDisposableSlots,
@@ -31,6 +32,12 @@ test("physical suite has exactly one case for every MCP device action", () => {
 
 test("full execution requires explicit fixtures and distinct disposable slots", () => {
   assert.deepEqual(validateConfig(example, { requireAll: true }), []);
+  assert.equal(example.transport.timeoutMs, 240_000);
+  assert.ok(example.transport.timeoutMs >= FULL_RUN_MINIMUM_TRANSPORT_TIMEOUT_MS);
+  assert.throws(
+    () => validateConfig({ ...example, transport: { ...example.transport, timeoutMs: 60_000 } }, { requireAll: true }),
+    /shared 180-second native backup window/
+  );
   assert.doesNotThrow(() => assertDisposableSlots(example, [example.persistent.slotA, example.persistent.slotB]));
   assert.throws(() => assertDisposableSlots(example, [example.persistent.slotA, example.persistent.slotA]), /distinct/);
 });
