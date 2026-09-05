@@ -211,6 +211,8 @@ fn handle(
         "device.pressFootswitch"
         | "device.tapTempo"
         | "device.selectModeSlot"
+        | "device.showTuner"
+        | "device.showGigView"
         | "device.controlLooper" => gateway_performance_midi(
             controller,
             performance_midi,
@@ -248,8 +250,6 @@ fn handle(
         "device.createBackup" => gateway_create_backup(controller, &request.params),
         "device.copyPreset" => gateway_copy_preset(controller, &request.params),
         "device.duplicateSetlist" => gateway_duplicate_setlist(controller, &request.params),
-        "device.showTuner" => gateway_visibility(controller, &request.params, true),
-        "device.showGigView" => gateway_visibility(controller, &request.params, false),
         "device.raw.latest" => raw_latest(controller, &request.params),
         "device.raw.events" => raw_events(controller, &request.params),
         "device.state.events" => state_events(controller, &request.params),

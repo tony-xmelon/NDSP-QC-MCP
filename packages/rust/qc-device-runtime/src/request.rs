@@ -3001,6 +3001,8 @@ pub fn plan_gateway_write(
         "device.pressFootswitch"
         | "device.tapTempo"
         | "device.selectModeSlot"
+        | "device.showTuner"
+        | "device.showGigView"
         | "device.controlLooper" => {
             let midi = plan_host_midi(method, params)?;
             GatewayWritePlan {
