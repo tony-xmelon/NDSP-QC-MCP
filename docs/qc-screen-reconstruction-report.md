@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **89.92%** | **97.05%** |
-| Android | 36/36 (100%) | **89.91%** | **97.05%** |
+| Windows | 36/36 (100%) | **90.02%** | **97.06%** |
+| Android | 36/36 (100%) | **90.02%** | **97.06%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -96,7 +96,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Gig View — HYBRID | 90.68% | 90.60% |
 | Analog I/O Settings | 87.52% | 87.43% |
 | USB I/O Settings | 88.08% | 88.02% |
-| Global EQ | 87.39% | 87.29% |
+| Global EQ | 90.55% | 90.52% |
 | Brit 2203 Grid | 92.25% | 92.26% |
 | Empty slot | 87.30% | 87.36% |
 | Amp device browser | 87.36% | 87.54% |
@@ -171,13 +171,19 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Refit Global EQ's response trace against the native curve, restored the
+  measured 4px filter-tab gutters, and raised the three parameter values to
+  their device baselines. The screen rises from **86.79% to 90.55% Windows /
+  86.78% to 90.52% Android** structural match, while color similarity improves
+  from **96.19% to 96.41%**. The complete 36-screen official-manual benchmark
+  now reaches **90.02% / 97.06%** on both hosts.
 - Rebuilt the official Brit 2203 Grid header as the continuous, native-scale
   **1A Brit 2203** title instead of three disconnected runs, restored the
   scene-green slot color, and added the three missing signal-row connector
   markers. The frame rises from **84.97% to 92.25% Windows / 92.26% Android**
   structural match, while color similarity rises from **94.67% to 96.08%**.
-  The complete official-manual benchmark reaches **89.92% / 97.05%** on
-  Windows and **89.91% / 97.05%** on Android.
+  At that checkpoint, the complete official-manual benchmark reached **89.92%
+  / 97.05%** on Windows and **89.91% / 97.05%** on Android.
 - Replaced Settings — Device's Unicode icon stand-ins with measured vector
   device, bypass, timing, scene, and model glyphs; aligned the navigation and
   model-card geometry; and matched the explanatory copy's physical type scale.

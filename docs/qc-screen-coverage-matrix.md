@@ -13,7 +13,7 @@ Generated from the CorOS 4.1.0 executable coverage ledger. This report distingui
 | Corpus | Windows structural | Windows color | Android structural | Android color |
 | --- | ---: | ---: | ---: | ---: |
 | Physical device | 91.59% | 97.32% | 91.58% | 97.32% |
-| Official manual | 89.92% | 97.05% | 89.91% | 97.05% |
+| Official manual | 90.02% | 97.06% | 90.02% | 97.06% |
 
 Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` color similarity. A canonical state that references multiple frames reports their mean. Detail evidence is scoped and therefore never promoted into a full-frame score.
 
@@ -74,7 +74,7 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | IO-04 | I/O | Send/Return detail | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | IO-05 | I/O | USB I/O detail | official frame | Built | Built | — / — | — / — | 88.10% / 88.09% | 96.48% / 96.48% |
 | IO-06 | I/O | Headphones detail | smoke only | Built | Built | — / — | — / — | — / — | — / — |
-| IO-07 | I/O | Global EQ | official frame | Built | Built | — / — | — / — | 86.79% / 86.78% | 96.19% / 96.19% |
+| IO-07 | I/O | Global EQ | official frame | Built | Built | — / — | — / — | 90.55% / 90.52% | 96.41% / 96.41% |
 | IO-08 | I/O | Global input gate and bypass | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | GR-01 | Routing | Input route selector | physical frame | Built | Built | 90.18% / 90.21% | 96.77% / 96.77% | — / — | — / — |
 | GR-02 | Routing | Output route selector | physical frame | Built | Built | 91.22% / 91.24% | 96.72% / 96.72% | — / — | — / — |
@@ -184,6 +184,6 @@ These states are implemented and captured on both hosts, but only against determ
 
 - Physical Windows: `.artifacts/ui-physical-final24/comparison/summary.json`
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
-- Official Windows: `.artifacts/ui-official-final4/windows-comparison/summary.json`
-- Official Android: `.artifacts/ui-official-final4/android-comparison/summary.json`
+- Official Windows: `.artifacts/ui-official-final5/windows-comparison/summary.json`
+- Official Android: `.artifacts/ui-official-final5/android-comparison/summary.json`
 
