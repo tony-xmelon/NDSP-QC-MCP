@@ -144,6 +144,7 @@ test("focused native backup verification does not require a Python runtime", () 
 test("CI packages the Android app with pinned native prerequisites and provenance", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
   assert.match(workflow, /android-package:/);
+  assert.match(workflow, /android-package:[\s\S]*needs: \[software-parity, ui-conformance\]/);
   assert.match(workflow, /java-version: 21/);
   assert.match(workflow, /ndk;27\.2\.12479018/);
   assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
@@ -152,6 +153,18 @@ test("CI packages the Android app with pinned native prerequisites and provenanc
   assert.match(workflow, /QC-Control-Android-\*\.apk\.source\.json/);
   assert.match(workflow, /artifacts\/release-manifest\.json/);
   assert.match(workflow, /artifacts\/sbom\.cdx\.json/);
+});
+
+test("CI packages the Windows installer only after parity and UI conformance", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  const build = script("build-windows-installer.ps1");
+  assert.match(workflow, /windows-package:/);
+  assert.match(workflow, /windows-package:[\s\S]*needs: \[software-parity, ui-conformance\]/);
+  assert.match(workflow, /build-windows-installer\.ps1 -SkipPreflight/);
+  assert.match(workflow, /artifacts\/windows\/QC-Control-Windows-\*\.exe/);
+  assert.match(workflow, /QC-Control-Windows-\*\.exe\.source\.json/);
+  assert.match(build, /\[switch\]\$SkipPreflight/);
+  assert.match(build, /if \(-not \$SkipPreflight\)[\s\S]*verify-software-parity\.ps1/);
 });
 
 test("Android package, Gradle, and lockfile share one release version", () => {

@@ -81,6 +81,7 @@ jobs:
 
   android-package:
     name: Android APK and native Rust libraries
+    needs: [software-parity, ui-conformance]
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -135,6 +136,55 @@ jobs:
           path: |
             artifacts/android/QC-Control-Android-*.apk
             artifacts/android/QC-Control-Android-*.apk.source.json
+            artifacts/release-manifest.json
+            artifacts/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-package:
+    name: Windows installer and native Rust broker
+    needs: [software-parity, ui-conformance]
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Rust build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/AppData/Local/QCControlBuild/cargo-target
+          key: ${{ runner.os }}-windows-installer-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-windows-installer-
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Build Windows installer from the parity-approved commit
+        shell: pwsh
+        run: ./scripts/build-windows-installer.ps1 -SkipPreflight
+
+      - name: Preserve installer and release provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: qc-control-windows-${{ github.sha }}
+          path: |
+            artifacts/windows/QC-Control-Windows-*.exe
+            artifacts/windows/QC-Control-Windows-*.exe.source.json
             artifacts/release-manifest.json
             artifacts/sbom.cdx.json
           if-no-files-found: error

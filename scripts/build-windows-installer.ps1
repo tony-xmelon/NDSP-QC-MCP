@@ -1,7 +1,13 @@
+param(
+    [switch]$SkipPreflight
+)
+
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repositoryRoot "scripts\verify-software-parity.ps1") -BuildApps -RequireClean
-if ($LASTEXITCODE -ne 0) { throw "Software parity preflight failed; Windows installer build was not started." }
+if (-not $SkipPreflight) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repositoryRoot "scripts\verify-software-parity.ps1") -BuildApps -RequireClean
+    if ($LASTEXITCODE -ne 0) { throw "Software parity preflight failed; Windows installer build was not started." }
+}
 $buildLockPath = Join-Path $repositoryRoot "apps\windows\src-tauri\target\qc-control-installer.lock"
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $buildLockPath) | Out-Null
 try {
