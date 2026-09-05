@@ -2,7 +2,7 @@
 
 ## Goal
 
-Support Windows now and Android, iOS, web, automation, and other clients later while maintaining one tested implementation of Quad Cortex behavior. The architecture follows ports and adapters: stable device concepts and application use cases sit in the center; USB, IPC, network, UI, MCP, voice, storage, and operating-system integrations sit at the edges.
+Support Windows and Android now, with iOS, web, automation, and other clients later, while maintaining one tested implementation of Quad Cortex behavior. The architecture follows ports and adapters: stable device concepts and application use cases sit in the center; USB, IPC, network, UI, MCP, voice, storage, and operating-system integrations sit at the edges.
 
 ## System map
 

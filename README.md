@@ -1,6 +1,6 @@
 # NDSP QC MCP
 
-An unofficial, modular control platform for Neural DSP Quad Cortex devices. The project is intended to support a hardware-faithful Windows controller, a standalone MCP server, and future Android, iOS, web, and other clients without duplicating device-control logic.
+An unofficial, modular control platform for Neural DSP Quad Cortex devices. The project provides hardware-faithful Windows and Android controllers plus a standalone MCP server, while keeping future iOS, web, and other clients from duplicating device-control logic.
 
 > [!IMPORTANT]
 > This project is not affiliated with or endorsed by Neural DSP. Device support uses an independent native Rust implementation informed by the community-maintained `pyquadcortex` project. The private protocol remains firmware-sensitive.
@@ -109,7 +109,6 @@ Logic with Gemini 3.7 Flash without embedding a personal Gemini key, and sends
 Android speech-recognition transcripts through the same chat/action path. The
 mobile shell composes the same preset, Grid, routing, scene, parameter,
 footswitch, history, save, and performance workflows as Windows, including the
-same guarded assistant action executor and offline intent resolver. Live USB
 same guarded assistant action executor, generated hardware-safe action
 allowlist, and offline intent resolver. That shared allowlist covers the
 contracted read, performance, edit, library, and confirmed system surface. Live
