@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.03%** | **97.22%** |
-| Android | 40/40 (100%) | **91.02%** | **97.22%** |
+| Windows | 40/40 (100%) | **91.08%** | **97.23%** |
+| Android | 40/40 (100%) | **91.07%** | **97.23%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -135,7 +135,7 @@ still need pixel-level reconstruction work.
 | `device-browser-root` | **89.66%** | **89.67%** |
 | `device-browser-models` | **90.41%** | **90.40%** |
 | `device-browser-models-clean` | **90.77%** | **90.77%** |
-| `device-browser-plugin-list` | 86.22% | 86.22% |
+| `device-browser-plugin-list` | **87.32%** | **87.33%** |
 | `device-browser-plugin-models` | 90.50% | 90.50% |
 | `device-browser-plugin-locked` | 88.42% | 88.42% |
 | `device-presets-exotic-z-boost` | 90.33% | 90.33% |
@@ -143,7 +143,7 @@ still need pixel-level reconstruction work.
 | `device-presets-user` | 89.71% | 89.70% |
 | `editor-simple-gate` | **90.87%** | **90.87%** |
 | `editor-chief-ds1` | **90.73%** | **90.73%** |
-| `editor-digital-flanger` | **85.91%** | **85.92%** |
+| `editor-digital-flanger` | **86.60%** | **86.61%** |
 | `editor-ukc30-topboost` | **88.43%** | **88.43%** |
 | `editor-ukc30-cab` | **92.99%** | **92.99%** |
 | `editor-parametric-8` | **88.33%** | **88.33%** |
@@ -165,6 +165,11 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Replaced Digital Flanger's incorrect bypass blob with the linked-control
+  glyph visible in the physical editor, raising structural match from
+  **85.91% to 86.60% Windows / 85.92% to 86.61% Android**. Restored the
+  plugin-list Grid underlay's distinct endpoint tiles and black add-device
+  target, raising that screen from **86.22% to 87.32% / 87.33%**.
 - Reconstructed the Cab editor's four independently positioned parameter
   columns, measured per-control value bars, microphone targets, footer sizing,
   and stacked-preset glyph. Cab structural match rises from **85.59% to
@@ -234,8 +239,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
   screens reached **86.82% structural match** in that pass. The latest complete
-  physical benchmark reaches **91.03% / 97.22% structural/color on Windows**
-  and **91.02% / 97.22% on Android**.
+  physical benchmark reaches **91.08% / 97.23% structural/color on Windows**
+  and **91.07% / 97.23% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen
