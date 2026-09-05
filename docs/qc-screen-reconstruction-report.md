@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.36%** | **97.25%** |
-| Android | 40/40 (100%) | **91.35%** | **97.25%** |
+| Windows | 40/40 (100%) | **91.39%** | **97.25%** |
+| Android | 40/40 (100%) | **91.38%** | **97.25%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -135,7 +135,7 @@ still need pixel-level reconstruction work.
 | `device-browser-root` | **89.66%** | **89.67%** |
 | `device-browser-models` | **90.41%** | **90.40%** |
 | `device-browser-models-clean` | **90.77%** | **90.77%** |
-| `device-browser-plugin-list` | **87.32%** | **87.33%** |
+| `device-browser-plugin-list` | **88.61%** | **88.61%** |
 | `device-browser-plugin-models` | 90.50% | 90.50% |
 | `device-browser-plugin-locked` | 88.42% | 88.42% |
 | `device-presets-exotic-z-boost` | 90.33% | 90.33% |
@@ -165,6 +165,12 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Restored the physical plugin browser rail's green-black active surface,
+  neutral white category artwork, 68px selected target, and measured plug
+  proportions. The screen rises from **87.32% Windows / 87.33% Android to
+  88.61%** on both hosts, while color similarity rises from **97.76% to
+  97.85%**. Complete-corpus recomparison reaches **91.39% / 97.25%** on
+  Windows and **91.38% / 97.25%** on Android.
 - Fixed Digital Flanger's dead page-cell selectors so the live `<button>`
   controls receive the physical active/inactive colors, matched their measured
   bounds, aligned the confirmation control, and corrected the two-line title's

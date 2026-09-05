@@ -92,6 +92,10 @@
 .plugin-grid-underlay header{padding-left:1.5cqw}.plugin-grid-underlay header em{margin-left:2.625cqw}.plugin-grid-underlay main::before{top:4.5cqw}.plugin-grid-underlay .underlay-plus{width:7.875cqw}.plugin-grid-underlay .underlay-add{top:12.125cqw;width:8.875cqw;height:8.875cqw}.plugin-grid-underlay .underlay-row-2{top:11.625cqw}.plugin-grid-underlay .underlay-row-3{top:23.25cqw}.plugin-grid-underlay .underlay-row-4{left:1cqw;top:35cqw}
 .coros-browser-fixture.is-physical-plugin-list,.coros-browser-fixture.is-physical-plugin-list *{font-family:Arial!important}
 .coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>nav{background:#181c18}
+.coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>nav button i{color:#eee}
+.coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>nav button.is-active{background:#102818}
+.coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>nav button.is-active i{width:7.75cqw;transform:translate(-1px,1px)}
+.coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>nav button.is-active svg{width:135%;height:70%}
 .coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>main{background:#292c29}
 .coros-browser-fixture.is-physical-plugin-list .is-plugin-licenses button{border-bottom:0;background:#292c29}
 .coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>main>header{border-bottom:0}
