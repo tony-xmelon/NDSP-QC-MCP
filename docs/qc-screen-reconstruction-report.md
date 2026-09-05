@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **90.85%** | **97.21%** |
-| Android | 40/40 (100%) | **90.84%** | **97.21%** |
+| Windows | 40/40 (100%) | **91.03%** | **97.22%** |
+| Android | 40/40 (100%) | **91.02%** | **97.22%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -145,7 +145,7 @@ still need pixel-level reconstruction work.
 | `editor-chief-ds1` | **90.73%** | **90.73%** |
 | `editor-digital-flanger` | **85.91%** | **85.92%** |
 | `editor-ukc30-topboost` | **88.43%** | **88.43%** |
-| `editor-ukc30-cab` | **85.59%** | **85.59%** |
+| `editor-ukc30-cab` | **92.99%** | **92.99%** |
 | `editor-parametric-8` | **88.33%** | **88.33%** |
 | `editor-ambience` | **87.75%** | **87.74%** |
 | `gig-view` (STOMP) | **94.41%** | **94.41%** |
@@ -165,6 +165,11 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Reconstructed the Cab editor's four independently positioned parameter
+  columns, measured per-control value bars, microphone targets, footer sizing,
+  and stacked-preset glyph. Cab structural match rises from **85.59% to
+  92.99%** with **97.69% color similarity** on both hosts; the seven physical
+  editor screens now average **89.29% structural match**.
 - Corrected the shared live Grid header against the physical framebuffer: the
   active preset slot is red rather than green, Undo and Save use their measured
   coordinates, the scene badge is 25px rather than 31px, and the mode icon and
@@ -229,8 +234,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
   screens reached **86.82% structural match** in that pass. The latest complete
-  physical benchmark reaches **90.85% / 97.21% structural/color on Windows**
-  and **90.84% / 97.21% on Android**.
+  physical benchmark reaches **91.03% / 97.22% structural/color on Windows**
+  and **91.02% / 97.22% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

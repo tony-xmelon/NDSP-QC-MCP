@@ -265,6 +265,16 @@
 .coros-cab-editor .cab-halves>section:nth-child(2) .cab-speaker>i{left:59.75%}
 .coros-cab-editor .cab-footer{bottom:1.75%;height:10.75%}
 .coros-cab-editor .cab-footer button{background:#181c18;color:#fff}
+.coros-reference-parameter-editor.coros-cab-editor .cab-values{position:relative;display:block;height:8.75cqw;padding:0}
+.coros-reference-parameter-editor.coros-cab-editor .cab-values>span{position:absolute;top:2cqw;width:10.25cqw;display:block;font-size:2cqw}
+.coros-reference-parameter-editor.coros-cab-editor .cab-values>span:nth-child(1){left:1.375cqw}.coros-reference-parameter-editor.coros-cab-editor .cab-values>span:nth-child(2){left:13.5cqw}.coros-reference-parameter-editor.coros-cab-editor .cab-values>span:nth-child(3){left:25.625cqw}.coros-reference-parameter-editor.coros-cab-editor .cab-values>span:nth-child(4){left:37.75cqw}
+.coros-reference-parameter-editor.coros-cab-editor .cab-values>span::after{right:0;top:3.1cqw}.coros-reference-parameter-editor.coros-cab-editor .cab-values b{position:absolute;left:0;top:5cqw;margin:0;white-space:nowrap}
+.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:first-child .cab-values>span:nth-child(2)::after,.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:first-child .cab-values>span:nth-child(4)::after,.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:nth-child(2) .cab-values>span:nth-child(2)::after,.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:nth-child(2) .cab-values>span:nth-child(4)::after{background:linear-gradient(90deg,var(--cab-accent) 0 2.5%,#080a09 2.5%)}
+.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:first-child .cab-values>span:nth-child(3)::after{background:linear-gradient(90deg,var(--cab-accent) 0 52%,#080a09 52%)}
+.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:nth-child(2) .cab-values>span:nth-child(1)::after{background:linear-gradient(90deg,var(--cab-accent) 0 40%,#080a09 40%)}.coros-reference-parameter-editor.coros-cab-editor .cab-halves>section:nth-child(2) .cab-values>span:nth-child(3)::after{background:linear-gradient(90deg,var(--cab-accent) 0 50%,#080a09 50%)}
+.coros-cab-editor .cab-speaker{translate:0 1px}.coros-cab-editor .cab-speaker>i{width:17%}
+.coros-cab-editor .cab-footer{bottom:1.5%;height:11%;grid-template-columns:17.65% 1fr 17.65%}
+.coros-cab-editor .cab-preset-mark{display:block!important;width:2.5cqw;height:2.5cqw;font-size:0!important}.coros-cab-editor .cab-preset-mark svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .coros-route-picker.is-input,.coros-route-picker.is-input .route-picker-list,.coros-route-picker.is-input .route-picker-list>b{background:#101010}
 .coros-route-picker.is-input,.coros-route-picker.is-input *{font-family:Roboto,Arial,sans-serif}
 .coros-route-picker.is-input header{gap:7.4%}
