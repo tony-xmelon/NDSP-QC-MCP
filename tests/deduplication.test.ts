@@ -130,7 +130,7 @@ test("one generated profile owns USB and performance MIDI policy across native h
   const java = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java");
   const rust = source("packages/rust/qc-protocol/src/profile.rs");
   assert.equal(contract.version, 1);
-  for (const value of [contract.vendorId, contract.productId, contract.maxFrameBytes, contract.maxInflatedBytes, contract.performanceMidiGapMs]) {
+  for (const value of [contract.vendorId, contract.productId, contract.maxFrameBytes, contract.maxInflatedBytes, contract.performanceMidiGapMs, contract.midi.controlChangeStatus, contract.midi.usbEventPacketHeader]) {
     assert.match(java, new RegExp(`= ${value}(?:L)?;`));
     assert.match(rust, new RegExp(`= ${value};`));
   }
@@ -142,6 +142,10 @@ test("one generated profile owns USB and performance MIDI policy across native h
   assert.match(source("packages/rust/qc-protocol/src/commands.rs"), /profile::LIVE_SUBSCRIPTIONS/);
   assert.match(source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java"), /QcUsbProfile\.MESSAGE_TYPE_(?:GLOBAL_TEMPO|BACKUP|MODEL_REPO|DEVICE_VERSION)/);
   assert.match(source("services/device-broker/src/usb.rs"), /profile::MESSAGE_TYPE_(?:BACKUP|MODEL_REPO|DEVICE_VERSION)/);
+  assert.match(source("packages/rust/qc-windows-midi/src/lib.rs"), /profile::MIDI_CONTROL_CHANGE_STATUS/);
+  assert.match(source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java"), /QcUsbProfile\.MIDI_(?:USB_EVENT_PACKET_HEADER|CONTROL_CHANGE_STATUS)/);
+  assert.doesNotMatch(source("packages/rust/qc-windows-midi/src/lib.rs"), /0xB0/i);
+  assert.doesNotMatch(source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java"), /\(byte\) 0x(?:0b|b0)/i);
   assert.match(source("services/device-gateway/src/qc_device_gateway/usb_profile.py"), new RegExp(`MAX_INFLATED_BYTES = ${contract.maxInflatedBytes}`));
 });
 

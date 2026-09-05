@@ -20,6 +20,8 @@ final class QcUsbProfile {
     static final long BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L;
     static final int BACKUP_MAXIMUM_ATTEMPTS = 3;
     static final int BACKUP_MAXIMUM_DOCUMENT_BYTES = 33554432;
+    static final int MIDI_CONTROL_CHANGE_STATUS = 176;
+    static final int MIDI_USB_EVENT_PACKET_HEADER = 11;
     static final int FOOTSWITCH_BASE_CONTROLLER = 35;
     static final int TAP_TEMPO_CONTROLLER = 44;
     static final int TUNER_CONTROLLER = 45;

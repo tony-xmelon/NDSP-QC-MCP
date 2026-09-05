@@ -679,7 +679,12 @@ public class QcUsbPlugin extends Plugin {
                 maxMidiQueueDelayMs = Math.max(maxMidiQueueDelayMs, lastMidiQueueDelayMs);
                 long remaining = QcUsbProfile.PERFORMANCE_MIDI_GAP_MS - (System.currentTimeMillis() - lastMidiCommandAt);
                 if (remaining > 0) Thread.sleep(remaining);
-                byte[] packet = {(byte) 0x0b, (byte) 0xb0, (byte) controller, (byte) value};
+                byte[] packet = {
+                    (byte) QcUsbProfile.MIDI_USB_EVENT_PACKET_HEADER,
+                    (byte) QcUsbProfile.MIDI_CONTROL_CHANGE_STATUS,
+                    (byte) controller,
+                    (byte) value
+                };
                 int written = connection.bulkTransfer(midiOutputEndpoint, packet, packet.length, MIDI_WRITE_TIMEOUT_MS);
                 lastMidiCommandAt = System.currentTimeMillis();
                 if (written != packet.length) throw new RelayException("MIDI_WRITE_FAILED", "The complete MIDI packet was not written.");

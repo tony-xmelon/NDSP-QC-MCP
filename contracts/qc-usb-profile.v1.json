@@ -19,6 +19,8 @@
   "backupMaximumAttempts": 3,
   "backupMaximumDocumentBytes": 33554432,
   "midi": {
+    "controlChangeStatus": 176,
+    "usbEventPacketHeader": 11,
     "footswitchBaseController": 35,
     "tapTempoController": 44,
     "tunerController": 45,

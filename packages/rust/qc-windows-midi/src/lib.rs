@@ -9,7 +9,11 @@ pub struct PerformanceMidi {
 
 impl PerformanceMidi {
     pub fn send(&mut self, controller: u8, value: u8) -> Result<String, String> {
-        self.send_raw(0xB0_u32 | ((controller as u32) << 8) | ((value as u32) << 16))
+        self.send_raw(
+            u32::from(qc_protocol::profile::MIDI_CONTROL_CHANGE_STATUS)
+                | ((controller as u32) << 8)
+                | ((value as u32) << 16),
+        )
     }
 
     fn send_raw(&mut self, message: u32) -> Result<String, String> {
