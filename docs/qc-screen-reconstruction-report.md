@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **90.17%** | **97.15%** |
-| Android | 40/40 (100%) | **90.16%** | **97.15%** |
+| Windows | 40/40 (100%) | **90.85%** | **97.21%** |
+| Android | 40/40 (100%) | **90.84%** | **97.21%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -122,14 +122,14 @@ still need pixel-level reconstruction work.
 
 | Physical state | Windows structural match | Android structural match |
 | --- | ---: | ---: |
-| `grid-base` | 90.26% | 90.26% |
-| `grid-scene-selector` | 93.30% | 93.30% |
-| `grid-context-menu` | 91.05% | 91.08% |
+| `grid-base` | **93.42%** | **93.42%** |
+| `grid-scene-selector` | **94.81%** | **94.81%** |
+| `grid-context-menu` | 91.00% | 91.03% |
 | `copy-scene-destination` | **91.79%** | **91.51%** |
 | `swap-scene-destination` | **91.70%** | **91.43%** |
 | `preset-directory` | 92.46% | 92.47% |
-| `input-route-selector` | 87.42% | 87.47% |
-| `output-route-selector` | **90.74%** | **90.76%** |
+| `input-route-selector` | **90.18%** | **90.21%** |
+| `output-route-selector` | **91.22%** | **91.24%** |
 | `splitter-editor` | 87.61% | 87.65% |
 | `mixer-editor` | 89.85% | 89.89% |
 | `device-browser-root` | **89.66%** | **89.67%** |
@@ -141,17 +141,17 @@ still need pixel-level reconstruction work.
 | `device-presets-exotic-z-boost` | 90.33% | 90.33% |
 | `device-preset-actions` | 96.10% | 96.10% |
 | `device-presets-user` | 89.71% | 89.70% |
-| `editor-simple-gate` | **88.52%** | **88.51%** |
-| `editor-chief-ds1` | **88.64%** | **88.64%** |
-| `editor-digital-flanger` | **83.80%** | **83.81%** |
-| `editor-ukc30-topboost` | **86.77%** | **86.76%** |
+| `editor-simple-gate` | **90.87%** | **90.87%** |
+| `editor-chief-ds1` | **90.73%** | **90.73%** |
+| `editor-digital-flanger` | **85.91%** | **85.92%** |
+| `editor-ukc30-topboost` | **88.43%** | **88.43%** |
 | `editor-ukc30-cab` | **85.59%** | **85.59%** |
 | `editor-parametric-8` | **88.33%** | **88.33%** |
-| `editor-ambience` | **86.06%** | **86.05%** |
+| `editor-ambience` | **87.75%** | **87.74%** |
 | `gig-view` (STOMP) | **94.41%** | **94.41%** |
-| `grid-restored` | 90.26% | 90.26% |
-| `grid-scene-b` | 90.34% | 90.34% |
-| `grid-scene-a-restored` | 90.26% | 90.26% |
+| `grid-restored` | **93.42%** | **93.42%** |
+| `grid-scene-b` | **93.43%** | **93.43%** |
+| `grid-scene-a-restored` | **93.42%** | **93.42%** |
 | `tempo-metronome` | **90.46%** | **90.46%** |
 | `tuner` | **90.68%** | **90.68%** |
 | `tuner-live-enabled` | **90.85%** | **90.86%** |
@@ -165,6 +165,12 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Corrected the shared live Grid header against the physical framebuffer: the
+  active preset slot is red rather than green, Undo and Save use their measured
+  coordinates, the scene badge is 25px rather than 31px, and the mode icon and
+  label no longer drift left. Grid base rises from **90.26% to 93.42%** and the
+  fix propagates through route pickers and standard editors; the seven captured
+  editors now average **88.23%** structural match.
 - Restored the physical device browser's independently sized bank code, red
   slot letter, and 40px preset title instead of stretching one 64px text run
   across the dimmed Grid. Aligned its category rail and model typography and
@@ -183,7 +189,8 @@ still need pixel-level reconstruction work.
   double-triangle arrows. Corrected Flanger's DRIVE rotary, knob positions, and
   value precision; removed leaked draggable-mic markers from the C30 cab; and
   fixed Ambience's captured TRAILS, filter, and knob states. The seven editor
-  frames now average **86.82%**, up from **84.46%**, with every editor improved.
+  frames reached **86.82%**, up from **84.46%**, with every editor improved in
+  that pass.
 - Parked the benchmark pointer outside the framebuffer before every capture so
   transient desktop hover artwork can no longer contaminate physical-device
   comparisons.
@@ -221,9 +228,9 @@ still need pixel-level reconstruction work.
   positions, corrected its background and tab tones, and aligned the shared
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
-  screens now average **86.82% structural match**. The complete physical
-  benchmark reaches **89.29% / 97.04% structural/color on Windows** and
-  **89.28% / 97.04% on Android**.
+  screens reached **86.82% structural match** in that pass. The latest complete
+  physical benchmark reaches **90.85% / 97.21% structural/color on Windows**
+  and **90.84% / 97.21% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

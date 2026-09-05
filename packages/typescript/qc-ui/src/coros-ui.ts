@@ -3,7 +3,7 @@ export type CorOsContextAction = "create-new" | "edit-details" | "copy-scene" | 
 /** Grid gaps before columns 0-7, followed by the gap after column 7. */
 export const GRID_ROUTE_BOUNDARIES = [75, 141, 228.5, 317, 404.5, 488, 572, 659.5, 748] as const;
 
-export const PRESET_TITLE_RIGHT_EDGE = 612;
+export const PRESET_TITLE_RIGHT_EDGE = 596;
 
 export function presetTitlePresentation(name: string, dirty: boolean) {
   const normalizedName = name.trim() || "Unsaved";

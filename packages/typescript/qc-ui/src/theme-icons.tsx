@@ -46,8 +46,8 @@ export function QcHardwareIcon({ kind, className }: { kind: QcHardwareIconName; 
 }
 
 export function QcScreenHeaderGlyph({ kind }: { kind: QcScreenHeaderGlyphName }) {
-  if (kind === "undo") return <g fill="none" stroke={QC_COLORS.hardware.whiteLed} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M633 13A13 13 0 1 1 620 26" /><path d="M626 15L634 9V20Z" fill={QC_COLORS.hardware.whiteLed} stroke="none" /></g>;
-  if (kind === "save") return <path d="M712 13H728L733 18V35H711V14C711 13.448 711.448 13 712 13ZM716 15V22H727V15H716ZM716 27V35H728V27H716Z" fill={QC_COLORS.hardware.whiteLed} fillRule="evenodd" />;
+  if (kind === "undo") return <g fill="none" stroke={QC_COLORS.hardware.whiteLed} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M620 13A13 13 0 1 1 607 26" /><path d="M613 15L621 9V20Z" fill={QC_COLORS.hardware.whiteLed} stroke="none" /></g>;
+  if (kind === "save") return <g transform="translate(-7 0)"><path d="M712 13H728L733 18V35H711V14C711 13.448 711.448 13 712 13ZM716 15V22H727V15H716ZM716 27V35H728V27H716Z" fill={QC_COLORS.hardware.whiteLed} fillRule="evenodd" /></g>;
   return <g fill={QC_COLORS.hardware.whiteLed}><circle cx="766" cy="15" r="2.2" /><circle cx="766" cy="25" r="2.2" /><circle cx="766" cy="35" r="2.2" /></g>;
 }
 
