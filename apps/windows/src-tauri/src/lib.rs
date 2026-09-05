@@ -1,5 +1,9 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use qc_device_runtime::{generated_gateway, generated_gateway::rpc, request::plan_host_midi};
+use qc_device_runtime::{
+    generated_gateway,
+    generated_gateway::rpc,
+    request::{is_host_midi_method, plan_host_midi},
+};
 use qc_relay_client::{DeviceAdapter, DeviceError};
 use qc_windows_midi::PerformanceMidi;
 use serde_json::{json, Value};
@@ -841,10 +845,7 @@ impl DeviceAdapter for WindowsRelayAdapter {
     }
 
     async fn invoke(&self, method: &str, params: Value) -> Result<Value, DeviceError> {
-        if matches!(
-            method,
-            rpc::PRESS_FOOTSWITCH | rpc::TAP_TEMPO | rpc::SELECT_MODE_SLOT
-        ) {
+        if is_host_midi_method(method) {
             let plan = plan_host_midi(method, &params)
                 .map_err(|message| DeviceError::new("INVALID_ARGUMENT", message, false))?;
             let app = self.app.clone();
@@ -953,10 +954,7 @@ async fn gateway_invoke(app: AppHandle, method: String, params: Value) -> Result
         .map_err(|error| error.to_string())?;
     }
 
-    if matches!(
-        method.as_str(),
-        rpc::PRESS_FOOTSWITCH | rpc::TAP_TEMPO | rpc::SELECT_MODE_SLOT
-    ) {
+    if is_host_midi_method(&method) {
         let plan = plan_host_midi(&method, &params)?;
         let detail = plan.detail.clone();
         let endpoint = tauri::async_runtime::spawn_blocking(move || {

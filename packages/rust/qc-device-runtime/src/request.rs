@@ -55,6 +55,19 @@ pub struct HostMidiPlan {
     pub detail: String,
 }
 
+pub const HOST_MIDI_METHODS: &[&str] = &[
+    "device.pressFootswitch",
+    "device.tapTempo",
+    "device.selectModeSlot",
+    "device.showTuner",
+    "device.showGigView",
+    "device.controlLooper",
+];
+
+pub fn is_host_midi_method(method: &str) -> bool {
+    HOST_MIDI_METHODS.contains(&method)
+}
+
 /// Shared mapping for physical QC controls. Both native hosts execute this
 /// plan with their persistent platform MIDI handle.
 pub fn plan_host_midi(method: &str, params: &Value) -> Result<HostMidiPlan, String> {
@@ -4199,6 +4212,11 @@ mod tests {
             &json!({"command": "record", "value": 1}),
         )
         .is_err());
+        assert_eq!(HOST_MIDI_METHODS.len(), 6);
+        assert!(HOST_MIDI_METHODS
+            .iter()
+            .all(|method| is_host_midi_method(method)));
+        assert!(!is_host_midi_method("device.setTempo"));
     }
 
     #[test]

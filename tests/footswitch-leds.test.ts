@@ -95,7 +95,7 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   const midiSource = readFileSync(new URL("../packages/rust/qc-windows-midi/src/lib.rs", import.meta.url), "utf8");
   const pressFlow = workflowSource.slice(workflowSource.indexOf("const pressFootswitch"), workflowSource.indexOf("const movePreset"));
   const gatewayCommand = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
-  const nativeCommand = gatewayCommand.slice(gatewayCommand.indexOf("if matches!("), gatewayCommand.indexOf("let nonblocking_read"));
+  const nativeCommand = gatewayCommand.slice(gatewayCommand.indexOf("if is_host_midi_method"), gatewayCommand.indexOf("let nonblocking_read"));
 
   assert.doesNotMatch(pressFlow, /commandPending/, "a second tap must not be discarded while the first MIDI send is pending");
   assert.match(pressFlow, /snapshotRef\.current/);
@@ -106,7 +106,7 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   assert.match(nativeFrameSource, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(nativeCommand, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(nativeCommand, /rpc::PRESS_FOOTSWITCH \| rpc::TAP_TEMPO \| rpc::SELECT_MODE_SLOT/);
+  assert.match(nativeCommand, /is_host_midi_method\(&method\)/);
   assert.match(nativeCommand, /plan_host_midi\(&method, &params\)/);
   assert.match(nativeCommand, /\.send\(plan\.controller, plan\.value\)/);
   assert.doesNotMatch(nativeCommand, /background_gateway_request|with_gateway/, "performance MIDI must not queue behind the USB snapshot gateway");
@@ -120,8 +120,9 @@ test("Windows mode-slot changes share the immediate persistent MIDI lane", () =>
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
   assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /rpc::SELECT_MODE_SLOT/);
+  assert.match(command, /is_host_midi_method\(&method\)/);
   assert.match(command, /plan_host_midi\(&method, &params\)/);
+  assert.match(runtimeSource, /HOST_MIDI_METHODS[\s\S]*"device\.selectModeSlot"/);
   assert.match(runtimeSource, /"device\.selectModeSlot"[\s\S]*MODE_SLOT_CONTROLLER/);
   assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
 });
@@ -131,10 +132,19 @@ test("Windows Tap Tempo uses explicit CC44 on the persistent MIDI lane", () => {
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
   assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /rpc::TAP_TEMPO/);
+  assert.match(command, /is_host_midi_method\(&method\)/);
   assert.match(command, /plan_host_midi\(&method, &params\)/);
   assert.match(runtimeSource, /"device\.tapTempo"[\s\S]*TAP_TEMPO_CONTROLLER/);
   assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
+});
+
+test("Windows sends every shared physical MIDI operation through the immediate lane", () => {
+  const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
+  const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+  for (const method of ["pressFootswitch", "tapTempo", "selectModeSlot", "showTuner", "showGigView", "controlLooper"]) {
+    assert.match(runtimeSource, new RegExp(`HOST_MIDI_METHODS[\\s\\S]*"device\\.${method}"`));
+  }
+  assert.equal((rustSource.match(/if is_host_midi_method\(/g) ?? []).length, 2, "manual and relay commands must share the same immediate classifier");
 });
 
 test("device-reported STOMP LED state is authoritative", () => {

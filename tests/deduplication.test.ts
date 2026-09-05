@@ -187,7 +187,7 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
   }
   assert.match(rust, new RegExp(`API_VERSION: u64 = ${contract.apiVersion}`));
   for (const capability of contract.capabilities) assert.match(rust, new RegExp(capability));
-  assert.match(source("apps/windows/src-tauri/src/lib.rs"), /qc_device_runtime::\{generated_gateway, generated_gateway::rpc/);
+  assert.match(source("apps/windows/src-tauri/src/lib.rs"), /use qc_device_runtime::\{[\s\S]{0,120}generated_gateway,[\s\S]{0,60}generated_gateway::rpc/);
   assert.match(tauriHost, /async fn gateway_invoke\b/);
   assert.match(tauriHost, /generated_gateway::METHODS\.contains/);
   assert.match(tauriHost, /\bgateway_invoke,/);
