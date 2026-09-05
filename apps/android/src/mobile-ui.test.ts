@@ -42,7 +42,7 @@ test("tapping a live Grid block opens the shared parameter editor and commits ov
   assert.doesNotMatch(nativeSource, /QcUsbNative\.(?:blockDetails|setParameter)/);
   assert.match(appSource, /useQcSurfaceActions\(\{/);
   assert.match(surfaceActions, /blockSelectionIntent\(selectedBlockId, blockId\)/);
-  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(appSource, /consumeQcNativeStateFrame\(frame/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(coreSource, /dirty: state\.catalogRefresh \? snapshot\.dirty : false/);
   assert.match(styles, /\.preset-title\.is-dirty \{ font-style: italic; font-weight: 500; \}/);

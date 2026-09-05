@@ -1,7 +1,35 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { demoSnapshot } from "../packages/typescript/qc-client/src/index.ts";
 import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
+import { consumeQcNativeStateFrame } from "../packages/typescript/qc-ui/src/qc-native-state-frame.ts";
+
+test("native frame ordering, timestamps, and tempo clocks are host-independent", () => {
+  const sequence = { current: 0 };
+  let snapshot = { ...demoSnapshot };
+  const observations: Array<{ count: number; observedAt?: number }> = [];
+  const consumer = {
+    sequence,
+    consume: (states: readonly unknown[], observedAt?: number) => observations.push({ count: states.length, observedAt }),
+    setSnapshot: (update: typeof snapshot | ((current: typeof snapshot) => typeof snapshot)) => {
+      snapshot = typeof update === "function" ? update(snapshot) : update;
+    }
+  };
+  const frame = {
+    sequence: 4,
+    observedAt: 120_000,
+    states: [{ kind: "tempo", tempo: 120 }],
+    tempoClock: { currentTick: 0 }
+  };
+
+  assert.equal(consumeQcNativeStateFrame(frame, consumer), true);
+  assert.deepEqual(observations, [{ count: 1, observedAt: 120_000 }]);
+  assert.equal(sequence.current, 4);
+  assert.equal(typeof snapshot.tempoPulseEpochMs, "number");
+  assert.equal(consumeQcNativeStateFrame(frame, consumer), false);
+  assert.equal(observations.length, 1, "a duplicate native frame must not be reduced twice");
+});
 
 test("empty preset titles match the QC clean and dirty Unsaved states", () => {
   assert.deepEqual(presetTitlePresentation("", false), { text: "Unsaved", dimmed: true, italic: false });
@@ -524,9 +552,11 @@ test("open parameter editor consumes device knob events and chat write readback"
   const parameterWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-parameter-workflow.ts", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
+  const nativeFrameSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-native-state-frame.ts", import.meta.url), "utf8");
   assert.match(frameSource, /type NativeFrame = NativeStateFrames<QcStateUpdate>/);
   assert.match(frameSource, /listen<NativeFrame>\("qc-state-frame"/);
-  assert.match(frameSource, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(frameSource, /consumeQcNativeStateFrame/);
+  assert.match(nativeFrameSource, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
   assert.match(liveStateSource, /state\.kind === "parameter"/);
   assert.match(liveStateSource, /editor\.updateParameters\(changes\)/);
   assert.match(parameterWorkflow, /detailsRef\.current = result\.block/);
@@ -571,14 +601,16 @@ test("tempo writes preserve the original guard and the lamp follows the QC clock
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const controlsSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-continuous-control-workflow.ts", import.meta.url), "utf8");
   const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
+  const nativeFrameSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-native-state-frame.ts", import.meta.url), "utf8");
   const uiSource = readFileSync(new URL("../packages/typescript/qc-ui/src/quad-cortex-surface.tsx", import.meta.url), "utf8");
   const cssSource = readFileSync(new URL("../packages/typescript/qc-ui/src/live-surface.css", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
   assert.match(appSource, /useContinuousControlWorkflow\(\{/);
   assert.match(controlsSource, /gateway\.setTempo\(target, expected, controller\.snapshotRef\.current\.presetName\)/);
   assert.match(controlsSource, /while \(queue\.target !== undefined\)/, "rapid encoder changes must coalesce without dropping the latest value");
-  assert.match(frameSource, /frame\.tempoClock/);
-  assert.match(frameSource, /synchronizeTempoPulseEpoch\([\s\S]*?current\.tempoPulseEpochMs, frame\.observedAt, tick, current\.tempo\)/);
+  assert.match(frameSource, /consumeQcNativeStateFrame/);
+  assert.match(nativeFrameSource, /frame\.tempoClock/);
+  assert.match(nativeFrameSource, /synchronizeTempoPulseEpoch\([\s\S]*?current\.tempoPulseEpochMs,\s*frame\.observedAt, tick, current\.tempo/);
   assert.match(uiSource, /pulseEpochMs=\{!parameterLeds \? snapshot\.tempoPulseEpochMs/);
   assert.match(uiSource, /useMemo\(\(\) => tempoPeriodMs[\s\S]*\[tempoPeriodMs, pulseEpochMs\]\)/);
   assert.match(cssSource, /15\.9%[\s\S]*16%/);

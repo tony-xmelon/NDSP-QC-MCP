@@ -1,5 +1,5 @@
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
-import { createGatewayClientTransport, type GatewayTransport, type PresetSnapshot } from "@ndsp-qc/client";
+import { createGatewayClientTransport, type GatewayTransport, type NativeStateFrame, type PresetSnapshot } from "@ndsp-qc/client";
 import { createQcGatewayTransport, type AssistantAccessMode, type PublicRelayPort, type PublicRelayState, type PublicRelayStatus, type QcDeviceTransport, type QcStateUpdate } from "@ndsp-qc/core";
 
 export type { QcStateUpdate } from "@ndsp-qc/core";
@@ -30,7 +30,7 @@ interface QcUsbNativePlugin {
   disconnect(): Promise<void>;
   diagnostics(): Promise<{ connected: boolean; device: string; messagesReceived: number; messagesSent: number; decodeErrors: number; expectedWriteStalls: number; lastMessageType: number; connectedAt: number; setlistKnown: boolean; presetPosition: number; modelCount: number; readAttempts: number; negativeReads: number; interfaceId: number; inputEndpointAddress: number; inputMaxPacketSize: number; reportBytes: number; midiAvailable: boolean; midiInterfaceId: number; midiOutputEndpointAddress: number; lastMidiQueueDelayMs: number; maxMidiQueueDelayMs: number; lastStateAt: number; lastError?: string }>;
   gatewayInvoke(options: { method: string; params?: Record<string, unknown>; expectedState?: Record<string, unknown> }): Promise<unknown>;
-  addListener(eventName: "qcStateBatch", listener: (frame: { states: QcStateUpdate[]; observedAt: number }) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: "qcStateBatch", listener: (frame: NativeStateFrame<QcStateUpdate>) => void): Promise<PluginListenerHandle>;
   addListener(eventName: "qcConnection", listener: (status: { state: "available" | "disconnected"; name?: string }) => void): Promise<PluginListenerHandle>;
 }
 

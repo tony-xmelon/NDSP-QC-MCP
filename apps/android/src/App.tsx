@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, coros410FixtureSnapshot, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsScreenView } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, coros410FixtureSnapshot, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsScreenView } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcUsbNative, subscribeRelayState, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -86,6 +86,7 @@ export function App() {
   const connectInFlight = useRef(false);
   const presetSynchronized = useRef(false);
   const usbSessionReady = useRef(false);
+  const nativeStateSequence = useRef(0);
   const appendAssistant = useCallback((text: string, attachments?: AndroidAttachment[]) => conversation.append("assistant", text, attachments), [conversation.append]);
   const workflows = useQcWorkflows({
     controller: qcController,
@@ -157,6 +158,7 @@ export function App() {
     if (!native || connectInFlight.current) return;
     connectInFlight.current = true;
     presetSynchronized.current = false;
+    nativeStateSequence.current = 0;
     transitionConnection("connecting");
     try {
       const result = await QcUsbNative.connect();
@@ -190,12 +192,17 @@ export function App() {
         } else {
           usbSessionReady.current = false;
           presetSynchronized.current = false;
+          nativeStateSequence.current = 0;
           resetCommands();
           transitionConnection("absent");
         }
       }),
-      QcUsbNative.addListener("qcStateBatch", ({ states }) => {
-        consumeLiveState(states);
+      QcUsbNative.addListener("qcStateBatch", (frame) => {
+        consumeQcNativeStateFrame(frame, {
+          sequence: nativeStateSequence,
+          consume: consumeLiveState,
+          setSnapshot
+        });
       })
     ];
     // Register every native listener before scanning/handshaking so no initial

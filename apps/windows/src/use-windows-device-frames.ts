@@ -1,7 +1,8 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { NativeStateFrames, PresetSnapshot } from "@ndsp-qc/client";
-import { synchronizeTempoPulseEpoch, type QcStateUpdate } from "@ndsp-qc/core";
+import type { QcStateUpdate } from "@ndsp-qc/core";
+import { consumeQcNativeStateFrame } from "@ndsp-qc/ui";
 
 type NativeFrame = NativeStateFrames<QcStateUpdate>["frames"][number];
 
@@ -27,19 +28,7 @@ export function useWindowsDeviceFrames({
     let disposed = false;
     let detach: (() => void) | undefined;
     void listen<NativeFrame>("qc-state-frame", ({ payload: frame }) => {
-      if (disposed || frame.sequence <= sequence.current) return;
-      available.current = true;
-      sequence.current = frame.sequence;
-      consume(frame.states, frame.observedAt);
-      if (!frame.tempoClock) return;
-      const tick = Math.max(0, frame.tempoClock.currentTick ?? 0);
-      setSnapshot((current) => {
-        const epoch = synchronizeTempoPulseEpoch(
-          current.tempoPulseEpochMs, frame.observedAt, tick, current.tempo);
-        return epoch === current.tempoPulseEpochMs
-          ? current
-          : { ...current, tempoPulseEpochMs: epoch };
-      });
+      if (!disposed) consumeQcNativeStateFrame(frame, { sequence, available, consume, setSnapshot });
     }).then((unlisten) => {
       if (disposed) unlisten();
       else detach = unlisten;

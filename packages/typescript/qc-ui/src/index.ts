@@ -22,6 +22,8 @@ export { useQcController } from "./use-qc-controller";
 export type { QcController } from "./use-qc-controller";
 export { useQcLiveState } from "./use-qc-live-state";
 export type { QcLiveStateOptions } from "./use-qc-live-state";
+export { consumeQcNativeStateFrame } from "./qc-native-state-frame";
+export type { QcNativeStateFrameConsumer } from "./qc-native-state-frame";
 export { useCommandJournal } from "./use-command-journal";
 export type { CommandJournal } from "./use-command-journal";
 export { useDeviceHistory } from "./use-device-history";

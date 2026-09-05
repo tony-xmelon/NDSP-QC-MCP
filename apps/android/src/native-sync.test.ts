@@ -33,7 +33,7 @@ test("tempo synchronizes in both directions over the native USB bridge", () => {
   assert.match(rustStateSource, /decode_global_tempo/);
   assert.match(rustStateSource, /StateUpdate::new\("tempo"\)/);
   assert.match(rustStateSource, /tempo_led_enabled/);
-  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(appSource, /consumeQcNativeStateFrame\(frame/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(performanceWorkflowSource, /transport\.tapTempo\(controller\.snapshotRef\.current\)/);
 });
@@ -81,7 +81,7 @@ test("native USB remains open and command traffic is never blocked by startup", 
   assert.match(javaSource, /if \(isReady\(\) && device != null && device\.getDeviceId\(\) == candidate\.getDeviceId\(\)\)/);
   assert.doesNotMatch(javaSource, /Thread\.sleep\(2000\)/);
   assert.match(javaSource, /midiIo\.execute\(\(\) ->/);
-  assert.match(appSource, /consumeLiveState\(states\)/);
+  assert.match(appSource, /consumeQcNativeStateFrame\(frame/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(readFileSync(new URL("../../../packages/typescript/qc-core/src/command-coordinator.ts", import.meta.url), "utf8"), /beginSnapshotMutation/);
   assert.match(rustStateSource, /catalog_refresh = Some\(true\)/);
@@ -94,6 +94,7 @@ test("one device frame crosses the bridge once with all realtime state updates",
   assert.doesNotMatch(javaSource, /notifyListeners\("qcState", state/);
   assert.match(servicesSource, /addListener\(eventName: "qcStateBatch"/);
   assert.match(appSource, /QcUsbNative\.addListener\("qcStateBatch"/);
+  assert.match(appSource, /consumeQcNativeStateFrame\(frame/);
   assert.match(coreStateSource, /reduceQcStateFrame/);
   assert.match(javaSource, /state\.put\("observedAt", observedAt\)/);
 });

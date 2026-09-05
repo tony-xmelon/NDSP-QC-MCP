@@ -25,7 +25,7 @@
       "label": "Batched live state and optimistic reconciliation",
       "parity": "required",
       "owner": "shared",
-      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-qc-live-state.ts", "contains": "export function useQcLiveState" }, { "path": "packages/typescript/qc-core/src/command-coordinator.ts", "contains": "export class QcCommandCoordinator" }],
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-qc-live-state.ts", "contains": "export function useQcLiveState" }, { "path": "packages/typescript/qc-ui/src/qc-native-state-frame.ts", "contains": "export function consumeQcNativeStateFrame" }, { "path": "packages/typescript/qc-core/src/command-coordinator.ts", "contains": "export class QcCommandCoordinator" }],
       "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useWindowsDeviceFrames" }] },
       "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "addListener(\"qcStateBatch\"" }] }
     },

@@ -87,6 +87,7 @@ test("STOMP presses update the lamp and assigned blocks optimistically", () => {
 test("Windows footswitches use a persistent immediate MIDI lane and reconcile stale USB snapshots", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
+  const nativeFrameSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-native-state-frame.ts", import.meta.url), "utf8");
   const liveStateSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-live-state.ts", import.meta.url), "utf8");
   const controllerSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-controller.ts", import.meta.url), "utf8");
   const workflowSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
@@ -100,7 +101,8 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   assert.match(pressFlow, /beginFootswitch/);
   assert.match(pressFlow, /runFootswitch/);
   assert.match(controllerSource, /coordinatorRef\.current!\.fail/);
-  assert.match(frameSource, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(frameSource, /consumeQcNativeStateFrame/);
+  assert.match(nativeFrameSource, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(nativeCommand, /state::<Mutex<PerformanceMidi>>/);
   assert.match(nativeCommand, /plan_host_midi\("device\.pressFootswitch"/);

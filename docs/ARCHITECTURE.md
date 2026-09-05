@@ -123,6 +123,11 @@ lifecycle adaptation, and notifications. Shared Rust owns tempo-clock decoding,
 backup chunk assembly and validation, command planning, HID-versus-MIDI lane
 selection, and response projection.
 
+Both event adapters pass their native frame through `consumeQcNativeStateFrame`,
+which applies the shared sequence guard, preserves the device-boundary
+observation timestamp, and derives the same tempo-pulse epoch before live state
+reduction. Tauri and Capacitor therefore own only event subscription mechanics.
+
 Cross-native transport policy lives in `contracts/qc-usb-profile.v1.json` and
 generates Java/Rust constants. Runtime reconnect cadence, handshake attempts,
 keepalive scheduling, outbound-idle tracking, and read-error tolerance live in

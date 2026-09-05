@@ -210,6 +210,7 @@ test("one Rust state engine normalizes Windows and Android device frames", () =>
   const windows = source("apps/windows/src/App.tsx");
   const windowsFrames = source("apps/windows/src/use-windows-device-frames.ts");
   const liveState = source("packages/typescript/qc-ui/src/use-qc-live-state.ts");
+  const nativeFrame = source("packages/typescript/qc-ui/src/qc-native-state-frame.ts");
   assert.match(engine, /pub struct StateDecoder/);
   assert.match(engine, /fn decode_grid/);
   assert.match(broker, /StateDecoder::new\(\)/);
@@ -218,7 +219,11 @@ test("one Rust state engine normalizes Windows and Android device frames", () =>
   assert.doesNotMatch(androidPlugin, /decodeGridUpdates|decodeQcState|decodeModelRepo/);
   assert.match(windows, /useWindowsDeviceFrames\(/);
   assert.match(windowsFrames, /"qc-state-frame"/);
-  assert.match(windowsFrames, /consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(windowsFrames, /consumeQcNativeStateFrame/);
+  assert.match(source("apps/android/src/App.tsx"), /consumeQcNativeStateFrame\(frame/);
+  assert.match(androidPlugin, /frame\.put\("tempoClock", tempoClock\)/);
+  assert.match(nativeFrame, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
+  assert.match(nativeFrame, /synchronizeTempoPulseEpoch/);
   assert.match(liveState, /reconcileFrame\(states, observedAt\)/);
 });
 
