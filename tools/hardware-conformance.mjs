@@ -415,6 +415,12 @@ async function main() {
   let firstScreenTapSent = false;
   const performed = new Set();
 
+  const skip = (name, reason) => {
+    if (report.results.some((result) => result.name === name)) return;
+    const metadata = CASES[name];
+    report.results.push({ name, phase: metadata.phase, hazard: metadata.hazard, status: "skipped", reason });
+  };
+
   const call = async (name, args = {}, verify) => {
     const metadata = CASES[name];
     if (!metadata) fail(`No physical case metadata for ${name}.`);
@@ -972,33 +978,41 @@ async function main() {
       await call("remove_block", { row: temp.row, column: temp.moveColumn, expected_model_id: temp.modelId, expected_preset_name: currentSnapshot.presetName });
       currentSnapshot = await waitForSnapshot((value) => !value.blocks.some((block) => block.row === temp.row && block.column === temp.moveColumn));
 
-      const capture = config.library.capture;
-      await call("load_capture", {
-        row: temp.row, column: temp.addColumn, key: capture.key, name: capture.name,
-        model_id: capture.modelId, expected_preset_name: currentSnapshot.presetName
-      });
-      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
-        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === capture.modelId));
-      await transport.call("remove_block", {
-        row: temp.row, column: temp.addColumn, expected_model_id: capture.modelId,
-        expected_preset_name: currentSnapshot.presetName
-      });
-      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
-        (block) => block.row === temp.row && block.column === temp.addColumn));
+      const capture = config.library?.capture;
+      if (capture?.key && capture?.name && Number.isInteger(capture?.modelId)) {
+        await call("load_capture", {
+          row: temp.row, column: temp.addColumn, key: capture.key, name: capture.name,
+          model_id: capture.modelId, expected_preset_name: currentSnapshot.presetName
+        });
+        currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+          (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === capture.modelId));
+        await transport.call("remove_block", {
+          row: temp.row, column: temp.addColumn, expected_model_id: capture.modelId,
+          expected_preset_name: currentSnapshot.presetName
+        });
+        currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+          (block) => block.row === temp.row && block.column === temp.addColumn));
+      } else {
+        skip("load_capture", "No physically discovered capture fixture is configured.");
+      }
 
-      const ir = config.library.ir;
-      await call("load_ir", {
-        row: temp.row, column: temp.addColumn, key: ir.key, name: ir.name,
-        slot: ir.slot, model_id: ir.modelId, expected_preset_name: currentSnapshot.presetName
-      });
-      currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
-        (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === ir.modelId));
-      await transport.call("remove_block", {
-        row: temp.row, column: temp.addColumn, expected_model_id: ir.modelId,
-        expected_preset_name: currentSnapshot.presetName
-      });
-      currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
-        (block) => block.row === temp.row && block.column === temp.addColumn));
+      const ir = config.library?.ir;
+      if (ir?.key && ir?.name && Number.isInteger(ir?.modelId) && [0, 1].includes(ir?.slot)) {
+        await call("load_ir", {
+          row: temp.row, column: temp.addColumn, key: ir.key, name: ir.name,
+          slot: ir.slot, model_id: ir.modelId, expected_preset_name: currentSnapshot.presetName
+        });
+        currentSnapshot = await waitForSnapshot((value) => value.blocks.some(
+          (block) => block.row === temp.row && block.column === temp.addColumn && block.modelId === ir.modelId));
+        await transport.call("remove_block", {
+          row: temp.row, column: temp.addColumn, expected_model_id: ir.modelId,
+          expected_preset_name: currentSnapshot.presetName
+        });
+        currentSnapshot = await waitForSnapshot((value) => !value.blocks.some(
+          (block) => block.row === temp.row && block.column === temp.addColumn));
+      } else {
+        skip("load_ir", "The connected QC exposes no loadable IR fixture.");
+      }
 
       const route = currentSnapshot.routes.find((candidate) => candidate.row === config.routing.row);
       assert(route && Number.isInteger(route.inputId) && Number.isInteger(route.outputId), "Configured route has no restorable input/output IDs.");

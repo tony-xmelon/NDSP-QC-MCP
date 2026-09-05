@@ -42,6 +42,15 @@ test("full execution requires explicit fixtures and distinct disposable slots", 
   assert.throws(() => assertDisposableSlots(example, [example.persistent.slotA, example.persistent.slotA]), /distinct/);
 });
 
+test("partial configs expose missing physical fixtures without weakening the full gate", () => {
+  const partial = structuredClone(example);
+  delete partial.library.ir;
+  assert.deepEqual(validateConfig(partial), [
+    "library.ir.key", "library.ir.name", "library.ir.modelId", "library.ir.slot"
+  ]);
+  assert.throws(() => validateConfig(partial, { requireAll: true }), /library\.ir\.key/);
+});
+
 test("full dry run validates and identifies the exact staged candidate", () => {
   const directory = mkdtempSync(join(tmpdir(), "qc-hardware-candidate-"));
   try {
