@@ -70,17 +70,21 @@ source-only compatibility oracle and can intentionally omit native-only
 workflows. Generation and parity tests fail when an action or native RPC is
 absent from a required layer.
 
-The machine-readable audit in `contracts/pyquadcortex-parity.v1.json` accounts
-for every public method in the pinned upstream `QuadCortex` client. Run
-`npm run parity:pyquadcortex` to reject missing, duplicated, unknown, or stale
-RPC evidence; when `PYQUADCORTEX_CLIENT` is supplied, the audit also verifies the
-pinned upstream source hash.
+The pinned upstream `QuadCortex` class has 111 unique public methods. The
+machine-readable audit in `contracts/pyquadcortex-parity.v1.json` accounts for
+all 111 with native Rust commands, projections, runtime services, or pure
+helpers. The upstream tuner HID no-op is superseded with Neural DSP's documented
+MIDI CC 45 control. The host-capture-dialog acknowledgement exists as an exact
+low-level Rust protocol primitive, but is deliberately not a product action
+because neither implementation includes the capture recorder/trainer workflow.
+Run `npm run parity:pyquadcortex` to reject non-native, missing, duplicated,
+unknown, or stale evidence; when `PYQUADCORTEX_CLIENT` is supplied, the audit
+also verifies the pinned upstream source hash.
 
-This 100% figure describes the deliberately supported product command surface.
-It does not relabel unsafe, unsupported, partially researched, or internal
-pyquadcortex helpers as product commands. The remaining upstream capability
-families below are a separate expansion backlog and must not be represented as
-implemented until their Rust wire format and hardware readback are verified.
+This 100% figure describes native supersession, not promotion of unsafe,
+partially researched, or internal helpers into product commands. Capability
+families outside that public upstream surface still require exact wire fixtures,
+sparse-write rules, readback semantics, and hardware validation before exposure.
 
 | Capability family | Native Rust status |
 |---|---|

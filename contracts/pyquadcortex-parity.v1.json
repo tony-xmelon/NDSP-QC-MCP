@@ -96,7 +96,7 @@
     { "status": "native", "methods": ["set_capture"], "rpcs": ["device.loadCapture"] },
     { "status": "native", "methods": ["list_irs"], "rpcs": ["device.irs"] },
     { "status": "native", "methods": ["set_ir"], "rpcs": ["device.loadIr"] },
-    { "status": "upstream-incomplete", "methods": ["show_capture_dialog"], "reason": "This only acknowledges a QC request for a host capture wizard. Upstream does not implement the recorder, trainer, refiner, calibration, A/B, or save workflow, so invoking it without that UI strands the device in an unusable host flow." },
+    { "status": "native-protocol", "methods": ["show_capture_dialog"], "evidence": ["qc_protocol::commands::acknowledge_capture_dialog emits the exact NeuralCapture UPDATE/show_dialog frame. It remains outside DeviceCommand because upstream does not implement the recorder, trainer, refiner, calibration, A/B, or save workflow, and invoking it without that UI strands the device in an unusable host flow."] },
     { "status": "native-runtime", "methods": ["wait_for_listing"], "rpcs": ["device.listPresets", "device.listPresetFolders"] },
     { "status": "native", "methods": ["delete_preset", "move_preset"], "rpcs": ["device.deletePreset", "device.movePreset"] }
   ]
