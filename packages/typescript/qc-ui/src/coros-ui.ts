@@ -1,5 +1,25 @@
 export type CorOsContextAction = "create-new" | "edit-details" | "copy-scene" | "swap-scene" | "preset-midi-out" | "favorite" | "delete-preset" | "new-capture" | "modes-configuration" | "tempo" | "cpu-monitor" | "settings";
 
+export const COROS_CONTEXT_ACTION_LABELS: Readonly<Record<CorOsContextAction, string>> = {
+  "create-new": "Create New",
+  "edit-details": "Edit Details",
+  "copy-scene": "Copy Scene A",
+  "swap-scene": "Swap Scene A",
+  "preset-midi-out": "Preset MIDI Out",
+  favorite: "Add to favorites",
+  "delete-preset": "Delete preset",
+  "new-capture": "New Neural Capture",
+  "modes-configuration": "Modes Configuration",
+  tempo: "Tempo",
+  "cpu-monitor": "CPU monitor",
+  settings: "Settings"
+};
+
+/** Keep unsupported CorOS menu feedback identical across native shells. */
+export function corOsUnavailableContextActionMessage(action: CorOsContextAction): string {
+  return `${COROS_CONTEXT_ACTION_LABELS[action]} is shown in the device-accurate Grid menu, but this command is not exposed by the current USB gateway.`;
+}
+
 /** Grid gaps before columns 0-7, followed by the gap after column 7. */
 export const GRID_ROUTE_BOUNDARIES = [75, 141, 228.5, 317, 404.5, 488, 572, 659.5, 748] as const;
 

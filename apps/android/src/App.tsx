@@ -4,7 +4,7 @@ import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
 import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, corosFixtureConfiguration, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { androidGatewayTransport, createAndroidQcTransport, GeminiNative, publicRelay, QcUsbNative, subscribeRelayState, VoiceInputNative } from "./native-services";
 import { quotaSummary, recordGeminiUsage, type GeminiModelId, type GeminiQuotaLedger } from "./gemini-quota";
 
@@ -250,15 +250,6 @@ export function App() {
 
   const selectScene = performanceWorkflow.selectScene;
   const movePreset = performanceWorkflow.movePreset;
-  const pressFootswitch = async (index: number) => {
-    if (gridWorkflow.footswitchAssignmentPending && selectedBlock) {
-      gridWorkflow.setFootswitchAssignmentPending(false);
-      await gridWorkflow.assignFootswitch(selectedBlock.footswitch === index ? null : index);
-      return;
-    }
-    await performanceWorkflow.pressFootswitch(index);
-  };
-
   const tapTempo = performanceWorkflow.tapTempo;
   const handleSurfaceAction = useQcSurfaceActions({
     snapshot,
@@ -269,6 +260,11 @@ export function App() {
     openBlock: (block) => { void openBlockEditor(block); },
     closeBlock: closeBlockEditor
   });
+  const handleCorOsContextAction = (action: CorOsContextAction) => {
+    if (action === "edit-details") presetWorkflow.openSave();
+    else if (action === "settings") appendAssistant("Model, access, relay, and voice settings are available in the assistant controls below the Grid.");
+    else appendAssistant(corOsUnavailableContextActionMessage(action));
+  };
 
   const localFallback = async (input: string): Promise<string> => {
     const intent = parseAssistantIntent(input);
@@ -462,14 +458,14 @@ export function App() {
         onAction={handleSurfaceAction} onOpenPreset={() => void presetWorkflow.openDirectory()} onUndo={() => void deviceHistory.undo()} canUndo={Boolean(deviceHistory.undoEntry)} undoLabel={deviceHistory.undoEntry?.label}
         onSave={presetWorkflow.openSave} onOpenRouting={routingWorkflow.openPicker} onRefresh={() => void presetWorkflow.refresh()}
         savePreset={presetWorkflow.saveProps} presetDirectory={presetWorkflow.directoryProps} routingPicker={routingWorkflow.pickerProps}
-        parameterEditor={parameterEditorBindings} />
+        parameterEditor={parameterEditorBindings} onContextAction={handleCorOsContextAction} />
     </section>
 
     <nav className="quick-controls" aria-label="Quick device controls">
       {sceneFootswitches.map(({ index, label }) => <button
         className={`footswitch-control${switchLeds[index].assigned ? " is-assigned" : ""}${switchLeds[index].active ? " is-active" : ""}`}
         style={{ "--switch-color": switchLeds[index].color, gridColumn: index % 4 + 1, gridRow: index < 4 ? 1 : 2 } as CSSProperties}
-        onClick={() => void pressFootswitch(index)}
+        onClick={() => handleSurfaceAction({ kind: "switch", role: `footswitch:${label}`, phase: "release" })}
         aria-label={`Footswitch ${label}`}
         aria-pressed={switchLeds[index].active}
         key={label}

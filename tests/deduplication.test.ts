@@ -69,6 +69,19 @@ test("shared UI exclusively owns dirty-title and parameter-screen rendering", ()
   assert.doesNotMatch(android, /function CorOsGrid|function CorOsParameterEditor/);
 });
 
+test("both native shells route Grid menus and footswitches through shared policy", () => {
+  const sharedMenu = source("packages/typescript/qc-ui/src/coros-ui.ts");
+  const android = source("apps/android/src/App.tsx");
+  const windows = source("apps/windows/src/App.tsx");
+  assert.match(sharedMenu, /corOsUnavailableContextActionMessage/);
+  for (const app of [windows, android]) {
+    assert.match(app, /onContextAction=\{handleCorOsContextAction\}/);
+    assert.match(app, /corOsUnavailableContextActionMessage\(action\)/);
+  }
+  assert.match(android, /handleSurfaceAction\(\{ kind: "switch", role: `footswitch:\$\{label\}`, phase: "release" \}\)/);
+  assert.doesNotMatch(android, /const pressFootswitch = async/);
+});
+
 test("Windows and Android resolve visual fixture state through one shared owner", () => {
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");

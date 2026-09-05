@@ -10,7 +10,7 @@ export { PARAMETER_ENCODER_ROLES, parameterControlKind, parameterDisplay, parame
 export type { CorOsParameterEditorProps } from "./parameter-editor";
 export { parameterContextMenuItems } from "./parameter-menu";
 export type { ParameterContextMenuItem, ParameterEditorContextAction } from "./parameter-menu";
-export { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, GRID_ROUTE_BOUNDARIES, mixAnchorX, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "./coros-ui";
+export { COROS_CONTEXT_ACTION_LABELS, DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, GRID_ROUTE_BOUNDARIES, corOsUnavailableContextActionMessage, mixAnchorX, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "./coros-ui";
 export { MicrophoneIcon, QcDirectoryIcon, QcEditorIcon, QcModeGlyph, QcRouteGlyph, QcUiIcon } from "./theme-icons";
 export type { QcDirectoryIconName, QcEditorIconName, QcUiIconName } from "./theme-icons";
 export { RoutingEditor } from "./routing-editor";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { demoSnapshot } from "../packages/typescript/qc-client/src/index.ts";
-import { DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
+import { COROS_CONTEXT_ACTION_LABELS, DIRECTORY_PRESET_CONTEXT_MENU, GRID_CONTEXT_MENU, PRESET_TITLE_RIGHT_EDGE, corOsUnavailableContextActionMessage, gridBlocksByRow, mixAnchorX, openSplitPath, presetTitleLayout, presetTitlePresentation, rejoinSplitPath, routedPortIsPlugged, rowHasVisibleSignalRail, splitAnchorX } from "../packages/typescript/qc-ui/src/coros-ui.ts";
 import { consumeQcNativeStateFrame } from "../packages/typescript/qc-ui/src/qc-native-state-frame.ts";
 import { corosFixtureConfiguration } from "../packages/typescript/qc-ui/src/coros-screen-fixture-data.ts";
 
@@ -71,6 +71,22 @@ test("Grid contextual menu starts with the device Create New command", () => {
     "Preset MIDI Out", "Add to favorites", "Delete Preset", "New Neural Capture",
     "Modes Configuration", "Tempo", "CPU Monitor", "Settings"
   ]);
+});
+
+test("native shells share complete feedback for every CorOS Grid action", () => {
+  assert.deepEqual(Object.keys(COROS_CONTEXT_ACTION_LABELS).sort(), GRID_CONTEXT_MENU
+    .filter((item) => item.action !== "save-as")
+    .map((item) => item.action)
+    .sort());
+  assert.equal(
+    corOsUnavailableContextActionMessage("cpu-monitor"),
+    "CPU monitor is shown in the device-accurate Grid menu, but this command is not exposed by the current USB gateway."
+  );
+  for (const relative of ["../apps/windows/src/App.tsx", "../apps/android/src/App.tsx"]) {
+    const app = readFileSync(new URL(relative, import.meta.url), "utf8");
+    assert.match(app, /onContextAction=\{handleCorOsContextAction\}/);
+    assert.match(app, /corOsUnavailableContextActionMessage\(action\)/);
+  }
 });
 
 test("Edit menu separates preset and device clipboards", () => {

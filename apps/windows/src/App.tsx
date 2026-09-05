@@ -3,7 +3,7 @@ import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionSt
 import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND } from "@ndsp-qc/theme";
-import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
+import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
 import { assistantAccessPermitsChatTool, booleanArgument, chatCredentialInputProps, chatCredentialStatus, chatInstructions, chatProviderDefaults, isChatUnavailable, isLoopbackChatUrl, numericArgument, qcChatTools, type AntigravityModel, type ChatAttachment, type ChatQuota, type ChatSettings, type ChatToolCall, type ChatUsage, type GoogleProject } from "./model-chat";
 import { diagnosticsFiles, modelChat, publicRelay, reportVoiceCapability, reportVoiceEvent, tauriTransport, workspaceFiles } from "./tauri-transport";
 import { createWindowsQcTransport } from "./qc-transport";
@@ -1004,21 +1004,7 @@ export function App() {
   const handleCorOsContextAction = (action: CorOsContextAction) => {
     if (action === "edit-details") void openDeviceSave();
     else if (action === "settings") setDialog("settings");
-    else {
-      const labels: Record<Exclude<CorOsContextAction, "edit-details" | "settings">, string> = {
-        "create-new": "Create New",
-        "copy-scene": "Copy Scene A",
-        "swap-scene": "Swap Scene A",
-        "preset-midi-out": "Preset MIDI Out",
-        favorite: "Add to favorites",
-        "delete-preset": "Delete preset",
-        "new-capture": "New Neural Capture",
-        "modes-configuration": "Modes Configuration",
-        tempo: "Tempo",
-        "cpu-monitor": "CPU monitor"
-      };
-      setNotice(`${labels[action]} is shown in the device-accurate Grid menu, but this command is not exposed by the current USB gateway.`);
-    }
+    else setNotice(corOsUnavailableContextActionMessage(action));
   };
 
   const appendMessage = (role: ConversationEntry["role"], text: string, attachments?: ChatAttachment[]) => {
