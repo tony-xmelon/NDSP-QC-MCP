@@ -107,7 +107,7 @@ under `artifacts/windows` with source-commit and SHA-256 metadata. When the
 Android candidate comes from the same clean commit, one release manifest and
 SBOM cover both applications. The installed app resolves the gateway
 beside its own executable; `QC_GATEWAY_EXECUTABLE` remains available for an
-explicit test override. Source builds can select the repository `.venv` parity
-gateway only by setting `QC_GATEWAY_RUNTIME=python`.
+explicit test override. The Python parity gateway is not selectable from the
+application and is never included in its source or packaged runtime boundary.
 
 Windows native builds use the MSVC Rust toolchain declared in `src-tauri/rust-toolchain.toml` and require the Visual Studio C++ Build Tools plus WebView2.

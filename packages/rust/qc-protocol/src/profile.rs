@@ -19,8 +19,12 @@ pub const BACKUP_MAXIMUM_ATTEMPTS: usize = 3;
 pub const BACKUP_MAXIMUM_DOCUMENT_BYTES: usize = 33554432;
 pub const FOOTSWITCH_BASE_CONTROLLER: u8 = 35;
 pub const TAP_TEMPO_CONTROLLER: u8 = 44;
+pub const TUNER_CONTROLLER: u8 = 45;
+pub const GIG_VIEW_CONTROLLER: u8 = 46;
 pub const MODE_SLOT_CONTROLLER: u8 = 47;
 pub const MIDI_PRESSED_VALUE: u8 = 127;
+pub const MIDI_FEATURE_OFF_VALUE: u8 = 0;
+pub const MIDI_FEATURE_ON_VALUE: u8 = 127;
 pub const LIVE_SUBSCRIPTIONS: &[u16] = &[
     3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 15, 57, 60, 17, 33, 34, 21, 2, 13, 14,
 ];

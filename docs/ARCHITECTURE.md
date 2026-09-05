@@ -24,8 +24,8 @@ The Windows native broker, Android direct adapter, and direct MCP mode are alter
 
 `services/device-gateway` and `pyquadcortex` are retained only as a source-level
 differential oracle and protocol reference. They are not packaged in Windows or
-Android and are never selected by default. `QC_GATEWAY_RUNTIME=python` is an
-explicit development-only parity mode.
+Android and cannot be selected by either application. They are exercised only
+by development tests invoked independently of the shipped clients.
 
 ### `services/device-broker` and `packages/rust/qc-device-runtime`
 

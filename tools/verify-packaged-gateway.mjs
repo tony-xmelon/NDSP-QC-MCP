@@ -35,6 +35,10 @@ child.stdout.on("data", (chunk) => {
   try {
     const response = JSON.parse(data.subarray(4, 4 + length).toString("utf8"));
     const result = response.result;
+    if (result?.platform !== "Rust device gateway") {
+      fail(`Packaged gateway is not the native Rust runtime: ${JSON.stringify(result?.platform)}`);
+      return;
+    }
     if (result?.gatewayApiVersion !== expectedApiVersion) {
       fail(`Packaged gateway API mismatch: expected ${expectedApiVersion}, got ${JSON.stringify(result?.gatewayApiVersion)}`);
       return;

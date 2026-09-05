@@ -21,8 +21,12 @@
   "midi": {
     "footswitchBaseController": 35,
     "tapTempoController": 44,
+    "tunerController": 45,
+    "gigViewController": 46,
     "modeSlotController": 47,
-    "pressedValue": 127
+    "pressedValue": 127,
+    "featureOffValue": 0,
+    "featureOnValue": 127
   },
   "liveSubscriptions": [3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 15, 57, 60, 17, 33, 34, 21, 2, 13, 14]
 }

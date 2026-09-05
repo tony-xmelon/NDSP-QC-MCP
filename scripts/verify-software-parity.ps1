@@ -52,6 +52,7 @@ try {
     Invoke-Checked "Generated protocol consistency" { npm run protocol:check }
     Invoke-Checked "Gateway surface coverage" { npm run gateway:coverage }
     Invoke-Checked "pyquadcortex upstream surface parity" { npm run parity:pyquadcortex }
+    Invoke-Checked "Installed-client native runtime boundary" { npm run native:runtime-boundary }
 
     foreach ($manifest in $rustManifests) {
         Invoke-Checked "Rust tests: $manifest" { cargo test --locked --manifest-path $manifest }

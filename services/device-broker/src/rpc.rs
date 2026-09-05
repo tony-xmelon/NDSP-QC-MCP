@@ -866,21 +866,6 @@ fn gateway_operation(
     Ok(json!({"detail": plan.detail, "snapshot": snapshot}))
 }
 
-fn gateway_visibility(
-    controller: &DeviceController,
-    params: &Value,
-    tuner: bool,
-) -> Result<Value, String> {
-    let method = if tuner {
-        "device.showTuner"
-    } else {
-        "device.showGigView"
-    };
-    let plan = plan_gateway_write(controller, method, params)?;
-    execute_gateway_write(controller, &plan)?;
-    Ok(json!({"detail": plan.detail}))
-}
-
 fn wait_for_recovered_position(
     controller: &DeviceController,
     setlist_key: &str,

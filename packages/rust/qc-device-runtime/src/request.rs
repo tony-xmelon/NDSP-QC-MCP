@@ -72,6 +72,26 @@ pub fn plan_host_midi(method: &str, params: &Value) -> Result<HostMidiPlan, Stri
             value: profile::MIDI_PRESSED_VALUE,
             detail: "Tap Tempo sent".into(),
         }),
+        "device.showTuner" | "device.showGigView" => {
+            let shown = params
+                .get("shown")
+                .and_then(Value::as_bool)
+                .ok_or_else(|| "shown must be a boolean".to_string())?;
+            let (controller, feature) = if method == "device.showTuner" {
+                (profile::TUNER_CONTROLLER, "Tuner")
+            } else {
+                (profile::GIG_VIEW_CONTROLLER, "Gig View")
+            };
+            Ok(HostMidiPlan {
+                controller,
+                value: if shown {
+                    profile::MIDI_FEATURE_ON_VALUE
+                } else {
+                    profile::MIDI_FEATURE_OFF_VALUE
+                },
+                detail: format!("{feature} {}", if shown { "opened" } else { "closed" }),
+            })
+        }
         "device.selectModeSlot" => {
             let slot = bounded_u32(params, "slot", 2)? as u8;
             Ok(HostMidiPlan {
@@ -2827,32 +2847,6 @@ pub fn plan_gateway_write(
                 verification: GatewayVerification::MasterVolume { value },
             }
         }
-        "device.showTuner" => {
-            let shown = params.get("shown").and_then(Value::as_bool).unwrap_or(true);
-            GatewayWritePlan {
-                write: PlannedWrite::HidCommand(DeviceCommand::ShowTuner(shown)),
-                detail: if shown {
-                    "Device view opened"
-                } else {
-                    "Device view closed"
-                }
-                .into(),
-                verification: GatewayVerification::None,
-            }
-        }
-        "device.showGigView" => {
-            let shown = params.get("shown").and_then(Value::as_bool).unwrap_or(true);
-            GatewayWritePlan {
-                write: PlannedWrite::HidCommand(DeviceCommand::ShowGigView(shown)),
-                detail: if shown {
-                    "Device view opened"
-                } else {
-                    "Device view closed"
-                }
-                .into(),
-                verification: GatewayVerification::None,
-            }
-        }
         "device.setDeviceName" => {
             let name = required_text(params, "name")?;
             if name.chars().any(char::is_control) || name.chars().count() > 64 {
@@ -3195,6 +3189,31 @@ mod tests {
                 value: 2,
             }
         );
+
+        let tuner =
+            plan_gateway_write("device.showTuner", &json!({"shown": true}), Some(&snapshot))
+                .unwrap();
+        assert_eq!(
+            tuner.write,
+            PlannedWrite::MidiControlChange {
+                controller: profile::TUNER_CONTROLLER,
+                value: profile::MIDI_FEATURE_ON_VALUE,
+            }
+        );
+        let gig_view = plan_gateway_write(
+            "device.showGigView",
+            &json!({"shown": false}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert_eq!(
+            gig_view.write,
+            PlannedWrite::MidiControlChange {
+                controller: profile::GIG_VIEW_CONTROLLER,
+                value: profile::MIDI_FEATURE_OFF_VALUE,
+            }
+        );
+        assert!(plan_gateway_write("device.showTuner", &json!({}), Some(&snapshot)).is_err());
         assert!(plan_gateway_write(
             "device.pressFootswitch",
             &json!({"index": 0, "expectedMode": "SCENE", "expectedPresetName": "Live"}),

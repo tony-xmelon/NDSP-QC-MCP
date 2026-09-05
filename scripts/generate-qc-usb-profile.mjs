@@ -29,8 +29,12 @@ final class QcUsbProfile {
     static final int BACKUP_MAXIMUM_DOCUMENT_BYTES = ${profile.backupMaximumDocumentBytes};
     static final int FOOTSWITCH_BASE_CONTROLLER = ${profile.midi.footswitchBaseController};
     static final int TAP_TEMPO_CONTROLLER = ${profile.midi.tapTempoController};
+    static final int TUNER_CONTROLLER = ${profile.midi.tunerController};
+    static final int GIG_VIEW_CONTROLLER = ${profile.midi.gigViewController};
     static final int MODE_SLOT_CONTROLLER = ${profile.midi.modeSlotController};
     static final int MIDI_PRESSED_VALUE = ${profile.midi.pressedValue};
+    static final int MIDI_FEATURE_OFF_VALUE = ${profile.midi.featureOffValue};
+    static final int MIDI_FEATURE_ON_VALUE = ${profile.midi.featureOnValue};
     static final int[] LIVE_SUBSCRIPTIONS = {${subscriptions}};
 
     private QcUsbProfile() {}
@@ -58,8 +62,12 @@ pub const BACKUP_MAXIMUM_ATTEMPTS: usize = ${profile.backupMaximumAttempts};
 pub const BACKUP_MAXIMUM_DOCUMENT_BYTES: usize = ${profile.backupMaximumDocumentBytes};
 pub const FOOTSWITCH_BASE_CONTROLLER: u8 = ${profile.midi.footswitchBaseController};
 pub const TAP_TEMPO_CONTROLLER: u8 = ${profile.midi.tapTempoController};
+pub const TUNER_CONTROLLER: u8 = ${profile.midi.tunerController};
+pub const GIG_VIEW_CONTROLLER: u8 = ${profile.midi.gigViewController};
 pub const MODE_SLOT_CONTROLLER: u8 = ${profile.midi.modeSlotController};
 pub const MIDI_PRESSED_VALUE: u8 = ${profile.midi.pressedValue};
+pub const MIDI_FEATURE_OFF_VALUE: u8 = ${profile.midi.featureOffValue};
+pub const MIDI_FEATURE_ON_VALUE: u8 = ${profile.midi.featureOnValue};
 pub const LIVE_SUBSCRIPTIONS: &[u16] = &[
     ${subscriptions},
 ];
@@ -76,8 +84,12 @@ BACKUP_MAXIMUM_ATTEMPTS = ${profile.backupMaximumAttempts}
 BACKUP_MAXIMUM_DOCUMENT_BYTES = ${profile.backupMaximumDocumentBytes}
 FOOTSWITCH_BASE_CONTROLLER = ${profile.midi.footswitchBaseController}
 TAP_TEMPO_CONTROLLER = ${profile.midi.tapTempoController}
+TUNER_CONTROLLER = ${profile.midi.tunerController}
+GIG_VIEW_CONTROLLER = ${profile.midi.gigViewController}
 MODE_SLOT_CONTROLLER = ${profile.midi.modeSlotController}
 MIDI_PRESSED_VALUE = ${profile.midi.pressedValue}
+MIDI_FEATURE_OFF_VALUE = ${profile.midi.featureOffValue}
+MIDI_FEATURE_ON_VALUE = ${profile.midi.featureOnValue}
 `;
 
 const outputs = [

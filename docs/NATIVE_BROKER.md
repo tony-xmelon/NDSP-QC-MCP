@@ -48,9 +48,9 @@ operations because MIDI endpoint selection is an operating-system concern.
 
 `services/device-gateway` and `pyquadcortex` remain source-only development
 references. They are used for differential fixtures, protocol archaeology, and
-future CorOS comparison. Set `QC_GATEWAY_RUNTIME=python` explicitly to run that
-oracle during development. The Windows installer does not package it and the
-normal application never starts it.
+future CorOS comparison. Oracle tests start them independently; neither client
+contains a runtime switch to them. The Windows installer does not package them
+and the normal application cannot start them.
 
 The vendored protobuf schema records its upstream MIT source and revision in
 `packages/rust/qc-protocol/SCHEMA-SOURCE.md` and
@@ -62,6 +62,7 @@ The vendored protobuf schema records its upstream MIT source and revision in
 cargo test --manifest-path packages/rust/qc-protocol/Cargo.toml
 cargo test --manifest-path packages/rust/qc-device-runtime/Cargo.toml
 cargo test --manifest-path services/device-broker/Cargo.toml
+node tools/verify-native-runtime-boundary.mjs
 node tools/verify-packaged-gateway.mjs services/device-broker/target/debug/qc-device-broker.exe
 ```
 

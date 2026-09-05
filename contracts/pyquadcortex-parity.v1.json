@@ -67,7 +67,7 @@
     { "status": "native", "methods": ["set_output_port", "set_output_level", "set_output_mute"], "rpcs": ["device.setOutputPort"] },
     { "status": "native", "methods": ["set_usb_port", "set_midi_thru", "set_output_pairing"], "rpcs": ["device.setUsbPort", "device.setMidiThru", "device.setOutputPairing"] },
     { "status": "native", "methods": ["tuner"], "rpcs": ["device.tunerSettings"] },
-    { "status": "upstream-no-op", "methods": ["show_tuner"], "rpcs": ["device.showTuner"], "reason": "The upstream method is hardware-verified as a no-op on the pinned firmware; Rust preserves the known wire command without claiming that it opens or closes the tuner." },
+    { "status": "native", "methods": ["show_tuner"], "rpcs": ["device.showTuner"], "evidence": ["The upstream HID message is a no-op, so Rust supersedes it with Neural DSP's documented MIDI CC 45 values: 0 closes and 127 opens the tuner."] },
     { "status": "native", "methods": ["set_tuner_input", "set_tuner_mute", "restore_audio", "set_tuner_reference"], "rpcs": ["device.setTunerInput", "device.setTunerMute", "device.restoreTunerAudio", "device.setTunerReference"], "evidence": ["Explicit tuner-activation or preference-reset acknowledgement is mandatory because the measured firmware invisibly engages the tuner on every write."] },
     { "status": "native", "methods": ["looper"], "rpcs": ["device.looperStatus"] },
     { "status": "native", "methods": ["global_eq"], "rpcs": ["device.globalEq"] },

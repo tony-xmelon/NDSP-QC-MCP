@@ -22,8 +22,12 @@ final class QcUsbProfile {
     static final int BACKUP_MAXIMUM_DOCUMENT_BYTES = 33554432;
     static final int FOOTSWITCH_BASE_CONTROLLER = 35;
     static final int TAP_TEMPO_CONTROLLER = 44;
+    static final int TUNER_CONTROLLER = 45;
+    static final int GIG_VIEW_CONTROLLER = 46;
     static final int MODE_SLOT_CONTROLLER = 47;
     static final int MIDI_PRESSED_VALUE = 127;
+    static final int MIDI_FEATURE_OFF_VALUE = 0;
+    static final int MIDI_FEATURE_ON_VALUE = 127;
     static final int[] LIVE_SUBSCRIPTIONS = {3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 15, 57, 60, 17, 33, 34, 21, 2, 13, 14};
 
     private QcUsbProfile() {}
