@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-const [serial, outputArgument, portArgument = "9223"] = process.argv.slice(2);
+const [serial, outputArgument, portArgument = "9223", ...flags] = process.argv.slice(2);
 if (!serial || !outputArgument) {
   throw new Error("Usage: capture-qc-screen-android-adb.mjs <adb-serial> <output.png> [local-port]");
 }
@@ -67,8 +67,11 @@ try {
       if (!plugin) throw new Error("QcUsb Capacitor plugin is unavailable");
       const before = await plugin.diagnostics();
       try {
+        const reconnect = ${JSON.stringify(flags.includes("--reconnect"))}
+          ? await plugin.gatewayInvoke({ method: "device.reconnect", params: {} })
+          : null;
         const image = await plugin.gatewayInvoke({ method: "device.captureScreen", params: {} });
-        return { image, before, after: await plugin.diagnostics() };
+        return { image, reconnect, before, after: await plugin.diagnostics() };
       } catch (error) {
         return {
           error: { code: error?.code, message: error?.message ?? String(error) },
