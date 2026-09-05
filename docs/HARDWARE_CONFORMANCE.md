@@ -75,6 +75,16 @@ For release evidence, identify the exact staged artifact under test. The full
 suite refuses to run without this argument and verifies the adjacent immutable
 source/SHA-256 metadata before touching the device:
 
+CI publishes one `qc-control-release-bundle-<commit>` artifact only after that
+commit passes software parity and responsive/accessibility conformance and both
+native packages finish. Extract the bundle into the repository's `artifacts`
+directory; it contains exactly one Windows installer, one Android APK, their
+adjacent source metadata, and a combined manifest/SBOM. Running
+`node tools/release-candidates.mjs verify` must list both files before starting
+either physical run. The bundle is
+a hardware-test candidate, not a distributable release, until the two canonical
+reports below pass the final gate.
+
 ```powershell
 $windowsCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\windows\\' }
 node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate --output artifacts\hardware-conformance\windows.json

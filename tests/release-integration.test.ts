@@ -169,6 +169,7 @@ test("CI packages the Windows installer only after parity and UI conformance", (
 
 test("CI combines both same-commit candidates into one hardware-testable bundle", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  const runbook = readFileSync(new URL("../docs/HARDWARE_CONFORMANCE.md", import.meta.url), "utf8");
   assert.match(workflow, /release-bundle:/);
   assert.match(workflow, /release-bundle:[\s\S]*needs: \[android-package, windows-package\]/);
   assert.match(workflow, /name: qc-control-android-\$\{\{ github\.sha \}\}[\s\S]*name: qc-control-windows-\$\{\{ github\.sha \}\}/);
@@ -176,6 +177,8 @@ test("CI combines both same-commit candidates into one hardware-testable bundle"
   assert.match(workflow, /release-provenance\.mjs \$windows\[0\] \$android\[0\]/);
   assert.match(workflow, /release-candidates\.mjs verify/);
   assert.match(workflow, /name: qc-control-release-bundle-\$\{\{ github\.sha \}\}/);
+  assert.match(runbook, /qc-control-release-bundle-<commit>/);
+  assert.match(runbook, /hardware-test candidate, not a distributable release/);
 });
 
 test("Android package, Gradle, and lockfile share one release version", () => {
