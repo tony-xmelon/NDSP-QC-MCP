@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.29%** | **97.24%** |
-| Android | 40/40 (100%) | **91.28%** | **97.24%** |
+| Windows | 40/40 (100%) | **91.32%** | **97.24%** |
+| Android | 40/40 (100%) | **91.31%** | **97.25%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -146,7 +146,7 @@ still need pixel-level reconstruction work.
 | `editor-digital-flanger` | **86.60%** | **86.61%** |
 | `editor-ukc30-topboost` | **90.25%** | **90.24%** |
 | `editor-ukc30-cab` | **92.99%** | **92.99%** |
-| `editor-parametric-8` | **88.33%** | **88.33%** |
+| `editor-parametric-8` | **89.45%** | **89.45%** |
 | `editor-ambience` | **89.70%** | **89.68%** |
 | `gig-view` (STOMP) | **94.41%** | **94.41%** |
 | `grid-restored` | **93.42%** | **93.42%** |
@@ -165,6 +165,12 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Matched Parametric-8's four measured graph-node bounds and colors, replaced
+  its approximate striped preset mark with the stacked vector glyph, and
+  corrected the title scale. The editor rises from **88.33% to 89.45%**
+  structural match on both hosts, with **98.21% color similarity**. A complete
+  40-screen rerun raises the physical benchmark to **91.32% / 97.24%**
+  structural/color on Windows and **91.31% / 97.25%** on Android.
 - Fixed Preset MIDI Out's browser-dependent serif fallback, matched the
   expression-label offsets and pedal tread cadence, and tightened footswitch
   and preset-message typography. The screen rises from **88.29% to 89.33%**
@@ -251,8 +257,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
   screens reached **86.82% structural match** in that pass. The latest complete
-  physical benchmark reaches **91.29% / 97.24% structural/color on Windows**
-  and **91.28% / 97.24% on Android**.
+  physical benchmark reached **91.29% / 97.24% structural/color on Windows**
+  and **91.28% / 97.24% on Android** in that pass.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen
