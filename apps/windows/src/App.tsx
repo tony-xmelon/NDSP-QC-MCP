@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
 import { demoSnapshot, type BlockDetails, type BlockParameter, type ConnectionState, type DeviceActionResult, type DiagnosticsReport, type GridBlock, type PresetSnapshot, type RuntimeStatus, type WorkspaceDocument } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
+import { assistantHelp, demoBlockDetails, parseAssistantIntent, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, type AssistantAccessMode as ControlAccessMode, type ConversationMessage } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, browserWorkflowPrompts, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, PARAMETER_ENCODER_ROLES, parameterEditorControlSlots, parameterEditorPageSize, parameterStep, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, useContinuousControlWorkflow, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
@@ -69,8 +69,7 @@ export function App() {
   const qcController = useQcController(demoSnapshot);
   const {
     snapshot, snapshotRef, setSnapshot,
-    resetCommands, reconcileFrame, reconcileSnapshot,
-    runAssistantCommand
+    resetCommands, reconcileFrame, reconcileSnapshot
   } = qcController;
   useEffect(() => { if (corpusFixtureEnabled) setSnapshot(fixtureInitialSnapshot); }, [setSnapshot]);
   const [selectedBlockId, setSelectedBlockId] = useState("");
@@ -1094,15 +1093,9 @@ export function App() {
     }
     if (resolution.kind === "command") {
       const deviceCommand = resolution.command;
-      const previousTempo = snapshot.tempo;
-      const result = await runAssistantCommand(qcTransport, deviceCommand);
-      if (deviceCommand.kind === "tempo") {
-        recordUndo({ label: `tempo change`, execute: (current) => tauriTransport.setTempo(previousTempo, deviceCommand.bpm, current.presetName), redo: (current) => tauriTransport.setTempo(deviceCommand.bpm, previousTempo, current.presetName) });
-      }
-      if (deviceCommand.kind === "preset-step" && result.snapshot) setSelectedBlockId("");
-      const detail = assistantCommandDetail(deviceCommand, result);
+      const detail = await performanceWorkflow.runAssistantDeviceCommand(deviceCommand, true)
+        ?? "Performance command completed.";
       appendMessage("tool", detail);
-      setNotice(detail);
       return;
     }
     if (resolution.kind === "bank") {

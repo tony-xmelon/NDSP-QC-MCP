@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import type { GatewayTransport, GridBlock } from "@ndsp-qc/client";
-import { recordTempoTap, sceneLetter, type QcDeviceTransport } from "@ndsp-qc/core";
+import { assistantCommandDetail, recordTempoTap, sceneLetter, type QcAssistantDeviceCommand, type QcDeviceTransport } from "@ndsp-qc/core";
 import type { DeviceHistoryEntry } from "./use-device-history";
 import type { QcController } from "./use-qc-controller";
 
@@ -187,6 +187,34 @@ export function usePerformanceWorkflow(options: PerformanceWorkflowOptions) {
     }
   }, [connected, controller, demo, fail, gateway, notice, onPresetChanged]);
 
+  const runAssistantDeviceCommand = useCallback(async (command: QcAssistantDeviceCommand, reportFailure = false): Promise<string | undefined> => {
+    if (demo || !connected) {
+      const error = new Error("Connect the Quad Cortex before running that performance command.");
+      if (reportFailure) throw error;
+      notice(error.message);
+      return undefined;
+    }
+    try {
+      const before = controller.snapshotRef.current;
+      const result = await controller.runAssistantCommand(transport, command);
+      if (command.kind === "tempo") {
+        recordHistory?.({
+          label: "tempo change",
+          execute: (current) => gateway.setTempo(before.tempo, command.bpm, current.presetName),
+          redo: (current) => gateway.setTempo(command.bpm, before.tempo, current.presetName)
+        });
+      }
+      if (command.kind === "preset-step") onPresetChanged?.();
+      const detail = assistantCommandDetail(command, result);
+      notice(detail);
+      return detail;
+    } catch (error) {
+      if (reportFailure) throw error;
+      fail(error);
+      return undefined;
+    }
+  }, [connected, controller, demo, fail, gateway, notice, onPresetChanged, recordHistory, transport]);
+
   const tapTempo = useCallback(async () => {
     const result = recordTempoTap(tapTimes.current, performance.now());
     tapTimes.current = result.taps;
@@ -224,5 +252,5 @@ export function usePerformanceWorkflow(options: PerformanceWorkflowOptions) {
     }
   }, [connected, controller, demo, fail, notice, transport]);
 
-  return { selectScene, setBlockBypass, toggleBlockBypass, selectModeSlot, pressFootswitch, movePreset, navigateBank, tapTempo, showDeviceView };
+  return { selectScene, setBlockBypass, toggleBlockBypass, selectModeSlot, pressFootswitch, movePreset, navigateBank, runAssistantDeviceCommand, tapTempo, showDeviceView };
 }

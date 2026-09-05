@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { demoSnapshot, QC_SCENE_COUNT } from "@ndsp-qc/client";
-import { assistantCommandDetail, assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
+import { assistantToolActionPrompt, footswitchLeds, parseAssistantIntent, parseAssistantReply, recentModelConversation, resolveOfflineAssistantIntent, runToolConversation, sceneLetter, textModelConversationPrompt, validateAssistantToolCalls, type AssistantAccessMode as ControlAccessMode, type AssistantToolCall, type PublicRelayState as RelayState } from "@ndsp-qc/core";
 import { formFactors, skins } from "@ndsp-qc/form-factors";
 import { QC_BRAND, QC_VISUAL_ASSETS } from "@ndsp-qc/theme";
 import { AddBlockPanel, AssistantAccessSelect, AssistantAttachmentList, browserWorkflowPrompts, consumeQcNativeStateFrame, corosFixtureConfiguration, corOsUnavailableContextActionMessage, executeAndReconcileQcAction, GridManagementPanel, MicrophoneIcon, qcParameterEditorBindings, QcUiIcon, QuadCortexSurface, readAssistantAccessMode, resolveAssistantParameterEdit, RoutingEditor, SceneEditor, useAssistantAutoScroll, useAssistantConversation, useBlockEditorSession, usePublicRelayWorkflow, useQcConnectionWorkflow, useQcController, useQcLiveState, useQcSurfaceActions, useQcWorkflows, writeAssistantAccessMode, type CorOsContextAction } from "@ndsp-qc/ui";
@@ -43,7 +43,7 @@ export function App() {
   const qcController = useQcController(demoSnapshot);
   const {
     snapshot, snapshotRef, setSnapshot, updateSnapshot,
-    resetCommands, reconcileFrame, runAssistantCommand
+    resetCommands, reconcileFrame
   } = qcController;
   useEffect(() => { if (corpusFixtureEnabled) setSnapshot(fixtureInitialSnapshot); }, [setSnapshot]);
   const qcTransport = useMemo(() => createAndroidQcTransport(() => snapshotRef.current), [snapshotRef]);
@@ -301,8 +301,8 @@ export function App() {
         return `Scene ${sceneLetter(deviceCommand.scene)} selected in the preview.`;
       }
       if (!usbConnected) return "Connect the Quad Cortex over USB first.";
-      const result = await runAssistantCommand(qcTransport, deviceCommand);
-      return assistantCommandDetail(deviceCommand, result);
+      return await performanceWorkflow.runAssistantDeviceCommand(deviceCommand, true)
+        ?? "Performance command completed.";
     } catch (error) {
       return error instanceof Error ? error.message : "That QC command could not be completed.";
     }

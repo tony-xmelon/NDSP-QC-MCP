@@ -77,9 +77,13 @@ test("typed assistant edits reuse shared parameter, bypass, and history workflow
   assert.match(parameterWorkflow, /applyResolvedParameter/);
   assert.match(parameterWorkflow, /recordHistory\(\{ label:/);
   assert.match(performanceWorkflow, /setBlockBypass[\s\S]*recordHistory\?\.\(\{/);
+  assert.match(performanceWorkflow, /runAssistantDeviceCommand[\s\S]*command\.kind === "tempo"[\s\S]*recordHistory\?\.\(\{/);
   for (const app of [windows, android]) {
     assert.match(app, /parameterWorkflow\.applyResolvedParameter/);
     assert.match(app, /performanceWorkflow\.setBlockBypass/);
+    assert.match(app, /performanceWorkflow\.runAssistantDeviceCommand/);
+    assert.doesNotMatch(app, /\brunAssistantCommand\b/);
+    assert.doesNotMatch(app, /\bassistantCommandDetail\b/);
     assert.doesNotMatch(app, /(?:tauriTransport|androidGatewayTransport)\.(?:setParameter|toggleBypass)/);
   }
 });
@@ -380,15 +384,17 @@ test("assistant actions use one shared provider-neutral executor", () => {
   const intentResolver = source("packages/typescript/qc-core/src/assistant-intent-resolution.ts");
   const executor = source("packages/typescript/qc-ui/src/qc-action-executor.ts");
   const controller = source("packages/typescript/qc-ui/src/use-qc-controller.ts");
+  const performance = source("packages/typescript/qc-ui/src/use-performance-workflow.ts");
   const windows = source("apps/windows/src/App.tsx");
   const android = source("apps/android/src/App.tsx");
   assert.match(resolver, /assistantIntentCommand/);
   assert.match(intentResolver, /resolveOfflineAssistantIntent/);
   assert.match(controller, /const runAssistantCommand/);
+  assert.match(performance, /controller\.runAssistantCommand\(transport, command\)/);
   assert.match(windows, /resolveOfflineAssistantIntent\(intent, snapshot, selectedBlockId, assistantAccessMode\)/);
   assert.match(android, /resolveOfflineAssistantIntent\(intent, snapshot, selectedBlockId, controlAccessMode\)/);
-  assert.match(windows, /runAssistantCommand\(qcTransport, deviceCommand\)/);
-  assert.match(android, /runAssistantCommand\(qcTransport,/);
+  assert.match(windows, /performanceWorkflow\.runAssistantDeviceCommand\(deviceCommand, true\)/);
+  assert.match(android, /performanceWorkflow\.runAssistantDeviceCommand\(deviceCommand, true\)/);
   assert.match(android, /assistantToolActionPrompt\(snapshotRef\.current,/);
   assert.match(android, /validateAssistantToolCalls\(parsed, controlAccessMode\)/);
   assert.match(windows, /executeAndReconcileQcAction\(call,/);
