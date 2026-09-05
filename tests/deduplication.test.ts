@@ -162,14 +162,17 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
     assert.match(pythonClient, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(rust, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(java, new RegExp(method.rpc.replace(".", "\\.")));
-    assert.match(tauriHost, new RegExp(`async fn ${method.tauri}\\b`), `${method.rpc} must have a thin Windows adapter`);
-    assert.match(tauriHost, new RegExp(`\\b${method.tauri},`), `${method.rpc} must be registered with Tauri`);
   }
   assert.match(rust, new RegExp(`API_VERSION: u64 = ${contract.apiVersion}`));
   for (const capability of contract.capabilities) assert.match(rust, new RegExp(capability));
-  assert.match(source("apps/windows/src-tauri/src/lib.rs"), /qc_device_runtime::\{generated_gateway::rpc/);
+  assert.match(source("apps/windows/src-tauri/src/lib.rs"), /qc_device_runtime::\{generated_gateway, generated_gateway::rpc/);
+  assert.match(tauriHost, /async fn gateway_invoke\b/);
+  assert.match(tauriHost, /generated_gateway::METHODS\.contains/);
+  assert.match(tauriHost, /\bgateway_invoke,/);
+  assert.doesNotMatch(tauriHost, /async fn (?:current_snapshot|toggle_bypass|set_parameter)\b/);
   assert.match(source("services/device-broker/src/rpc.rs"), /generated_gateway::API_VERSION/);
   assert.match(transport, /createGatewayClientTransport<GatewayTransport>/);
+  assert.match(transport, /callTauri<T>\("gateway_invoke", \{ method, params \}\)[\s\S]*"rpc"/);
   assert.match(source("packages/python/qc-gateway-client/src/qc_gateway_client/client.py"), /method not in GATEWAY_METHODS/);
   assert.doesNotMatch(transport, /callTauri<[^>]+>\("(?:select_scene|toggle_bypass|current_snapshot)"/);
 });

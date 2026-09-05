@@ -107,7 +107,8 @@ export const modelChat = {
 };
 
 const generatedGatewayTransport = createGatewayClientTransport<GatewayTransport>(
-  <T,>(command: string, args?: Record<string, unknown>) => callTauri<T>(command, args)
+  <T,>(method: string, params?: Record<string, unknown>) => callTauri<T>("gateway_invoke", { method, params }),
+  "rpc"
 );
 
 export const tauriTransport: GatewayTransport = {
@@ -121,6 +122,9 @@ export const tauriTransport: GatewayTransport = {
       };
     }
     return generatedGatewayTransport.runtimeStatus();
+  },
+  createDeviceBackup(name: string): Promise<WorkspaceFileResult> {
+    return callTauri<WorkspaceFileResult>("create_device_backup", { name });
   }
 };
 

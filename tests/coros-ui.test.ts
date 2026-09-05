@@ -262,8 +262,8 @@ test("master volume has an independent two-way live synchronization path", () =>
   assert.match(appSource, /masterVolume: recovered \? current\.masterVolume : snapshotRef\.current\.masterVolume/, "ordinary whole-preset synchronization must preserve the latest faster volume sample while recovery accepts the newly reattached device state");
   assert.match(transportSource, /createGatewayClientTransport<GatewayTransport>/, "native gateway calls must use the generated contract adapter");
   assert.match(gatewayBindings, /"currentMasterVolume": \{ rpc: "device\.masterVolume", tauri: "current_master_volume"/);
-  assert.match(rustSource, /async fn current_master_volume[\s\S]*?spawn_blocking[\s\S]*?try_with_gateway/, "volume polling must stay off the desktop UI thread and yield to device commands");
-  assert.match(rustSource, /async fn set_master_volume[\s\S]*?background_gateway_request_params/, "volume writes must not block the desktop UI thread");
+  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?rpc::CURRENT_MASTER_VOLUME[\s\S]*?spawn_blocking[\s\S]*?try_with_gateway/, "volume polling must stay off the desktop UI thread and yield to device commands");
+  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?spawn_blocking[\s\S]*?with_gateway_params/, "volume writes must not block the desktop UI thread");
   assert.match(runtimeSource, /GatewayVerification::MasterVolume \{ value \}/, "master-volume readback must use the shared authoritative predicate");
   assert.match(runtimeSource, /"device\.setMasterVolume"[\s\S]*DeviceCommand::SetMasterVolume/, "the native hosts must share the same master-volume plan");
 });
@@ -726,10 +726,9 @@ test("the device Save button uses the CorOS screen instead of desktop dialogs", 
 
 test("slow device saves and navigation stay off the window event thread", () => {
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
-  assert.match(rustSource, /spawn_blocking\(move \|\| \{?\s*with_gateway/);
-  for (const command of ["navigate_bank", "recall_preset", "press_footswitch", "list_preset_slots", "save_preset_as", "rename_current_preset"]) {
-    assert.match(rustSource, new RegExp(`async fn ${command}\\([\\s\\S]{0,80}app: AppHandle`));
-  }
+  assert.match(rustSource, /async fn gateway_invoke\([\s\S]{0,100}app: AppHandle/);
+  assert.match(rustSource, /gateway_invoke[\s\S]*spawn_blocking\(move \|\|/);
+  assert.doesNotMatch(rustSource, /async fn (navigate_bank|recall_preset|press_footswitch|list_preset_slots|save_preset_as|rename_current_preset)\(/);
 });
 
 test("chat follows new messages without stealing a user-controlled scroll position", () => {

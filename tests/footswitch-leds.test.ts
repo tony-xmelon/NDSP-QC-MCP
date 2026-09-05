@@ -94,7 +94,8 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
   const midiSource = readFileSync(new URL("../packages/rust/qc-windows-midi/src/lib.rs", import.meta.url), "utf8");
   const pressFlow = workflowSource.slice(workflowSource.indexOf("const pressFootswitch"), workflowSource.indexOf("const movePreset"));
-  const nativeCommand = rustSource.slice(rustSource.indexOf("async fn press_footswitch"), rustSource.indexOf("async fn select_mode_slot"));
+  const gatewayCommand = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
+  const nativeCommand = gatewayCommand.slice(gatewayCommand.indexOf("if matches!("), gatewayCommand.indexOf("let nonblocking_read"));
 
   assert.doesNotMatch(pressFlow, /commandPending/, "a second tap must not be discarded while the first MIDI send is pending");
   assert.match(pressFlow, /snapshotRef\.current/);
@@ -105,7 +106,8 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   assert.match(nativeFrameSource, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(nativeCommand, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(nativeCommand, /plan_host_midi\("device\.pressFootswitch"/);
+  assert.match(nativeCommand, /rpc::PRESS_FOOTSWITCH \| rpc::TAP_TEMPO \| rpc::SELECT_MODE_SLOT/);
+  assert.match(nativeCommand, /plan_host_midi\(&method, &params\)/);
   assert.match(nativeCommand, /\.send\(plan\.controller, plan\.value\)/);
   assert.doesNotMatch(nativeCommand, /background_gateway_request|with_gateway/, "performance MIDI must not queue behind the USB snapshot gateway");
   assert.match(rustSource, /use qc_windows_midi::PerformanceMidi/);
@@ -115,20 +117,24 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
 
 test("Windows mode-slot changes share the immediate persistent MIDI lane", () => {
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
-  const command = rustSource.slice(rustSource.indexOf("async fn select_mode_slot"), rustSource.indexOf("async fn list_preset_slots"));
+  const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
+  const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
   assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /plan_host_midi\("device\.selectModeSlot"/);
+  assert.match(command, /rpc::SELECT_MODE_SLOT/);
+  assert.match(command, /plan_host_midi\(&method, &params\)/);
+  assert.match(runtimeSource, /"device\.selectModeSlot"[\s\S]*MODE_SLOT_CONTROLLER/);
   assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
-  assert.doesNotMatch(command, /background_gateway_request|with_gateway/);
 });
 
 test("Windows Tap Tempo uses explicit CC44 on the persistent MIDI lane", () => {
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
-  const command = rustSource.slice(rustSource.indexOf("async fn tap_tempo"), rustSource.indexOf("async fn select_mode_slot"));
+  const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
+  const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
   assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /plan_host_midi\("device\.tapTempo"/);
+  assert.match(command, /rpc::TAP_TEMPO/);
+  assert.match(command, /plan_host_midi\(&method, &params\)/);
+  assert.match(runtimeSource, /"device\.tapTempo"[\s\S]*TAP_TEMPO_CONTROLLER/);
   assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
-  assert.doesNotMatch(command, /press_footswitch|background_gateway_request|with_gateway/);
 });
 
 test("device-reported STOMP LED state is authoritative", () => {

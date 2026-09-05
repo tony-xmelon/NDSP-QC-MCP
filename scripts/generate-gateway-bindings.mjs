@@ -63,6 +63,9 @@ pub const API_VERSION: u64 = ${manifest.apiVersion};
 pub const CAPABILITIES: &[&str] = &[
 ${manifest.capabilities.map((capability) => `    ${JSON.stringify(capability)},`).join("\n")}
 ];
+pub const METHODS: &[&str] = &[
+${methods.map((item) => `    ${JSON.stringify(item.rpc)},`).join("\n")}
+];
 
 #[allow(dead_code)]
 pub mod rpc {
