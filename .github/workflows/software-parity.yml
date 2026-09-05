@@ -120,7 +120,16 @@ jobs:
       - name: Install pinned Android build tools
         shell: pwsh
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+          $sdkManager = Get-Command sdkmanager -ErrorAction SilentlyContinue
+          if ($null -eq $sdkManager) {
+            $sdkRoots = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            $sdkManager = $sdkRoots |
+              ForEach-Object { Join-Path $_ "cmdline-tools\latest\bin\sdkmanager.bat" } |
+              Where-Object { Test-Path -LiteralPath $_ } |
+              Select-Object -First 1
+          }
+          if ($null -eq $sdkManager) { throw "sdkmanager was not found in PATH, ANDROID_HOME, or ANDROID_SDK_ROOT." }
+          & $sdkManager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
           cargo install cargo-ndk --version 4.1.2 --locked
 
       - name: Install JavaScript dependencies

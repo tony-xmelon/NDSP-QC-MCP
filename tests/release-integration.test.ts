@@ -155,6 +155,10 @@ test("CI packages the Android app with pinned native prerequisites and provenanc
   assert.match(workflow, /android-package:[\s\S]*needs: \[software-parity, ui-conformance\]/);
   assert.match(workflow, /java-version: 21/);
   assert.match(workflow, /ndk;27\.2\.12479018/);
+  assert.match(workflow, /Get-Command sdkmanager -ErrorAction SilentlyContinue/);
+  assert.match(workflow, /ANDROID_HOME, \$env:ANDROID_SDK_ROOT/);
+  assert.match(workflow, /cmdline-tools\\latest\\bin\\sdkmanager\.bat/);
+  assert.match(workflow, /& \$sdkManager "platforms;android-36"/);
   assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
   assert.match(workflow, /secrets\.QC_ANDROID_KEYSTORE_BASE64/);
   assert.match(workflow, /secrets\.QC_ANDROID_STORE_PASSWORD/);
