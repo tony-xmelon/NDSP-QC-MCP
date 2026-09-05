@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **90.47%** | **97.09%** |
-| Android | 36/36 (100%) | **90.47%** | **97.09%** |
+| Windows | 36/36 (100%) | **90.55%** | **97.10%** |
+| Android | 36/36 (100%) | **90.54%** | **97.10%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -99,7 +99,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Global EQ | 90.55% | 90.52% |
 | Brit 2203 Grid | 92.25% | 92.26% |
 | Empty slot | 94.03% | 94.03% |
-| Amp device browser | 87.36% | 87.54% |
+| Amp device browser | 87.13% | 87.13% |
 | Virtual Device presets | 88.56% | 88.62% |
 | Virtual Device preset actions | 89.08% | 89.09% |
 | Expression bypass | 91.73% | 91.66% |
@@ -116,7 +116,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Capture — Training | 90.61% | 90.50% |
 | Capture — A/B test | 88.17% | 88.03% |
 | Capture — Metadata | 92.95% | 92.80% |
-| Plugin devices | 87.29% | 87.38% |
+| Plugin devices | 89.61% | 89.61% |
 | Plugin folders | 88.15% | 87.95% |
 | MIDI Settings | 96.08% | 95.99% |
 | Preset MIDI Out | 88.72% | 88.62% |
@@ -171,13 +171,21 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Corrected Plugin Devices' route rails and block surfaces, aligned its
+  scene/header controls, restored the clipped row number, normalized the six
+  category glyph bounds, and preserved list indentation when a plugin has no
+  availability dot. Plugin Devices rises from **87.24% / 87.25% to 89.61%**
+  structural match on Windows / Android, and the shared header correction also
+  raises the Amp browser from **86.68% / 86.69% to 87.13%**. The complete
+  official-manual benchmark reaches **90.55% Windows / 90.54% Android**
+  structural and **97.10%** color similarity.
 - Reconstructed Empty Slot's scene, save, overflow, and PRESET controls from
   native-sized vector primitives; corrected the category-tile dimensions and
   glyph bounds; and restored the exact category-pane, icon-well, scrollbar,
   and signal-line colors. The frame rises from **87.18% / 87.19% to 94.03%**
   structural match on Windows / Android, while color similarity rises from
-  **97.72% to 98.46%**. The complete 36-screen official-manual benchmark now
-  reaches **90.47% / 97.09%** on both hosts.
+  **97.72% to 98.46%**. At that checkpoint, the complete 36-screen
+  official-manual benchmark reached **90.47% / 97.09%** on both hosts.
 - Restored Directory — Plugin Presets' full-height 412px content panels,
   native toolbar spacing and vector icons, aligned its directory labels, and
   resized the plugin glyph and centered logo against the official frame. The

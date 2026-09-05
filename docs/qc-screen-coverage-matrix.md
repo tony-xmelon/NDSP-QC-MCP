@@ -13,7 +13,7 @@ Generated from the CorOS 4.1.0 executable coverage ledger. This report distingui
 | Corpus | Windows structural | Windows color | Android structural | Android color |
 | --- | ---: | ---: | ---: | ---: |
 | Physical device | 91.59% | 97.32% | 91.58% | 97.32% |
-| Official manual | 90.47% | 97.09% | 90.47% | 97.09% |
+| Official manual | 90.55% | 97.10% | 90.54% | 97.10% |
 
 Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` color similarity. A canonical state that references multiple frames reports their mean. Detail evidence is scoped and therefore never promoted into a full-frame score.
 
@@ -83,12 +83,12 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | GR-05 | Routing | Mixer parameter editor | physical frame | Built | Built | 90.48% / 90.52% | 97.54% / 97.54% | — / — | — / — |
 | GR-06 | Grid | Empty-slot target | official frame | Built | Built | — / — | — / — | 94.03% / 94.03% | 98.46% / 98.46% |
 | DB-01 | Device browser | Category root | physical frame | Built | Built | 89.66% / 89.67% | 96.08% / 96.09% | — / — | — / — |
-| DB-02 | Device browser | Guitar/Bass model list | physical frame + official frame | Built | Built | 90.59% / 90.59% | 96.44% / 96.44% | 86.68% / 86.69% | 98.17% / 98.17% |
+| DB-02 | Device browser | Guitar/Bass model list | physical frame + official frame | Built | Built | 90.59% / 90.59% | 96.44% / 96.44% | 87.13% / 87.13% | 98.22% / 98.22% |
 | DB-03 | Device browser | First-use device-preset tooltip | physical frame | Built | Built | 90.77% / 90.77% | 96.56% / 96.56% | — / — | — / — |
 | DB-04 | Device browser | Search results | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | DB-05 | Device browser | Favorites / Recent models | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | DB-06 | Device browser | Plugin device folders | official frame | Built | Built | — / — | — / — | 87.92% / 87.91% | 99.05% / 99.05% |
-| DB-07 | Device browser | Plugin device list / license state | physical frame + official frame | Built | Built | 90.22% / 90.22% | 97.28% / 97.28% | 87.24% / 87.25% | 97.40% / 97.40% |
+| DB-07 | Device browser | Plugin device list / license state | physical frame + official frame | Built | Built | 90.22% / 90.22% | 97.28% / 97.28% | 89.61% / 89.61% | 97.82% / 97.82% |
 | DB-08 | Device browser | Plugin refresh state | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | DB-09 | Device browser | Locked plugin / license-not-found models | physical frame | Built | Built | 91.84% / 91.84% | 96.00% / 96.00% | — / — | — / — |
 | ED-01 | Editor | Standard rotary parameter editor | physical frame | Built | Built | 90.26% / 90.25% | 97.41% / 97.41% | — / — | — / — |
@@ -184,6 +184,6 @@ These states are implemented and captured on both hosts, but only against determ
 
 - Physical Windows: `.artifacts/ui-physical-final24/comparison/summary.json`
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
-- Official Windows: `.artifacts/ui-official-final7/windows-comparison/summary.json`
-- Official Android: `.artifacts/ui-official-final7/android-comparison/summary.json`
+- Official Windows: `.artifacts/ui-official-final8/windows-comparison/summary.json`
+- Official Android: `.artifacts/ui-official-final8/android-comparison/summary.json`
 
