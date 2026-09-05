@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.08%** | **97.23%** |
-| Android | 40/40 (100%) | **91.07%** | **97.23%** |
+| Windows | 40/40 (100%) | **91.26%** | **97.24%** |
+| Android | 40/40 (100%) | **91.25%** | **97.24%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -130,8 +130,8 @@ still need pixel-level reconstruction work.
 | `preset-directory` | 92.46% | 92.47% |
 | `input-route-selector` | **90.18%** | **90.21%** |
 | `output-route-selector` | **91.22%** | **91.24%** |
-| `splitter-editor` | 87.61% | 87.65% |
-| `mixer-editor` | 89.85% | 89.89% |
+| `splitter-editor` | **89.28%** | **89.31%** |
+| `mixer-editor` | **90.48%** | **90.52%** |
 | `device-browser-root` | **89.66%** | **89.67%** |
 | `device-browser-models` | **90.41%** | **90.40%** |
 | `device-browser-models-clean` | **90.77%** | **90.77%** |
@@ -141,13 +141,13 @@ still need pixel-level reconstruction work.
 | `device-presets-exotic-z-boost` | 90.33% | 90.33% |
 | `device-preset-actions` | 96.10% | 96.10% |
 | `device-presets-user` | 89.71% | 89.70% |
-| `editor-simple-gate` | **90.87%** | **90.87%** |
-| `editor-chief-ds1` | **90.73%** | **90.73%** |
+| `editor-simple-gate` | **91.57%** | **91.56%** |
+| `editor-chief-ds1` | **91.35%** | **91.35%** |
 | `editor-digital-flanger` | **86.60%** | **86.61%** |
-| `editor-ukc30-topboost` | **88.43%** | **88.43%** |
+| `editor-ukc30-topboost` | **90.25%** | **90.24%** |
 | `editor-ukc30-cab` | **92.99%** | **92.99%** |
 | `editor-parametric-8` | **88.33%** | **88.33%** |
-| `editor-ambience` | **87.75%** | **87.74%** |
+| `editor-ambience` | **89.70%** | **89.68%** |
 | `gig-view` (STOMP) | **94.41%** | **94.41%** |
 | `grid-restored` | **93.42%** | **93.42%** |
 | `grid-scene-b` | **93.43%** | **93.43%** |
@@ -165,6 +165,14 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Matched the Splitter panel's physical top edge and rotary-control bounds,
+  and replaced the Splitter/Mixer single-character scene arrows with measured
+  double chevrons. Splitter rises from **87.61% to 89.28% Windows / 87.65% to
+  89.31% Android** and Mixer from **89.85% to 90.48% / 89.89% to 90.52%**.
+  Corrected the shared standard-editor bypass glyph and removed erroneous
+  14px header offsets from TopBoost and Ambience. The four affected editors
+  gain 0.62–1.95 structural points; all seven physical editors now average
+  **90.11% structural match**.
 - Replaced Digital Flanger's incorrect bypass blob with the linked-control
   glyph visible in the physical editor, raising structural match from
   **85.91% to 86.60% Windows / 85.92% to 86.61% Android**. Restored the
@@ -239,8 +247,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
   screens reached **86.82% structural match** in that pass. The latest complete
-  physical benchmark reaches **91.08% / 97.23% structural/color on Windows**
-  and **91.07% / 97.23% on Android**.
+  physical benchmark reaches **91.26% / 97.24% structural/color on Windows**
+  and **91.25% / 97.24% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

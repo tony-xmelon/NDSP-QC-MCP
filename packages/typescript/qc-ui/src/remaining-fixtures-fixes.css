@@ -178,13 +178,11 @@
 .coros-gig-view .gig-tiles.is-preset .gig-preset-tile.is-active>strong{font-size:3cqw;color:#000}
 
 .editor-ukc30-topboost .coros-dial{translate:0 1.75cqw}
-.editor-ukc30-topboost header .editor-stomp,.editor-ukc30-topboost header .editor-scene{transform:translateX(-1.75cqw)}
 .editor-ukc30-topboost header .editor-bypass{transform:translateX(-.5cqw)}
 .editor-ukc30-topboost header .editor-done{transform:translateX(-.125cqw)}
 .editor-ukc30-topboost .coros-parameter-controls.is-two-row{grid-template-rows:repeat(2,1fr)}
 .editor-ukc30-topboost .coros-parameter-controls label>small{position:absolute;left:1.5cqw;bottom:1.625cqw}
 .editor-ambience .coros-dial{translate:0 1cqw}
-.editor-ambience header .editor-stomp,.editor-ambience header .editor-scene{transform:translateX(-1.75cqw)}
 .editor-ambience header .editor-bypass{transform:translateX(-.5cqw)}
 .editor-ambience header .editor-done{transform:translateX(-.125cqw)}
 .editor-ambience .coros-parameter-controls.is-two-row{grid-template-rows:repeat(2,1fr)}
@@ -202,6 +200,8 @@
 .splitter-panel>header>em svg rect,.splitter-panel>header>em svg path{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .splitter-panel>header>span{width:27.125cqw}.splitter-panel>header>svg{width:29.125cqw}.splitter-panel>header>b{width:16.5cqw}.splitter-panel>header>em svg{width:8.25cqw}.splitter-panel>header>button:last-child{margin-left:1.5cqw}.splitter-controls{border-radius:.75cqw;overflow:hidden}.splitter-controls label,.splitter-controls .splitter-empty{border-radius:0;color:#737d73}
 .coros-splitter-physical,.coros-splitter-physical *{font-family:Arial,sans-serif}.splitter-panel>header>svg{transform:translateX(-2cqw)}.splitter-panel>header>em svg{height:5.375cqw;background:#181c18;border-radius:.75cqw}.splitter-panel>header>button:last-child{width:7.5cqw;flex:0 0 7.5cqw;margin-left:1.5cqw;margin-right:1.25cqw;background:#292c29;color:#fff}
+.splitter-panel .splitter-scene>span{width:4cqw;height:100%;display:grid;place-items:center}.splitter-panel .splitter-scene>span svg{width:100%;height:100%;fill:#eee}
+.coros-splitter-physical:not(.coros-mixer-physical) .splitter-panel{top:24.5cqw;padding-top:1.125cqw}.coros-splitter-physical:not(.coros-mixer-physical) .splitter-knob{width:8.5cqw;height:8.5cqw}.coros-splitter-physical:not(.coros-mixer-physical) .splitter-controls label:nth-child(n+3):nth-child(-n+5) .splitter-knob{top:4.875cqw}
 .coros-device-browser,.coros-device-browser *{font-family:Roboto,Arial,sans-serif}.coros-device-browser:has(.coros-device-models)>nav{padding-top:calc(3.25% + 5px);padding-bottom:0}.coros-device-browser:has(.coros-device-models) .device-model-pin{width:2.25cqw;height:2.25cqw;margin-right:.75cqw;transform:none}.coros-device-browser:has(.coros-device-models) .device-model-pin svg{display:block;width:100%;height:100%;fill:currentColor}
 .coros-parameter-editor.editor-digital-flanger.is-bypassed .coros-parameter-controls{filter:brightness(.35);background:#2e392e}.coros-parameter-editor.editor-digital-flanger .coros-parameter-controls label{border-right-color:#2e2e2e}.coros-parameter-editor.editor-digital-flanger .coros-parameter-controls.is-two-row label:nth-child(-n+5){border-bottom-color:#2e2e2e}.coros-parameter-editor.editor-digital-flanger .coros-dial{border-color:#172e17;background:#2e452e}.coros-parameter-editor.editor-digital-flanger .coros-toggle>i{background:#172e17}
 .coros-directory,.coros-directory-header{background:#101010}.coros-directory .directory-category,.coros-directory .directory-folders,.coros-directory .directory-presets,.coros-directory .directory-presets>button,.coros-directory .directory-banks button{background:#292c29}.coros-directory .directory-cloud,.coros-directory .directory-tools button{background:#181c18}.coros-directory .directory-tools .directory-close{background:#292c29}.coros-directory .directory-folders button.is-active,.coros-directory .directory-presets>button.is-current{background:#181c18}.coros-directory .directory-banks button.is-active{background:#101810}
@@ -233,6 +233,7 @@
 .coros-parameter-editor.editor-digital-flanger .editor-scene>b::before{content:"";position:absolute;z-index:-1;left:50%;top:50%;width:24px;height:24px;translate:-50% -50%;border-radius:4px;background:#f2cf25}
 .coros-parameter-editor.editor-digital-flanger .editor-more,.coros-parameter-editor.editor-digital-flanger .editor-stomp,.coros-parameter-editor.editor-digital-flanger .editor-scene,.coros-parameter-editor.editor-digital-flanger .editor-bypass{background:#181c18;color:#fff}
 .coros-parameter-editor.editor-digital-flanger .editor-bypass .flanger-link-icon{width:3cqw;fill:none;stroke:#7130ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-bypass svg{width:3cqw;height:3cqw;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .coros-parameter-editor.editor-digital-flanger .editor-done{background:#292c29;color:#fff}
 .coros-parameter-editor.editor-digital-flanger .editor-pages{transform:translateX(-7px)}
 .coros-parameter-editor.editor-digital-flanger .editor-pages>b:first-child{background:#101410}
