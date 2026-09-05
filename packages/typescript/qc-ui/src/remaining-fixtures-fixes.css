@@ -164,12 +164,17 @@
 .coros-gig-view .gig-tiles.is-stomp>button>strong:not(.is-compact){translate:0 1px}
 .coros-gig-view .gig-tiles.is-stomp>button:nth-child(5)>strong{translate:0 6px}
 .coros-gig-view:has(.gig-tiles.is-scene),.coros-gig-view:has(.gig-tiles.is-scene) *{font-family:Roboto,Arial,sans-serif}
+.coros-gig-view:has(.gig-tiles.is-scene) header{padding-right:1cqw}
+.coros-gig-view:has(.gig-tiles.is-scene) .gig-mode{flex-basis:8.375cqw}
+.coros-gig-view:has(.gig-tiles.is-scene) .gig-scene{flex-basis:5.375cqw}
+.coros-gig-view:has(.gig-tiles.is-scene) header button{flex-basis:12.25cqw}
 .coros-gig-view:has(.gig-tiles.is-scene) header>strong{font-size:4.075cqw}
 .coros-gig-view .gig-tiles.is-scene .gig-scene-tile>b{left:16%;right:auto;top:12%;color:var(--gig-letter);font-size:22cqw;line-height:1}
-.coros-gig-view .gig-tiles.is-scene .gig-scene-tile>strong{top:41%;font-size:4cqw;transform:translateY(-1px)}
-.coros-gig-view .gig-tiles.is-scene .gig-scene-tile.is-active>strong{top:30.5%;transform:translateY(-2px)}
-.coros-gig-view .gig-tiles.is-scene .gig-scene-tools{left:10%;right:10%;top:8%;display:flex;align-items:center;justify-content:space-between;color:#afb6b3;font-size:0;letter-spacing:0}
-.coros-gig-view .gig-tiles.is-scene .gig-scene-tools svg{width:3cqw;height:3cqw;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.coros-gig-view .gig-tiles.is-scene .gig-scene-tile>strong{top:41%;font-size:3.875cqw;transform:translateY(1px)}
+.coros-gig-view .gig-tiles.is-scene .gig-scene-tile.is-active>strong{top:30.5%;transform:translateY(0)}
+.coros-gig-view .gig-tiles.is-scene .gig-scene-tile.is-active{background:#ff2421!important}
+.coros-gig-view .gig-tiles.is-scene .gig-scene-tools{left:10%;right:10%;top:9%;display:flex;align-items:center;justify-content:space-between;color:#afb6b3;font-size:0;letter-spacing:0}
+.coros-gig-view .gig-tiles.is-scene .gig-scene-tools svg{width:3.875cqw;height:3.5cqw;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .coros-gig-view:has(.gig-tiles.is-preset),.coros-gig-view:has(.gig-tiles.is-preset) *{font-family:Roboto,Arial,sans-serif}
 .coros-gig-view:has(.gig-tiles.is-preset){background:#101010;color:#fff}
 .coros-gig-view:has(.gig-tiles.is-preset) header{padding-left:1%;padding-right:1%;background:#101010}

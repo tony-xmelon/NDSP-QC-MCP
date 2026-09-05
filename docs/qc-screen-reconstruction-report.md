@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.51%** | **97.30%** |
-| Android | 40/40 (100%) | **91.50%** | **97.30%** |
+| Windows | 40/40 (100%) | **91.57%** | **97.32%** |
+| Android | 40/40 (100%) | **91.56%** | **97.32%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -158,13 +158,19 @@ still need pixel-level reconstruction work.
 | `gig-view-live-tuner` | **94.50%** | **94.50%** |
 | `preset-midi-out` | **89.33%** | **89.33%** |
 | `gig-view-preset` | 93.94% | 93.94% |
-| `gig-view-scene` | 88.75% | 88.76% |
+| `gig-view-scene` | **91.15%** | **91.15%** |
 | `modes-configuration` | 96.35% | 96.35% |
 | `save-as-editor` | 88.97% | 88.97% |
 | `edit-details-editor` | 92.63% | 92.63% |
 
 ## Improvements in this pass
 
+- Matched SCENE Gig View's right-anchored header controls, scene-name scale and
+  baselines, active red surface, and enlarged three-action tool glyphs. The
+  screen rises from **88.75% Windows / 88.76% Android to 91.15%** on both
+  hosts, while color similarity rises from **96.10% to 96.95%**. Complete-
+  corpus recomparison reaches **91.57% / 97.32%** on Windows and **91.56% /
+  97.32%** on Android.
 - Corrected the plugin model browser's cascade so model-lock overlays retain
   their physical **18x24px** bounds instead of inheriting the **70x70px** block
   tile size. Matched the toolbar vectors, close control, active rail treatment,
