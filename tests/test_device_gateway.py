@@ -597,7 +597,7 @@ class DevicePositionTests(unittest.TestCase):
         name, category = _factory_model_metadata(4)
         self.assertEqual(name, "Rodent Drive")
         self.assertEqual(category, "Guitar Overdrive")
-        self.assertEqual(_block_color(category, name), "#ffd236")
+        self.assertEqual(_block_color(category, name), "#ff7000")
 
 
 class FakeDevice:
@@ -872,7 +872,7 @@ class DeviceVisualTests(unittest.TestCase):
     def test_device_category_colors_match_grid_and_stomp_palette(self):
         self.assertEqual(_block_color("Utility", "Adaptive Gate"), "#959595")
         self.assertEqual(_block_color("Delay", "Analog Delay"), "#00ffdd")
-        self.assertEqual(_block_color("Guitar Overdrive", "Rodent Drive"), "#ffd236")
+        self.assertEqual(_block_color("Guitar Overdrive", "Rodent Drive"), "#ff7000")
         self.assertEqual(_stomp_color([{"category": "Utility", "name": "Adaptive Gate"}]), "#f4f4f4")
         self.assertEqual(_stomp_color([{"category": "Delay", "name": "Analog Delay"}]), "#00ffdd")
         self.assertEqual(_stomp_color([{"category": "Guitar Overdrive", "name": "Rodent Drive"}]), "#ffd236")

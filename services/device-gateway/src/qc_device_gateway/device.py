@@ -277,8 +277,11 @@ def _stomp_color(targets: list[dict[str, Any]]) -> str:
     if not targets:
         return HARDWARE_COLORS["idleLed"]
     target = targets[0]
+    category = str(target.get("category", target.get("kind", ""))).casefold()
+    if any(term in category for term in ("overdrive", "distortion", "drive", "boost", "fuzz")):
+        return CATEGORY_COLORS["pitch"]
     category_color = _block_color(
-        str(target.get("category", target.get("kind", ""))),
+        category,
         str(target.get("name", "")),
     )
     return HARDWARE_COLORS["whiteLed"] if category_color == CATEGORY_COLORS["utility"] else category_color

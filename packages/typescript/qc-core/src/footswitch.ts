@@ -25,7 +25,7 @@ function stompLedColor(blocks: GridBlock[]): string {
   if (category.includes("looper")) return QC_COLORS.category.looper;
   if (category.includes("ir loader") || category.includes("irloader")) return QC_COLORS.category.irLoader;
   if (category.includes("cab") || category.includes("impulse response")) return QC_COLORS.category.cab;
-  if (["overdrive", "distortion", "drive", "boost", "fuzz"].some((term) => category.includes(term))) return QC_COLORS.category.overdrive;
+  if (["overdrive", "distortion", "drive", "boost", "fuzz"].some((term) => category.includes(term))) return QC_COLORS.category.pitch;
   if (category.includes("delay")) return QC_COLORS.category.delay;
   if (category.includes("reverb")) return QC_COLORS.category.reverb;
   if (category.includes("compressor")) return QC_COLORS.category.compressor;

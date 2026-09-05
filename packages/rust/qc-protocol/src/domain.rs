@@ -13,7 +13,7 @@ pub mod visual_colors {
     pub const AMP: &str = "#ff2727";
     pub const CAPTURE: &str = "#959595";
     pub const CAB: &str = "#6954ff";
-    pub const OVERDRIVE: &str = "#ffd236";
+    pub const OVERDRIVE: &str = "#ff7000";
     pub const DELAY: &str = "#00ffdd";
     pub const REVERB: &str = "#00ffdd";
     pub const COMPRESSOR: &str = "#45f862";

@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **87.44%** | **96.70%** |
-| Android | 40/40 (100%) | **86.33%** | **96.57%** |
+| Windows | 40/40 (100%) | **87.94%** | **96.94%** |
+| Android | 40/40 (100%) | **86.83%** | **96.82%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -140,13 +140,13 @@ still need pixel-level reconstruction work.
 | `device-presets-exotic-z-boost` | 90.42% | 85.74% |
 | `device-preset-actions` | 96.06% | 88.92% |
 | `device-presets-user` | 89.82% | 83.86% |
-| `editor-simple-gate` | 83.23% | 83.19% |
-| `editor-chief-ds1` | 79.12% | 79.07% |
-| `editor-digital-flanger` | 80.95% | 80.90% |
-| `editor-ukc30-topboost` | 78.28% | 78.24% |
+| `editor-simple-gate` | 85.12% | 85.08% |
+| `editor-chief-ds1` | 85.27% | 85.24% |
+| `editor-digital-flanger` | 80.18% | 80.15% |
+| `editor-ukc30-topboost` | 85.31% | 85.29% |
 | `editor-ukc30-cab` | 81.97% | 81.97% |
 | `editor-parametric-8` | 88.20% | 88.20% |
-| `editor-ambience` | 79.43% | 79.39% |
+| `editor-ambience` | 84.94% | 84.92% |
 | `gig-view` (STOMP) | 83.36% | 83.35% |
 | `grid-restored` | 90.24% | 89.97% |
 | `grid-scene-b` | 90.32% | 90.05% |
@@ -168,6 +168,14 @@ still need pixel-level reconstruction work.
   on an 8px vertical rhythm, 51px preset rows, and exact physical panel colors.
   The shared Directory rises from **77.89% to 92.36% Windows** and **77.82% to
   92.28% Android**, while its color error falls to 1.95% on both hosts.
+- Shifted the standard editor encoders to the physical right-hand control
+  positions, corrected their 64px geometry and panel colors, and made the
+  scratch corpus preserve ModelRepo-style binary switches for Boost, Sync,
+  Polarity, Drive, and Trails. The canonical Grid palette now keeps Overdrive
+  orange distinct from the yellow physical Drive footswitch lamp. The four
+  affected non-flanger editors rise
+  by 1.9–7.0 structural points, and their dimmed Grid underlay now matches the
+  physical screen instead of remaining at full brightness.
 - Replaced the live Grid's older approximate block and row coordinates with
   the measured 86px block cadence and 94px signal-row cadence already recorded
   in the physical corpus, restored the six empty-row plus targets, and removed
@@ -180,9 +188,9 @@ still need pixel-level reconstruction work.
   positions, corrected its background and tab tones, and aligned the shared
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.20%** on both hosts; the seven physical
-  editor screens now average **81.60% structural match**. The complete physical
-  benchmark reaches **87.44% / 96.70% structural/color on Windows** and
-  **86.33% / 96.57% on Android**.
+  editor screens now average **84.43% structural match**. The complete physical
+  benchmark reaches **87.94% / 96.94% structural/color on Windows** and
+  **86.83% / 96.82% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

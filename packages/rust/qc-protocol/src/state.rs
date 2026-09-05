@@ -1409,7 +1409,9 @@ fn stomp_color(blocks: &[&GridBlock]) -> String {
         .iter()
         .any(|term| category.contains(term))
     {
-        domain::visual_colors::OVERDRIVE
+        // CorOS uses orange for the Grid block but yellow for the physical
+        // STOMP lamp assigned to a drive-family device.
+        domain::visual_colors::PITCH
     } else if category.contains("delay") || category.contains("reverb") {
         domain::visual_colors::DELAY
     } else if category.contains("compressor") {

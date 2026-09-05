@@ -13,7 +13,7 @@ const expectedCategories: Array<[OfficialBlockVisualKey, string, [number, number
   ["amp", "Amp", [480, 0], "#ff2727"],
   ["capture", "Neural Capture", [640, 0], "#959595"],
   ["cab", "Cab", [80, 82], "#6954ff"],
-  ["overdrive", "Overdrive", [400, 0], "#ffd236"],
+  ["overdrive", "Overdrive", [400, 0], "#ff7000"],
   ["delay", "Delay", [240, 0], "#00ffdd"],
   ["reverb", "Reverb", [240, 82], "#00ffdd"],
   ["compressor", "Compressor", [400, 82], "#45f862"],
