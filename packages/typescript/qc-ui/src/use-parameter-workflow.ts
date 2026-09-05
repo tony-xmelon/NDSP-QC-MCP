@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { BlockParameter, GatewayTransport, PresetSnapshot } from "@ndsp-qc/client";
+import type { BlockDetails, BlockParameter, GatewayTransport, PresetSnapshot } from "@ndsp-qc/client";
 import type { BlockEditorSessionController } from "./use-block-editor-session";
 import type { DeviceHistoryEntry } from "./use-device-history";
 
@@ -68,15 +68,21 @@ export function useParameterWorkflow(options: ParameterWorkflowOptions) {
 
   useEffect(() => cancel, [cancel]);
 
-  const apply = useCallback(async (parameter: BlockParameter, value: number, revision: number) => {
-    const details = detailsRef.current;
-    if (!details || parameter.normalizedValue === null || pending) return;
+  const applyResolvedParameter = useCallback(async (
+    details: BlockDetails,
+    parameter: BlockParameter,
+    value: number,
+    reportFailure = false,
+    stillCurrent: () => boolean = () => true
+  ): Promise<string | undefined> => {
+    if (parameter.normalizedValue === null || (pending && !reportFailure)) return;
     if (Math.abs(value - parameter.normalizedValue) < .000001) return;
     if (!connected) {
       editor.updateParameter(parameter, value);
       reconcile({ ...snapshot, dirty: true });
-      notice(`Preview: ${details.name} · ${parameter.name} adjusted.`);
-      return;
+      const detail = `Preview: ${details.name} · ${parameter.name} adjusted.`;
+      notice(detail);
+      return detail;
     }
     const row = details.row;
     const column = details.column;
@@ -84,20 +90,31 @@ export function useParameterWorkflow(options: ParameterWorkflowOptions) {
     notice(`Applying ${parameter.name}…`);
     try {
       const result = await gateway.setParameter(row, column, parameter.index, value, parameter.normalizedValue, snapshot.activeScene, snapshot.presetName);
-      const latest = revisions.current.get(parameter.index) === revision && detailsRef.current?.row === row && detailsRef.current?.column === column;
-      if (latest) {
+      if (stillCurrent()) {
         editor.load(result.block);
         detailsRef.current = result.block;
         if (result.snapshot) reconcile(result.snapshot);
         recordHistory({ label: `${details.name} ${parameter.name}`, execute: (current) => gateway.setParameter(row, column, parameter.index, parameter.normalizedValue as number, value, snapshot.activeScene, current.presetName), redo: (current) => gateway.setParameter(row, column, parameter.index, value, parameter.normalizedValue as number, snapshot.activeScene, current.presetName) });
         notice(result.detail);
+        return result.detail;
       }
-    } catch (error) { if (revisions.current.get(parameter.index) === revision) fail(error); }
-    finally {
-      if (revisions.current.get(parameter.index) === revision) targets.current.delete(parameter.index);
+    } catch (error) {
+      if (reportFailure) throw error;
+      if (stillCurrent()) fail(error);
+    } finally {
       setPending(false);
     }
   }, [connected, editor, fail, gateway, notice, pending, reconcile, recordHistory, setPending, snapshot]);
+
+  const apply = useCallback(async (parameter: BlockParameter, value: number, revision: number) => {
+    const details = detailsRef.current;
+    if (!details) return;
+    const stillCurrent = () => revisions.current.get(parameter.index) === revision
+      && detailsRef.current?.row === details.row
+      && detailsRef.current?.column === details.column;
+    await applyResolvedParameter(details, parameter, value, false, stillCurrent);
+    if (stillCurrent()) targets.current.delete(parameter.index);
+  }, [applyResolvedParameter]);
 
   const draft = useCallback((parameter: BlockParameter, value: number) => {
     const revision = ++clock.current;
@@ -161,5 +178,5 @@ export function useParameterWorkflow(options: ParameterWorkflowOptions) {
   const targetValue = useCallback((parameter: BlockParameter) => targets.current.get(parameter.index) ?? editor.drafts[parameter.index] ?? parameter.normalizedValue ?? 0, [editor.drafts]);
   const hasPendingChanges = useCallback(() => timers.current.size > 0 || targets.current.size > 0, []);
 
-  return { draft, commit, commitBatch, cancel, targetValue, hasPendingChanges, updateDetails: (details: typeof editor.details) => { detailsRef.current = details; if (details) editor.load(details); } };
+  return { draft, commit, commitBatch, applyResolvedParameter, cancel, targetValue, hasPendingChanges, updateDetails: (details: typeof editor.details) => { detailsRef.current = details; if (details) editor.load(details); } };
 }

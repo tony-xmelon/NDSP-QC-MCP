@@ -46,8 +46,8 @@ export function usePerformanceWorkflow(options: PerformanceWorkflowOptions) {
       const result = await controller.runScene(transport, scene);
       notice(result.detail ?? `Scene ${sceneLetter(scene)} selected.`);
     } catch (error) {
-      fail(error);
       if (reportFailure) throw error;
+      fail(error);
     }
   }, [connected, controller, demo, fail, notice, transport]);
 
@@ -55,8 +55,9 @@ export function usePerformanceWorkflow(options: PerformanceWorkflowOptions) {
     const previousBypassed = block.bypassed ?? false;
     if (demo) {
       controller.settleCommand(controller.beginBypass(block.id, bypassed));
-      notice(`Demo: ${block.name} ${bypassed ? "bypassed" : "enabled"} locally.`);
-      return;
+      const detail = `Demo: ${block.name} ${bypassed ? "bypassed" : "enabled"} locally.`;
+      notice(detail);
+      return detail;
     }
     if (!connected) {
       const error = new Error("Connect the Quad Cortex before changing bypass.");
@@ -72,10 +73,12 @@ export function usePerformanceWorkflow(options: PerformanceWorkflowOptions) {
         execute: (current) => gateway.toggleBypass(block.row, block.column, activeScene, bypassed, previousBypassed, current.presetName),
         redo: (current) => gateway.toggleBypass(block.row, block.column, activeScene, previousBypassed, bypassed, current.presetName)
       });
-      notice(result.detail ?? `${block.name} ${bypassed ? "bypassed" : "enabled"}.`);
+      const detail = result.detail ?? `${block.name} ${bypassed ? "bypassed" : "enabled"}.`;
+      notice(detail);
+      return detail;
     } catch (error) {
-      fail(error);
       if (reportFailure) throw error;
+      fail(error);
     }
   }, [connected, controller, demo, fail, gateway, notice, recordHistory, transport]);
 

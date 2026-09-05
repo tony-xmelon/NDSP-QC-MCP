@@ -1408,26 +1408,13 @@ export function App() {
     setNotice(`Applying: ${pending.label}…`);
     try {
       if (pending.kind === "bypass") {
-        const result = await tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.block.bypassed as boolean, pending.targetBypassed, snapshot.presetName);
-        if (result.snapshot) setSnapshot(result.snapshot);
-        recordUndo({ label: `${pending.targetBypassed ? "bypass" : "enable"} ${pending.block.name}`, execute: (current) => tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.targetBypassed, pending.block.bypassed as boolean, current.presetName), redo: (current) => tauriTransport.toggleBypass(pending.block.row, pending.block.column, snapshot.activeScene, pending.block.bypassed as boolean, pending.targetBypassed, current.presetName) });
-        appendMessage("tool", result.detail);
-        setNotice(result.detail);
+        const detail = await performanceWorkflow.setBlockBypass(pending.block, pending.targetBypassed, true)
+          ?? `${pending.block.name} ${pending.targetBypassed ? "bypassed" : "enabled"}.`;
+        appendMessage("tool", detail);
       } else {
-        const result = await tauriTransport.setParameter(
-          pending.block.row,
-          pending.block.column,
-          pending.parameter.index,
-          pending.value,
-          pending.parameter.normalizedValue as number,
-          snapshot.activeScene,
-          snapshot.presetName
-        );
-        if (result.snapshot) setSnapshot(result.snapshot);
-        recordUndo({ label: `${pending.block.name} ${pending.parameter.name}`, execute: (current) => tauriTransport.setParameter(pending.block.row, pending.block.column, pending.parameter.index, pending.parameter.normalizedValue as number, pending.value, snapshot.activeScene, current.presetName), redo: (current) => tauriTransport.setParameter(pending.block.row, pending.block.column, pending.parameter.index, pending.value, pending.parameter.normalizedValue as number, snapshot.activeScene, current.presetName) });
-        editor.load(result.block);
-        appendMessage("tool", result.detail);
-        setNotice(result.detail);
+        const detail = await parameterWorkflow.applyResolvedParameter(pending.block, pending.parameter, pending.value, true)
+          ?? `${pending.block.name} · ${pending.parameter.name} already has that value.`;
+        appendMessage("tool", detail);
       }
       setPendingAssistantAction(undefined);
     } catch (error) {

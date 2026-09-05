@@ -69,6 +69,21 @@ test("shared UI exclusively owns dirty-title and parameter-screen rendering", ()
   assert.doesNotMatch(android, /function CorOsGrid|function CorOsParameterEditor/);
 });
 
+test("typed assistant edits reuse shared parameter, bypass, and history workflows", () => {
+  const parameterWorkflow = source("packages/typescript/qc-ui/src/use-parameter-workflow.ts");
+  const performanceWorkflow = source("packages/typescript/qc-ui/src/use-performance-workflow.ts");
+  const windows = source("apps/windows/src/App.tsx");
+  const android = source("apps/android/src/App.tsx");
+  assert.match(parameterWorkflow, /applyResolvedParameter/);
+  assert.match(parameterWorkflow, /recordHistory\(\{ label:/);
+  assert.match(performanceWorkflow, /setBlockBypass[\s\S]*recordHistory\?\.\(\{/);
+  for (const app of [windows, android]) {
+    assert.match(app, /parameterWorkflow\.applyResolvedParameter/);
+    assert.match(app, /performanceWorkflow\.setBlockBypass/);
+    assert.doesNotMatch(app, /(?:tauriTransport|androidGatewayTransport)\.(?:setParameter|toggleBypass)/);
+  }
+});
+
 test("both native shells route Grid menus and footswitches through shared policy", () => {
   const sharedMenu = source("packages/typescript/qc-ui/src/coros-ui.ts");
   const android = source("apps/android/src/App.tsx");

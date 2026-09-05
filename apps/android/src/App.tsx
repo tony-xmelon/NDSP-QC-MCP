@@ -283,18 +283,15 @@ export function App() {
         const resolved = resolveAssistantParameterEdit(details, resolution.parameter, resolution.value);
         const label = `Set ${details.name} · ${resolved.parameter.name} from ${resolved.parameter.displayValue} to ${resolved.display} in Scene ${sceneLetter(snapshot.activeScene)}?`;
         if (!window.confirm(`${label}\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary parameter edit cancelled.";
-        const result = await androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, snapshot.presetName);
-        if (result.snapshot) workflows.reconcile(result.snapshot);
-        if (blockDetails?.row === result.block.row && blockDetails.column === result.block.column) parameterWorkflow.updateDetails(result.block);
-        deviceHistory.record({ label: `${details.name} ${resolved.parameter.name}`, execute: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.parameter.normalizedValue as number, resolved.normalized, snapshot.activeScene, current.presetName), redo: (current) => androidGatewayTransport.setParameter(details.row, details.column, resolved.parameter.index, resolved.normalized, resolved.parameter.normalizedValue as number, snapshot.activeScene, current.presetName) });
-        return result.detail;
+        return await parameterWorkflow.applyResolvedParameter(details, resolved.parameter, resolved.normalized, true)
+          ?? `${details.name} · ${resolved.parameter.name} already has that value.`;
       }
       if (resolution.kind === "bypass") {
         if (resolution.changed && !window.confirm(`${resolution.label}?\n\nThis changes the live Grid but does not save the preset.`)) return "Temporary bypass edit cancelled.";
         if (!resolution.changed) return `${resolution.block.name} is already ${resolution.targetBypassed ? "bypassed" : "enabled"}.`;
         if (!usbConnected) return "Connect the Quad Cortex over USB first.";
-        const result = await runAssistantCommand(qcTransport, resolution.command);
-        return assistantCommandDetail(resolution.command, result);
+        return await performanceWorkflow.setBlockBypass(resolution.block, resolution.targetBypassed, true)
+          ?? `${resolution.block.name} ${resolution.targetBypassed ? "bypassed" : "enabled"}.`;
       }
       if (resolution.kind === "bank") return await performanceWorkflow.navigateBank(resolution.direction, true) ?? "Bank changed.";
       if (resolution.kind === "recall") return await presetWorkflow.recallLocation(resolution.location);
