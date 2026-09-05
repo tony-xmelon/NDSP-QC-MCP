@@ -13,7 +13,7 @@ Generated from the CorOS 4.1.0 executable coverage ledger. This report distingui
 | Corpus | Windows structural | Windows color | Android structural | Android color |
 | --- | ---: | ---: | ---: | ---: |
 | Physical device | 91.59% | 97.32% | 91.58% | 97.32% |
-| Official manual | 90.55% | 97.10% | 90.54% | 97.10% |
+| Official manual | 90.77% | 97.11% | 90.76% | 97.11% |
 
 Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` color similarity. A canonical state that references multiple frames reports their mean. Detail evidence is scoped and therefore never promoted into a full-frame score.
 
@@ -60,7 +60,7 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | GL-14 | Preset | Delete confirmation | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | GL-15 | Performance | Tuner | physical frame + official frame | Built | Built | 90.68% / 90.68% | 97.82% / 97.82% | 88.62% / 88.63% | 97.44% / 97.44% |
 | GL-16 | Performance | Live tuner / Gig View tuner | physical frame | Built | Built | 94.50% / 94.50% | 96.45% / 96.45% | — / — | — / — |
-| GL-17 | Performance | Tempo & Metronome | physical frame + official frame | Built | Built | 90.46% / 90.46% | 97.79% / 97.79% | 87.73% / 87.73% | 97.30% / 97.30% |
+| GL-17 | Performance | Tempo & Metronome | physical frame + official frame | Built | Built | 90.46% / 90.46% | 97.79% / 97.79% | 90.80% / 90.80% | 97.56% / 97.56% |
 | GL-18 | Performance | Modes Configuration | physical frame + official frame | Built | Built | 96.35% / 96.35% | 98.59% / 98.59% | 91.82% / 91.82% | 96.76% / 96.76% |
 | GL-19 | Gig View | PRESET mode | physical frame + official frame | Built | Built | 93.94% / 93.94% | 95.65% / 95.65% | 95.48% / 95.48% | 96.22% / 96.22% |
 | GL-20 | Gig View | SCENE mode | physical frame + official frame | Built | Built | 91.15% / 91.15% | 96.95% / 96.95% | 93.45% / 93.45% | 95.81% / 95.81% |
@@ -69,7 +69,7 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | GL-23 | Monitoring | CPU Monitor | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | GL-24 | Performance | Tuner with Live Tuner enabled | physical frame | Built | Built | 90.85% / 90.86% | 97.82% / 97.82% | — / — | — / — |
 | IO-01 | I/O | I/O Settings overview | official detail | Built | Built | — / — | — / — | — / — | — / — |
-| IO-02 | I/O | Analog input detail | official frame | Built | Built | — / — | — / — | 87.56% / 87.56% | 97.31% / 97.31% |
+| IO-02 | I/O | Analog input detail | official frame | Built | Built | — / — | — / — | 87.73% / 87.73% | 97.31% / 97.31% |
 | IO-03 | I/O | Analog output detail | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | IO-04 | I/O | Send/Return detail | smoke only | Built | Built | — / — | — / — | — / — | — / — |
 | IO-05 | I/O | USB I/O detail | official frame | Built | Built | — / — | — / — | 88.10% / 88.09% | 96.48% / 96.48% |
@@ -110,10 +110,10 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | ED-17 | Virtual Device preset | Empty User preset tab | physical frame | Built | Built | 89.71% / 89.70% | 98.29% / 98.29% | — / — | — / — |
 | DR-01 | Directory | Category chooser | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | DR-02 | Directory | Presets browser | physical frame + official frame | Built | Built | 92.46% / 92.47% | 98.06% / 98.06% | 91.97% / 91.96% | 97.85% / 97.85% |
-| DR-03 | Directory | Neural Captures browser | official frame | Built | Built | — / — | — / — | 87.93% / 87.92% | 97.44% / 97.44% |
-| DR-04 | Directory | Impulse Responses browser | official frame | Built | Built | — / — | — / — | 88.99% / 89.00% | 97.77% / 97.77% |
+| DR-03 | Directory | Neural Captures browser | official frame | Built | Built | — / — | — / — | 89.12% / 89.13% | 97.46% / 97.46% |
+| DR-04 | Directory | Impulse Responses browser | official frame | Built | Built | — / — | — / — | 89.70% / 89.72% | 97.81% / 97.81% |
 | DR-05 | Directory | Plugin Presets browser | official frame | Built | Built | — / — | — / — | 96.42% / 96.42% | 98.53% / 98.53% |
-| DR-06 | Directory | Favorites and Recent | official frame | Built | Built | — / — | — / — | 88.34% / 88.46% | 97.54% / 97.53% |
+| DR-06 | Directory | Favorites and Recent | official frame | Built | Built | — / — | — / — | 91.21% / 91.20% | 97.71% / 97.71% |
 | DR-07 | Directory | Search entry | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | DR-08 | Directory | Search results | official frame | Built | Built | — / — | — / — | 88.37% / 88.36% | 97.28% / 97.28% |
 | DR-09 | Directory | Sort menu | official detail | Built | Built | — / — | — / — | — / — | — / — |
@@ -184,6 +184,6 @@ These states are implemented and captured on both hosts, but only against determ
 
 - Physical Windows: `.artifacts/ui-physical-final24/comparison/summary.json`
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
-- Official Windows: `.artifacts/ui-official-final8/windows-comparison/summary.json`
-- Official Android: `.artifacts/ui-official-final8/android-comparison/summary.json`
+- Official Windows: `.artifacts/ui-official-final9/windows-comparison/summary.json`
+- Official Android: `.artifacts/ui-official-final9/android-comparison/summary.json`
 

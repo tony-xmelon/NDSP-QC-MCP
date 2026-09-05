@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **90.55%** | **97.10%** |
-| Android | 36/36 (100%) | **90.54%** | **97.10%** |
+| Windows | 36/36 (100%) | **90.77%** | **97.11%** |
+| Android | 36/36 (100%) | **90.76%** | **97.11%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -88,14 +88,14 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Screen | Windows structural match | Android structural match |
 | --- | ---: | ---: |
 | Tuner | 88.59% | 88.39% |
-| Tempo & Metronome | 87.72% | 87.62% |
+| Tempo & Metronome | 90.80% | 90.80% |
 | Modes Configuration | 91.84% | 91.71% |
 | Gig View — PRESET | 95.61% | 95.54% |
 | Gig View — SCENE | 93.50% | 93.42% |
 | Gig View — STOMP | 88.85% | 88.79% |
 | Gig View — HYBRID | 90.68% | 90.60% |
-| Analog I/O Settings | 87.52% | 87.43% |
-| USB I/O Settings | 88.08% | 88.02% |
+| Analog I/O Settings | 87.73% | 87.73% |
+| USB I/O Settings | 88.10% | 88.09% |
 | Global EQ | 90.55% | 90.52% |
 | Brit 2203 Grid | 92.25% | 92.26% |
 | Empty slot | 94.03% | 94.03% |
@@ -105,9 +105,9 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Expression bypass | 91.73% | 91.66% |
 | Looper X | 87.37% | 87.30% |
 | Directory — Presets | 91.97% | 91.86% |
-| Directory — Favorites | 88.37% | 88.29% |
-| Directory — Captures | 87.94% | 87.86% |
-| Directory — IRs | 88.99% | 88.89% |
+| Directory — Favorites | 91.21% | 91.20% |
+| Directory — Captures | 89.12% | 89.13% |
+| Directory — IRs | 89.70% | 89.72% |
 | Directory — Plugin presets | 96.42% | 96.42% |
 | Directory — Search results | 88.38% | 88.30% |
 | Directory — Nested folders | 90.10% | 90.02% |
@@ -171,14 +171,26 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Removed the obsolete scene selector from the official Tempo header and
+  aligned the three control dials to the CorOS 4.1 framebuffer. Tempo rises
+  from **87.72% / 87.62% to 90.80%** structural match on Windows / Android.
+  Rebuilt the distinct Captures and IRs directory toolbars with native-sized
+  vector actions, then replaced Favorites' text-symbol controls with heart,
+  clock, binocular, and remove-favorite vectors. Captures rises from **87.94% /
+  87.86% to 89.12% / 89.13%**, IRs from **88.99% / 88.89% to 89.70% /
+  89.72%**, and Favorites from **88.37% / 88.29% to 91.21% / 91.20%**.
+  Analog I/O's independently measured column and value geometry also rises to
+  **87.73%** on both hosts without changing USB. The complete official-manual
+  benchmark now reaches **90.77% Windows / 90.76% Android** structural and
+  **97.11%** color similarity.
 - Corrected Plugin Devices' route rails and block surfaces, aligned its
   scene/header controls, restored the clipped row number, normalized the six
   category glyph bounds, and preserved list indentation when a plugin has no
   availability dot. Plugin Devices rises from **87.24% / 87.25% to 89.61%**
   structural match on Windows / Android, and the shared header correction also
   raises the Amp browser from **86.68% / 86.69% to 87.13%**. The complete
-  official-manual benchmark reaches **90.55% Windows / 90.54% Android**
-  structural and **97.10%** color similarity.
+  official-manual benchmark reached **90.55% Windows / 90.54% Android**
+  structural and **97.10%** color similarity at that checkpoint.
 - Reconstructed Empty Slot's scene, save, overflow, and PRESET controls from
   native-sized vector primitives; corrected the category-tile dimensions and
   glyph bounds; and restored the exact category-pane, icon-well, scrollbar,

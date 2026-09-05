@@ -32,11 +32,16 @@
 .directory-favorites-official > header button:last-child { margin-left: 1.25cqw; }
 .directory-favorites-official .directory-official-list { position: relative; }
 .directory-favorites-official .directory-official-list > button { grid-template-columns: 1fr 17.25cqw 3.75cqw; }
+.directory-favorites-official .directory-official-list > button > i b svg { width: 3.5cqw; height: 3.5cqw; fill: none; }
+.directory-favorites-official .directory-official-list > button > i b:last-child svg { fill: #eee; }
 .directory-irs-official .directory-official-list > button { grid-template-columns: 1fr 17.25cqw; padding-right: 1cqw; }
 .directory-irs-official .directory-official-list > button > i > b:first-child > span { width: 3cqw; height: 3cqw; display: grid; place-items: center; border-radius: 50%; background: #2df36a; color: #071008; font-size: 2cqw; }
 .directory-irs-official .directory-official-list > button > i > b svg { width: 3cqw; height: 3cqw; fill: none; color: #d8dcda; }
 .directory-favorites-official .directory-favorite-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; color: #929692; font-size: 1cqw; }
 .directory-captures-official .directory-official-list { position: relative; }
+.directory-captures-official > header .directory-primary-action,
+.directory-irs-official > header .directory-primary-action { width: 12.25cqw; }
+.directory-captures-official > header > span { flex: 0 0 0; }
 .directory-captures-official .directory-official-list > button { padding-right: 6.625cqw; }
 .directory-captures-official nav button.is-child { grid-template-columns: 4.75cqw 1fr 0; }
 .directory-captures-official .directory-capture-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; background: #282c28; color: #929692; font-size: 1cqw; }

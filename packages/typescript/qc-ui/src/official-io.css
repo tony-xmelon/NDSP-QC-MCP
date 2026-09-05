@@ -2,6 +2,7 @@
 .qc-screen.coros-io-settings { background: #101010; }
 .coros-io-settings > header .io-global-eq { background: #181c18; }
 .coros-io-settings > header { padding-left: 1.25cqw; font-size: 2.25cqw; }
+.coros-io-settings.is-input > header > span { transform: scaleX(1.14); transform-origin: left center; }
 .coros-io-settings > header .io-global-eq { font-size: 1.75cqw; }
 .coros-io-settings.is-input > header .io-global-eq { width: 13.625cqw; height: 5.5cqw; border-radius: 1cqw; }
 .coros-io-settings.is-usb > header .io-global-eq { width: 13.625cqw; height: 5.5cqw; border-radius: 1cqw; }
@@ -54,8 +55,9 @@
 .io-ports button:nth-child(10), .io-ports button:nth-child(11) { transform: translateX(-2.375cqw); }
 .io-ports button:nth-child(12) { transform: translateX(-1.875cqw); }
 .coros-io-settings .io-editor { transform: translateY(-.25cqw); }
+.io-editor.is-analog { grid-template-columns: 19.5cqw 19.875cqw 19.375cqw 19.5cqw 19.75cqw; }
 .io-editor section > span, .io-level-meter > span { font-size: 2cqw; }
-.io-editor .io-dial-wrap { inset: 5cqw 1cqw auto; height: 8cqw; }
+.io-editor .io-dial-wrap { inset: 4.875cqw 1cqw auto; height: 8cqw; }
 .io-editor .io-dial { width: 7.875cqw; height: 7.875cqw; }
 .io-editor.is-usb .io-dial-wrap { inset: 4.75cqw 1cqw auto; }
 .io-editor.is-usb .io-dial { width: 7.5cqw; height: 7.5cqw; }
@@ -69,6 +71,7 @@
 .io-editor.is-usb .io-dial b { transform: rotate(135deg); }
 .io-editor .io-dial-wrap > strong { font-size: 1.75cqw; }
 .io-editor .io-dial-wrap > strong { bottom: 1.4cqw; }
+.io-editor.is-analog .io-dial-wrap > strong { bottom: 1.525cqw; }
 .io-editor.is-analog > section:nth-child(2) .io-dial { right: -.5cqw; }
 .io-meter-grid > span { padding-left: 1.125cqw; }
 .io-meter-grid b { position: relative; top: .375cqw; font-size: 2cqw; }
@@ -84,7 +87,7 @@
 .io-editor.is-analog .io-switch label i.is-active { border-width: .375cqw; }
 .io-editor.is-analog .io-switch label:first-of-type { margin-top: 2.5cqw; }
 .io-editor.is-analog .io-level-meter::after { content: ""; position: absolute; left: 19.5cqw; top: 1.75cqw; width: 1px; height: 10cqw; background: #171918; }
-.io-editor.is-analog .io-level-meter strong { position: relative; top: 1.25cqw; }
+.io-editor.is-analog .io-level-meter strong { position: relative; top: .5cqw; }
 .io-editor.is-analog .io-level-meter > i { width: 17.625%; }
 
 }
