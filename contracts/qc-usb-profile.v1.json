@@ -15,9 +15,9 @@
   "presetSyncTimeoutMs": 15000,
   "commandConfirmationTimeoutMs": 3000,
   "backupTotalTimeoutMs": 180000,
-  "backupFirstChunkTimeoutMs": 25000,
+  "backupFirstChunkTimeoutMs": 60000,
   "backupStreamStallTimeoutMs": 15000,
-  "backupMaximumAttempts": 3,
+  "backupMaximumAttempts": 1,
   "backupMaximumDocumentBytes": 33554432,
   "midi": {
     "controlChangeStatus": 176,

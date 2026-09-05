@@ -256,13 +256,13 @@ test("Android never replays a physical backup command", () => {
   assert.match(rustAndroidSource, /"started": started/);
   assert.match(rustAndroidSource, /"ignoredPrefixChunks": ignored_prefix_chunks/);
   assert.match(javaSource, /scheduleBackupWatchdog\(pending, QcUsbProfile\.BACKUP_FIRST_CHUNK_TIMEOUT_MS\)/);
-  assert.match(usbProfileSource, /BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L/);
+  assert.match(usbProfileSource, /BACKUP_FIRST_CHUNK_TIMEOUT_MS = 60000L/);
   assert.match(usbProfileSource, /BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L/);
   assert.match(javaSource, /operation\.started[\s\S]*partial document was discarded/);
   assert.match(javaSource, /No native backup document started after one request[\s\S]*never repeats a backup request/);
   assert.doesNotMatch(javaSource, /operation\.attempts \+= 1/);
   assert.doesNotMatch(javaSource, /Sending native backup request " \+ operation\.attempts/);
-  assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 3/);
+  assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 1/);
   assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(windowsUsb, /partial document was discarded and was not combined with a retry/);
   assert.match(javaSource, /pendingOperations\.timeout\(pending, QcUsbProfile\.BACKUP_TOTAL_TIMEOUT_MS/);

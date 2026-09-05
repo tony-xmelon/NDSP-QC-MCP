@@ -17,9 +17,9 @@ final class QcUsbProfile {
     static final long PRESET_SYNC_TIMEOUT_MS = 15000L;
     static final long COMMAND_CONFIRMATION_TIMEOUT_MS = 3000L;
     static final long BACKUP_TOTAL_TIMEOUT_MS = 180000L;
-    static final long BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L;
+    static final long BACKUP_FIRST_CHUNK_TIMEOUT_MS = 60000L;
     static final long BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L;
-    static final int BACKUP_MAXIMUM_ATTEMPTS = 3;
+    static final int BACKUP_MAXIMUM_ATTEMPTS = 1;
     static final int BACKUP_MAXIMUM_DOCUMENT_BYTES = 33554432;
     static final int MIDI_CONTROL_CHANGE_STATUS = 176;
     static final int MIDI_USB_EVENT_PACKET_HEADER = 11;

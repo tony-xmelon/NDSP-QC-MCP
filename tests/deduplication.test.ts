@@ -567,7 +567,7 @@ test("one generated profile owns native backup limits across both hosts", () => 
   assert.match(android, /QcUsbProfile\.BACKUP_TOTAL_TIMEOUT_MS/);
   assert.match(android, /QcUsbProfile\.BACKUP_FIRST_CHUNK_TIMEOUT_MS/);
   assert.match(android, /QcUsbProfile\.BACKUP_STREAM_STALL_TIMEOUT_MS/);
-  assert.match(android, /QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
+  assert.doesNotMatch(android, /QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(android, /QcUsbProfile\.BACKUP_MAXIMUM_DOCUMENT_BYTES/);
   assert.match(windowsUsb, /profile::BACKUP_FIRST_CHUNK_TIMEOUT_MS/);
   assert.match(windowsUsb, /profile::BACKUP_STREAM_STALL_TIMEOUT_MS/);
