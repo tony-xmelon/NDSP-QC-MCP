@@ -13,7 +13,7 @@ Generated from the CorOS 4.1.0 executable coverage ledger. This report distingui
 | Corpus | Windows structural | Windows color | Android structural | Android color |
 | --- | ---: | ---: | ---: | ---: |
 | Physical device | 91.59% | 97.32% | 91.58% | 97.32% |
-| Official manual | 89.71% | 97.02% | 89.71% | 97.02% |
+| Official manual | 89.92% | 97.05% | 89.91% | 97.05% |
 
 Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` color similarity. A canonical state that references multiple frames reports their mean. Detail evidence is scoped and therefore never promoted into a full-frame score.
 
@@ -47,7 +47,7 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | GL-01 | Lifecycle | Power-on / boot progress | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | GL-02 | Lifecycle | Power-off confirmation | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | GL-03 | Lifecycle | Screen lock / power overlay | official detail | Built | Built | — / — | — / — | — / — | — / — |
-| GL-04 | Grid | Clean preset Grid | physical frame + official frame | Built | Built | 93.42% / 93.42% | 97.21% / 97.21% | 84.97% / 84.98% | 94.67% / 94.67% |
+| GL-04 | Grid | Clean preset Grid | physical frame + official frame | Built | Built | 93.42% / 93.42% | 97.21% / 97.21% | 92.25% / 92.26% | 96.08% / 96.08% |
 | GL-05 | Grid | Modified preset Grid | physical frame | Built | Built | 93.43% / 93.43% | 97.21% / 97.21% | — / — | — / — |
 | GL-06 | Grid | Alternate active scene | physical frame | Built | Built | 93.42% / 93.42% | 97.21% / 97.21% | — / — | — / — |
 | GL-07 | Grid | Scene selector | physical frame + official detail | Built | Built | 94.81% / 94.81% | 97.11% / 97.11% | — / — | — / — |
@@ -184,6 +184,6 @@ These states are implemented and captured on both hosts, but only against determ
 
 - Physical Windows: `.artifacts/ui-physical-final24/comparison/summary.json`
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
-- Official Windows: `.artifacts/ui-official-final3/windows-comparison/summary.json`
-- Official Android: `.artifacts/ui-official-final3/android-comparison/summary.json`
+- Official Windows: `.artifacts/ui-official-final4/windows-comparison/summary.json`
+- Official Android: `.artifacts/ui-official-final4/android-comparison/summary.json`
 

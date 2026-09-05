@@ -749,8 +749,7 @@ function CorOsOfficialGrid({ snapshot, children }: { snapshot: PresetSnapshot; c
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <rect width="800" height="480" fill="#020202" />
-      <g fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="64" letterSpacing="-2"><text x="14" y="76" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="98" y="76" fill="#ff424c">{snapshot.presetLocation.slice(-1)}</text></g>
-      <text x="163" y="67" fill="#f4f4f4" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="40">{snapshot.presetName}</text>
+      <text x="14" y="76" fill="#f4f4f4" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="64"><tspan letterSpacing="-2">{snapshot.presetLocation.slice(0, -1)}</tspan><tspan fill="#2df36a" letterSpacing="-2">{snapshot.presetLocation.slice(-1)}</tspan><tspan dx="14" fill="#f4f4f4" letterSpacing="-2">{snapshot.presetName}</tspan></text>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M620 13A13 13 0 1 1 607 26" /><path d="M613 15L621 9V20Z" fill="#f0f0f0" stroke="none" /></g>
       <g transform="translate(-7 0)" fill="#f0f0f0"><path d="M726 23H715V17H721V20H723V17H726V23Z" /><path d="M733 17.9863V23.7568C732.398 23.2743 731.726 22.8769 731 22.583V18.8047L727.252 15H714.001C713.448 15 713 15.4477 713 16V32C713 32.5523 713.448 33 714.001 33H720.584C720.878 33.7258 721.274 34.3984 721.757 35H714.002C712.344 34.9999 711 33.6568 711 32V16C711 14.3432 712.344 13.0001 714.002 13H728.09L733 17.9863Z" /></g>
       <g className="grid-scene-badge"><rect x="656" y="12" width="25" height="25" rx="3" fill="#f2cf32" /><text x="668.5" y="33" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22">A</text></g>
@@ -761,6 +760,9 @@ function CorOsOfficialGrid({ snapshot, children }: { snapshot: PresetSnapshot; c
         {rowY.map((y, row) => <g key={`rails-${row}`}>{railLabel(routes[row]?.input, 30, y)}{railLabel(routes[row]?.output, 770, y)}</g>)}
       </g>
       <g fill="none" stroke="#8f9092" strokeWidth="1.4">{rowY.map((y, row) => screenBlocks.some((block) => block.row === row) ? <path key={row} d={`M52 ${y}H748`} /> : null)}</g>
+      <g aria-hidden="true">
+        {[[53, 147, false], [587, 147, false], [159, 335, true]].map(([x, y, dimmed]) => <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity={dimmed ? .42 : 1}><rect x="-8" y="-7" width="16" height="14" rx="5" fill="#f1f2f1" /><circle cx="-3" cy="0" r="2" fill="#171917" /><path d="M0-3 5 0 0 3Z" fill="#171917" /></g>)}
+      </g>
       <g>{screenBlocks.map((block) => { const cx = columns[block.column]; const cy = rowY[block.row]; return <g key={block.id} opacity={block.bypassed ? .48 : 1}><DeviceGlyph block={block} x={cx} y={cy} />{block.bypassed && <path d={`M${cx - 32} ${cy}H${cx + 32}`} fill="none" stroke="#c9c9ca" strokeWidth="2" opacity=".9" />}</g>; })}</g>
     </svg>{children}
   </div>;

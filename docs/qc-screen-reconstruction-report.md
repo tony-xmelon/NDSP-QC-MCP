@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **89.71%** | **97.02%** |
-| Android | 36/36 (100%) | **89.71%** | **97.02%** |
+| Windows | 36/36 (100%) | **89.92%** | **97.05%** |
+| Android | 36/36 (100%) | **89.91%** | **97.05%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -97,7 +97,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Analog I/O Settings | 87.52% | 87.43% |
 | USB I/O Settings | 88.08% | 88.02% |
 | Global EQ | 87.39% | 87.29% |
-| Brit 2203 Grid | 88.21% | 88.13% |
+| Brit 2203 Grid | 92.25% | 92.26% |
 | Empty slot | 87.30% | 87.36% |
 | Amp device browser | 87.36% | 87.54% |
 | Virtual Device presets | 88.56% | 88.62% |
@@ -171,6 +171,13 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Rebuilt the official Brit 2203 Grid header as the continuous, native-scale
+  **1A Brit 2203** title instead of three disconnected runs, restored the
+  scene-green slot color, and added the three missing signal-row connector
+  markers. The frame rises from **84.97% to 92.25% Windows / 92.26% Android**
+  structural match, while color similarity rises from **94.67% to 96.08%**.
+  The complete official-manual benchmark reaches **89.92% / 97.05%** on
+  Windows and **89.91% / 97.05%** on Android.
 - Replaced Settings — Device's Unicode icon stand-ins with measured vector
   device, bypass, timing, scene, and model glyphs; aligned the navigation and
   model-card geometry; and matched the explanatory copy's physical type scale.
