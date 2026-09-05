@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.26%** | **97.24%** |
-| Android | 40/40 (100%) | **91.25%** | **97.24%** |
+| Windows | 40/40 (100%) | **91.29%** | **97.24%** |
+| Android | 40/40 (100%) | **91.28%** | **97.24%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -156,7 +156,7 @@ still need pixel-level reconstruction work.
 | `tuner` | **90.68%** | **90.68%** |
 | `tuner-live-enabled` | **90.85%** | **90.86%** |
 | `gig-view-live-tuner` | **94.50%** | **94.50%** |
-| `preset-midi-out` | 88.29% | 88.29% |
+| `preset-midi-out` | **89.33%** | **89.33%** |
 | `gig-view-preset` | 93.94% | 93.94% |
 | `gig-view-scene` | 88.75% | 88.76% |
 | `modes-configuration` | 96.35% | 96.35% |
@@ -165,6 +165,10 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Fixed Preset MIDI Out's browser-dependent serif fallback, matched the
+  expression-label offsets and pedal tread cadence, and tightened footswitch
+  and preset-message typography. The screen rises from **88.29% to 89.33%**
+  structural match on both hosts.
 - Matched the Splitter panel's physical top edge and rotary-control bounds,
   and replaced the Splitter/Mixer single-character scene arrows with measured
   double chevrons. Splitter rises from **87.61% to 89.28% Windows / 87.65% to
@@ -247,8 +251,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.33%**; the seven physical editor
   screens reached **86.82% structural match** in that pass. The latest complete
-  physical benchmark reaches **91.26% / 97.24% structural/color on Windows**
-  and **91.25% / 97.24% on Android**.
+  physical benchmark reaches **91.29% / 97.24% structural/color on Windows**
+  and **91.28% / 97.24% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

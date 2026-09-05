@@ -336,7 +336,7 @@ function CorOsMidiOut({ onClose }: { onClose: () => void }) {
     <header><span>Preset MIDI Out settings</span><button className="midi-trash" aria-label="Clear MIDI assignments"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10l-1 13H8L7 7Zm-2 0h14M9 4h6l1 3H8l1-3Zm2 6v7m3-7v7" /></svg></button><button aria-label="Close Preset MIDI Out" onClick={onClose}>✓</button></header>
     <div className="midi-assignment-surface">
       <section className="midi-footswitches"><button className="midi-preset-load">ON PRESET LOAD<br />MESSAGE</button>{["A", "B", "C", "D", "E", "F", "G", "H"].map((label) => <button className="midi-switch" key={label}><i />{label}</button>)}</section>
-      <section className="midi-expression"><label>EXP 1<div><i /></div></label><label>EXP 2<div><i /></div></label></section>
+      <section className="midi-expression"><label><span>EXP 1</span><div><i /></div></label><label><span>EXP 2</span><div><i /></div></label></section>
     </div>
   </section>;
 }
