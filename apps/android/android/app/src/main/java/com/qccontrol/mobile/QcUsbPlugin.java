@@ -1,5 +1,6 @@
 package com.qccontrol.mobile;
 
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
@@ -332,13 +333,6 @@ public class QcUsbPlugin extends Plugin {
         String name = params.optString("name", "");
         if (name.trim().isEmpty()) return failedRelay("INVALID_ARGUMENT", "Backup name cannot be empty.");
         if (pendingBackup != null && !pendingBackup.result.isDone()) return failedRelay("BACKUP_IN_PROGRESS", "A device backup is already in progress.");
-        return relayReconnect("USB session refreshed for native backup").thenCompose(ignored -> {
-            try { return relayCreateBackupOnCurrentSession(name); }
-            catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
-        });
-    }
-
-    private CompletableFuture<org.json.JSONObject> relayCreateBackupOnCurrentSession(String name) throws Exception {
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
         QcPendingOperations.Entry<PendingBackup> pending = pendingOperations.register(new PendingBackup(name), result);
         pendingBackup = pending;
@@ -379,37 +373,12 @@ public class QcUsbPlugin extends Plugin {
                         + " raw HID reports and " + operation.decodedMessages + " decoded messages during the operation."));
                 return;
             }
-            if (operation.rawReports == 0) {
-                pendingBackup = null;
-                if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
-                    "READBACK_TIMEOUT", "The Quad Cortex did not return any HID reports for the native backup request. "
-                        + "Android did not repeat the request because an unobserved completed backup must not be started again."));
-                return;
-            }
-            if (operation.attempts >= QcUsbProfile.BACKUP_MAXIMUM_ATTEMPTS) {
-                pendingBackup = null;
-                if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
-                    "READBACK_TIMEOUT", "No native backup document started after " + operation.attempts
-                        + " requests and " + operation.ignoredPrefixChunks + " stale chunks. Android observed "
-                        + operation.rawReports + " raw HID reports, " + operation.decodedMessages
-                        + " decoded messages, and a last raw report length of " + operation.lastRawReportBytes + " bytes."));
-                return;
-            }
-            operation.attempts += 1;
-            operation.lastActivityAt = now;
-            commandIo.execute(() -> {
-                try {
-                    android.util.Log.i("QcUsbPlugin", "Sending native backup request " + operation.attempts
-                        + "; includeReportId=" + includeReportId);
-                    writeMessage(stateDecoder.backupCommand());
-                }
-                catch (Exception error) {
-                    if (pendingBackup == pending) pendingBackup = null;
-                    pendingOperations.remove(pending);
-                    pending.result.completeExceptionally(error);
-                }
-            });
-            scheduleBackupWatchdog(pending, QcUsbProfile.BACKUP_FIRST_CHUNK_TIMEOUT_MS);
+            pendingBackup = null;
+            if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
+                "READBACK_TIMEOUT", "No native backup document started after one request. Android observed "
+                    + operation.rawReports + " raw HID reports, " + operation.decodedMessages
+                    + " decoded messages, and a last raw report length of " + operation.lastRawReportBytes
+                    + " bytes. Android never repeats a backup request because the device may have completed it without a visible USB reply."));
         }, Math.max(1, delayMs), TimeUnit.MILLISECONDS);
     }
 
@@ -1171,6 +1140,7 @@ public class QcUsbPlugin extends Plugin {
         return reading && generation == connectionGeneration.get() && connection == activeConnection;
     }
 
+    @TargetApi(Build.VERSION_CODES.O)
     private void readInputReportsAsync(
         UsbDeviceConnection activeConnection, UsbEndpoint activeEndpoint, long generation
     ) {

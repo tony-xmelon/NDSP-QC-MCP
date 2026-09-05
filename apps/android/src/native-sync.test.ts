@@ -229,12 +229,12 @@ test("Android persists completed native backups without blocking USB reads", () 
   assert.match(javaSource, /writeMessage\(stateDecoder\.readCommand\(17\)\)/);
   assert.match(javaSource, /masterObserved[\s\S]*completePendingBackupRecovery\(observedAt\)/);
   assert.match(javaSource, /observedAt <= pending\.operation\.recoveryAfterState/);
-  assert.match(javaSource, /relayReconnect\("USB session refreshed for native backup"\)[\s\S]*relayCreateBackupOnCurrentSession/);
   assert.match(javaSource, /device\.captureScreen[\s\S]*device\.presetScreenshot[\s\S]*relayReconnect\("USB session refreshed for high-volume read"\)/);
 });
 
 test("modern Android keeps one full-duplex interrupt read queued across idle periods", () => {
   assert.match(javaSource, /Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.O/);
+  assert.match(javaSource, /@TargetApi\(Build\.VERSION_CODES\.O\)[\s\S]*readInputReportsAsync/);
   assert.match(javaSource, /UsbRequest request = new UsbRequest\(\)/);
   assert.match(javaSource, /request\.queue\(buffer\)[\s\S]*activeConnection\.requestWait\(\)/);
   assert.doesNotMatch(javaSource, /requestWait\(\d+/);
@@ -251,7 +251,7 @@ test("Android's USB maintenance heartbeat produces a small device reply", () => 
   assert.match(javaSource, /handshakeComplete = true;[\s\S]*keepalive\.schedule\([\s\S]*readCommand\(10\)[\s\S]*MAINTENANCE_POLL_MS/);
 });
 
-test("Android and Windows apply the same safe native-backup retry boundary", () => {
+test("Android never replays a physical backup command", () => {
   const windowsUsb = readFileSync(new URL("../../../services/device-broker/src/usb.rs", import.meta.url), "utf8");
   assert.match(rustAndroidSource, /"started": started/);
   assert.match(rustAndroidSource, /"ignoredPrefixChunks": ignored_prefix_chunks/);
@@ -259,8 +259,9 @@ test("Android and Windows apply the same safe native-backup retry boundary", () 
   assert.match(usbProfileSource, /BACKUP_FIRST_CHUNK_TIMEOUT_MS = 25000L/);
   assert.match(usbProfileSource, /BACKUP_STREAM_STALL_TIMEOUT_MS = 15000L/);
   assert.match(javaSource, /operation\.started[\s\S]*partial document was discarded/);
-  assert.match(javaSource, /operation\.rawReports == 0[\s\S]*must not be started again/);
-  assert.match(javaSource, /operation\.attempts >= QcUsbProfile\.BACKUP_MAXIMUM_ATTEMPTS/);
+  assert.match(javaSource, /No native backup document started after one request[\s\S]*never repeats a backup request/);
+  assert.doesNotMatch(javaSource, /operation\.attempts \+= 1/);
+  assert.doesNotMatch(javaSource, /Sending native backup request " \+ operation\.attempts/);
   assert.match(usbProfileSource, /BACKUP_MAXIMUM_ATTEMPTS = 3/);
   assert.match(windowsUsb, /!assembler\.started\(\)[\s\S]*BACKUP_MAXIMUM_ATTEMPTS/);
   assert.match(windowsUsb, /partial document was discarded and was not combined with a retry/);
