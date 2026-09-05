@@ -25,6 +25,58 @@ from .domain import IPC_MAX_FRAME_BYTES
 from .usb_profile import MAX_INFLATED_BYTES
 
 
+class NativeBrokerError(RuntimeError):
+    """A structured error returned by the owned Rust broker."""
+
+    def __init__(self, message: str, *, code: int = -32000, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+
+
+def _read_exact(stream, length: int) -> bytes:
+    chunks: list[bytes] = []
+    remaining = length
+    while remaining:
+        chunk = stream.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _broker_result(response: Any, request_id: int) -> Any:
+    if (
+        not isinstance(response, dict)
+        or response.get("jsonrpc") != "2.0"
+        or type(response.get("id")) is not int
+        or response.get("id") != request_id
+        or not set(response).issubset({"jsonrpc", "id", "result", "error"})
+    ):
+        raise ConnectionError("Native QC broker response did not match the request")
+    has_result = "result" in response
+    has_error = "error" in response
+    if has_result == has_error:
+        raise ConnectionError("Native QC broker response must contain exactly one result or error")
+    if has_result:
+        return response["result"]
+    error = response["error"]
+    if not isinstance(error, dict) or not set(error).issubset({"code", "message", "data"}):
+        raise ConnectionError("Native QC broker returned a malformed error")
+    code = error.get("code")
+    message = error.get("message")
+    if not isinstance(code, int) or isinstance(code, bool) or not isinstance(message, str):
+        raise ConnectionError("Native QC broker returned a malformed error")
+    data = error.get("data") if isinstance(error.get("data"), dict) else {}
+    raw_retryable = data.get("retryable", False)
+    raise NativeBrokerError(
+        message,
+        code=code,
+        retryable=raw_retryable if isinstance(raw_retryable, bool) else False,
+    )
+
+
 def _gunzip_bounded(payload: bytes) -> bytes:
     with gzip.GzipFile(fileobj=io.BytesIO(payload)) as compressed:
         decoded = compressed.read(MAX_INFLATED_BYTES + 1)
@@ -84,26 +136,27 @@ class NativeBrokerRpc:
                 "jsonrpc": "2.0", "id": request_id,
                 "method": method, "params": params or {},
             }, separators=(",", ":")).encode()
+            if len(body) > IPC_MAX_FRAME_BYTES:
+                raise ValueError("Native QC broker request exceeds the IPC frame limit")
             process = self._process
             if process.poll() is not None or process.stdin is None or process.stdout is None:
                 raise ConnectionError("Native QC broker is not running")
             process.stdin.write(struct.pack(">I", len(body)) + body)
             process.stdin.flush()
-            header = process.stdout.read(4)
+            header = _read_exact(process.stdout, 4)
             if len(header) != 4:
                 raise ConnectionError("Native QC broker closed its response stream")
             length = struct.unpack(">I", header)[0]
             if length == 0 or length > IPC_MAX_FRAME_BYTES:
                 raise ConnectionError("Native QC broker returned an invalid frame")
-            payload = process.stdout.read(length)
+            payload = _read_exact(process.stdout, length)
             if len(payload) != length:
                 raise ConnectionError("Native QC broker returned an incomplete frame")
-            response = json.loads(payload)
-            if response.get("id") != request_id:
-                raise ConnectionError("Native QC broker response did not match the request")
-            if "error" in response:
-                raise RuntimeError(response["error"].get("message", "Native QC broker request failed"))
-            return response["result"]
+            try:
+                response = json.loads(payload)
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ConnectionError("Native QC broker returned invalid JSON") from error
+            return _broker_result(response, request_id)
 
     def wait_ready(self, timeout: float = 35.0) -> dict[str, Any]:
         deadline = time.monotonic() + timeout
@@ -163,6 +216,10 @@ class NativeBrokerTransport:
 
     def next_request_id(self) -> int:
         return next(self._ids)
+
+    def gateway_request(self, method: str, params: dict[str, Any] | None = None) -> Any:
+        """Invoke a typed public gateway method through the owned Rust broker."""
+        return self._rpc.call(method, params or {})
 
     def send(self, message) -> None:
         message_type, payload = self._encoded(message)

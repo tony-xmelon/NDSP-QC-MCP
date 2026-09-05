@@ -529,7 +529,7 @@ class PyQuadCortexDevice:
             "phase": "disconnected",
             "detail": "Quad Cortex session closed",
             "lastSync": _utc_now(),
-            "demo": True,
+            "demo": False,
         }
 
     def connection_state(self, detail: str | None = None) -> dict[str, Any]:
@@ -553,20 +553,61 @@ class PyQuadCortexDevice:
 
     def state_events(self, after_sequence: int = 0, limit: int = 256) -> dict[str, Any]:
         """Pass through Rust-normalized frames without Python protobuf decoding."""
-        qc = self._require_session()
-        reader = getattr(getattr(qc, "_t", None), "state_events", None)
-        if reader is None:
-            return {"native": False, "frames": []}
         if isinstance(after_sequence, bool) or not isinstance(after_sequence, int) or after_sequence < 0:
             raise ValueError("afterSequence must be a non-negative integer.")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 4096:
             raise ValueError("limit must be an integer from 1 through 4096.")
+        qc = self._require_session()
+        reader = getattr(getattr(qc, "_t", None), "state_events", None)
+        if not callable(reader):
+            raise RuntimeError("device.stateEvents requires the native Rust device broker in compatibility mode.")
         return {"native": True, "frames": reader(after_sequence, limit)}
 
     def _require_session(self) -> Any:
         if self._qc is None:
             raise RuntimeError("No Quad Cortex session. Connect before using device controls.")
         return self._qc
+
+    def _native_gateway(self, method: str, params: dict[str, Any] | None = None) -> Any:
+        """Use the Rust compatibility broker for surfaces not exposed by pyquadcortex."""
+        transport = getattr(self._require_session(), "_t", None)
+        request = getattr(transport, "gateway_request", None)
+        if not callable(request):
+            raise RuntimeError(f"{method} requires the native Rust device broker in compatibility mode.")
+        return request(method, params or {})
+
+    def get_global_eq(self): return self._native_gateway("device.globalEq")
+    def set_global_eq_bypassed(self, bypassed): return self._native_gateway("device.setGlobalEqBypassed", {"bypassed": bypassed})
+    def set_global_eq_band(self, band, gain, frequency, q, filter_type, enabled):
+        return self._native_gateway("device.setGlobalEqBand", {"band": band, "gain": gain, "frequency": frequency, "q": q, "filterType": filter_type, "enabled": enabled})
+    def set_global_eq_output(self, level, out12, out34):
+        return self._native_gateway("device.setGlobalEqOutput", {"level": level, "out12": out12, "out34": out34})
+    def get_mode_cycle(self): return self._native_gateway("device.modeCycle")
+    def set_mode_cycle(self, slots): return self._native_gateway("device.setModeCycle", {"slots": slots})
+    def get_global_tempo_settings(self): return self._native_gateway("device.globalTempoSettings")
+    def set_tempo_metronome(self, led_enabled, volume_db, running, pan, time_signature, subdivision, sound, routing, beats):
+        return self._native_gateway("device.setTempoMetronome", {"ledEnabled": led_enabled, "volumeDb": volume_db, "running": running, "pan": pan, "timeSignature": time_signature, "subdivision": subdivision, "sound": sound, "routing": routing, "beats": beats})
+    def set_tempo_mode(self, mode): return self._native_gateway("device.setTempoMode", {"mode": mode})
+    def get_looper_status(self): return self._native_gateway("device.looperStatus")
+    def control_looper(self, command, value): return self._native_gateway("device.controlLooper", {"command": command, "value": value})
+    def list_recents(self): return self._native_gateway("device.recents")
+    def list_favorites(self): return self._native_gateway("device.favorites")
+    def set_favorite(self, name, folder_key, folder_name, is_factory, favorite):
+        return self._native_gateway("device.setFavorite", {"name": name, "folderKey": folder_key, "folderName": folder_name, "isFactory": is_factory, "favorite": favorite})
+    def list_pinned_models(self): return self._native_gateway("device.pinnedModels")
+    def set_model_pinned(self, model_id, pinned): return self._native_gateway("device.setModelPinned", {"modelId": model_id, "pinned": pinned})
+    def list_captures(self): return self._native_gateway("device.captures")
+    def load_capture(self, row, column, key, name, model_id, expected_model_id, expected_preset_name=""):
+        return self._native_gateway("device.loadCapture", {"row": row, "column": column, "key": key, "name": name, "modelId": model_id, "expectedModelId": expected_model_id, "expectedPresetName": expected_preset_name})
+    def list_irs(self, folder): return self._native_gateway("device.irs", {"folder": folder})
+    def load_ir(self, row, column, key, name, slot, model_id, expected_model_id, expected_preset_name=""):
+        return self._native_gateway("device.loadIr", {"row": row, "column": column, "key": key, "name": name, "slot": slot, "modelId": model_id, "expectedModelId": expected_model_id, "expectedPresetName": expected_preset_name})
+    def create_setlist(self, name): return self._native_gateway("device.createSetlist", {"name": name})
+    def delete_setlist(self, name): return self._native_gateway("device.deleteSetlist", {"name": name})
+    def duplicate_setlist(self, source_setlist_key, destination_name, limit, expected_preset_name, expected_position):
+        return self._native_gateway("device.duplicateSetlist", {"sourceSetlistKey": source_setlist_key, "destinationName": destination_name, "limit": limit, "expectedPresetName": expected_preset_name, "expectedPosition": expected_position})
+    def delete_preset(self, setlist_key, name): return self._native_gateway("device.deletePreset", {"setlistKey": setlist_key, "name": name})
+    def move_preset(self, setlist_key, name, position): return self._native_gateway("device.movePreset", {"setlistKey": setlist_key, "name": name, "position": position})
 
     def _ensure_catalog(self) -> Any:
         """Fetch the compatibility catalog; native UI metadata is owned by Rust."""
@@ -639,16 +680,14 @@ class PyQuadCortexDevice:
                 for position in range(256)
                 for entry in [by_position.get(position)]
             ]
-        fallback_folders = [
-            {"key": target_setlist_key, "name": target_setlist_key.rstrip("/").rsplit("/", 1)[-1], "isFactory": False},
-            {"key": "/opt/neuraldsp/Factory Library/", "name": "Factory Library", "isFactory": True},
-        ]
         return {
             "setlistKey": target_setlist_key,
             "setlistName": target_setlist_key.rstrip("/").rsplit("/", 1)[-1],
             "currentPosition": current_position if target_setlist_key.rstrip("/") == active_setlist_key.rstrip("/") else -1,
             "presets": self._preset_cache[target_setlist_key],
-            "folders": self._preset_folder_cache or fallback_folders,
+            # Folder discovery is deliberately lazy. An empty list means it has
+            # not been requested yet; never invent device library entries.
+            "folders": list(self._preset_folder_cache or []),
         }
 
     def list_preset_folders(self, refresh: bool = False) -> dict[str, Any]:
@@ -2167,7 +2206,7 @@ class PyQuadCortexDevice:
             "scene": scene,
             "presetName": preset.name or "",
             "parameters": {
-                int(parameter["index"])
+                int(parameter["index"]): float(parameter["normalizedValue"])
                 for parameter in parameters
                 if parameter["writable"]
                 and parameter["normalizedValue"] is not None
@@ -2182,6 +2221,7 @@ class PyQuadCortexDevice:
         column: int,
         parameter_index: int,
         value: float,
+        expected_value: float,
         expected_scene: int,
         expected_preset_name: str,
     ) -> dict[str, Any]:
@@ -2193,6 +2233,8 @@ class PyQuadCortexDevice:
         """
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.0 <= value <= 1.0:
             raise ValueError("Parameter value must be a normalized number from 0 through 1.")
+        if isinstance(expected_value, bool) or not isinstance(expected_value, (int, float)) or not 0.0 <= expected_value <= 1.0:
+            raise ValueError("Expected parameter value must be a normalized number from 0 through 1.")
         if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
             raise ValueError("Parameter index must be a non-negative integer.")
         context = self._live_editor_context
@@ -2202,12 +2244,12 @@ class PyQuadCortexDevice:
         )
         if (
             not context
-            or column in ROUTING_NODE_COLUMNS
             or context["row"] != row
             or context["column"] != column
             or context["scene"] != expected_scene
             or not expected_name_matches
             or parameter_index not in context["parameters"]
+            or abs(context["parameters"][parameter_index] - float(expected_value)) > 0.00001
         ):
             raise RuntimeError("The live parameter context changed. Reopen the block and retry.")
         qc = self._require_session()
@@ -2239,7 +2281,7 @@ class PyQuadCortexDevice:
                     "scene": int(native["scene"]),
                     "presetName": expected_preset_name,
                     "parameters": {
-                        int(parameter["index"])
+                        int(parameter["index"]): float(parameter["normalizedValue"])
                         for parameter in native["parameters"]
                         if parameter.get("writable")
                         and parameter.get("normalizedValue") is not None
@@ -2368,7 +2410,7 @@ class PyQuadCortexDevice:
             "scene": scene,
             "presetName": preset.name or "",
             "parameters": {
-                int(parameter["index"])
+                int(parameter["index"]): float(parameter["normalizedValue"])
                 for parameter in parameters
                 if parameter["writable"]
                 and parameter["normalizedValue"] is not None
@@ -2454,16 +2496,19 @@ class PyQuadCortexDevice:
 
     def preview_lane_control_parameter(
         self, row: int, control: str, parameter_index: int, value: float,
-        expected_preset_name: str = "",
+        expected_value: float, expected_preset_name: str = "",
     ) -> dict[str, Any]:
         details = self.lane_control_details(row, control, expected_preset_name)
         parameter = next((item for item in details["parameters"] if item["index"] == parameter_index), None)
         if parameter is None or not parameter["writable"]:
             raise RuntimeError("The selected lane control no longer exposes that writable parameter.")
+        if parameter["normalizedValue"] is None or abs(float(parameter["normalizedValue"]) - float(expected_value)) > 0.001:
+            raise RuntimeError("The lane control changed on the Quad Cortex. Refresh and retry.")
         qc = self._require_session()
         native = getattr(getattr(qc, "_t", None), "preview_lane_control_parameter", None)
         if native is not None:
             return native(row=row, control=control, parameterIndex=parameter_index, value=float(value),
+                          expectedValue=float(expected_value),
                           expectedPresetName=expected_preset_name)
         setter = qc.set_input_gate if control == "inputGate" else qc.set_lane_output
         setter(row, parameter_index, value=float(value))

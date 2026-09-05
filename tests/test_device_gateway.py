@@ -19,7 +19,7 @@ from qc_device_gateway.framing import FramingError, read_frame, write_frame
 from qc_device_gateway.generated_gateway_dispatch import GATEWAY_API_VERSION
 from qc_device_gateway.service import GatewayService
 from qc_device_gateway.device import PyQuadCortexDevice, _block_color, _catalog_audit, _conditional_parameter_hidden, _device_type_name, _editor_parameter_state, _factory_model_metadata, _format_parameter_number, _parameter_enabled, _png_response, _protocol_symbol, _stomp_color
-from qc_device_gateway.native_transport import NativeBrokerTransport, _gunzip_bounded
+from qc_device_gateway.native_transport import NativeBrokerError, NativeBrokerTransport, _broker_result, _gunzip_bounded
 
 
 class PositionState:
@@ -30,6 +30,22 @@ class PositionState:
 
 
 class NativeTransportSafetyTests(unittest.TestCase):
+    def test_native_broker_response_envelope_and_errors_are_strict(self):
+        self.assertEqual(_broker_result({"jsonrpc": "2.0", "id": 7, "result": {"ok": True}}, 7), {"ok": True})
+        for malformed in (
+            {"jsonrpc": "2.0", "id": True, "result": {}},
+            {"jsonrpc": "2.0", "id": 7, "result": {}, "error": {"code": -1, "message": "bad"}},
+            {"jsonrpc": "2.0", "id": 7, "error": "bad"},
+        ):
+            with self.assertRaises(ConnectionError):
+                _broker_result(malformed, 7)
+        with self.assertRaises(NativeBrokerError) as raised:
+            _broker_result({"jsonrpc": "2.0", "id": 7, "error": {
+                "code": -32010, "message": "offline", "data": {"retryable": True}
+            }}, 7)
+        self.assertEqual(raised.exception.code, -32010)
+        self.assertTrue(raised.exception.retryable)
+
     def test_semantic_commands_cross_the_broker_without_python_wire_encoding(self):
         class Rpc:
             def __init__(self):
@@ -370,7 +386,7 @@ class DevicePositionTests(unittest.TestCase):
         device._qc = SimpleNamespace(_t=transport)
         self.assertIs(device.block_details(1, 2, "Live"), expected)
         self.assertEqual(transport.call, (1, 2, "Live"))
-        self.assertEqual(device._live_editor_context["parameters"], {4})
+        self.assertEqual(device._live_editor_context["parameters"], {4: 0.5})
 
     def test_parameter_preview_is_read_free_and_bound_to_verified_editor_context(self):
         writes = []
@@ -378,13 +394,13 @@ class DevicePositionTests(unittest.TestCase):
         device._qc = SimpleNamespace(set_param=lambda row, column, **values: writes.append((row, column, values)))
         device._live_editor_context = {
             "row": 1, "column": 3, "scene": 2, "presetName": "Live",
-            "parameters": {4},
+            "parameters": {4: 0.5},
         }
-        result = device.preview_parameter(1, 3, 4, 0.625, 2, "Live")
+        result = device.preview_parameter(1, 3, 4, 0.625, 0.5, 2, "Live")
         self.assertEqual(result["acceptedValue"], 0.625)
         self.assertEqual(writes, [(1, 3, {"param_index": 4, "value": 0.625})])
         with self.assertRaisesRegex(RuntimeError, "context changed"):
-            device.preview_parameter(1, 3, 4, 0.75, 3, "Live")
+            device.preview_parameter(1, 3, 4, 0.75, 0.5, 3, "Live")
 
     def test_native_transport_covers_every_pycortex_message_type_and_client_transport_operation(self):
         import pyquadcortex
@@ -433,6 +449,21 @@ class DevicePositionTests(unittest.TestCase):
         self.assertEqual(QuadCortex._SUBSCRIBE_TYPES, ("ModuleStats", "RecallPreset", "Scene"))
         self.assertIs(device._qc, session)
 
+    def test_disconnect_reports_real_disconnected_state_not_demo_mode(self):
+        device = PyQuadCortexDevice()
+        device._qc = SimpleNamespace(close=lambda: None)
+        result = device.disconnect()
+        self.assertEqual(result["phase"], "disconnected")
+        self.assertFalse(result["demo"])
+
+    def test_state_events_rejects_missing_native_stream_instead_of_fabricating_empty_data(self):
+        device = PyQuadCortexDevice()
+        device._qc = SimpleNamespace(_t=SimpleNamespace())
+        with self.assertRaisesRegex(RuntimeError, "requires the native Rust device broker"):
+            device.state_events()
+        with self.assertRaisesRegex(ValueError, "afterSequence"):
+            device.state_events(True, 1)
+
     def test_preset_directory_keeps_all_slots_and_labels_empty_ones_unsaved(self):
         class PresetEntry:
             def __init__(self, index: int, name: str | None, instrument: int | None = None):
@@ -459,6 +490,7 @@ class DevicePositionTests(unittest.TestCase):
         self.assertEqual(result["presets"][0]["name"], "Stored")
         self.assertEqual(result["presets"][1]["name"], "Unsaved")
         self.assertEqual(result["presets"][2]["name"], "Unsaved")
+        self.assertEqual(result["folders"], [], "lazy folder discovery must not fabricate device folders")
 
     def test_copy_preset_requires_confirmation_and_verifies_the_destination(self):
         class Session:
@@ -661,7 +693,7 @@ class FakeDevice:
         return {"detail": f"reload {expected_position}", "snapshot": self.snapshot()}
     def block_details(self, row, column, expected_preset_name=""):
         return {"row": row, "column": column, "name": "Fake block", "parameters": []}
-    def preview_parameter(self, row, column, parameter_index, value, expected_scene, expected_preset_name):
+    def preview_parameter(self, row, column, parameter_index, value, expected_value, expected_scene, expected_preset_name):
         return {"detail": f"preview {parameter_index}:{value}", "acceptedValue": value}
     def set_parameter(self, row, column, parameter_index, value, expected_value, expected_scene, expected_preset_name):
         return {"detail": f"parameter {parameter_index}:{value}", "block": self.block_details(row, column), "snapshot": self.snapshot()}
@@ -948,15 +980,16 @@ class ServiceTests(unittest.TestCase):
     def request(self, method, params=None):
         return self.service.handle({"jsonrpc": "2.0", "id": 7, "method": method, "params": params or {}})
 
-    def test_status_reports_save_as_and_remaining_write_lock(self):
+    def test_status_reports_complete_guarded_command_surface(self):
         result = self.request("system.status")["result"]
         self.assertTrue(result["gatewayAvailable"])
         self.assertEqual(result["gatewayApiVersion"], GATEWAY_API_VERSION)
         self.assertIn("modelRepoParameterMetadata", result["capabilities"])
         self.assertNotIn("nativeBroker", result["capabilities"])
         self.assertIn("nativeStateEvents", result["capabilities"])
-        self.assertIn("preset Save As", result["message"])
-        self.assertIn("other persistent writes remain locked", result["message"])
+        self.assertIn("complete versioned command surface", result["message"])
+        self.assertIn("expected-state guards", result["message"])
+        self.assertIn("explicit confirmation", result["message"])
 
     def test_reconnect_and_snapshot(self):
         self.assertEqual(self.request("device.reconnect")["result"]["phase"], "ready")
@@ -972,6 +1005,49 @@ class ServiceTests(unittest.TestCase):
         response = self.service.handle({"jsonrpc": "2.0", "id": True, "method": "system.status"})
         self.assertEqual(response["error"]["code"], -32600)
 
+    def test_nonpositive_ids_and_unknown_request_fields_are_rejected(self):
+        for request in (
+            {"jsonrpc": "2.0", "id": 0, "method": "system.status"},
+            {"jsonrpc": "2.0", "id": 1, "method": "system.status", "extra": True},
+        ):
+            self.assertEqual(self.service.handle(request)["error"]["code"], -32600)
+
+    def test_all_gateway_methods_reject_argument_drift_and_primitive_coercion(self):
+        malformed = (
+            {"jsonrpc": "2.0", "id": 7, "method": "device.snapshot", "params": {"ignored": True}},
+            {"jsonrpc": "2.0", "id": 7, "method": "device.snapshot", "params": []},
+            {"jsonrpc": "2.0", "id": 7, "method": "device.snapshot", "params": None},
+            {"jsonrpc": "2.0", "id": 7, "method": "device.setTempo", "params": {
+                "bpm": True, "expectedTempo": 120, "expectedPresetName": "Test",
+            }},
+            {"jsonrpc": "2.0", "id": 7, "method": "device.setTempo", "params": {
+                "expectedTempo": 120, "expectedPresetName": "Test",
+            }},
+            {"jsonrpc": "2.0", "id": 7, "method": "device.setInputPort", "params": {
+                "inputPortId": 1, "levelDb": "12", "impedance": None,
+                "inputType": None, "groundLift": None,
+            }},
+        )
+        for request in malformed:
+            with self.subTest(request=request):
+                self.assertEqual(self.service.handle(request)["error"]["code"], -32602)
+
+    def test_structured_backend_error_code_and_retryability_are_preserved(self):
+        class StructuredFailure(RuntimeError):
+            code = -32044
+            retryable = True
+
+        class FailingDevice(FakeDevice):
+            def snapshot(self):
+                raise StructuredFailure("temporary disconnect")
+
+        response = GatewayService(FailingDevice()).handle({
+            "jsonrpc": "2.0", "id": 9, "method": "device.snapshot", "params": {}
+        })
+        self.assertEqual(response["error"], {
+            "code": -32044, "message": "temporary disconnect", "data": {"retryable": True}
+        })
+
     def test_pyquadcortex_parity_methods_are_all_dispatched(self):
         identity = self.request("device.identity")["result"]
         name = self.request("device.setDeviceName", {"name": "Stage QC"})["result"]
@@ -982,14 +1058,14 @@ class ServiceTests(unittest.TestCase):
             "folderName": "Factory Library", "position": 12, "isFactory": True,
         })["result"]
         screen = self.request("device.captureScreen")["result"]
-        tap = self.request("device.tapScreen", {"x": 320.5, "y": 200})["result"]
+        tap = self.request("device.tapScreen", {"x": 320, "y": 200})["result"]
         self.assertEqual(identity["serial"], "fake-serial")
         self.assertEqual(name["detail"], "name Stage QC")
         self.assertEqual((undo["detail"], redo["detail"]), ("undo", "redo"))
         self.assertEqual(inhibited, {"globalGate": False, "globalEq": True})
         self.assertEqual(preset["target"], "Factory Library:12:True")
         self.assertEqual((screen["width"], screen["height"]), (800, 480))
-        self.assertEqual(tap["detail"], "tap 320.5:200")
+        self.assertEqual(tap["detail"], "tap 320:200")
 
     def test_live_control_methods_are_dispatched_with_params(self):
         scene = self.request("device.selectScene", {"scene": 3, "expectedPresetName": "Test"})
@@ -1061,7 +1137,8 @@ class ServiceTests(unittest.TestCase):
         })
         preview = self.request("device.previewParameter", {
             "row": 0, "column": 1, "parameterIndex": 2,
-            "value": 0.74, "expectedScene": 0, "expectedPresetName": "Test"
+            "value": 0.74, "expectedValue": 0.5,
+            "expectedScene": 0, "expectedPresetName": "Test"
         })
         tempo = self.request("device.setTempo", {
             "bpm": 121, "expectedTempo": 120, "expectedPresetName": "Test"

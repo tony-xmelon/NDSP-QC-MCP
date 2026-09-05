@@ -4,6 +4,31 @@ import { demoSnapshot, type GatewayTransport } from "../packages/typescript/qc-c
 import { resolveAssistantParameterEdit } from "../packages/typescript/qc-ui/src/assistant-parameter-edit.ts";
 import { executeQcAction } from "../packages/typescript/qc-ui/src/qc-action-executor.ts";
 
+test("current preset performs an authoritative gateway read", async () => {
+  const current = { ...demoSnapshot, presetName: "Fresh from QC" };
+  let reads = 0;
+  const gateway = { currentSnapshot: async () => { reads += 1; return current; } } as unknown as GatewayTransport;
+  const result = await executeQcAction({ name: "get_current_preset", arguments: {} }, {
+    gateway, snapshot: demoSnapshot, connected: true
+  });
+  assert.equal(reads, 1);
+  assert.equal(result.snapshot?.presetName, "Fresh from QC");
+  assert.equal((result.data as typeof current).presetName, "Fresh from QC");
+});
+
+test("action results preserve native verification semantics", async () => {
+  const gateway = {
+    setTempo: async () => ({ detail: "queued", accepted: true, verified: false, verification: "accepted_unverified" as const })
+  } as unknown as GatewayTransport;
+  const result = await executeQcAction({
+    name: "set_tempo",
+    arguments: { bpm: 96, expected_tempo: demoSnapshot.tempo, expected_preset_name: demoSnapshot.presetName }
+  }, { gateway, snapshot: demoSnapshot, connected: true });
+  assert.equal(result.accepted, true);
+  assert.equal(result.verified, false);
+  assert.equal(result.verification, "accepted_unverified");
+});
+
 test("shared action execution rejects stale state before a write", async () => {
   let called = false;
   const gateway = { setTempo: async () => { called = true; return { detail: "sent" }; } } as unknown as GatewayTransport;
@@ -106,7 +131,7 @@ test("shared lane-control actions use the same guarded read, preview, write, and
   assert.deepEqual(calls, [
     ["read", 1, "inputGate", demoSnapshot.presetName],
     ["read", 1, "inputGate", demoSnapshot.presetName],
-    ["preview", 1, "inputGate", 2, .25, demoSnapshot.presetName],
+    ["preview", 1, "inputGate", 2, .25, .5, demoSnapshot.presetName],
     ["read", 1, "inputGate", demoSnapshot.presetName],
     ["write", 1, "inputGate", 2, .75, .5, demoSnapshot.presetName],
     ["read", 1, "inputGate", demoSnapshot.presetName],
@@ -162,11 +187,11 @@ test("library actions share exact read, guarded load, and persistent workflow ar
   }, context);
   await executeQcAction({
     name: "load_capture",
-    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_preset_name: demoSnapshot.presetName }
+    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_model_id: null, expected_preset_name: demoSnapshot.presetName }
   }, context);
   await executeQcAction({
     name: "load_ir",
-    arguments: { row: 2, column: 3, key: "ir/key", name: "Room", slot: 1, model_id: 29_001, expected_preset_name: demoSnapshot.presetName }
+    arguments: { row: 2, column: 3, key: "ir/key", name: "Room", slot: 1, model_id: 29_001, expected_model_id: null, expected_preset_name: demoSnapshot.presetName }
   }, context);
 
   assert.deepEqual(calls, [
@@ -174,8 +199,8 @@ test("library actions share exact read, guarded load, and persistent workflow ar
     ["favorite", "Stage", "/media/p4/Presets/Live", "Live", false, true],
     ["pin", 42, true],
     ["duplicate", "/media/p4/Presets/Live", "Live Copy", null, demoSnapshot.presetName, demoSnapshot.presetPosition],
-    ["capture", 1, 2, "capture/", "Crunch", null],
-    ["ir", 2, 3, "ir/key", "Room", 1, 29_001]
+    ["capture", 1, 2, "capture/", "Crunch", null, null, demoSnapshot.presetName],
+    ["ir", 2, 3, "ir/key", "Room", 1, 29_001, null, demoSnapshot.presetName]
   ]);
 
   await assert.rejects(() => executeQcAction({
@@ -188,8 +213,12 @@ test("library actions share exact read, guarded load, and persistent workflow ar
   }, context), /explicit user confirmation/);
   await assert.rejects(() => executeQcAction({
     name: "load_capture",
-    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_preset_name: "stale" }
+    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_model_id: null, expected_preset_name: "stale" }
   }, context), /prepared for.*stale/);
+  await assert.rejects(() => executeQcAction({
+    name: "load_capture",
+    arguments: { row: 1, column: 2, key: "capture/", name: "Crunch", model_id: null, expected_model_id: 42, expected_preset_name: demoSnapshot.presetName }
+  }, context), /stale Grid cell/);
 });
 
 test("general settings actions share one confirmed app execution path", async () => {

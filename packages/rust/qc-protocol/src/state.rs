@@ -26,6 +26,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum StateDecodeError {
+    #[error("QC state payload exceeds the wire frame-size limit")]
+    PayloadLimit,
     #[error("QC protobuf type {message_type} could not be decoded: {source}")]
     Protobuf {
         message_type: u16,
@@ -155,6 +157,7 @@ pub struct PresetFolderListing {
 pub fn decode_preset_folder(
     payload: &[u8],
 ) -> Result<Option<PresetFolderListing>, StateDecodeError> {
+    validate_wire_payload(payload)?;
     let decoded = maybe_gunzip(payload)?;
     let message = decode::<pa::FileMessage>(4, &decoded)?;
     let Some(pa::file_message::Folder::Folder(folder)) = message.folder else {
@@ -602,11 +605,7 @@ impl StateDecoder {
 
     pub fn install_catalog(&mut self, catalog: ModelCatalog) -> Vec<StateUpdate> {
         self.catalog = catalog.0;
-        if self.preset.is_none() {
-            Vec::new()
-        } else {
-            vec![self.preset_update(true)]
-        }
+        self.preset_update(true).into_iter().collect()
     }
 
     pub fn decode(
@@ -614,6 +613,7 @@ impl StateDecoder {
         message_type: u16,
         payload: &[u8],
     ) -> Result<Vec<StateUpdate>, StateDecodeError> {
+        validate_wire_payload(payload)?;
         let decoded = maybe_gunzip(payload)?;
         match message_type {
             1 => self.decode_grid(&decoded),
@@ -987,7 +987,7 @@ impl StateDecoder {
         };
         self.parameter_overrides.clear();
         self.preset = Some(preset);
-        Ok(vec![self.preset_update(false)])
+        Ok(self.preset_update(false).into_iter().collect())
     }
 
     fn decode_grid(&mut self, payload: &[u8]) -> Result<Vec<StateUpdate>, StateDecodeError> {
@@ -1158,11 +1158,8 @@ impl StateDecoder {
         Ok(self.install_catalog(catalog))
     }
 
-    fn preset_update(&self, catalog_refresh: bool) -> StateUpdate {
-        let preset = self
-            .preset
-            .as_ref()
-            .expect("preset update requires a preset");
+    fn preset_update(&self, catalog_refresh: bool) -> Option<StateUpdate> {
+        let preset = self.preset.as_ref()?;
         let mut update = StateUpdate::new("preset");
         update.preset_name = match &preset.name {
             Some(binary_preset::Name::Name(value)) => Some(value.clone()),
@@ -1330,7 +1327,7 @@ impl StateDecoder {
         if catalog_refresh {
             update.catalog_refresh = Some(true);
         }
-        update
+        Some(update)
     }
 }
 
@@ -1448,6 +1445,7 @@ fn routing_parameter_options(node: Option<&str>, index: u32) -> Vec<String> {
 }
 
 pub fn parse_model_repo(payload: &[u8]) -> Result<ModelCatalog, StateDecodeError> {
+    validate_wire_payload(payload)?;
     let payload = maybe_gunzip(payload)?;
     let message = decode::<pa::ModelRepoMessage>(profile::MESSAGE_TYPE_MODEL_REPO, &payload)?;
     let Some(pa::model_repo_message::ModelRepoPayload::ModelRepoPayload(repo)) =
@@ -1464,6 +1462,14 @@ fn decode<M: Message + Default>(message_type: u16, payload: &[u8]) -> Result<M, 
         message_type,
         source,
     })
+}
+
+fn validate_wire_payload(payload: &[u8]) -> Result<(), StateDecodeError> {
+    if payload.len() > profile::MAX_FRAME_BYTES {
+        Err(StateDecodeError::PayloadLimit)
+    } else {
+        Ok(())
+    }
 }
 
 fn maybe_gunzip(payload: &[u8]) -> Result<Vec<u8>, StateDecodeError> {
@@ -2061,6 +2067,23 @@ fn resolve_catalog_model(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_state_decoders_reject_oversized_wire_payloads_before_copying() {
+        let oversized = vec![0_u8; profile::MAX_FRAME_BYTES + 1];
+        assert!(matches!(
+            StateDecoder::new().decode(15, &oversized),
+            Err(StateDecodeError::PayloadLimit)
+        ));
+        assert!(matches!(
+            decode_preset_folder(&oversized),
+            Err(StateDecodeError::PayloadLimit)
+        ));
+        assert!(matches!(
+            parse_model_repo(&oversized),
+            Err(StateDecodeError::PayloadLimit)
+        ));
+    }
     use crate::proto::{
         binary_preset, chain, col_bypass, model, param, param_value, Bypass, Chain, ColBypass,
         Param, ParamValue, SceneBypass, StompModeAssignment,

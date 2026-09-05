@@ -84,7 +84,7 @@ test("STOMP presses update the lamp and assigned blocks optimistically", () => {
   assert.equal(after.blocks[0].bypassed, false);
 });
 
-test("Windows footswitches use a persistent immediate MIDI lane and reconcile stale USB snapshots", () => {
+test("Windows footswitches use the broker-owned persistent MIDI lane and reconcile stale USB snapshots", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const frameSource = readFileSync(new URL("../apps/windows/src/use-windows-device-frames.ts", import.meta.url), "utf8");
   const nativeFrameSource = readFileSync(new URL("../packages/typescript/qc-ui/src/qc-native-state-frame.ts", import.meta.url), "utf8");
@@ -92,10 +92,11 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   const controllerSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-qc-controller.ts", import.meta.url), "utf8");
   const workflowSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-performance-workflow.ts", import.meta.url), "utf8");
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+  const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   const midiSource = readFileSync(new URL("../packages/rust/qc-windows-midi/src/lib.rs", import.meta.url), "utf8");
   const pressFlow = workflowSource.slice(workflowSource.indexOf("const pressFootswitch"), workflowSource.indexOf("const movePreset"));
   const gatewayCommand = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
-  const nativeCommand = gatewayCommand.slice(gatewayCommand.indexOf("if is_host_midi_method"), gatewayCommand.indexOf("let nonblocking_read"));
+  const performanceCommand = brokerSource.slice(brokerSource.indexOf("fn gateway_performance_midi"), brokerSource.indexOf("fn unix_ms"));
 
   assert.doesNotMatch(pressFlow, /commandPending/, "a second tap must not be discarded while the first MIDI send is pending");
   assert.match(pressFlow, /snapshotRef\.current/);
@@ -105,46 +106,52 @@ test("Windows footswitches use a persistent immediate MIDI lane and reconcile st
   assert.match(frameSource, /consumeQcNativeStateFrame/);
   assert.match(nativeFrameSource, /consumer\.consume\(frame\.states, frame\.observedAt\)/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
-  assert.match(nativeCommand, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(nativeCommand, /is_host_midi_method\(&method\)/);
-  assert.match(nativeCommand, /plan_host_midi\(&method, &params\)/);
-  assert.match(nativeCommand, /\.send\(plan\.controller, plan\.value\)/);
-  assert.doesNotMatch(nativeCommand, /background_gateway_request|with_gateway/, "performance MIDI must not queue behind the USB snapshot gateway");
-  assert.match(rustSource, /use qc_windows_midi::PerformanceMidi/);
+  assert.match(gatewayCommand, /generated_gateway::METHODS\.contains/);
+  assert.match(brokerSource, /let performance_midi = Mutex::new\(PerformanceMidi::default\(\)\)/);
+  assert.match(brokerSource, /BrokerDispatch::PerformanceMidi/);
+  assert.match(performanceCommand, /gateway_write_is_realtime\(method\)/);
+  assert.match(performanceCommand, /plan_gateway_write\(controller, method, params\)/);
+  assert.match(performanceCommand, /\.send\(controller, value\)/);
+  assert.doesNotMatch(rustSource, /state::<Mutex<PerformanceMidi>>/, "Windows must not own a second MIDI lane outside the broker");
   assert.match(midiSource, /handle: Option<usize>/, "the shared Windows MIDI endpoint remains open between taps");
   assert.match(midiSource, /impl Drop for PerformanceMidi/);
 });
 
-test("Windows mode-slot changes share the immediate persistent MIDI lane", () => {
-  const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+test("Windows mode-slot changes share the broker-owned persistent MIDI lane", () => {
+  const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
-  const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
-  assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /is_host_midi_method\(&method\)/);
-  assert.match(command, /plan_host_midi\(&method, &params\)/);
-  assert.match(runtimeSource, /HOST_MIDI_METHODS[\s\S]*"device\.selectModeSlot"/);
+  const generatedGateway = readFileSync(new URL("../packages/rust/qc-device-runtime/src/generated_gateway.rs", import.meta.url), "utf8");
+  const command = brokerSource.slice(brokerSource.indexOf("fn gateway_performance_midi"), brokerSource.indexOf("fn unix_ms"));
+  assert.match(brokerSource, /BrokerDispatch::PerformanceMidi/);
+  assert.match(command, /plan_gateway_write\(controller, method, params\)/);
+  assert.match(generatedGateway, /PERFORMANCE_MIDI_METHODS[\s\S]*"device\.selectModeSlot"/);
+  assert.match(runtimeSource, /generated_gateway::PERFORMANCE_MIDI_METHODS\.contains/);
   assert.match(runtimeSource, /"device\.selectModeSlot"[\s\S]*MODE_SLOT_CONTROLLER/);
-  assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
+  assert.match(command, /\.send\(controller, value\)/);
 });
 
-test("Windows Tap Tempo uses explicit CC44 on the persistent MIDI lane", () => {
-  const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+test("Windows Tap Tempo uses explicit CC44 on the broker-owned persistent MIDI lane", () => {
+  const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
-  const command = rustSource.slice(rustSource.indexOf("async fn gateway_invoke"), rustSource.indexOf("const MAX_WORKSPACE_BYTES"));
-  assert.match(command, /state::<Mutex<PerformanceMidi>>/);
-  assert.match(command, /is_host_midi_method\(&method\)/);
-  assert.match(command, /plan_host_midi\(&method, &params\)/);
+  const command = brokerSource.slice(brokerSource.indexOf("fn gateway_performance_midi"), brokerSource.indexOf("fn unix_ms"));
+  assert.match(brokerSource, /BrokerDispatch::PerformanceMidi/);
+  assert.match(command, /plan_gateway_write\(controller, method, params\)/);
   assert.match(runtimeSource, /"device\.tapTempo"[\s\S]*TAP_TEMPO_CONTROLLER/);
-  assert.match(command, /\.send\(plan\.controller, plan\.value\)/);
+  assert.match(command, /\.send\(controller, value\)/);
 });
 
-test("Windows sends every shared physical MIDI operation through the immediate lane", () => {
+test("Windows and relay send every shared physical MIDI operation through the same broker lane", () => {
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
+  const generatedGateway = readFileSync(new URL("../packages/rust/qc-device-runtime/src/generated_gateway.rs", import.meta.url), "utf8");
   const rustSource = readFileSync(new URL("../apps/windows/src-tauri/src/lib.rs", import.meta.url), "utf8");
+  const brokerSource = readFileSync(new URL("../services/device-broker/src/rpc.rs", import.meta.url), "utf8");
   for (const method of ["pressFootswitch", "tapTempo", "selectModeSlot", "showTuner", "showGigView", "controlLooper"]) {
-    assert.match(runtimeSource, new RegExp(`HOST_MIDI_METHODS[\\s\\S]*"device\\.${method}"`));
+    assert.match(generatedGateway, new RegExp(`PERFORMANCE_MIDI_METHODS[\\s\\S]*"device\\.${method}"`));
   }
-  assert.equal((rustSource.match(/if is_host_midi_method\(/g) ?? []).length, 2, "manual and relay commands must share the same immediate classifier");
+  assert.match(runtimeSource, /generated_gateway::PERFORMANCE_MIDI_METHODS\.contains/);
+  assert.match(brokerSource, /BrokerDispatch::PerformanceMidi[\s\S]*gateway_performance_midi/);
+  assert.match(rustSource, /impl DeviceAdapter for WindowsRelayAdapter[\s\S]*\.request_detailed\(&method, params\)/);
+  assert.doesNotMatch(rustSource, /is_host_midi_method|PerformanceMidi/, "manual and relay commands must not bypass the shared broker");
 });
 
 test("device-reported STOMP LED state is authoritative", () => {

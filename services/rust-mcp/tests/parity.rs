@@ -6,6 +6,39 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 struct RecordingBackend(Mutex<Vec<(&'static str, Map<String, Value>)>>);
 
+struct FailingBackend;
+
+struct MalformedResultBackend;
+
+#[async_trait]
+impl QcBackend for FailingBackend {
+    async fn request(
+        &self,
+        _: &PrincipalRoute,
+        _: &'static str,
+        _: Map<String, Value>,
+    ) -> Result<Value, BackendError> {
+        Err(BackendError::unavailable("USB disconnected"))
+    }
+}
+
+#[async_trait]
+impl QcBackend for MalformedResultBackend {
+    async fn request(
+        &self,
+        _: &PrincipalRoute,
+        _: &'static str,
+        _: Map<String, Value>,
+    ) -> Result<Value, BackendError> {
+        Ok(json!({
+            "detail": "sent",
+            "accepted": true,
+            "verified": false,
+            "verification": "authoritative_readback"
+        }))
+    }
+}
+
 #[async_trait]
 impl QcBackend for RecordingBackend {
     async fn request(
@@ -15,7 +48,28 @@ impl QcBackend for RecordingBackend {
         params: Map<String, Value>,
     ) -> Result<Value, BackendError> {
         self.0.lock().unwrap().push((rpc, params.clone()));
-        Ok(json!({"method":rpc,"params":params}))
+        Ok(if rpc == "device.listModels" {
+            json!({"models":[
+                {"id":1,"name":"Vintage Delay","category":"Delay"},
+                {"id":2,"name":"Plini Lead","category":"Plugin","basedOn":"Archetype Plini"}
+            ],"audit":{"modelCount":2}})
+        } else if rpc == "device.snapshot" {
+            json!({"presetName":"Clean","blocks":[]})
+        } else if ACTIONS.iter().any(|action| {
+            action.rpc == rpc && action.classification != qc_remote_mcp::Classification::Read
+        }) && !matches!(
+            rpc,
+            "device.reconnect"
+                | "device.resetSession"
+                | "device.disconnect"
+                | "device.previewParameter"
+                | "device.previewLaneControlParameter"
+                | "device.createBackup"
+        ) {
+            json!({"method":rpc,"params":params,"detail":"accepted","accepted":true,"verified":false,"verification":"accepted_unverified"})
+        } else {
+            json!({"method":rpc,"params":params})
+        })
     }
 }
 
@@ -32,6 +86,10 @@ fn route() -> PrincipalRoute {
 fn static_map_has_exact_contract_names_and_rpcs() {
     let contract: Value =
         serde_json::from_str(include_str!("../../../contracts/qc-actions.v1.json")).unwrap();
+    assert_eq!(
+        qc_remote_mcp::MCP_INSTRUCTIONS,
+        contract["mcpInstructions"].as_str().unwrap()
+    );
     let expected: Vec<_> = contract["actions"]
         .as_array()
         .unwrap()
@@ -94,6 +152,22 @@ fn surface_has_only_intent_tools_and_three_resources() {
     let (server, _) = server();
     let tools = server.tools();
     assert_eq!(tools.len(), ACTIONS.len());
+    for (spec, tool) in ACTIONS.iter().zip(&tools) {
+        let annotations = tool.annotations.as_ref().unwrap();
+        let is_read = spec.classification == qc_remote_mcp::Classification::Read;
+        assert_eq!(
+            annotations.read_only_hint,
+            Some(is_read),
+            "{} read-only annotation",
+            spec.name
+        );
+        assert_eq!(
+            annotations.idempotent_hint,
+            Some(is_read),
+            "{} idempotence annotation",
+            spec.name
+        );
+    }
     assert!(
         tools
             .iter()
@@ -232,7 +306,7 @@ async fn persistent_confirmation_is_consumed_not_forwarded() {
 #[tokio::test]
 async fn model_query_is_not_forwarded_to_parameterless_gateway_method() {
     let (server, backend) = server();
-    server
+    let result = server
         .execute(
             &route(),
             "list_models",
@@ -240,13 +314,16 @@ async fn model_query_is_not_forwarded_to_parameterless_gateway_method() {
         )
         .await
         .unwrap();
+    assert_eq!(result["models"].as_array().unwrap().len(), 1);
+    assert_eq!(result["models"][0]["id"], 1);
+    assert_eq!(result["models"][0]["name"], "Vintage Delay");
     let calls = backend.0.lock().unwrap();
     assert_eq!(calls[0].0, "device.listModels");
     assert!(calls[0].1.is_empty());
 }
 
 #[tokio::test]
-async fn preview_expected_value_is_validated_but_not_forwarded() {
+async fn preview_expected_value_is_validated_and_forwarded() {
     let (server, backend) = server();
     server
         .execute(
@@ -266,7 +343,7 @@ async fn preview_expected_value_is_validated_but_not_forwarded() {
         .unwrap();
     let calls = backend.0.lock().unwrap();
     assert_eq!(calls[0].0, "device.previewParameter");
-    assert!(!calls[0].1.contains_key("expectedValue"));
+    assert_eq!(calls[0].1["expectedValue"], 0.4);
     assert_eq!(calls[0].1["parameterIndex"], 2);
 }
 
@@ -418,6 +495,29 @@ async fn nullable_grid_guards_are_forwarded_instead_of_dropped() {
     assert!(calls[0].1.contains_key("splitColumn"));
     assert!(calls[0].1["splitColumn"].is_null());
     assert_eq!(calls[0].1["expectedMixColumn"], -1);
+}
+
+#[tokio::test]
+async fn backend_errors_preserve_code_message_and_retryability() {
+    let server = QcMcp::new(Arc::new(FailingBackend));
+    let error = server
+        .execute(&route(), "get_current_preset", None)
+        .await
+        .unwrap_err();
+    let detail: Value = serde_json::from_str(&error).unwrap();
+    assert_eq!(detail["code"], "device_unavailable");
+    assert_eq!(detail["message"], "USB disconnected");
+    assert_eq!(detail["retryable"], true);
+}
+
+#[tokio::test]
+async fn backend_results_reject_contradictory_action_outcomes() {
+    let server = QcMcp::new(Arc::new(MalformedResultBackend));
+    let error = server
+        .execute(&route(), "get_current_preset", None)
+        .await
+        .unwrap_err();
+    assert!(error.contains("malformed"));
 }
 
 #[tokio::test]

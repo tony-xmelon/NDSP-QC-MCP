@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createGatewayClientTransport, demoSnapshot, type GatewayTransport } from "../packages/typescript/qc-client/src/index.ts";
+import { createGatewayClientTransport, demoSnapshot, GATEWAY_METHODS, GATEWAY_RESULT_KINDS, GatewayClientError, validateGatewayResult, type GatewayTransport } from "../packages/typescript/qc-client/src/index.ts";
 import { createQcGatewayTransport } from "../packages/typescript/qc-core/src/index.ts";
 import { createWindowsQcTransport } from "../apps/windows/src/qc-transport.ts";
 
@@ -37,7 +37,7 @@ test("Windows adapts gateway.v1 expected-state guards to the shared device port"
   const rpcCalls: string[] = [];
   const rpcGateway = createGatewayClientTransport<GatewayTransport>(async (method) => {
     rpcCalls.push(method);
-    return { detail: "accepted" } as never;
+    return { detail: "accepted", accepted: true, verified: false, verification: "accepted_unverified" } as never;
   }, "rpc");
   await rpcGateway.showTuner(true);
   assert.deepEqual(rpcCalls, ["device.showTuner"]);
@@ -60,11 +60,11 @@ test("shared preset navigation uses one guarded adjacent recall on every host", 
   ]);
 });
 
-test("generated gateway client maps positional calls to native contract arguments", async () => {
+test("generated gateway client defaults to canonical RPC names and maps positional arguments", async () => {
   const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
   const gateway = createGatewayClientTransport<GatewayTransport>(async (command, args) => {
     calls.push({ command, args });
-    return { detail: "accepted" } as never;
+    return { detail: "accepted", accepted: true, verified: false, verification: "accepted_unverified" } as never;
   });
 
   await gateway.toggleBypass(1, 3, 2, false, true, "Live preset");
@@ -72,9 +72,33 @@ test("generated gateway client maps positional calls to native contract argument
 
   assert.deepEqual(calls, [
     {
-      command: "toggle_bypass",
+      command: "device.toggleBypass",
       args: { row: 1, column: 3, expectedScene: 2, expectedBypassed: false, desiredBypassed: true, expectedPresetName: "Live preset" }
     },
-    { command: "list_preset_folders", args: { refresh: true } }
+    { command: "device.listPresetFolders", args: { refresh: true } }
   ]);
+});
+
+test("shared gateway client rejects partial and contradictory action acknowledgements", async () => {
+  assert.equal(Object.keys(GATEWAY_RESULT_KINDS).length, GATEWAY_METHODS.length);
+  assert.ok(GATEWAY_METHODS.every((method) => GATEWAY_RESULT_KINDS[method] !== undefined));
+  const valid = { detail: "sent", accepted: true, verified: false, verification: "accepted_unverified" as const };
+  assert.equal(validateGatewayResult("device.showTuner", valid), valid);
+  assert.throws(
+    () => validateGatewayResult("device.showTuner", { detail: "sent", accepted: true }),
+    /malformed device action result/
+  );
+  assert.throws(
+    () => validateGatewayResult("device.showTuner", { detail: "sent", accepted: true, verified: false, verification: "authoritative_readback" }),
+    /malformed device action result/
+  );
+  const gateway = createGatewayClientTransport<GatewayTransport>(async () => undefined as never);
+  await assert.rejects(gateway.showTuner(true), /returned no result/);
+
+  const failing = createGatewayClientTransport<GatewayTransport>(async () => {
+    throw { code: "-32010", message: "offline", retryable: true };
+  });
+  await assert.rejects(failing.showTuner(true), (error: unknown) =>
+    error instanceof GatewayClientError && error.code === "-32010" && error.retryable
+  );
 });

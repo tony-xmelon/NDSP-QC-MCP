@@ -52,7 +52,8 @@ test("Windows exposes pairing and native relay access policy in Settings", () =>
 test("Windows relay is an outbound adapter over the existing broker", () => {
   assert.match(windowsRoot, /impl DeviceAdapter for WindowsRelayAdapter/);
   assert.match(windowsRoot, /state::<Mutex<Gateway>>\(\)/);
-  assert.match(windowsRoot, /state::<Mutex<PerformanceMidi>>\(\)/);
+  assert.match(windowsRoot, /impl DeviceAdapter for WindowsRelayAdapter[\s\S]*\.request_detailed\(&method, params\)/);
+  assert.doesNotMatch(windowsRoot, /state::<Mutex<PerformanceMidi>>\(\)/, "relay writes must not bypass the shared broker");
   assert.match(windowsRelay, /Windows Credential Manager/);
   assert.match(windowsRelay, /AccessMode::Full/);
   assert.doesNotMatch(windowsRoot, /TcpListener|axum::Server|\.bind\(/);

@@ -161,7 +161,14 @@
             "message": {
               "type": "string"
             },
-            "data": {}
+            "data": {
+              "type": "object",
+              "properties": {
+                "retryable": {
+                  "type": "boolean"
+                }
+              }
+            }
           },
           "additionalProperties": false
         }

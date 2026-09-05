@@ -35,6 +35,8 @@ final class QcPendingOperations {
 
     boolean remove(Entry<?> entry) { return entries.remove(entry.id, entry); }
 
+    boolean isEmpty() { return entries.isEmpty(); }
+
     <T> List<Entry<T>> entries(Class<T> type) {
         List<Entry<T>> matching = new ArrayList<>();
         for (Entry<?> entry : entries.values()) {

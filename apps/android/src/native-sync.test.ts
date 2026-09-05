@@ -213,7 +213,7 @@ test("Android relay has exact gateway parity with Windows", () => {
   assert.match(rustAndroidSource, /decode_tempo_clock/);
   assert.match(rustAndroidSource, /BackupAssembler/);
   assert.match(javaSource, /public void gatewayInvoke\(PluginCall call\)/);
-  assert.match(servicesSource, /gatewayInvoke\(options:/);
+  assert.match(servicesSource, /gatewayInvoke<T>\(options:/);
 });
 
 test("Android persists completed native backups without blocking USB reads", () => {
@@ -223,6 +223,27 @@ test("Android persists completed native backups without blocking USB reads", () 
   assert.match(javaSource, /QcUsbProfile\.BACKUP_MAXIMUM_DOCUMENT_BYTES/);
   assert.match(usbProfileSource, /BACKUP_MAXIMUM_DOCUMENT_BYTES = 33554432/);
   assert.doesNotMatch(javaSource, /pending\.result\.complete\(JSObject\.fromJSONObject\(\(org\.json\.JSONObject\) update\.get\("backup"\)\)\)/);
+  assert.match(javaSource, /writeMessage\(stateDecoder\.readCommand\(17\)\)/);
+  assert.match(javaSource, /masterObserved[\s\S]*completePendingBackupRecovery\(observedAt\)/);
+  assert.match(javaSource, /observedAt <= pending\.operation\.recoveryAfterState/);
+});
+
+test("modern Android keeps one full-duplex interrupt read queued across idle periods", () => {
+  assert.match(javaSource, /Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.O/);
+  assert.match(javaSource, /UsbRequest request = new UsbRequest\(\)/);
+  assert.match(javaSource, /request\.queue\(buffer\)[\s\S]*activeConnection\.requestWait\(\)/);
+  assert.doesNotMatch(javaSource, /requestWait\(\d+/);
+  assert.match(javaSource, /inputRequest\.cancel\(\)[\s\S]*inputRequest\.close\(\)[\s\S]*releaseInterface/);
+  assert.match(javaSource, /activeConnection\.bulkTransfer\(activeEndpoint[\s\S]*readerIsActive/);
+});
+
+test("Android's USB maintenance heartbeat produces a small device reply", () => {
+  assert.match(javaSource, /sessionShouldKeepalive[\s\S]*writeMessage\(stateDecoder\.readCommand\(10\)\)/);
+  assert.match(javaSource, /pendingOperations\.isEmpty\(\)[\s\S]*sessionShouldKeepalive/);
+  assert.match(javaSource, /currentBackupActive[\s\S]*stateDecoder\.keepaliveCommand\(\)[\s\S]*stateDecoder\.readCommand\(10\)/);
+  assert.match(javaSource, /MAINTENANCE_POLL_MS = 1000/);
+  assert.match(javaSource, /MAINTENANCE_POLL_MS, MAINTENANCE_POLL_MS, TimeUnit\.MILLISECONDS/);
+  assert.match(javaSource, /handshakeComplete = true;[\s\S]*keepalive\.schedule\([\s\S]*readCommand\(10\)[\s\S]*MAINTENANCE_POLL_MS/);
 });
 
 test("Android and Windows apply the same safe native-backup retry boundary", () => {

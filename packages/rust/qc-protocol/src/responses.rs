@@ -18,6 +18,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ResponseDecodeError {
+    #[error("the QC protobuf reply exceeded the shared 1 MiB frame-size limit")]
+    OversizedReply,
     #[error("QC protobuf reply could not be decoded: {0}")]
     Protobuf(#[from] prost::DecodeError),
     #[error("the QC reply is incomplete: {0}")]
@@ -30,6 +32,16 @@ pub enum ResponseDecodeError {
     OversizedBackup,
     #[error("the QC backup stream ended with an incomplete or unsupported document")]
     InvalidBackupDocument,
+}
+
+fn decode_reply<M>(payload: &[u8]) -> Result<M, ResponseDecodeError>
+where
+    M: Message + Default,
+{
+    if payload.len() > profile::MAX_FRAME_BYTES {
+        return Err(ResponseDecodeError::OversizedReply);
+    }
+    Ok(M::decode(payload)?)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -124,7 +136,7 @@ impl BackupAssembler {
     }
 
     pub fn push(&mut self, payload: &[u8]) -> Result<Option<String>, ResponseDecodeError> {
-        let message = pa::LocalBackupMessage::decode(payload)?;
+        let message: pa::LocalBackupMessage = decode_reply(payload)?;
         let terminal = matches!(
             message.is_last_chunk,
             Some(pa::local_backup_message::IsLastChunk::IsLastChunk(true))
@@ -142,17 +154,18 @@ impl BackupAssembler {
             // terminator.
             if !chunk.trim_start().starts_with('{') {
                 if !chunk.is_empty() || terminal {
-                    self.ignored_prefix_chunks += 1;
+                    self.ignored_prefix_chunks = self.ignored_prefix_chunks.saturating_add(1);
                 }
                 if terminal {
-                    self.ignored_prefix_terminators += 1;
+                    self.ignored_prefix_terminators =
+                        self.ignored_prefix_terminators.saturating_add(1);
                 }
                 return Ok(None);
             }
             self.started = true;
         }
 
-        self.chunks += 1;
+        self.chunks = self.chunks.saturating_add(1);
         self.document.push_str(&chunk);
         if self.document.len() > profile::BACKUP_MAXIMUM_DOCUMENT_BYTES {
             self.reset();
@@ -181,7 +194,7 @@ impl BackupAssembler {
 }
 
 pub fn decode_tempo_clock(payload: &[u8]) -> Result<Option<TempoClock>, ResponseDecodeError> {
-    let message = pa::GlobalTempoMessage::decode(payload)?;
+    let message: pa::GlobalTempoMessage = decode_reply(payload)?;
     let Some(pa::global_tempo_message::MetronomeStatus::MetronomeStatus(status)) =
         message.metronome_status
     else {
@@ -195,7 +208,7 @@ pub fn decode_tempo_clock(payload: &[u8]) -> Result<Option<TempoClock>, Response
 }
 
 pub fn decode_device_identity(payload: &[u8]) -> Result<DeviceIdentity, ResponseDecodeError> {
-    let message = pa::VersionMessage::decode(payload)?;
+    let message: pa::VersionMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch(
             "identity action is not UPDATE",
@@ -226,7 +239,12 @@ pub fn decode_recents_favorites(
     payload: &[u8],
     request_id: u64,
 ) -> Result<LibraryEntries, ResponseDecodeError> {
-    let message = pa::RecentsFavoritesMessage::decode(payload)?;
+    let message: pa::RecentsFavoritesMessage = decode_reply(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "recents/favorites action is not UPDATE",
+        ));
+    }
     let actual_id = message
         .request_id
         .map(|pa::recents_favorites_message::RequestId::RequestId(value)| value)
@@ -242,22 +260,29 @@ pub fn decode_recents_favorites(
         entries: message
             .items
             .into_iter()
-            .map(|item| LibraryEntry {
-                key: item.folder_key.clone(),
-                name: item.name,
-                folder_key: Some(item.folder_key),
-                folder_name: Some(item.folder_name),
-                position: None,
-                instrument: None,
-                is_factory: item.is_factory,
-                is_plugin: item.is_plugin,
+            .map(|item| {
+                if item.name.is_empty() || item.folder_key.is_empty() {
+                    return Err(ResponseDecodeError::Incomplete(
+                        "recents/favorites item identity",
+                    ));
+                }
+                Ok(LibraryEntry {
+                    key: item.folder_key.clone(),
+                    name: item.name,
+                    folder_key: Some(item.folder_key),
+                    folder_name: (!item.folder_name.is_empty()).then_some(item.folder_name),
+                    position: None,
+                    instrument: None,
+                    is_factory: item.is_factory,
+                    is_plugin: item.is_plugin,
+                })
             })
-            .collect(),
+            .collect::<Result<_, ResponseDecodeError>>()?,
     })
 }
 
 pub fn decode_pinned_models(payload: &[u8]) -> Result<PinnedModels, ResponseDecodeError> {
-    let message = pa::PinnedModelsMessage::decode(payload)?;
+    let message: pa::PinnedModelsMessage = decode_reply(payload)?;
     Ok(PinnedModels {
         models: message.models,
         captures: message.captures,
@@ -269,7 +294,12 @@ pub fn decode_library_files(
     request_id: u64,
     folder_key: &str,
 ) -> Result<LibraryEntries, ResponseDecodeError> {
-    let message = pa::FileMessage::decode(payload)?;
+    let message: pa::FileMessage = decode_reply(payload)?;
+    if message.action != pa::message_action::Enum::Update as i32 {
+        return Err(ResponseDecodeError::Mismatch(
+            "file listing action is not UPDATE",
+        ));
+    }
     let actual_id = message
         .request_id
         .map(|pa::file_message::RequestId::RequestId(value)| value)
@@ -311,26 +341,27 @@ pub fn decode_library_files(
         entries: folder
             .files
             .into_iter()
-            .filter_map(|file| {
+            .map(|file| {
                 let key = file
                     .key
                     .map(|pa::product_data::Key::Key(value)| value)
-                    .unwrap_or_default();
+                    .filter(|value| !value.is_empty())
+                    .ok_or(ResponseDecodeError::Incomplete("file key"))?;
                 let name = file
                     .name
                     .map(|pa::product_data::Name::Name(value)| value)
-                    .unwrap_or_default();
-                if key.is_empty() && name.is_empty() {
-                    return None;
-                }
+                    .filter(|value| !value.is_empty())
+                    .ok_or(ResponseDecodeError::Incomplete("file name"))?;
                 let position = file
                     .index
                     .map(|pa::product_data::Index::Index(value)| value)
-                    .and_then(|value| u32::try_from(value).ok());
+                    .map(u32::try_from)
+                    .transpose()
+                    .map_err(|_| ResponseDecodeError::Mismatch("negative file position"))?;
                 let instrument = file
                     .instrument
                     .map(|pa::product_data::Instrument::Instrument(value)| value);
-                Some(LibraryEntry {
+                Ok(LibraryEntry {
                     name,
                     key,
                     folder_key: Some(actual_key.clone()),
@@ -341,12 +372,12 @@ pub fn decode_library_files(
                     is_plugin: false,
                 })
             })
-            .collect(),
+            .collect::<Result<_, ResponseDecodeError>>()?,
     })
 }
 
 pub fn decode_tuner_settings(payload: &[u8]) -> Result<TunerSettings, ResponseDecodeError> {
-    let message = pa::TunerMessage::decode(payload)?;
+    let message: pa::TunerMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch("tuner action is not UPDATE"));
     }
@@ -371,15 +402,45 @@ pub fn decode_tuner_settings(payload: &[u8]) -> Result<TunerSettings, ResponseDe
 }
 
 pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, ResponseDecodeError> {
-    let message = pa::GeneralSettingsMessage::decode(payload)?;
+    let message: pa::GeneralSettingsMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch(
             "general-settings action is not UPDATE",
         ));
     }
-    if message.scene_block_bypass.is_none() {
-        return Err(ResponseDecodeError::Incomplete("scene_block_bypass"));
-    }
+    let scene_bypass_behavior = match message.scene_block_bypass {
+        Some(pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(value)) => Some(
+            match value {
+                0 => "alwaysOverwrite",
+                1 => "nonstompOverwrite",
+                2 => "neverOverwrite",
+                _ => {
+                    return Err(ResponseDecodeError::Mismatch(
+                        "unknown scene_block_bypass value",
+                    ))
+                }
+            }
+            .to_string(),
+        ),
+        None => return Err(ResponseDecodeError::Incomplete("scene_block_bypass")),
+    };
+    let midi_clock_out = match message.midi_clock_out {
+        Some(pa::general_settings_message::MidiClockOut::MidiClockOut(value)) => Some(
+            match value {
+                0 => "off",
+                1 => "midiDinOnly",
+                2 => "usbMidiOnly",
+                3 => "bothUsbAndDinMidi",
+                _ => {
+                    return Err(ResponseDecodeError::Mismatch(
+                        "unknown midi_clock_out value",
+                    ))
+                }
+            }
+            .to_string(),
+        ),
+        None => None,
+    };
     let rows = |value: pa::GlobalBypassRows| GlobalBypassRows {
         row1: value.row1,
         row2: value.row2,
@@ -389,6 +450,9 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
     let hold_timing_index = message
         .hold_timing
         .map(|pa::general_settings_message::HoldTiming::HoldTiming(value)| value);
+    if hold_timing_index.is_some_and(|value| !(0..=5).contains(&value)) {
+        return Err(ResponseDecodeError::Mismatch("hold_timing is out of range"));
+    }
     Ok(GeneralSettings {
         screen_brightness: message.screen_brightness.map(
             |pa::general_settings_message::ScreenBrightness::ScreenBrightness(value)| value,
@@ -410,14 +474,7 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
         global_bypass_ir: message.global_bypass_ir.map(
             |pa::general_settings_message::GlobalBypassIr::GlobalBypassIr(value)| rows(value),
         ),
-        scene_bypass_behavior: message.scene_block_bypass.and_then(
-            |pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(value)| match value {
-                0 => Some("alwaysOverwrite".to_string()),
-                1 => Some("nonstompOverwrite".to_string()),
-                2 => Some("neverOverwrite".to_string()),
-                _ => None,
-            }
-        ),
+        scene_bypass_behavior,
         midi_over_usb: message
             .midi_over_usb
             .map(|pa::general_settings_message::MidiOverUsb::MidiOverUsb(value)| value),
@@ -454,15 +511,7 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
         swap_tempo_tuner_access: message.swap_tempo_tuner_access.map(
             |pa::general_settings_message::SwapTempoTunerAccess::SwapTempoTunerAccess(value)| value,
         ),
-        midi_clock_out: message.midi_clock_out.and_then(
-            |pa::general_settings_message::MidiClockOut::MidiClockOut(value)| match value {
-                0 => Some("off".to_string()),
-                1 => Some("midiDinOnly".to_string()),
-                2 => Some("usbMidiOnly".to_string()),
-                3 => Some("bothUsbAndDinMidi".to_string()),
-                _ => None,
-            }
-        ),
+        midi_clock_out,
         disable_internet_connection_check: message.disable_internet_connection_check.map(
             |pa::general_settings_message::DisableInternetConnectionCheck::DisableInternetConnectionCheck(value)| value,
         ),
@@ -487,14 +536,12 @@ pub fn decode_general_settings(payload: &[u8]) -> Result<GeneralSettings, Respon
             )| value,
         ),
         hold_timing_index,
-        hold_timing_ms: hold_timing_index
-            .filter(|value| (0..=5).contains(value))
-            .map(|value| 500 + 100 * value),
+        hold_timing_ms: hold_timing_index.map(|value| 500 + 100 * value),
     })
 }
 
 pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeError> {
-    let message = pa::IoSettingsMessage::decode(payload)?;
+    let message: pa::IoSettingsMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch(
             "I/O settings action is not UPDATE",
@@ -630,7 +677,7 @@ pub fn decode_io_settings(payload: &[u8]) -> Result<IoSettings, ResponseDecodeEr
 }
 
 pub fn decode_global_eq(payload: &[u8]) -> Result<GlobalEqSettings, ResponseDecodeError> {
-    let message = pa::GlobalEqMessage::decode(payload)?;
+    let message: pa::GlobalEqMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch(
             "Global EQ action is not UPDATE",
@@ -655,7 +702,7 @@ pub fn decode_global_eq(payload: &[u8]) -> Result<GlobalEqSettings, ResponseDeco
 }
 
 pub fn decode_mode_cycle(payload: &[u8]) -> Result<ModeCycle, ResponseDecodeError> {
-    let message = pa::ModeMessage::decode(payload)?;
+    let message: pa::ModeMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch("mode action is not UPDATE"));
     }
@@ -668,7 +715,7 @@ pub fn decode_mode_cycle(payload: &[u8]) -> Result<ModeCycle, ResponseDecodeErro
 }
 
 pub fn decode_looper_status(payload: &[u8]) -> Result<LooperStatus, ResponseDecodeError> {
-    let message = pa::LooperMessage::decode(payload)?;
+    let message: pa::LooperMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch("looper action is not UPDATE"));
     }
@@ -719,13 +766,18 @@ fn tempo_value(parameter: &Param) -> Option<f32> {
         .param_values
         .first()
         .and_then(|value| match value.value {
-            Some(param_value::Value::FloatValue(value)) => Some(value),
+            Some(param_value::Value::FloatValue(value)) if (0.0..=1.0).contains(&value) => {
+                Some(value)
+            }
             _ => None,
         })
 }
 
-fn discrete(value: f32, steps: usize, labels: &[&str]) -> Option<String> {
-    let index = (value * (steps.saturating_sub(1)) as f32).round() as usize;
+fn discrete(value: f32, labels: &[&str]) -> Option<String> {
+    if !(0.0..=1.0).contains(&value) || labels.is_empty() {
+        return None;
+    }
+    let index = (value * (labels.len() - 1) as f32).round() as usize;
     labels.get(index).map(|label| (*label).to_string())
 }
 
@@ -778,13 +830,13 @@ pub fn decode_tempo_settings(parameters: &[Param]) -> TempoSettings {
         volume_db: values[3].map(|value| -60.0 + 69.0 * value),
         running: values[4].map(|value| value >= 0.5),
         pan: values[5],
-        time_signature: values[6].and_then(|value| discrete(value, 21, SIGNATURES)),
-        subdivision: values[7].and_then(|value| discrete(value, 4, SUBDIVISIONS)),
-        sound: values[8].and_then(|value| discrete(value, 6, SOUNDS)),
-        routing: values[9].and_then(|value| discrete(value, 5, ROUTING)),
+        time_signature: values[6].and_then(|value| discrete(value, SIGNATURES)),
+        subdivision: values[7].and_then(|value| discrete(value, SUBDIVISIONS)),
+        sound: values[8].and_then(|value| discrete(value, SOUNDS)),
+        routing: values[9].and_then(|value| discrete(value, ROUTING)),
         beats: values[10..23]
             .iter()
-            .filter_map(|value| value.and_then(|value| discrete(value, 4, BEATS)))
+            .filter_map(|value| value.and_then(|value| discrete(value, BEATS)))
             .collect(),
     }
 }
@@ -792,14 +844,13 @@ pub fn decode_tempo_settings(parameters: &[Param]) -> TempoSettings {
 /// Decode only the device-wide PRESET/GLOBAL switch from a GlobalTempo params
 /// push. Clock-only messages are rejected so callers can wait for the right shape.
 pub fn decode_tempo_mode(payload: &[u8]) -> Result<TempoModeSettings, ResponseDecodeError> {
-    let message = pa::GlobalTempoMessage::decode(payload)?;
+    let message: pa::GlobalTempoMessage = decode_reply(payload)?;
     let value = message
         .params
         .iter()
         .find_map(|parameter| {
             matches!(parameter.index, Some(param::Index::Index(1)))
-                .then(|| tempo_value(parameter))
-                .flatten()
+                .then(|| tempo_value(parameter))?
         })
         .ok_or(ResponseDecodeError::Incomplete(
             "GlobalTempo mode parameter",
@@ -813,7 +864,7 @@ pub fn decode_tempo_mode(payload: &[u8]) -> Result<TempoModeSettings, ResponseDe
 }
 
 pub fn decode_global_tempo_settings(payload: &[u8]) -> Result<TempoSettings, ResponseDecodeError> {
-    let message = pa::GlobalTempoMessage::decode(payload)?;
+    let message: pa::GlobalTempoMessage = decode_reply(payload)?;
     if message.params.is_empty() {
         return Err(ResponseDecodeError::Incomplete("GlobalTempo parameters"));
     }
@@ -823,7 +874,7 @@ pub fn decode_global_tempo_settings(payload: &[u8]) -> Result<TempoSettings, Res
 }
 
 pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, ResponseDecodeError> {
-    let message = pa::CompilerInhibitedModulesMessage::decode(payload)?;
+    let message: pa::CompilerInhibitedModulesMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch(
             "inhibited-modules action is not UPDATE",
@@ -845,12 +896,28 @@ pub fn decode_inhibited_modules(payload: &[u8]) -> Result<InhibitedModules, Resp
 
 fn png_image(bytes: Vec<u8>) -> Result<PngImage, ResponseDecodeError> {
     const SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
-    if bytes.len() < 24 || !bytes.starts_with(SIGNATURE) || &bytes[12..16] != b"IHDR" {
+    if bytes.len() < 24
+        || !bytes.starts_with(SIGNATURE)
+        || bytes.get(8..12) != Some(13_u32.to_be_bytes().as_slice())
+        || bytes.get(12..16) != Some(b"IHDR")
+    {
         return Err(ResponseDecodeError::InvalidPng);
     }
+    let width = bytes
+        .get(16..20)
+        .and_then(|value| value.try_into().ok())
+        .map(u32::from_be_bytes)
+        .filter(|value| *value != 0)
+        .ok_or(ResponseDecodeError::InvalidPng)?;
+    let height = bytes
+        .get(20..24)
+        .and_then(|value| value.try_into().ok())
+        .map(u32::from_be_bytes)
+        .filter(|value| *value != 0)
+        .ok_or(ResponseDecodeError::InvalidPng)?;
     Ok(PngImage {
-        width: u32::from_be_bytes(bytes[16..20].try_into().expect("four width bytes")),
-        height: u32::from_be_bytes(bytes[20..24].try_into().expect("four height bytes")),
+        width,
+        height,
         bytes,
     })
 }
@@ -862,14 +929,16 @@ pub fn decode_preset_screenshot(
     position: u32,
     is_factory: bool,
 ) -> Result<PngImage, ResponseDecodeError> {
-    let message = pa::ScreenshotMessage::decode(payload)?;
+    let message: pa::ScreenshotMessage = decode_reply(payload)?;
     let request_id = match message.request_id {
         Some(pa::screenshot_message::RequestId::RequestId(value)) => value,
         None => return Err(ResponseDecodeError::Incomplete("request id")),
     };
+    let expected_position = i32::try_from(position)
+        .map_err(|_| ResponseDecodeError::Mismatch("preset screenshot position overflow"))?;
     if request_id != expected_request_id
         || message.folder_name != folder_name
-        || message.index != position as i32
+        || message.index != expected_position
         || message.is_factory != is_factory
     {
         return Err(ResponseDecodeError::Mismatch("preset screenshot target"));
@@ -882,7 +951,7 @@ pub fn decode_preset_screenshot(
 }
 
 pub fn decode_captured_screen(payload: &[u8]) -> Result<PngImage, ResponseDecodeError> {
-    let message = pa::RemoteControlMessage::decode(payload)?;
+    let message: pa::RemoteControlMessage = decode_reply(payload)?;
     if message.action != pa::message_action::Enum::Update as i32 {
         return Err(ResponseDecodeError::Mismatch("screen action is not UPDATE"));
     }
@@ -896,6 +965,7 @@ pub fn decode_captured_screen(payload: &[u8]) -> Result<PngImage, ResponseDecode
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn tuner_settings_are_complete_and_expose_absolute_reference() {
@@ -1351,5 +1421,110 @@ mod tests {
             decode_library_files(&files, 73, "another-folder"),
             Err(ResponseDecodeError::Mismatch(_))
         ));
+    }
+
+    #[test]
+    fn malformed_library_entries_are_rejected_instead_of_silently_defaulted() {
+        let listing = |file: pa::ProductData| {
+            pa::FileMessage {
+                action: pa::message_action::Enum::Update as i32,
+                request_id: Some(pa::file_message::RequestId::RequestId(9)),
+                folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                    key: Some(pa::folder_info::Key::Key("library".into())),
+                    files: vec![file],
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }
+            .encode_to_vec()
+        };
+
+        let missing_key = listing(pa::ProductData {
+            name: Some(pa::product_data::Name::Name("Preset".into())),
+            ..Default::default()
+        });
+        assert!(matches!(
+            decode_library_files(&missing_key, 9, "library"),
+            Err(ResponseDecodeError::Incomplete("file key"))
+        ));
+
+        let negative_position = listing(pa::ProductData {
+            key: Some(pa::product_data::Key::Key("preset-key".into())),
+            name: Some(pa::product_data::Name::Name("Preset".into())),
+            index: Some(pa::product_data::Index::Index(-1)),
+            ..Default::default()
+        });
+        assert!(matches!(
+            decode_library_files(&negative_position, 9, "library"),
+            Err(ResponseDecodeError::Mismatch("negative file position"))
+        ));
+    }
+
+    #[test]
+    fn response_limits_and_numeric_edge_cases_are_explicit() {
+        let oversized = vec![0_u8; profile::MAX_FRAME_BYTES + 1];
+        assert!(matches!(
+            decode_tempo_clock(&oversized),
+            Err(ResponseDecodeError::OversizedReply)
+        ));
+
+        let parameter = |value| Param {
+            index: Some(param::Index::Index(6)),
+            param_values: vec![crate::proto::ParamValue {
+                value: Some(param_value::Value::FloatValue(value)),
+            }],
+            ..Default::default()
+        };
+        assert_eq!(
+            decode_tempo_settings(&[parameter(f32::NAN)]).time_signature,
+            None
+        );
+        assert_eq!(
+            decode_tempo_settings(&[parameter(-0.1)]).time_signature,
+            None
+        );
+        assert_eq!(
+            decode_tempo_settings(&[parameter(1.1)]).time_signature,
+            None
+        );
+
+        let invalid_general = pa::GeneralSettingsMessage {
+            action: pa::message_action::Enum::Update as i32,
+            scene_block_bypass: Some(
+                pa::general_settings_message::SceneBlockBypass::SceneBlockBypass(99),
+            ),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_general_settings(&invalid_general),
+            Err(ResponseDecodeError::Mismatch(_))
+        ));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn arbitrary_bounded_reply_bytes_never_panic(payload in proptest::collection::vec(any::<u8>(), 0..4096)) {
+            let _ = decode_tempo_clock(&payload);
+            let _ = decode_device_identity(&payload);
+            let _ = decode_recents_favorites(&payload, 1);
+            let _ = decode_pinned_models(&payload);
+            let _ = decode_library_files(&payload, 1, "library");
+            let _ = decode_tuner_settings(&payload);
+            let _ = decode_general_settings(&payload);
+            let _ = decode_io_settings(&payload);
+            let _ = decode_global_eq(&payload);
+            let _ = decode_mode_cycle(&payload);
+            let _ = decode_looper_status(&payload);
+            let _ = decode_tempo_mode(&payload);
+            let _ = decode_global_tempo_settings(&payload);
+            let _ = decode_inhibited_modules(&payload);
+            let _ = decode_preset_screenshot(&payload, 1, "folder", 1, false);
+            let _ = decode_captured_screen(&payload);
+            let mut backup = BackupAssembler::default();
+            let _ = backup.push(&payload);
+        }
     }
 }

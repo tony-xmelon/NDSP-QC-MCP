@@ -108,7 +108,7 @@ impl SessionMachine {
         if self.handshake_timed_out(now_ms) {
             return None;
         }
-        self.handshake_attempts += 1;
+        self.handshake_attempts = self.handshake_attempts.saturating_add(1);
         self.next_handshake_at_ms = now_ms.saturating_add(profile::HANDSHAKE_ATTEMPT_TIMEOUT_MS);
         self.outbound(now_ms);
         Some(HandshakeAttempt {

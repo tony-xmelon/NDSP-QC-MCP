@@ -10,7 +10,9 @@ device operations, but they serve different hosts:
   [MODEL_PROVIDERS.md](MODEL_PROVIDERS.md).
 - The standalone MCP server supplies QC resources and tools to any MCP host.
 
-Neither path permits arbitrary HID, protobuf, JSON-RPC, or global-setting writes.
+Neither path permits arbitrary HID, protobuf, or JSON-RPC. Global-setting
+writes are exposed only as typed, allowlisted actions with the same explicit
+persistent-write confirmation and device readback rules as other mutations.
 
 ## Windows conversational chat
 
@@ -106,16 +108,16 @@ Published resources are:
 - `qc://current-preset`
 - `qc://models`
 
-The server publishes read tools for the current preset, block details, installed
-models, preset lists/folders/slots, and master volume; guarded performance,
-mode-slot, reload, master-volume, and temporary-edit tools; and a
-separate `save_preset_as` and `rename_current_preset` tools requiring explicit
-persistent-write confirmation. Device-side `copy_preset` has the same persistent
-confirmation boundary. Preset rename overwrites only the active user
+The generated server surface contains all 102 actions in
+`contracts/qc-actions.v1.json`: device and library reads; guarded performance,
+Grid, routing, scene, parameter, I/O, global-setting, and library writes; and
+persistent preset/backup operations. Persistent and risky actions require their
+explicit confirmation flags. Preset rename overwrites only the active user
 preset's current slot and verifies the returned name; factory presets remain
 read-only.
 
-The current gateway/direct modes each own the QC session used by that MCP server.
-Close QC Control and Cortex Control before starting MCP so two processes do not
-compete for the USB interface. Attaching MCP to the private gateway child already
-owned by a running desktop app is not implemented yet.
+Local gateway/direct modes each own the QC session used by that MCP process, so
+close QC Control and Cortex Control before starting either mode. The supported
+way for MCP to control a QC already owned by a running Windows or Android app is
+the authenticated public relay described above; the private desktop child
+process is intentionally not exposed for local process attachment.

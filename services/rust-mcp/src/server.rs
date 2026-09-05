@@ -1,4 +1,7 @@
-use crate::{ACTIONS, ActionSpec, BackendError, Classification, PrincipalRoute, QcBackend};
+use crate::generated_result_kinds::{ResultKind, result_kind};
+use crate::{
+    ACTIONS, ActionSpec, BackendError, Classification, MCP_INSTRUCTIONS, PrincipalRoute, QcBackend,
+};
 use axum::Router;
 use rmcp::{
     ErrorData as McpError, RoleServer, ServerHandler,
@@ -15,8 +18,6 @@ use rmcp::{
 };
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
-
-const INSTRUCTIONS: &str = "Inspect qc://current-preset before changing the device. Every mutation uses expected-state values from a fresh snapshot. Persistent and risky operations require explicit confirmation flags. Never invent expected values.";
 
 #[derive(Clone)]
 pub struct QcMcp {
@@ -44,13 +45,107 @@ impl QcMcp {
             .ok_or_else(|| format!("unknown tool: {name}"))?;
         let mut args = arguments.unwrap_or_default();
         validate(spec, &args)?;
+        let model_query = (spec.name == "list_models").then(|| {
+            args.get("query")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_lowercase()
+        });
         apply_confirmation_gate(spec, &mut args)?;
         let params = gateway_params(spec, args);
-        self.backend
+        let result = self
+            .backend
             .request(route, spec.rpc, params)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|error| {
+                json!({
+                    "code": error.code,
+                    "message": error.message,
+                    "retryable": error.retryable,
+                })
+                .to_string()
+            })?;
+        validate_backend_result(spec.rpc, &result)?;
+        match model_query {
+            Some(query) => filter_models(result, &query),
+            None => Ok(result),
+        }
     }
+}
+
+fn validate_backend_result(method: &str, result: &Value) -> Result<(), String> {
+    const MAX_RESULT_BYTES: usize = 16 * 1024 * 1024;
+    if serde_json::to_vec(result)
+        .map_err(|_| format!("{method} returned a non-JSON result"))?
+        .len()
+        > MAX_RESULT_BYTES
+    {
+        return Err(format!(
+            "{method} returned a result larger than the gateway frame limit"
+        ));
+    }
+    let kind =
+        result_kind(method).ok_or_else(|| format!("unknown gateway result contract: {method}"))?;
+    let object = result
+        .as_object()
+        .ok_or_else(|| format!("{method} returned a malformed {kind:?} result"))?;
+    if kind == ResultKind::PresetSnapshot
+        && (!object.get("presetName").is_some_and(Value::is_string)
+            || !object.get("blocks").is_some_and(Value::is_array))
+    {
+        return Err(format!(
+            "{method} returned a malformed PresetSnapshot result"
+        ));
+    }
+    let has_outcome = ["accepted", "verified", "verification"]
+        .iter()
+        .any(|key| object.contains_key(*key));
+    if kind == ResultKind::DeviceActionResult && !has_outcome {
+        return Err(format!(
+            "{method} returned a device action result without verification semantics"
+        ));
+    }
+    if !has_outcome {
+        return Ok(());
+    }
+    let verified = object.get("verified").and_then(Value::as_bool);
+    let expected = if verified == Some(true) {
+        "authoritative_readback"
+    } else {
+        "accepted_unverified"
+    };
+    let valid = object.get("accepted").and_then(Value::as_bool) == Some(true)
+        && verified.is_some()
+        && object.get("verification").and_then(Value::as_str) == Some(expected)
+        && object
+            .get("detail")
+            .and_then(Value::as_str)
+            .is_some_and(|detail| detail.chars().count() <= 4096);
+    if valid {
+        Ok(())
+    } else {
+        Err(format!(
+            "{method} returned a malformed device action result"
+        ))
+    }
+}
+
+fn filter_models(mut result: Value, query: &str) -> Result<Value, String> {
+    if query.is_empty() {
+        return Ok(result);
+    }
+    let models = result
+        .get_mut("models")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| "device.listModels returned a malformed response".to_string())?;
+    models.retain(|model| {
+        ["name", "category", "basedOn"]
+            .iter()
+            .filter_map(|field| model.get(field).and_then(Value::as_str))
+            .any(|value| value.to_lowercase().contains(query))
+    });
+    Ok(result)
 }
 
 impl ServerHandler for QcMcp {
@@ -65,7 +160,7 @@ impl ServerHandler for QcMcp {
             "NDSP Quad Cortex",
             env!("CARGO_PKG_VERSION"),
         ))
-        .with_instructions(INSTRUCTIONS)
+        .with_instructions(MCP_INSTRUCTIONS)
     }
 
     async fn list_tools(
@@ -144,11 +239,19 @@ impl ServerHandler for QcMcp {
         let route =
             principal_route(&context).map_err(|message| McpError::invalid_params(message, None))?;
         match self.backend.request(&route, rpc, Map::new()).await {
-            Ok(value) => Ok(ReadResourceResult::new(vec![ResourceContents::text(
-                value.to_string(),
-                request.uri,
-            )])
-            .into()),
+            Ok(value) => {
+                validate_backend_result(rpc, &value).map_err(|message| {
+                    McpError::internal_error(
+                        message,
+                        Some(json!({"code":"malformed_backend_result","retryable":false})),
+                    )
+                })?;
+                Ok(ReadResourceResult::new(vec![ResourceContents::text(
+                    value.to_string(),
+                    request.uri,
+                )])
+                .into())
+            }
             Err(error) => Err(backend_protocol_error(error)),
         }
     }
@@ -377,11 +480,7 @@ fn gateway_params(spec: &ActionSpec, args: Map<String, Value>) -> Map<String, Va
             }
             // These are MCP-side validation/discovery fields. Their gateway
             // methods intentionally do not accept them.
-            if (spec.name == "list_models" && key == "query")
-                || ((spec.name == "preview_parameter"
-                    || spec.name == "preview_lane_control_parameter")
-                    && key == "expected_value")
-            {
+            if spec.name == "list_models" && key == "query" {
                 return None;
             }
             let gateway_key = match (spec.name, key.as_str()) {

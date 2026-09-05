@@ -11,17 +11,60 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from .backend import QcBackend
-from .generated_actions import SHARED_QC_ACTIONS
+from .generated_actions import (
+    MCP_GATEWAY_ARGUMENTS,
+    MCP_GATEWAY_SCHEMAS,
+    MCP_INSTRUCTIONS,
+    SHARED_QC_ACTIONS,
+)
+from .generated_result_kinds import GATEWAY_RESULT_KINDS
 from .generated_domain import (
     GRID_COLUMNS,
     GRID_ROWS,
+    IPC_MAX_FRAME_BYTES,
     MAXIMUM_TEMPO_BPM,
     MINIMUM_TEMPO_BPM,
     SCENE_COUNT,
 )
 
 
+def _validated_backend_result(method: str, result: Any) -> Any:
+    try:
+        encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(f"{method} returned a non-JSON result") from error
+    if len(encoded) > IPC_MAX_FRAME_BYTES:
+        raise RuntimeError(f"{method} returned a result larger than the gateway frame limit")
+    kind = GATEWAY_RESULT_KINDS.get(method)
+    if kind is None:
+        raise RuntimeError(f"Unknown gateway result contract: {method}")
+    if not isinstance(result, Mapping):
+        raise RuntimeError(f"{method} returned a malformed {kind} result")
+    if kind == "PresetSnapshot" and (
+        not isinstance(result.get("presetName"), str) or not isinstance(result.get("blocks"), list)
+    ):
+        raise RuntimeError(f"{method} returned a malformed PresetSnapshot result")
+    if kind == "DeviceActionResult" and not any(
+        key in result for key in ("accepted", "verified", "verification")
+    ):
+        raise RuntimeError(f"{method} returned a device action result without verification semantics")
+    if isinstance(result, Mapping) and any(key in result for key in ("accepted", "verified", "verification")):
+        verified = result.get("verified")
+        expected = "authoritative_readback" if verified is True else "accepted_unverified"
+        if (
+            result.get("accepted") is not True
+            or not isinstance(verified, bool)
+            or result.get("verification") != expected
+            or not isinstance(result.get("detail"), str)
+            or len(result["detail"]) > 4096
+        ):
+            raise RuntimeError(f"{method} returned a malformed device action result")
+    return result
+
+
 def _required_text(value: str, label: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a string.")
     cleaned = value.strip()
     if not cleaned:
         raise ValueError(f"{label} is required and must come from a fresh device snapshot.")
@@ -29,24 +72,31 @@ def _required_text(value: str, label: str) -> str:
 
 
 def _grid_cell(row: int, column: int) -> None:
-    if isinstance(row, bool) or not 0 <= row < GRID_ROWS:
+    if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < GRID_ROWS:
         raise ValueError(f"row must be an integer from 0 through {GRID_ROWS - 1}")
-    if isinstance(column, bool) or not 0 <= column < GRID_COLUMNS:
+    if isinstance(column, bool) or not isinstance(column, int) or not 0 <= column < GRID_COLUMNS:
         raise ValueError(f"column must be an integer from 0 through {GRID_COLUMNS - 1}")
+
+
+def _parameter_cell(row: int, column: int) -> None:
+    if isinstance(row, bool) or not isinstance(row, int) or not 0 <= row < GRID_ROWS:
+        raise ValueError(f"row must be an integer from 0 through {GRID_ROWS - 1}")
+    if isinstance(column, bool) or not isinstance(column, int) or not 0 <= column <= GRID_COLUMNS + 1:
+        raise ValueError(f"column must be an integer from 0 through {GRID_COLUMNS + 1}")
 
 
 def _parameter_args(
     row: int, column: int, parameter_index: int, value: float,
     expected_value: float, expected_scene: int, expected_preset_name: str,
 ) -> dict[str, Any]:
-    _grid_cell(row, column)
-    if isinstance(parameter_index, bool) or parameter_index < 0:
+    _parameter_cell(row, column)
+    if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
         raise ValueError("parameter_index must be a non-negative integer")
-    if isinstance(value, bool) or not 0.0 <= value <= 1.0:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0.0 <= value <= 1.0:
         raise ValueError("value must be normalized from 0.0 through 1.0")
-    if isinstance(expected_value, bool) or not 0.0 <= expected_value <= 1.0:
+    if isinstance(expected_value, bool) or not isinstance(expected_value, (int, float)) or not math.isfinite(expected_value) or not 0.0 <= expected_value <= 1.0:
         raise ValueError("expected_value must be normalized from 0.0 through 1.0")
-    if isinstance(expected_scene, bool) or not 0 <= expected_scene < SCENE_COUNT:
+    if isinstance(expected_scene, bool) or not isinstance(expected_scene, int) or not 0 <= expected_scene < SCENE_COUNT:
         raise ValueError(f"expected_scene must be an integer from 0 through {SCENE_COUNT - 1}")
     return {
         "row": row, "column": column, "parameterIndex": parameter_index,
@@ -74,6 +124,52 @@ def _midi_messages(messages: list[dict[str, int]]) -> list[dict[str, int]]:
     return normalized
 
 
+def _matches_schema(value: Any, schema: dict[str, Any]) -> bool:
+    expected = schema.get("type")
+    types = expected if isinstance(expected, list) else [expected]
+    matches_type = any(
+        (kind == "null" and value is None)
+        or (kind == "boolean" and isinstance(value, bool))
+        or (kind == "integer" and isinstance(value, int) and not isinstance(value, bool))
+        or (kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value))
+        or (kind == "string" and isinstance(value, str))
+        or (kind == "array" and isinstance(value, list))
+        or (kind == "object" and isinstance(value, Mapping))
+        for kind in types
+    )
+    if not matches_type or value is None:
+        return matches_type
+    if "enum" in schema and value not in schema["enum"]:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            return False
+        if "maximum" in schema and value > schema["maximum"]:
+            return False
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0) or len(value) > schema.get("maxLength", len(value)):
+            return False
+        if schema.get("pattern") and any(ord(character) < 32 or ord(character) == 127 for character in value):
+            return False
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0) or len(value) > schema.get("maxItems", len(value)):
+            return False
+        if schema.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in value}) != len(value):
+            return False
+        if "items" in schema and not all(_matches_schema(item, schema["items"]) for item in value):
+            return False
+    if isinstance(value, Mapping):
+        properties = schema.get("properties", {})
+        if schema.get("additionalProperties") is False and set(value) - set(properties):
+            return False
+        if set(schema.get("required", ())) - set(value):
+            return False
+        if any(name in value and not _matches_schema(value[name], child) for name, child in properties.items()):
+            return False
+    return True
+
+
 class QcTools:
     """Testable application adapter; every mutation maps to one allowlisted method."""
 
@@ -81,7 +177,28 @@ class QcTools:
         self.backend = backend
 
     def _request(self, action: str, params: dict[str, Any] | None = None) -> Any:
-        return self.backend.request(SHARED_QC_ACTIONS[action]["rpc"], params)
+        payload = dict(params or {})
+        expected = set(MCP_GATEWAY_ARGUMENTS[action])
+        if set(payload) != expected:
+            missing = sorted(expected - set(payload))
+            unexpected = sorted(set(payload) - expected)
+            raise RuntimeError(f"MCP gateway argument drift for {action}: missing={missing}, unexpected={unexpected}")
+        for name, schema in MCP_GATEWAY_SCHEMAS[action].items():
+            if not _matches_schema(payload[name], schema):
+                raise ValueError(f"{name} does not match the canonical schema for {action}")
+        try:
+            method = SHARED_QC_ACTIONS[action]["rpc"]
+            return _validated_backend_result(method, self.backend.request(method, payload))
+        except Exception as error:
+            code = getattr(error, "code", None)
+            if code is None:
+                raise
+            detail = {
+                "code": code,
+                "message": str(error),
+                "retryable": bool(getattr(error, "retryable", False)),
+            }
+            raise RuntimeError(json.dumps(detail, separators=(",", ":"))) from error
 
     def get_current_preset(self) -> Any:
         """Read the authoritative current preset, scene, blocks, tempo and dirty state."""
@@ -89,7 +206,7 @@ class QcTools:
 
     def get_status(self) -> Any:
         """Read gateway availability and connection capabilities."""
-        return self.backend.request("system.status")
+        return _validated_backend_result("system.status", self.backend.request("system.status"))
 
     def reconnect_device(self, confirm_risky_operation: bool) -> Any:
         """Reconnect the native device session after explicit confirmation."""
@@ -115,9 +232,9 @@ class QcTools:
 
     def get_state_events(self, after_sequence: int, limit: int) -> Any:
         """Read native state frames after a sequence cursor."""
-        if isinstance(after_sequence, bool) or after_sequence < 0:
+        if isinstance(after_sequence, bool) or not isinstance(after_sequence, int) or after_sequence < 0:
             raise ValueError("after_sequence must be a non-negative integer")
-        if isinstance(limit, bool) or not 1 <= limit <= 4096:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 4096:
             raise ValueError("limit must be an integer from 1 through 4096")
         return self._request("get_state_events", {
             "afterSequence": after_sequence, "limit": limit,
@@ -273,7 +390,7 @@ class QcTools:
         self, folder_name: str, position: int, is_factory: bool
     ) -> Any:
         """Read a device-rendered preset screenshot without recalling it."""
-        if isinstance(position, bool) or position < 0:
+        if isinstance(position, bool) or not isinstance(position, int) or position < 0:
             raise ValueError("position must be a non-negative integer")
         return self._request("get_preset_screenshot", {
             "folderName": _required_text(folder_name, "folder_name"),
@@ -305,28 +422,38 @@ class QcTools:
             raise ValueError("Device redo requires confirm_risky_operation=true.")
         return self._request("redo_device")
 
-    def tap_screen(self, x: float, y: float, confirm_risky_operation: bool) -> Any:
+    def tap_screen(self, x: int, y: int, confirm_risky_operation: bool) -> Any:
         """Tap one reviewed physical-screen coordinate after explicit confirmation."""
         if confirm_risky_operation is not True:
             raise ValueError("Screen taps require confirm_risky_operation=true.")
-        if isinstance(x, bool) or not isinstance(x, (int, float)) or not 0 <= x < 800:
-            raise ValueError("x must be a real coordinate from 0 up to (but not including) 800")
-        if isinstance(y, bool) or not isinstance(y, (int, float)) or not 0 <= y < 480:
-            raise ValueError("y must be a real coordinate from 0 up to (but not including) 480")
-        return self._request("tap_screen", {"x": float(x), "y": float(y)})
+        if isinstance(x, bool) or not isinstance(x, int) or not 0 <= x < 800:
+            raise ValueError("x must be an integer pixel coordinate from 0 through 799")
+        if isinstance(y, bool) or not isinstance(y, int) or not 0 <= y < 480:
+            raise ValueError("y must be an integer pixel coordinate from 0 through 479")
+        return self._request("tap_screen", {"x": x, "y": y})
 
-    def list_models(self) -> Any:
+    def list_models(self, query: str | None) -> Any:
         """List device models installed and available on the connected Quad Cortex."""
-        return self._request("list_models")
+        if query is not None and not isinstance(query, str):
+            raise ValueError("query must be a string or null")
+        result = self._request("list_models")
+        needle = (query or "").strip().casefold()
+        if not needle:
+            return result
+        if not isinstance(result, Mapping) or not isinstance(result.get("models"), list):
+            raise RuntimeError("device.listModels returned a malformed response")
+        filtered = dict(result)
+        filtered["models"] = [model for model in result["models"] if isinstance(model, Mapping) and any(
+            needle in str(model.get(field, "")).casefold() for field in ("name", "category", "basedOn")
+        )]
+        return filtered
 
-    def list_presets(self, refresh: bool = False, setlist_key: str | None = None) -> Any:
+    def list_presets(self, refresh: bool, setlist_key: str | None) -> Any:
         """List presets, optionally refreshing the device index or restricting a setlist."""
-        params: dict[str, Any] = {"refresh": refresh}
-        if setlist_key is not None:
-            params["setlistKey"] = setlist_key
+        params: dict[str, Any] = {"refresh": refresh, "setlistKey": setlist_key}
         return self._request("list_presets", params)
 
-    def list_preset_folders(self, refresh: bool = False) -> Any:
+    def list_preset_folders(self, refresh: bool) -> Any:
         """List the device's preset folders and setlists."""
         return self._request("list_preset_folders", {"refresh": refresh})
 
@@ -340,7 +467,7 @@ class QcTools:
 
     def get_block_details(self, row: int, column: int, expected_preset_name: str) -> Any:
         """Read the live metadata and parameters for one occupied Grid cell."""
-        _grid_cell(row, column)
+        _parameter_cell(row, column)
         return self._request("get_block_details", {
             "row": row,
             "column": column,
@@ -416,7 +543,7 @@ class QcTools:
 
     def press_footswitch(self, index: int, expected_mode: str, expected_preset_name: str) -> Any:
         """Press one physical footswitch with current mode and preset guards."""
-        if isinstance(index, bool) or not 0 <= index <= 10:
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index <= 10:
             raise ValueError("index must be an integer from 0 through 10")
         return self._request("press_footswitch", {
             "index": index,
@@ -437,7 +564,7 @@ class QcTools:
         """Navigate one bank down (-1) or up (1) after confirming the current position."""
         if isinstance(direction, bool) or direction not in (-1, 1):
             raise ValueError("direction must be -1 (down) or 1 (up)")
-        if isinstance(expected_position, bool) or expected_position < 0:
+        if isinstance(expected_position, bool) or not isinstance(expected_position, int) or expected_position < 0:
             raise ValueError("expected_position must be a non-negative integer")
         return self._request("navigate_bank", {
             "direction": direction,
@@ -445,17 +572,17 @@ class QcTools:
             "expectedPosition": expected_position,
         })
 
-    def show_tuner(self, shown: bool = True) -> Any:
+    def show_tuner(self, shown: bool) -> Any:
         """Show or hide the Quad Cortex tuner overlay."""
         return self._request("show_tuner", {"shown": shown})
 
-    def show_gig_view(self, shown: bool = True) -> Any:
+    def show_gig_view(self, shown: bool) -> Any:
         """Show or hide Gig View on the Quad Cortex."""
         return self._request("show_gig_view", {"shown": shown})
 
     def select_mode_slot(self, slot: int, expected_preset_name: str) -> Any:
         """Select one of the three device-configured performance mode slots."""
-        if isinstance(slot, bool) or not 0 <= slot <= 2:
+        if isinstance(slot, bool) or not isinstance(slot, int) or not 0 <= slot <= 2:
             raise ValueError("slot must be 0, 1, or 2 (Mode Slot A, B, or C)")
         return self._request("select_mode_slot", {
             "slot": slot,
@@ -471,9 +598,9 @@ class QcTools:
         """Set master output volume only after explicit user confirmation."""
         if confirm_risky_operation is not True:
             raise ValueError("Master-volume changes require confirm_risky_operation=true.")
-        if isinstance(value, bool) or not 0 <= value <= 100:
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
             raise ValueError("value must be an integer from 0 through 100")
-        if isinstance(expected_value, bool) or not 0 <= expected_value <= 100:
+        if isinstance(expected_value, bool) or not isinstance(expected_value, int) or not 0 <= expected_value <= 100:
             raise ValueError("expected_value must be an integer from 0 through 100")
         return self._request("set_master_volume", {
             "value": value,
@@ -488,7 +615,7 @@ class QcTools:
         expected_position: int,
     ) -> Any:
         """Recall a preset after guarding both the current name and position."""
-        if isinstance(position, bool) or position < 0 or isinstance(expected_position, bool) or expected_position < 0:
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (position, expected_position)):
             raise ValueError("position and expected_position must be non-negative integers")
         return self._request("recall_preset", {
             "setlistKey": _required_text(setlist_key, "setlist_key"),
@@ -506,7 +633,7 @@ class QcTools:
         """Discard unsaved edits and reload the active preset after confirmation."""
         if confirm_risky_operation is not True:
             raise ValueError("Reloading a preset requires confirm_risky_operation=true.")
-        if isinstance(expected_position, bool) or expected_position < 0:
+        if isinstance(expected_position, bool) or not isinstance(expected_position, int) or expected_position < 0:
             raise ValueError("expected_position must be a non-negative integer")
         return self._request("reload_preset", {
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
@@ -536,7 +663,7 @@ class QcTools:
     ) -> Any:
         """Temporarily bypass or enable a block with preset, scene and bypass guards."""
         _grid_cell(row, column)
-        if isinstance(expected_scene, bool) or not 0 <= expected_scene < SCENE_COUNT:
+        if isinstance(expected_scene, bool) or not isinstance(expected_scene, int) or not 0 <= expected_scene < SCENE_COUNT:
             raise ValueError(f"expected_scene must be an integer from 0 through {SCENE_COUNT - 1}")
         return self._request("set_bypass", {
             "row": row,
@@ -568,7 +695,7 @@ class QcTools:
         expected_preset_name: str,
     ) -> Any:
         """Enable or disable per-scene storage for a block parameter."""
-        _grid_cell(row, column)
+        _parameter_cell(row, column)
         if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
             raise ValueError("parameter_index must be a non-negative integer")
         if not isinstance(enabled, bool):
@@ -584,7 +711,7 @@ class QcTools:
         minimum: float, maximum: float, expected_preset_name: str,
     ) -> Any:
         """Assign or clear an expression pedal using a normalized sweep range."""
-        _grid_cell(row, column)
+        _parameter_cell(row, column)
         if isinstance(parameter_index, bool) or not isinstance(parameter_index, int) or parameter_index < 0:
             raise ValueError("parameter_index must be a non-negative integer")
         if isinstance(pedal, bool) or pedal not in (0, 1, 2):
@@ -678,7 +805,7 @@ class QcTools:
         """Move a block within its row after validating its identity."""
         _grid_cell(row, from_column)
         _grid_cell(row, to_column)
-        if isinstance(expected_model_id, bool) or expected_model_id < 0:
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id < 0:
             raise ValueError("expected_model_id must be a non-negative integer")
         return self._request("move_block", {"row": row, "fromColumn": from_column, "toColumn": to_column,
             "expectedModelId": expected_model_id, "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
@@ -686,7 +813,7 @@ class QcTools:
     def add_block(self, row: int, column: int, model_id: int, expected_preset_name: str) -> Any:
         """Add an installed model to an empty Grid cell."""
         _grid_cell(row, column)
-        if isinstance(model_id, bool) or model_id < 0:
+        if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id < 0:
             raise ValueError("model_id must be a non-negative integer")
         return self._request("add_block", {"row": row, "column": column, "modelId": model_id,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
@@ -694,7 +821,7 @@ class QcTools:
     def remove_block(self, row: int, column: int, expected_model_id: int, expected_preset_name: str) -> Any:
         """Remove a Grid block after validating its identity."""
         _grid_cell(row, column)
-        if isinstance(expected_model_id, bool) or expected_model_id < 0:
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id < 0:
             raise ValueError("expected_model_id must be a non-negative integer")
         return self._request("remove_block", {"row": row, "column": column, "expectedModelId": expected_model_id,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
@@ -707,7 +834,7 @@ class QcTools:
         if any(value is not None and (isinstance(value, bool) or not 0 <= value <= 7)
                for value in (footswitch, expected_footswitch)):
             raise ValueError("footswitch values must be 0 through 7 or null")
-        if isinstance(expected_model_id, bool) or expected_model_id < 0:
+        if isinstance(expected_model_id, bool) or not isinstance(expected_model_id, int) or expected_model_id < 0:
             raise ValueError("expected_model_id must be a non-negative integer")
         return self._request("set_block_footswitch", {"row": row, "column": column, "footswitch": footswitch,
             "expectedFootswitch": expected_footswitch, "expectedModelId": expected_model_id,
@@ -758,7 +885,7 @@ class QcTools:
     def set_chain_input(self, row: int, input_id: int, expected_input_id: int, expected_preset_name: str) -> Any:
         """Change a signal-row input with route and preset guards."""
         _grid_cell(row, 0)
-        if any(isinstance(value, bool) or value < 0 for value in (input_id, expected_input_id)):
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (input_id, expected_input_id)):
             raise ValueError("input route IDs must be non-negative integers")
         return self._request("set_chain_input", {"row": row, "inputId": input_id, "expectedInputId": expected_input_id,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
@@ -766,7 +893,7 @@ class QcTools:
     def set_chain_output(self, row: int, output_id: int, expected_output_id: int, expected_preset_name: str) -> Any:
         """Change a signal-row output with route and preset guards."""
         _grid_cell(row, 0)
-        if any(isinstance(value, bool) or value < 0 for value in (output_id, expected_output_id)):
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (output_id, expected_output_id)):
             raise ValueError("output route IDs must be non-negative integers")
         return self._request("set_chain_output", {"row": row, "outputId": output_id, "expectedOutputId": expected_output_id,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
@@ -810,7 +937,7 @@ class QcTools:
         """Persist a copy only after the host/user supplies an explicit final confirmation."""
         if confirm_persistent_write is not True:
             raise ValueError("Persistent Save As requires confirm_persistent_write=true after destination review.")
-        if isinstance(position, bool) or position < 0 or isinstance(expected_position, bool) or expected_position < 0:
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (position, expected_position)):
             raise ValueError("position and expected_position must be non-negative integers")
         return self._request("save_preset_as", {
             "setlistKey": _required_text(setlist_key, "setlist_key"),
@@ -837,7 +964,7 @@ class QcTools:
         """Rename the active stored user preset after an explicit persistent-write confirmation."""
         if confirm_persistent_write is not True:
             raise ValueError("Preset rename requires confirm_persistent_write=true.")
-        if isinstance(expected_position, bool) or expected_position < 0:
+        if isinstance(expected_position, bool) or not isinstance(expected_position, int) or expected_position < 0:
             raise ValueError("expected_position must be a non-negative integer")
         return self._request("rename_current_preset", {
             "name": _required_text(new_name, "new_name"),
@@ -862,7 +989,7 @@ class QcTools:
         if confirm_persistent_write is not True:
             raise ValueError("Preset copy requires confirm_persistent_write=true after destination review.")
         positions = (source_position, destination_position, expected_position)
-        if any(isinstance(position, bool) or position < 0 for position in positions):
+        if any(isinstance(position, bool) or not isinstance(position, int) or position < 0 for position in positions):
             raise ValueError("source, destination, and expected positions must be non-negative integers")
         return self._request("copy_preset", {
             "sourceSetlistKey": _required_text(source_setlist_key, "source_setlist_key"),
@@ -875,16 +1002,165 @@ class QcTools:
             "confirmOverwrite": confirm_overwrite,
         })
 
+    def get_global_eq(self) -> Any:
+        return self._request("get_global_eq")
+
+    def set_global_eq_bypassed(self, bypassed: bool, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Global EQ changes require confirm_persistent_write=true.")
+        return self._request("set_global_eq_bypassed", {"bypassed": bypassed})
+
+    def set_global_eq_band(self, band: int, gain: float | None, frequency: float | None,
+                           q: float | None, filter_type: int | None, enabled: bool | None,
+                           confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Global EQ changes require confirm_persistent_write=true.")
+        if isinstance(band, bool) or not 1 <= band <= 5:
+            raise ValueError("band must be an integer from 1 through 5")
+        if filter_type is not None and (isinstance(filter_type, bool) or not isinstance(filter_type, int) or not 0 <= filter_type <= 4):
+            raise ValueError("filter_type must be an integer from 0 through 4 or null")
+        return self._request("set_global_eq_band", {"band": band, "gain": gain,
+            "frequency": frequency, "q": q, "filterType": filter_type, "enabled": enabled})
+
+    def set_global_eq_output(self, level: float | None, out12: bool | None, out34: bool | None,
+                             confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Global EQ changes require confirm_persistent_write=true.")
+        return self._request("set_global_eq_output", {"level": level, "out12": out12, "out34": out34})
+
+    def get_mode_cycle(self) -> Any:
+        return self._request("get_mode_cycle")
+
+    def set_mode_cycle(self, slots: list[int], confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Mode-cycle changes require confirm_persistent_write=true.")
+        if not isinstance(slots, list) or not 1 <= len(slots) <= 3 or len(slots) != len(set(slots)) or any(isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 8 for v in slots):
+            raise ValueError("slots must contain one through three mode integers from 0 through 8")
+        return self._request("set_mode_cycle", {"slots": slots})
+
+    def get_global_tempo_settings(self) -> Any:
+        return self._request("get_global_tempo_settings")
+
+    def set_tempo_metronome(self, led_enabled: bool | None, volume_db: float | None,
+                            running: bool | None, pan: float | None, time_signature: str | None,
+                            subdivision: str | None, sound: str | None, routing: str | None,
+                            beats: list[str] | None, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Tempo settings require confirm_persistent_write=true.")
+        return self._request("set_tempo_metronome", {"ledEnabled": led_enabled,
+            "volumeDb": volume_db, "running": running, "pan": pan,
+            "timeSignature": time_signature, "subdivision": subdivision, "sound": sound,
+            "routing": routing, "beats": beats})
+
+    def set_tempo_mode(self, mode: str, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Tempo mode changes require confirm_persistent_write=true.")
+        if mode not in ("PRESET", "GLOBAL"):
+            raise ValueError("mode must be PRESET or GLOBAL")
+        return self._request("set_tempo_mode", {"mode": mode})
+
+    def get_looper_status(self) -> Any:
+        return self._request("get_looper_status")
+
+    def control_looper(self, command: str, value: int | None) -> Any:
+        allowed = {"open", "close", "duplicate", "oneShot", "halfSpeed", "punch", "record", "play", "reverse", "undoRedo", "duplicateMode", "quantize", "midiClockStart", "performMode", "routingMode"}
+        if command not in allowed:
+            raise ValueError("command is not a supported Looper X command")
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 13):
+            raise ValueError("value must be an integer from 0 through 13 or null")
+        return self._request("control_looper", {"command": command, "value": value})
+
+    def list_recents(self) -> Any:
+        return self._request("list_recents")
+
+    def list_favorites(self) -> Any:
+        return self._request("list_favorites")
+
+    def set_favorite(self, name: str, folder_key: str, folder_name: str, is_factory: bool,
+                     favorite: bool, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Favorite changes require confirm_persistent_write=true.")
+        return self._request("set_favorite", {"name": _required_text(name, "name"),
+            "folderKey": _required_text(folder_key, "folder_key"),
+            "folderName": _required_text(folder_name, "folder_name"),
+            "isFactory": is_factory, "favorite": favorite})
+
+    def list_pinned_models(self) -> Any:
+        return self._request("list_pinned_models")
+
+    def set_model_pinned(self, model_id: int, pinned: bool, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Pin changes require confirm_persistent_write=true.")
+        if isinstance(model_id, bool) or not isinstance(model_id, int) or model_id < 0:
+            raise ValueError("model_id must be a non-negative integer")
+        return self._request("set_model_pinned", {"modelId": model_id, "pinned": pinned})
+
+    def list_captures(self) -> Any:
+        return self._request("list_captures")
+
+    def load_capture(self, row: int, column: int, key: str, name: str, model_id: int | None,
+                     expected_model_id: int | None, expected_preset_name: str) -> Any:
+        _grid_cell(row, column)
+        return self._request("load_capture", {"row": row, "column": column,
+            "key": _required_text(key, "key"), "name": _required_text(name, "name"),
+            "modelId": model_id, "expectedModelId": expected_model_id,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
+
+    def list_irs(self, folder: str | None) -> Any:
+        return self._request("list_irs", {"folder": folder})
+
+    def load_ir(self, row: int, column: int, key: str, name: str, slot: int,
+                model_id: int | None, expected_model_id: int | None,
+                expected_preset_name: str) -> Any:
+        _grid_cell(row, column)
+        if isinstance(slot, bool) or slot not in (0, 1):
+            raise ValueError("slot must be 0 or 1")
+        return self._request("load_ir", {"row": row, "column": column,
+            "key": _required_text(key, "key"), "name": _required_text(name, "name"),
+            "slot": slot, "modelId": model_id, "expectedModelId": expected_model_id,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
+
+    def create_setlist(self, name: str, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Setlist creation requires confirm_persistent_write=true.")
+        return self._request("create_setlist", {"name": _required_text(name, "name")})
+
+    def delete_setlist(self, name: str, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Setlist deletion requires confirm_persistent_write=true.")
+        return self._request("delete_setlist", {"name": _required_text(name, "name")})
+
+    def duplicate_setlist(self, source_setlist_key: str, destination_name: str, limit: int | None,
+                          expected_preset_name: str, expected_position: int,
+                          confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Setlist duplication requires confirm_persistent_write=true.")
+        return self._request("duplicate_setlist", {"sourceSetlistKey": _required_text(source_setlist_key, "source_setlist_key"),
+            "destinationName": _required_text(destination_name, "destination_name"), "limit": limit,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+            "expectedPosition": expected_position})
+
+    def delete_preset(self, setlist_key: str, name: str, confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Preset deletion requires confirm_persistent_write=true.")
+        return self._request("delete_preset", {"setlistKey": _required_text(setlist_key, "setlist_key"),
+            "name": _required_text(name, "name")})
+
+    def move_preset(self, setlist_key: str, name: str, position: int,
+                    confirm_persistent_write: bool) -> Any:
+        if confirm_persistent_write is not True:
+            raise ValueError("Preset move requires confirm_persistent_write=true.")
+        if isinstance(position, bool) or not isinstance(position, int) or position < 0:
+            raise ValueError("position must be a non-negative integer")
+        return self._request("move_preset", {"setlistKey": _required_text(setlist_key, "setlist_key"),
+            "name": _required_text(name, "name"), "position": position})
+
 
 def create_mcp(backend: QcBackend, **server_options: Any) -> MCPServer:
     tools = QcTools(backend)
     server = MCPServer(
         "NDSP Quad Cortex",
-        instructions=(
-            "Inspect qc://current-preset before changing the device. Every mutating tool uses "
-            "expected-state values from a fresh snapshot. Changes are temporary unless the separately "
-            "confirmed save_preset_as tool is called. Never invent expected values."
-        ),
+        instructions=MCP_INSTRUCTIONS,
         **server_options,
     )
 
@@ -901,9 +1177,9 @@ def create_mcp(backend: QcBackend, **server_options: Any) -> MCPServer:
     @server.resource("qc://models")
     def models_resource() -> str:
         """Models currently installed and available on this Quad Cortex."""
-        return json.dumps(tools.list_models(), ensure_ascii=False)
+        return json.dumps(tools.list_models(None), ensure_ascii=False)
 
-    read_only = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+    read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False)
     live_write = ToolAnnotations(
         read_only_hint=False,
         destructive_hint=False,

@@ -10,7 +10,7 @@ use crate::{
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        ConnectInfo, State, WebSocketUpgrade,
+        ConnectInfo, DefaultBodyLimit, State, WebSocketUpgrade,
     },
     http::{
         header::{AUTHORIZATION, WWW_AUTHENTICATE},
@@ -123,6 +123,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/devices/revoke", post(revoke_device))
         .route("/v1/control/invoke", post(invoke))
         .route(DEVICE_CONNECT_PATH, get(connect_device))
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_FRAME_BYTES))
         .with_state(state)
 }
 
@@ -374,6 +375,7 @@ impl IntoResponse for ApiError {
             }
             Self::Pairing(_) => (StatusCode::UNAUTHORIZED, "invalid_pairing"),
             Self::Relay(RelayError::UnknownAction) => (StatusCode::BAD_REQUEST, "unknown_action"),
+            Self::Relay(RelayError::InvalidArguments) => (StatusCode::BAD_REQUEST, "invalid_arguments"),
             Self::Relay(
                 RelayError::ConfirmationRequired | RelayError::ConfirmationArgumentRequired(_),
             ) => (StatusCode::PRECONDITION_REQUIRED, "confirmation_required"),

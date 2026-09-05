@@ -2,8 +2,345 @@
 GATEWAY_API_VERSION = 17
 GATEWAY_CAPABILITIES = "modelRepoParameterMetadata", "nativeStateEvents", "nativeDeviceIdentity", "nativeRemoteScreen", "nativeSceneManagement", "nativeParameterAssignments", "nativeStompMetadata", "nativePresetMidiOut", "nativeExpressionBypass", "nativeTunerSettings", "nativeTunerWrites", "nativeLaneControls", "nativeGeneralSettings", "nativeIoSettings", "nativeGlobalEq", "nativeModeCycle", "nativeLooper", "nativeLibraryManagement", "nativeSplitMute", "nativeTempoMetronome",
 GATEWAY_METHODS = frozenset(("system.status", "device.reconnect", "device.resetSession", "device.disconnect", "device.snapshot", "device.stateEvents", "device.tempoClock", "device.listModels", "device.identity", "device.setDeviceName", "device.undo", "device.redo", "device.inhibitedModules", "device.tunerSettings", "device.setTunerInput", "device.setTunerMute", "device.restoreTunerAudio", "device.setTunerReference", "device.generalSettings", "device.ioSettings", "device.setInputPort", "device.setOutputPort", "device.setUsbPort", "device.setMidiThru", "device.setOutputPairing", "device.globalEq", "device.setGlobalEqBypassed", "device.setGlobalEqBand", "device.setGlobalEqOutput", "device.modeCycle", "device.setModeCycle", "device.globalTempoSettings", "device.setTempoMetronome", "device.setTempoMode", "device.looperStatus", "device.controlLooper", "device.recents", "device.favorites", "device.setFavorite", "device.pinnedModels", "device.setModelPinned", "device.captures", "device.loadCapture", "device.irs", "device.loadIr", "device.createSetlist", "device.deleteSetlist", "device.deletePreset", "device.movePreset", "device.setGeneralInteger", "device.setGeneralToggle", "device.setSceneBypassBehavior", "device.setMasterVolumeAssignment", "device.setGlobalBypass", "device.presetScreenshot", "device.captureScreen", "device.tapScreen", "device.selectScene", "device.copyScene", "device.setSceneLabel", "device.setSceneColor", "device.toggleBypass", "device.moveBlock", "device.addBlock", "device.removeBlock", "device.setBlockFootswitch", "device.setStompMomentary", "device.setStompLabel", "device.setMidiOut", "device.setPresetLoadMidiOut", "device.setExpressionBypass", "device.setChainInput", "device.setChainOutput", "device.setChainSplit", "device.setSplitMute", "device.listPresets", "device.listPresetFolders", "device.navigateBank", "device.recallPreset", "device.reloadPreset", "device.blockDetails", "device.laneControlDetails", "device.previewParameter", "device.previewLaneControlParameter", "device.setParameter", "device.setLaneControlParameter", "device.setLaneControlSceneMode", "device.setParameterSceneMode", "device.setParameterExpression", "device.setTempo", "device.setMasterVolume", "device.masterVolume", "device.pressFootswitch", "device.tapTempo", "device.selectModeSlot", "device.listPresetSlots", "device.savePresetAs", "device.copyPreset", "device.renameCurrentPreset", "device.createBackup", "device.showTuner", "device.showGigView"))
+GATEWAY_RESULT_KINDS = {
+    "system.status": "Object",
+    "device.reconnect": "Object",
+    "device.resetSession": "Object",
+    "device.disconnect": "Object",
+    "device.snapshot": "PresetSnapshot",
+    "device.stateEvents": "Object",
+    "device.tempoClock": "Object",
+    "device.listModels": "Object",
+    "device.identity": "Object",
+    "device.setDeviceName": "DeviceActionResult",
+    "device.undo": "DeviceActionResult",
+    "device.redo": "DeviceActionResult",
+    "device.inhibitedModules": "Object",
+    "device.tunerSettings": "Object",
+    "device.setTunerInput": "DeviceActionResult",
+    "device.setTunerMute": "DeviceActionResult",
+    "device.restoreTunerAudio": "DeviceActionResult",
+    "device.setTunerReference": "DeviceActionResult",
+    "device.generalSettings": "Object",
+    "device.ioSettings": "Object",
+    "device.setInputPort": "DeviceActionResult",
+    "device.setOutputPort": "DeviceActionResult",
+    "device.setUsbPort": "DeviceActionResult",
+    "device.setMidiThru": "DeviceActionResult",
+    "device.setOutputPairing": "DeviceActionResult",
+    "device.globalEq": "Object",
+    "device.setGlobalEqBypassed": "DeviceActionResult",
+    "device.setGlobalEqBand": "DeviceActionResult",
+    "device.setGlobalEqOutput": "DeviceActionResult",
+    "device.modeCycle": "Object",
+    "device.setModeCycle": "DeviceActionResult",
+    "device.globalTempoSettings": "Object",
+    "device.setTempoMetronome": "DeviceActionResult",
+    "device.setTempoMode": "DeviceActionResult",
+    "device.looperStatus": "Object",
+    "device.controlLooper": "DeviceActionResult",
+    "device.recents": "Object",
+    "device.favorites": "Object",
+    "device.setFavorite": "DeviceActionResult",
+    "device.pinnedModels": "Object",
+    "device.setModelPinned": "DeviceActionResult",
+    "device.captures": "Object",
+    "device.loadCapture": "DeviceActionResult",
+    "device.irs": "Object",
+    "device.loadIr": "DeviceActionResult",
+    "device.createSetlist": "DeviceActionResult",
+    "device.deleteSetlist": "DeviceActionResult",
+    "device.deletePreset": "DeviceActionResult",
+    "device.movePreset": "DeviceActionResult",
+    "device.setGeneralInteger": "DeviceActionResult",
+    "device.setGeneralToggle": "DeviceActionResult",
+    "device.setSceneBypassBehavior": "DeviceActionResult",
+    "device.setMasterVolumeAssignment": "DeviceActionResult",
+    "device.setGlobalBypass": "DeviceActionResult",
+    "device.presetScreenshot": "Object",
+    "device.captureScreen": "Object",
+    "device.tapScreen": "DeviceActionResult",
+    "device.selectScene": "DeviceActionResult",
+    "device.copyScene": "DeviceActionResult",
+    "device.setSceneLabel": "DeviceActionResult",
+    "device.setSceneColor": "DeviceActionResult",
+    "device.toggleBypass": "DeviceActionResult",
+    "device.moveBlock": "DeviceActionResult",
+    "device.addBlock": "DeviceActionResult",
+    "device.removeBlock": "DeviceActionResult",
+    "device.setBlockFootswitch": "DeviceActionResult",
+    "device.setStompMomentary": "DeviceActionResult",
+    "device.setStompLabel": "DeviceActionResult",
+    "device.setMidiOut": "DeviceActionResult",
+    "device.setPresetLoadMidiOut": "DeviceActionResult",
+    "device.setExpressionBypass": "DeviceActionResult",
+    "device.setChainInput": "DeviceActionResult",
+    "device.setChainOutput": "DeviceActionResult",
+    "device.setChainSplit": "DeviceActionResult",
+    "device.setSplitMute": "DeviceActionResult",
+    "device.listPresets": "Object",
+    "device.listPresetFolders": "Object",
+    "device.navigateBank": "DeviceActionResult",
+    "device.recallPreset": "DeviceActionResult",
+    "device.reloadPreset": "DeviceActionResult",
+    "device.blockDetails": "Object",
+    "device.laneControlDetails": "Object",
+    "device.previewParameter": "Object",
+    "device.previewLaneControlParameter": "Object",
+    "device.setParameter": "DeviceActionResult",
+    "device.setLaneControlParameter": "DeviceActionResult",
+    "device.setLaneControlSceneMode": "DeviceActionResult",
+    "device.setParameterSceneMode": "DeviceActionResult",
+    "device.setParameterExpression": "DeviceActionResult",
+    "device.setTempo": "DeviceActionResult",
+    "device.setMasterVolume": "DeviceActionResult",
+    "device.masterVolume": "Object",
+    "device.pressFootswitch": "DeviceActionResult",
+    "device.tapTempo": "DeviceActionResult",
+    "device.selectModeSlot": "DeviceActionResult",
+    "device.listPresetSlots": "Object",
+    "device.savePresetAs": "DeviceActionResult",
+    "device.copyPreset": "DeviceActionResult",
+    "device.renameCurrentPreset": "DeviceActionResult",
+    "device.createBackup": "Object",
+    "device.showTuner": "DeviceActionResult",
+    "device.showGigView": "DeviceActionResult",
+}
+GATEWAY_ARGUMENTS = {
+    "system.status": (frozenset(()), frozenset(())),
+    "device.reconnect": (frozenset(()), frozenset(())),
+    "device.resetSession": (frozenset(()), frozenset(())),
+    "device.disconnect": (frozenset(()), frozenset(())),
+    "device.snapshot": (frozenset(()), frozenset(())),
+    "device.stateEvents": (frozenset(("afterSequence", "limit")), frozenset(())),
+    "device.tempoClock": (frozenset(()), frozenset(())),
+    "device.listModels": (frozenset(()), frozenset(())),
+    "device.identity": (frozenset(()), frozenset(())),
+    "device.setDeviceName": (frozenset(("name",)), frozenset(("name",))),
+    "device.undo": (frozenset(()), frozenset(())),
+    "device.redo": (frozenset(()), frozenset(())),
+    "device.inhibitedModules": (frozenset(()), frozenset(())),
+    "device.tunerSettings": (frozenset(()), frozenset(())),
+    "device.setTunerInput": (frozenset(("inputPortId", "confirmTunerActivation")), frozenset(("inputPortId", "confirmTunerActivation"))),
+    "device.setTunerMute": (frozenset(("muted", "confirmTunerActivation")), frozenset(("muted", "confirmTunerActivation"))),
+    "device.restoreTunerAudio": (frozenset(("confirmPreferenceReset",)), frozenset(("confirmPreferenceReset",))),
+    "device.setTunerReference": (frozenset(("referenceOffsetHz", "confirmTunerActivation")), frozenset(("referenceOffsetHz", "confirmTunerActivation"))),
+    "device.generalSettings": (frozenset(()), frozenset(())),
+    "device.ioSettings": (frozenset(()), frozenset(())),
+    "device.setInputPort": (frozenset(("inputPortId", "levelDb", "impedance", "inputType", "groundLift")), frozenset(("inputPortId", "levelDb", "impedance", "inputType", "groundLift"))),
+    "device.setOutputPort": (frozenset(("outputPortId", "level", "groundLift", "mute")), frozenset(("outputPortId", "level", "groundLift", "mute"))),
+    "device.setUsbPort": (frozenset(("level", "headphonesSource", "dryWet")), frozenset(("level", "headphonesSource", "dryWet"))),
+    "device.setMidiThru": (frozenset(("enabled",)), frozenset(("enabled",))),
+    "device.setOutputPairing": (frozenset(("xlr12Linked", "out34Linked")), frozenset(("xlr12Linked", "out34Linked"))),
+    "device.globalEq": (frozenset(()), frozenset(())),
+    "device.setGlobalEqBypassed": (frozenset(("bypassed",)), frozenset(("bypassed",))),
+    "device.setGlobalEqBand": (frozenset(("band", "gain", "frequency", "q", "filterType", "enabled")), frozenset(("band", "gain", "frequency", "q", "filterType", "enabled"))),
+    "device.setGlobalEqOutput": (frozenset(("level", "out12", "out34")), frozenset(("level", "out12", "out34"))),
+    "device.modeCycle": (frozenset(()), frozenset(())),
+    "device.setModeCycle": (frozenset(("slots",)), frozenset(("slots",))),
+    "device.globalTempoSettings": (frozenset(()), frozenset(())),
+    "device.setTempoMetronome": (frozenset(("ledEnabled", "volumeDb", "running", "pan", "timeSignature", "subdivision", "sound", "routing", "beats")), frozenset(("ledEnabled", "volumeDb", "running", "pan", "timeSignature", "subdivision", "sound", "routing", "beats"))),
+    "device.setTempoMode": (frozenset(("mode",)), frozenset(("mode",))),
+    "device.looperStatus": (frozenset(()), frozenset(())),
+    "device.controlLooper": (frozenset(("command", "value")), frozenset(("command", "value"))),
+    "device.recents": (frozenset(()), frozenset(())),
+    "device.favorites": (frozenset(()), frozenset(())),
+    "device.setFavorite": (frozenset(("name", "folderKey", "folderName", "isFactory", "favorite")), frozenset(("name", "folderKey", "folderName", "isFactory", "favorite"))),
+    "device.pinnedModels": (frozenset(()), frozenset(())),
+    "device.setModelPinned": (frozenset(("modelId", "pinned")), frozenset(("modelId", "pinned"))),
+    "device.captures": (frozenset(()), frozenset(())),
+    "device.loadCapture": (frozenset(("row", "column", "key", "name", "modelId", "expectedModelId", "expectedPresetName")), frozenset(("row", "column", "key", "name", "modelId", "expectedModelId"))),
+    "device.irs": (frozenset(("folder",)), frozenset(("folder",))),
+    "device.loadIr": (frozenset(("row", "column", "key", "name", "slot", "modelId", "expectedModelId", "expectedPresetName")), frozenset(("row", "column", "key", "name", "slot", "modelId", "expectedModelId"))),
+    "device.createSetlist": (frozenset(("name",)), frozenset(("name",))),
+    "device.deleteSetlist": (frozenset(("name",)), frozenset(("name",))),
+    "device.deletePreset": (frozenset(("setlistKey", "name")), frozenset(("setlistKey", "name"))),
+    "device.movePreset": (frozenset(("setlistKey", "name", "position")), frozenset(("setlistKey", "name", "position"))),
+    "device.setGeneralInteger": (frozenset(("setting", "value")), frozenset(("setting", "value"))),
+    "device.setGeneralToggle": (frozenset(("setting", "enabled")), frozenset(("setting", "enabled"))),
+    "device.setSceneBypassBehavior": (frozenset(("behavior",)), frozenset(("behavior",))),
+    "device.setMasterVolumeAssignment": (frozenset(("out12", "out34", "send12", "headphones")), frozenset(("out12", "out34", "send12", "headphones"))),
+    "device.setGlobalBypass": (frozenset(("cab", "ir")), frozenset(("cab", "ir"))),
+    "device.presetScreenshot": (frozenset(("folderName", "position", "isFactory")), frozenset(("folderName", "position"))),
+    "device.captureScreen": (frozenset(()), frozenset(())),
+    "device.tapScreen": (frozenset(("x", "y")), frozenset(("x", "y"))),
+    "device.selectScene": (frozenset(("scene", "expectedPresetName")), frozenset(("scene",))),
+    "device.copyScene": (frozenset(("fromScene", "toScene", "swap", "expectedPresetName")), frozenset(("fromScene", "toScene"))),
+    "device.setSceneLabel": (frozenset(("scene", "label", "expectedPresetName")), frozenset(("scene", "label"))),
+    "device.setSceneColor": (frozenset(("scene", "color", "expectedPresetName")), frozenset(("scene", "color"))),
+    "device.toggleBypass": (frozenset(("row", "column", "expectedScene", "expectedBypassed", "desiredBypassed", "expectedPresetName")), frozenset(("row", "column", "expectedScene", "expectedBypassed", "desiredBypassed"))),
+    "device.moveBlock": (frozenset(("row", "fromColumn", "toColumn", "expectedModelId", "expectedPresetName")), frozenset(("row", "fromColumn", "toColumn", "expectedModelId"))),
+    "device.addBlock": (frozenset(("row", "column", "modelId", "expectedPresetName")), frozenset(("row", "column", "modelId"))),
+    "device.removeBlock": (frozenset(("row", "column", "expectedModelId", "expectedPresetName")), frozenset(("row", "column", "expectedModelId"))),
+    "device.setBlockFootswitch": (frozenset(("row", "column", "footswitch", "expectedFootswitch", "expectedModelId", "expectedPresetName")), frozenset(("row", "column", "footswitch", "expectedFootswitch", "expectedModelId"))),
+    "device.setStompMomentary": (frozenset(("footswitch", "momentary", "expectedPresetName")), frozenset(("footswitch", "momentary"))),
+    "device.setStompLabel": (frozenset(("footswitch", "label", "expectedPresetName")), frozenset(("footswitch", "label"))),
+    "device.setMidiOut": (frozenset(("source", "messages", "expectedPresetName")), frozenset(("source", "messages"))),
+    "device.setPresetLoadMidiOut": (frozenset(("messages", "expectedPresetName")), frozenset(("messages",))),
+    "device.setExpressionBypass": (frozenset(("row", "column", "pedal", "mode", "invert", "delayMs", "latchEmulation", "expectedPresetName")), frozenset(("row", "column", "pedal", "mode", "invert", "delayMs", "latchEmulation"))),
+    "device.setChainInput": (frozenset(("row", "inputId", "expectedInputId", "expectedPresetName")), frozenset(("row", "inputId", "expectedInputId"))),
+    "device.setChainOutput": (frozenset(("row", "outputId", "expectedOutputId", "expectedPresetName")), frozenset(("row", "outputId", "expectedOutputId"))),
+    "device.setChainSplit": (frozenset(("row", "splitColumn", "mixColumn", "expectedSplitColumn", "expectedMixColumn", "expectedPresetName")), frozenset(("row", "splitColumn", "mixColumn", "expectedSplitColumn", "expectedMixColumn"))),
+    "device.setSplitMute": (frozenset(("row", "muted", "expectedMuted", "expectedPresetName")), frozenset(("row", "muted", "expectedMuted"))),
+    "device.listPresets": (frozenset(("refresh", "setlistKey")), frozenset(("setlistKey",))),
+    "device.listPresetFolders": (frozenset(("refresh",)), frozenset(())),
+    "device.navigateBank": (frozenset(("direction", "expectedPresetName", "expectedPosition")), frozenset(("direction", "expectedPosition"))),
+    "device.recallPreset": (frozenset(("setlistKey", "position", "expectedPresetName", "expectedPosition")), frozenset(("setlistKey", "position", "expectedPosition"))),
+    "device.reloadPreset": (frozenset(("expectedPresetName", "expectedPosition")), frozenset(("expectedPosition",))),
+    "device.blockDetails": (frozenset(("row", "column", "expectedPresetName")), frozenset(("row", "column"))),
+    "device.laneControlDetails": (frozenset(("row", "control", "expectedPresetName")), frozenset(("row", "control"))),
+    "device.previewParameter": (frozenset(("row", "column", "parameterIndex", "value", "expectedValue", "expectedScene", "expectedPresetName")), frozenset(("row", "column", "parameterIndex", "value", "expectedValue", "expectedScene"))),
+    "device.previewLaneControlParameter": (frozenset(("row", "control", "parameterIndex", "value", "expectedValue", "expectedPresetName")), frozenset(("row", "control", "parameterIndex", "value", "expectedValue"))),
+    "device.setParameter": (frozenset(("row", "column", "parameterIndex", "value", "expectedValue", "expectedScene", "expectedPresetName")), frozenset(("row", "column", "parameterIndex", "value", "expectedValue", "expectedScene"))),
+    "device.setLaneControlParameter": (frozenset(("row", "control", "parameterIndex", "value", "expectedValue", "expectedPresetName")), frozenset(("row", "control", "parameterIndex", "value", "expectedValue"))),
+    "device.setLaneControlSceneMode": (frozenset(("row", "control", "parameterIndex", "enabled", "expectedPresetName")), frozenset(("row", "control", "parameterIndex", "enabled"))),
+    "device.setParameterSceneMode": (frozenset(("row", "column", "parameterIndex", "enabled", "expectedPresetName")), frozenset(("row", "column", "parameterIndex", "enabled"))),
+    "device.setParameterExpression": (frozenset(("row", "column", "parameterIndex", "pedal", "minimum", "maximum", "expectedPresetName")), frozenset(("row", "column", "parameterIndex", "pedal", "minimum", "maximum"))),
+    "device.setTempo": (frozenset(("bpm", "expectedTempo", "expectedPresetName")), frozenset(("bpm", "expectedTempo"))),
+    "device.setMasterVolume": (frozenset(("value", "expectedValue")), frozenset(("value", "expectedValue"))),
+    "device.masterVolume": (frozenset(()), frozenset(())),
+    "device.pressFootswitch": (frozenset(("index", "expectedMode", "expectedPresetName")), frozenset(("index", "expectedMode"))),
+    "device.tapTempo": (frozenset(("expectedMode", "expectedPresetName")), frozenset(("expectedMode",))),
+    "device.selectModeSlot": (frozenset(("slot", "expectedPresetName")), frozenset(("slot",))),
+    "device.listPresetSlots": (frozenset(()), frozenset(())),
+    "device.savePresetAs": (frozenset(("setlistKey", "position", "name", "expectedPresetName", "expectedPosition", "confirmOverwrite")), frozenset(("setlistKey", "position", "name", "expectedPosition"))),
+    "device.copyPreset": (frozenset(("sourceSetlistKey", "sourcePosition", "sourceName", "destinationSetlistKey", "destinationPosition", "expectedPresetName", "expectedPosition", "confirmOverwrite")), frozenset(("sourceSetlistKey", "sourcePosition", "destinationSetlistKey", "destinationPosition", "expectedPosition"))),
+    "device.renameCurrentPreset": (frozenset(("name", "expectedPresetName", "expectedPosition", "confirmRename")), frozenset(("name", "expectedPosition"))),
+    "device.createBackup": (frozenset(("name",)), frozenset(())),
+    "device.showTuner": (frozenset(("shown",)), frozenset(())),
+    "device.showGigView": (frozenset(("shown",)), frozenset(())),
+}
+GATEWAY_ARGUMENT_TYPES = {
+    "system.status": {},
+    "device.reconnect": {},
+    "device.resetSession": {},
+    "device.disconnect": {},
+    "device.snapshot": {},
+    "device.stateEvents": {"afterSequence": "integer", "limit": "integer"},
+    "device.tempoClock": {},
+    "device.listModels": {},
+    "device.identity": {},
+    "device.setDeviceName": {"name": "string"},
+    "device.undo": {},
+    "device.redo": {},
+    "device.inhibitedModules": {},
+    "device.tunerSettings": {},
+    "device.setTunerInput": {"inputPortId": "integer", "confirmTunerActivation": "boolean"},
+    "device.setTunerMute": {"muted": "boolean", "confirmTunerActivation": "boolean"},
+    "device.restoreTunerAudio": {"confirmPreferenceReset": "boolean"},
+    "device.setTunerReference": {"referenceOffsetHz": "number", "confirmTunerActivation": "boolean"},
+    "device.generalSettings": {},
+    "device.ioSettings": {},
+    "device.setInputPort": {"inputPortId": "integer", "levelDb": "nullable-number", "impedance": "nullable-number", "inputType": "nullable-number", "groundLift": "nullable-number"},
+    "device.setOutputPort": {"outputPortId": "integer", "level": "nullable-number", "groundLift": "nullable-number", "mute": "nullable-boolean"},
+    "device.setUsbPort": {"level": "nullable-number", "headphonesSource": "nullable-number", "dryWet": "nullable-number"},
+    "device.setMidiThru": {"enabled": "boolean"},
+    "device.setOutputPairing": {"xlr12Linked": "nullable-boolean", "out34Linked": "nullable-boolean"},
+    "device.globalEq": {},
+    "device.setGlobalEqBypassed": {"bypassed": "boolean"},
+    "device.setGlobalEqBand": {"band": "integer", "gain": "nullable-number", "frequency": "nullable-number", "q": "nullable-number", "filterType": "nullable-integer", "enabled": "nullable-boolean"},
+    "device.setGlobalEqOutput": {"level": "nullable-number", "out12": "nullable-boolean", "out34": "nullable-boolean"},
+    "device.modeCycle": {},
+    "device.setModeCycle": {"slots": "integer"},
+    "device.globalTempoSettings": {},
+    "device.setTempoMetronome": {"ledEnabled": "nullable-boolean", "volumeDb": "nullable-number", "running": "nullable-boolean", "pan": "nullable-number", "timeSignature": "nullable-string", "subdivision": "nullable-string", "sound": "nullable-string", "routing": "nullable-string", "beats": "nullable-array"},
+    "device.setTempoMode": {"mode": "string"},
+    "device.looperStatus": {},
+    "device.controlLooper": {"command": "string", "value": "nullable-integer"},
+    "device.recents": {},
+    "device.favorites": {},
+    "device.setFavorite": {"name": "string", "folderKey": "string", "folderName": "string", "isFactory": "boolean", "favorite": "boolean"},
+    "device.pinnedModels": {},
+    "device.setModelPinned": {"modelId": "integer", "pinned": "boolean"},
+    "device.captures": {},
+    "device.loadCapture": {"row": "integer", "column": "integer", "key": "string", "name": "string", "modelId": "nullable-integer", "expectedModelId": "nullable-integer", "expectedPresetName": "string"},
+    "device.irs": {"folder": "nullable-string"},
+    "device.loadIr": {"row": "integer", "column": "integer", "key": "string", "name": "string", "slot": "integer", "modelId": "nullable-integer", "expectedModelId": "nullable-integer", "expectedPresetName": "string"},
+    "device.createSetlist": {"name": "string"},
+    "device.deleteSetlist": {"name": "string"},
+    "device.deletePreset": {"setlistKey": "string", "name": "string"},
+    "device.movePreset": {"setlistKey": "string", "name": "string", "position": "integer"},
+    "device.setGeneralInteger": {"setting": "string", "value": "integer"},
+    "device.setGeneralToggle": {"setting": "string", "enabled": "boolean"},
+    "device.setSceneBypassBehavior": {"behavior": "string"},
+    "device.setMasterVolumeAssignment": {"out12": "boolean", "out34": "boolean", "send12": "boolean", "headphones": "boolean"},
+    "device.setGlobalBypass": {"cab": "array", "ir": "array"},
+    "device.presetScreenshot": {"folderName": "string", "position": "integer", "isFactory": "boolean"},
+    "device.captureScreen": {},
+    "device.tapScreen": {"x": "integer", "y": "integer"},
+    "device.selectScene": {"scene": "integer", "expectedPresetName": "string"},
+    "device.copyScene": {"fromScene": "integer", "toScene": "integer", "swap": "boolean", "expectedPresetName": "string"},
+    "device.setSceneLabel": {"scene": "integer", "label": "nullable-string", "expectedPresetName": "string"},
+    "device.setSceneColor": {"scene": "integer", "color": "integer", "expectedPresetName": "string"},
+    "device.toggleBypass": {"row": "integer", "column": "integer", "expectedScene": "integer", "expectedBypassed": "boolean", "desiredBypassed": "boolean", "expectedPresetName": "string"},
+    "device.moveBlock": {"row": "integer", "fromColumn": "integer", "toColumn": "integer", "expectedModelId": "integer", "expectedPresetName": "string"},
+    "device.addBlock": {"row": "integer", "column": "integer", "modelId": "integer", "expectedPresetName": "string"},
+    "device.removeBlock": {"row": "integer", "column": "integer", "expectedModelId": "integer", "expectedPresetName": "string"},
+    "device.setBlockFootswitch": {"row": "integer", "column": "integer", "footswitch": "nullable-integer", "expectedFootswitch": "nullable-integer", "expectedModelId": "integer", "expectedPresetName": "string"},
+    "device.setStompMomentary": {"footswitch": "integer", "momentary": "boolean", "expectedPresetName": "string"},
+    "device.setStompLabel": {"footswitch": "integer", "label": "string", "expectedPresetName": "string"},
+    "device.setMidiOut": {"source": "integer", "messages": "array", "expectedPresetName": "string"},
+    "device.setPresetLoadMidiOut": {"messages": "array", "expectedPresetName": "string"},
+    "device.setExpressionBypass": {"row": "integer", "column": "integer", "pedal": "integer", "mode": "integer", "invert": "boolean", "delayMs": "integer", "latchEmulation": "boolean", "expectedPresetName": "string"},
+    "device.setChainInput": {"row": "integer", "inputId": "integer", "expectedInputId": "integer", "expectedPresetName": "string"},
+    "device.setChainOutput": {"row": "integer", "outputId": "integer", "expectedOutputId": "integer", "expectedPresetName": "string"},
+    "device.setChainSplit": {"row": "integer", "splitColumn": "nullable-integer", "mixColumn": "nullable-integer", "expectedSplitColumn": "nullable-integer", "expectedMixColumn": "nullable-integer", "expectedPresetName": "string"},
+    "device.setSplitMute": {"row": "integer", "muted": "boolean", "expectedMuted": "boolean", "expectedPresetName": "string"},
+    "device.listPresets": {"refresh": "boolean", "setlistKey": "nullable-string"},
+    "device.listPresetFolders": {"refresh": "boolean"},
+    "device.navigateBank": {"direction": "integer", "expectedPresetName": "string", "expectedPosition": "integer"},
+    "device.recallPreset": {"setlistKey": "string", "position": "integer", "expectedPresetName": "string", "expectedPosition": "integer"},
+    "device.reloadPreset": {"expectedPresetName": "string", "expectedPosition": "integer"},
+    "device.blockDetails": {"row": "integer", "column": "integer", "expectedPresetName": "string"},
+    "device.laneControlDetails": {"row": "integer", "control": "string", "expectedPresetName": "string"},
+    "device.previewParameter": {"row": "integer", "column": "integer", "parameterIndex": "integer", "value": "number", "expectedValue": "number", "expectedScene": "integer", "expectedPresetName": "string"},
+    "device.previewLaneControlParameter": {"row": "integer", "control": "string", "parameterIndex": "integer", "value": "number", "expectedValue": "number", "expectedPresetName": "string"},
+    "device.setParameter": {"row": "integer", "column": "integer", "parameterIndex": "integer", "value": "number", "expectedValue": "number", "expectedScene": "integer", "expectedPresetName": "string"},
+    "device.setLaneControlParameter": {"row": "integer", "control": "string", "parameterIndex": "integer", "value": "number", "expectedValue": "number", "expectedPresetName": "string"},
+    "device.setLaneControlSceneMode": {"row": "integer", "control": "string", "parameterIndex": "integer", "enabled": "boolean", "expectedPresetName": "string"},
+    "device.setParameterSceneMode": {"row": "integer", "column": "integer", "parameterIndex": "integer", "enabled": "boolean", "expectedPresetName": "string"},
+    "device.setParameterExpression": {"row": "integer", "column": "integer", "parameterIndex": "integer", "pedal": "integer", "minimum": "number", "maximum": "number", "expectedPresetName": "string"},
+    "device.setTempo": {"bpm": "integer", "expectedTempo": "integer", "expectedPresetName": "string"},
+    "device.setMasterVolume": {"value": "integer", "expectedValue": "integer"},
+    "device.masterVolume": {},
+    "device.pressFootswitch": {"index": "integer", "expectedMode": "string", "expectedPresetName": "string"},
+    "device.tapTempo": {"expectedMode": "string", "expectedPresetName": "string"},
+    "device.selectModeSlot": {"slot": "integer", "expectedPresetName": "string"},
+    "device.listPresetSlots": {},
+    "device.savePresetAs": {"setlistKey": "string", "position": "integer", "name": "string", "expectedPresetName": "string", "expectedPosition": "integer", "confirmOverwrite": "boolean"},
+    "device.copyPreset": {"sourceSetlistKey": "string", "sourcePosition": "integer", "sourceName": "string", "destinationSetlistKey": "string", "destinationPosition": "integer", "expectedPresetName": "string", "expectedPosition": "integer", "confirmOverwrite": "boolean"},
+    "device.renameCurrentPreset": {"name": "string", "expectedPresetName": "string", "expectedPosition": "integer", "confirmRename": "boolean"},
+    "device.createBackup": {"name": "string"},
+    "device.showTuner": {"shown": "boolean"},
+    "device.showGigView": {"shown": "boolean"},
+}
+
+def validate_gateway_params(method, params):
+    allowed, required = GATEWAY_ARGUMENTS[method]
+    supplied = set(params)
+    unexpected = sorted(supplied - allowed)
+    missing = sorted(required - supplied)
+    if unexpected or missing:
+        raise ValueError(f"Invalid params for {method}: missing={missing}, unexpected={unexpected}")
+    for name, kind in GATEWAY_ARGUMENT_TYPES[method].items():
+        if name not in params:
+            continue
+        value = params[name]
+        nullable = kind.startswith("nullable-")
+        base = kind.removeprefix("nullable-")
+        if nullable and value is None:
+            continue
+        valid = ((base == "boolean" and isinstance(value, bool))
+            or (base == "integer" and isinstance(value, int) and not isinstance(value, bool))
+            or (base == "number" and isinstance(value, (int, float)) and not isinstance(value, bool)
+                and __import__("math").isfinite(value))
+            or (base == "string" and isinstance(value, str))
+            or (base == "array" and isinstance(value, list)))
+        if not valid:
+            raise ValueError(f"{method}.{name} must be {kind}")
 
 def dispatch_device_method(device, method, params):
+    validate_gateway_params(method, params)
     if method == "device.reconnect":
         return device.reconnect()
     elif method == "device.resetSession":
@@ -53,7 +390,7 @@ def dispatch_device_method(device, method, params):
     elif method == "device.setOutputPairing":
         return device.set_output_pairing(params.get("xlr12Linked"), params.get("out34Linked"))
     elif method == "device.globalEq":
-        return device.global_eq()
+        return device.get_global_eq()
     elif method == "device.setGlobalEqBypassed":
         return device.set_global_eq_bypassed(params.get("bypassed"))
     elif method == "device.setGlobalEqBand":
@@ -61,37 +398,37 @@ def dispatch_device_method(device, method, params):
     elif method == "device.setGlobalEqOutput":
         return device.set_global_eq_output(params.get("level"), params.get("out12"), params.get("out34"))
     elif method == "device.modeCycle":
-        return device.mode_cycle()
+        return device.get_mode_cycle()
     elif method == "device.setModeCycle":
         return device.set_mode_cycle(params.get("slots"))
     elif method == "device.globalTempoSettings":
-        return device.global_tempo_settings()
+        return device.get_global_tempo_settings()
     elif method == "device.setTempoMetronome":
         return device.set_tempo_metronome(params.get("ledEnabled"), params.get("volumeDb"), params.get("running"), params.get("pan"), params.get("timeSignature"), params.get("subdivision"), params.get("sound"), params.get("routing"), params.get("beats"))
     elif method == "device.setTempoMode":
         return device.set_tempo_mode(params.get("mode"))
     elif method == "device.looperStatus":
-        return device.looper_status()
+        return device.get_looper_status()
     elif method == "device.controlLooper":
         return device.control_looper(params.get("command"), params.get("value"))
     elif method == "device.recents":
-        return device.recents()
+        return device.list_recents()
     elif method == "device.favorites":
-        return device.favorites()
+        return device.list_favorites()
     elif method == "device.setFavorite":
         return device.set_favorite(params.get("name"), params.get("folderKey"), params.get("folderName"), params.get("isFactory"), params.get("favorite"))
     elif method == "device.pinnedModels":
-        return device.pinned_models()
+        return device.list_pinned_models()
     elif method == "device.setModelPinned":
         return device.set_model_pinned(params.get("modelId"), params.get("pinned"))
     elif method == "device.captures":
-        return device.captures()
+        return device.list_captures()
     elif method == "device.loadCapture":
-        return device.load_capture(params.get("row"), params.get("column"), params.get("key"), params.get("name"), params.get("modelId"))
+        return device.load_capture(params.get("row"), params.get("column"), params.get("key"), params.get("name"), params.get("modelId"), params.get("expectedModelId"), params.get("expectedPresetName", ""))
     elif method == "device.irs":
-        return device.irs(params.get("folder"))
+        return device.list_irs(params.get("folder"))
     elif method == "device.loadIr":
-        return device.load_ir(params.get("row"), params.get("column"), params.get("key"), params.get("name"), params.get("slot"), params.get("modelId"))
+        return device.load_ir(params.get("row"), params.get("column"), params.get("key"), params.get("name"), params.get("slot"), params.get("modelId"), params.get("expectedModelId"), params.get("expectedPresetName", ""))
     elif method == "device.createSetlist":
         return device.create_setlist(params.get("name"))
     elif method == "device.deleteSetlist":
@@ -167,9 +504,9 @@ def dispatch_device_method(device, method, params):
     elif method == "device.laneControlDetails":
         return device.lane_control_details(params.get("row"), params.get("control"), params.get("expectedPresetName", ""))
     elif method == "device.previewParameter":
-        return device.preview_parameter(params.get("row"), params.get("column"), params.get("parameterIndex"), params.get("value"), params.get("expectedScene"), params.get("expectedPresetName", ""))
+        return device.preview_parameter(params.get("row"), params.get("column"), params.get("parameterIndex"), params.get("value"), params.get("expectedValue"), params.get("expectedScene"), params.get("expectedPresetName", ""))
     elif method == "device.previewLaneControlParameter":
-        return device.preview_lane_control_parameter(params.get("row"), params.get("control"), params.get("parameterIndex"), params.get("value"), params.get("expectedPresetName", ""))
+        return device.preview_lane_control_parameter(params.get("row"), params.get("control"), params.get("parameterIndex"), params.get("value"), params.get("expectedValue"), params.get("expectedPresetName", ""))
     elif method == "device.setParameter":
         return device.set_parameter(params.get("row"), params.get("column"), params.get("parameterIndex"), params.get("value"), params.get("expectedValue"), params.get("expectedScene"), params.get("expectedPresetName", ""))
     elif method == "device.setLaneControlParameter":

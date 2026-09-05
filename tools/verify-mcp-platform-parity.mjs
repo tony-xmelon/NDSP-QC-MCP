@@ -11,7 +11,7 @@ const [actionsContract, gatewayContract, androidActions, relayActions, rustMcpAc
   json("contracts/gateway-methods.v1.json"),
   text("apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedRemoteActions.java"),
   text("services/qc-relay/src/generated_actions.rs"),
-  text("services/rust-mcp/src/actions.rs"),
+  text("services/rust-mcp/src/generated_actions.rs"),
   text("apps/windows/src/App.tsx"),
   text("apps/windows/src/model-chat.ts"),
   text("apps/android/src/App.tsx"),

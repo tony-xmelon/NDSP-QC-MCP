@@ -12,6 +12,15 @@ use crate::proto::{
 };
 use crate::{domain, profile};
 use prost::Message;
+use thiserror::Error;
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum CommandEncodeError {
+    #[error("unsupported {field}: {value}")]
+    UnsupportedValue { field: &'static str, value: String },
+    #[error("{field} must fit in a signed 32-bit protobuf field")]
+    SignedFieldOverflow { field: &'static str },
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutboundMessage {
@@ -316,6 +325,101 @@ pub enum DeviceOperation {
 }
 
 impl DeviceOperation {
+    /// Encode a public operation after checking values that the protobuf wire
+    /// shape cannot represent and string selectors used for sparse dispatch.
+    pub fn try_encode(self) -> Result<Vec<OutboundMessage>, CommandEncodeError> {
+        self.validate_for_encoding()?;
+        Ok(self.encode())
+    }
+
+    fn validate_for_encoding(&self) -> Result<(), CommandEncodeError> {
+        let signed = |field, value| {
+            i32::try_from(value)
+                .map(|_| ())
+                .map_err(|_| CommandEncodeError::SignedFieldOverflow { field })
+        };
+        match self {
+            Self::SetGeneralInteger { setting, .. } => {
+                if !matches!(
+                    setting.as_str(),
+                    "screenBrightness"
+                        | "ledBrightness"
+                        | "dimmedLedBrightness"
+                        | "holdTiming"
+                        | "midiChannel"
+                ) {
+                    return Err(CommandEncodeError::UnsupportedValue {
+                        field: "GeneralSettings integer",
+                        value: setting.clone(),
+                    });
+                }
+            }
+            Self::SetGeneralToggle { setting, .. } => {
+                if !matches!(
+                    setting.as_str(),
+                    "midiOverUsb"
+                        | "ignoreDuplicatePc"
+                        | "stompModeAutoAssign"
+                        | "swapTempoTunerAccess"
+                        | "disableInternetConnectionCheck"
+                        | "dynamicDelayCompensation"
+                        | "presetDimmed"
+                        | "midiClockIn"
+                        | "gigViewStompAccess"
+                ) {
+                    return Err(CommandEncodeError::UnsupportedValue {
+                        field: "GeneralSettings toggle",
+                        value: setting.clone(),
+                    });
+                }
+            }
+            Self::SetRoutingParameter { node, .. } => {
+                if !matches!(node.as_str(), "splitter" | "mixer") {
+                    return Err(CommandEncodeError::UnsupportedValue {
+                        field: "routing node",
+                        value: node.clone(),
+                    });
+                }
+            }
+            Self::SetLaneControlParameter { control, .. }
+            | Self::SetLaneControlSceneMode { control, .. } => {
+                if !matches!(control.as_str(), "inputGate" | "laneOutput") {
+                    return Err(CommandEncodeError::UnsupportedValue {
+                        field: "lane control",
+                        value: control.clone(),
+                    });
+                }
+            }
+            Self::SetParameterSceneMode { column, .. }
+            | Self::SetParameterExpression { column, .. }
+                if *column > 9 =>
+            {
+                return Err(CommandEncodeError::UnsupportedValue {
+                    field: "parameter target column",
+                    value: column.to_string(),
+                });
+            }
+            Self::MovePreset { position, .. }
+            | Self::SavePreset { position, .. }
+            | Self::PresetScreenshot { position, .. } => signed("position", *position)?,
+            Self::CopyScene {
+                from_index,
+                to_index,
+                ..
+            } => {
+                signed("from_index", *from_index)?;
+                signed("to_index", *to_index)?;
+            }
+            Self::SetSceneLabel { scene, .. } | Self::SetSceneColor { scene, .. } => {
+                signed("scene", *scene)?;
+            }
+            Self::SetParameterExpression { pedal, .. }
+            | Self::SetExpressionBypass { pedal, .. } => signed("pedal", *pedal)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
     pub fn encode(self) -> Vec<OutboundMessage> {
         match self {
             Self::Command(command) => vec![command.encode()],
@@ -2402,7 +2506,7 @@ mod tests {
         let momentary = set_stomp_momentary(4, true);
         let grid = pa::GridMessage::decode(momentary.payload.as_slice()).unwrap();
         let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
-        assert_eq!(preset.stomp_is_momentary.get(&4), Some(&true));
+        assert!(matches!(preset.stomp_is_momentary.get(&4), Some(true)));
         assert!(preset.stomp_mode_assignments.is_empty());
         assert!(preset.stomp_labels.is_empty());
         assert!(preset.single_stomp_labels.is_empty());
@@ -2866,5 +2970,53 @@ mod tests {
         assert_eq!(ir.len(), 2);
         assert_eq!(text_update(&ir[0]), (10, "ir/key".into()));
         assert_eq!(text_update(&ir[1]), (23, "Room".into()));
+    }
+
+    #[test]
+    fn checked_operation_encoding_rejects_invalid_dispatch_and_signed_overflow() {
+        let invalid_setting = DeviceOperation::SetGeneralInteger {
+            setting: "notASetting".into(),
+            value: 1,
+        };
+        assert!(matches!(
+            invalid_setting.try_encode(),
+            Err(CommandEncodeError::UnsupportedValue {
+                field: "GeneralSettings integer",
+                ..
+            })
+        ));
+
+        let invalid_control = DeviceOperation::SetLaneControlParameter {
+            row: 0,
+            control: "sidechain".into(),
+            parameter_index: 0,
+            value: 0.5,
+        };
+        assert!(matches!(
+            invalid_control.try_encode(),
+            Err(CommandEncodeError::UnsupportedValue {
+                field: "lane control",
+                ..
+            })
+        ));
+
+        let overflowing_position = DeviceOperation::MovePreset {
+            setlist_key: "/media/p4/Presets/Live".into(),
+            name: "Stage".into(),
+            position: i32::MAX as u32 + 1,
+        };
+        assert_eq!(
+            overflowing_position.try_encode(),
+            Err(CommandEncodeError::SignedFieldOverflow { field: "position" })
+        );
+    }
+
+    #[test]
+    fn checked_operation_encoding_preserves_valid_wire_bytes() {
+        let operation = DeviceOperation::SetGeneralToggle {
+            setting: "midiOverUsb".into(),
+            enabled: true,
+        };
+        assert_eq!(operation.clone().try_encode().unwrap(), operation.encode());
     }
 }

@@ -23,6 +23,8 @@ pub enum RelayError {
     ConfirmationRequired,
     #[error("confirmation argument `{0}` must be true")]
     ConfirmationArgumentRequired(String),
+    #[error("invalid action arguments")]
+    InvalidArguments,
     #[error("device is not paired to this principal")]
     Forbidden,
     #[error("paired device is offline")]
@@ -132,7 +134,8 @@ impl RelayHub {
                 ));
             }
         }
-        self.dispatch_policy(principal, request.device_id, policy, request.arguments)
+        let arguments = normalize_public_arguments(policy, request.arguments)?;
+        self.dispatch_policy(principal, request.device_id, policy, arguments)
             .await
     }
 
@@ -265,6 +268,41 @@ impl RelayHub {
             _ => Err(RelayError::AmbiguousDevice),
         }
     }
+}
+
+fn normalize_public_arguments(
+    policy: &ActionPolicy,
+    arguments: Value,
+) -> Result<Value, RelayError> {
+    let arguments = arguments.as_object().ok_or(RelayError::InvalidArguments)?;
+    if arguments
+        .keys()
+        .any(|name| !policy.allowed_arguments.contains(&name.as_str()))
+        || policy
+            .required_arguments
+            .iter()
+            .any(|name| !arguments.contains_key(*name))
+    {
+        return Err(RelayError::InvalidArguments);
+    }
+    Ok(Value::Object(
+        policy
+            .gateway_arguments
+            .iter()
+            .filter_map(|(source, target)| {
+                arguments
+                    .get(*source)
+                    .filter(|value| !value.is_null())
+                    .map(|value| ((*target).to_owned(), value.clone()))
+            })
+            .chain(
+                policy
+                    .gateway_true_arguments
+                    .iter()
+                    .map(|name| ((*name).to_owned(), Value::Bool(true))),
+            )
+            .collect(),
+    ))
 }
 
 impl DeviceConnection {

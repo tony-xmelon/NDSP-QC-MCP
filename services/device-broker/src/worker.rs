@@ -13,7 +13,7 @@ use qc_protocol::state::{
 };
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -90,7 +90,26 @@ enum Command {
 #[derive(Default)]
 struct RawEventBus {
     log: Mutex<VecDeque<IncomingMessage>>,
-    subscribers: Mutex<Vec<mpsc::Sender<IncomingMessage>>>,
+    subscribers: Mutex<Vec<mpsc::SyncSender<IncomingMessage>>>,
+}
+
+// Subscribers are notification aids, not authoritative storage. The bounded
+// history above is the catch-up source, so a stalled UI/client must not retain
+// an unbounded clone of every device frame.
+const SUBSCRIBER_QUEUE_CAPACITY: usize = qc_protocol::domain::STATE_EVENT_DEFAULT_LIMIT;
+
+trait RecoverPoison<T> {
+    fn lock_recover(&self) -> MutexGuard<'_, T>;
+}
+
+impl<T> RecoverPoison<T> for Mutex<T> {
+    fn lock_recover(&self) -> MutexGuard<'_, T> {
+        // A panic while updating one cache must not permanently crash both
+        // broker workers and every future request. The protected structures
+        // are replaced or updated atomically enough for their next event to
+        // reconcile them, so retaining the inner value is safer than cascading.
+        self.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 }
 
 pub struct DeviceController {
@@ -98,7 +117,7 @@ pub struct DeviceController {
     latest_messages: Arc<Mutex<HashMap<u16, IncomingMessage>>>,
     raw_events: Arc<RawEventBus>,
     state_event_log: Arc<Mutex<VecDeque<DecodedStateFrame>>>,
-    state_subscribers: Arc<Mutex<Vec<mpsc::Sender<DecodedStateFrame>>>>,
+    state_subscribers: Arc<Mutex<Vec<mpsc::SyncSender<DecodedStateFrame>>>>,
     gateway_snapshot: Arc<Mutex<GatewaySnapshot>>,
     preset_library: Arc<Mutex<PresetLibrary>>,
     state_commands: mpsc::Sender<StateDecoderCommand>,
@@ -118,7 +137,7 @@ impl DeviceController {
     fn start_with_auto_connect(auto_connect: bool) -> Self {
         let state = Arc::new(Mutex::new(BrokerStatus::default()));
         if !auto_connect {
-            let mut status = state.lock().expect("device status lock");
+            let mut status = state.lock_recover();
             status.phase = "disconnected".into();
             status.detail = "Waiting for a reconnect request".into();
         }
@@ -179,7 +198,7 @@ impl DeviceController {
     }
 
     pub fn status(&self) -> BrokerStatus {
-        self.state.lock().expect("device status lock").clone()
+        self.state.lock_recover().clone()
     }
 
     pub fn reconnect(&self) -> Result<(), String> {
@@ -205,8 +224,7 @@ impl DeviceController {
 
     pub fn latest_message(&self, message_type: u16) -> Option<IncomingMessage> {
         self.latest_messages
-            .lock()
-            .expect("latest message lock")
+            .lock_recover()
             .get(&message_type)
             .cloned()
     }
@@ -219,8 +237,7 @@ impl DeviceController {
     ) -> Vec<IncomingMessage> {
         self.raw_events
             .log
-            .lock()
-            .expect("event log lock")
+            .lock_recover()
             .iter()
             .filter(|message| {
                 message.sequence > sequence
@@ -233,8 +250,7 @@ impl DeviceController {
 
     pub fn state_events_since(&self, sequence: u64, limit: usize) -> Vec<DecodedStateFrame> {
         self.state_event_log
-            .lock()
-            .expect("decoded state event log lock")
+            .lock_recover()
             .iter()
             .filter(|frame| frame.sequence > sequence)
             .take(limit.min(STATE_EVENT_MAXIMUM_LIMIT))
@@ -242,22 +258,22 @@ impl DeviceController {
             .collect()
     }
 
+    pub fn latest_state_sequence(&self) -> u64 {
+        self.state_event_log
+            .lock_recover()
+            .back()
+            .map_or(0, |frame| frame.sequence)
+    }
+
     pub fn subscribe_state_events(&self) -> mpsc::Receiver<DecodedStateFrame> {
-        let (sender, receiver) = mpsc::channel();
-        self.state_subscribers
-            .lock()
-            .expect("decoded state subscriber lock")
-            .push(sender);
+        let (sender, receiver) = mpsc::sync_channel(SUBSCRIBER_QUEUE_CAPACITY);
+        self.state_subscribers.lock_recover().push(sender);
         receiver
     }
 
     pub fn subscribe_raw_events(&self) -> mpsc::Receiver<IncomingMessage> {
-        let (sender, receiver) = mpsc::channel();
-        self.raw_events
-            .subscribers
-            .lock()
-            .expect("raw event subscriber lock")
-            .push(sender);
+        let (sender, receiver) = mpsc::sync_channel(SUBSCRIBER_QUEUE_CAPACITY);
+        self.raw_events.subscribers.lock_recover().push(sender);
         receiver
     }
 
@@ -296,11 +312,7 @@ impl DeviceController {
     }
 
     pub fn gateway_snapshot(&self) -> Option<GatewaySnapshot> {
-        let snapshot = self
-            .gateway_snapshot
-            .lock()
-            .expect("gateway snapshot lock")
-            .clone();
+        let snapshot = self.gateway_snapshot.lock_recover().clone();
         snapshot.has_preset.then_some(snapshot)
     }
 
@@ -345,41 +357,28 @@ impl DeviceController {
     }
 
     pub fn preset_folders(&self) -> Vec<PresetFolder> {
-        self.preset_library
-            .lock()
-            .expect("preset library lock")
-            .folders()
+        self.preset_library.lock_recover().folders()
     }
 
     pub fn preset_list(&self, key: &str) -> Option<PresetList> {
         let snapshot = self.gateway_snapshot()?;
-        self.preset_library
-            .lock()
-            .expect("preset library lock")
-            .list(key, &snapshot)
+        self.preset_library.lock_recover().list(key, &snapshot)
     }
 
     pub fn preset_slots(&self) -> Result<Option<PresetSlotList>, String> {
         let Some(snapshot) = self.gateway_snapshot() else {
             return Ok(None);
         };
-        self.preset_library
-            .lock()
-            .expect("preset library lock")
-            .writable_slots(&snapshot)
+        self.preset_library.lock_recover().writable_slots(&snapshot)
     }
 
     pub fn preset_entry(&self, key: &str, position: u32) -> Option<PresetEntry> {
-        self.preset_library
-            .lock()
-            .expect("preset library lock")
-            .entry(key, position)
+        self.preset_library.lock_recover().entry(key, position)
     }
 
     pub fn record_saved_preset(&self, key: &str, position: u32, name: &str, instrument: i32) {
         self.preset_library
-            .lock()
-            .expect("preset library lock")
+            .lock_recover()
             .record_saved(key, position, name, instrument);
     }
 
@@ -388,8 +387,8 @@ impl DeviceController {
         method: &str,
         params: &serde_json::Value,
     ) -> Result<PresetMutationPlan, String> {
-        let snapshot = self.gateway_snapshot.lock().expect("gateway snapshot lock");
-        let library = self.preset_library.lock().expect("preset library lock");
+        let snapshot = self.gateway_snapshot.lock_recover();
+        let library = self.preset_library.lock_recover();
         runtime_request::plan_preset_mutation(method, params, Some(&snapshot), &library)
     }
 
@@ -462,7 +461,7 @@ impl DeviceController {
     }
 
     pub fn send_operation(&self, operation: DeviceOperation) -> Result<(), String> {
-        for message in operation.encode() {
+        for message in operation.try_encode().map_err(|error| error.to_string())? {
             self.send_command(message)?;
         }
         Ok(())
@@ -608,10 +607,27 @@ enum StateDecoderCommand {
 fn run_state_decoder(
     event_log: Arc<Mutex<VecDeque<DecodedStateFrame>>>,
     gateway_snapshot: Arc<Mutex<GatewaySnapshot>>,
-    subscribers: Arc<Mutex<Vec<mpsc::Sender<DecodedStateFrame>>>>,
+    subscribers: Arc<Mutex<Vec<mpsc::SyncSender<DecodedStateFrame>>>>,
     sender: mpsc::Sender<StateDecoderCommand>,
     messages: mpsc::Receiver<StateDecoderCommand>,
 ) {
+    let (metadata_tx, metadata_rx) = mpsc::sync_channel::<(u64, Vec<u8>)>(1);
+    let metadata_results = sender.clone();
+    let metadata_worker = thread::Builder::new()
+        .name("qc-native-metadata".into())
+        .spawn(move || {
+            while let Ok((message_generation, payload)) = metadata_rx.recv() {
+                if let Ok(catalog) = parse_model_repo(&payload) {
+                    if metadata_results
+                        .send(StateDecoderCommand::Catalog(message_generation, catalog))
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+            }
+        })
+        .ok();
     let mut decoder = StateDecoder::new();
     let mut generation = 0;
     let mut next_sequence = 1_u64;
@@ -620,29 +636,27 @@ fn run_state_decoder(
             StateDecoderCommand::Reset(next_generation) => {
                 generation = next_generation;
                 decoder.reset();
-                event_log
-                    .lock()
-                    .expect("decoded state event log lock")
-                    .clear();
-                *gateway_snapshot.lock().expect("gateway snapshot lock") =
-                    GatewaySnapshot::default();
+                event_log.lock_recover().clear();
+                *gateway_snapshot.lock_recover() = GatewaySnapshot::default();
             }
             StateDecoderCommand::Message(message_generation, message)
                 if message_generation == generation =>
             {
                 if message.message_type == qc_protocol::profile::MESSAGE_TYPE_MODEL_REPO {
-                    let install = sender.clone();
-                    thread::Builder::new()
-                        .name("qc-native-metadata".into())
-                        .spawn(move || {
-                            if let Ok(catalog) = parse_model_repo(&message.payload) {
-                                let _ = install.send(StateDecoderCommand::Catalog(
-                                    message_generation,
-                                    catalog,
-                                ));
+                    if metadata_worker.is_some() {
+                        // ModelRepo refreshes are full snapshots. Keep at most the parse
+                        // in progress plus one pending refresh; a noisy device cannot
+                        // create unbounded decompression threads or retained payloads.
+                        let _ = metadata_tx.try_send((message_generation, message.payload));
+                    } else if let Ok(catalog) = parse_model_repo(&message.payload) {
+                        let states = decoder.install_catalog(catalog);
+                        if !states.is_empty() {
+                            let mut snapshot = gateway_snapshot.lock_recover();
+                            for state in &states {
+                                snapshot.apply(state);
                             }
-                        })
-                        .ok();
+                        }
+                    }
                     continue;
                 }
                 if let Ok(states) = decoder.decode(message.message_type, &message.payload) {
@@ -651,7 +665,7 @@ fn run_state_decoder(
                         continue;
                     }
                     {
-                        let mut snapshot = gateway_snapshot.lock().expect("gateway snapshot lock");
+                        let mut snapshot = gateway_snapshot.lock_recover();
                         for state in &states {
                             snapshot.apply(state);
                         }
@@ -663,7 +677,7 @@ fn run_state_decoder(
                         tempo_clock,
                     };
                     publish_state_frame(&event_log, &subscribers, frame);
-                    next_sequence += 1;
+                    next_sequence = next_sequence.saturating_add(1);
                 }
             }
             StateDecoderCommand::Catalog(catalog_generation, catalog)
@@ -674,7 +688,7 @@ fn run_state_decoder(
                     continue;
                 }
                 {
-                    let mut snapshot = gateway_snapshot.lock().expect("gateway snapshot lock");
+                    let mut snapshot = gateway_snapshot.lock_recover();
                     for state in &states {
                         snapshot.apply(state);
                     }
@@ -689,7 +703,7 @@ fn run_state_decoder(
                     tempo_clock: None,
                 };
                 publish_state_frame(&event_log, &subscribers, frame);
-                next_sequence += 1;
+                next_sequence = next_sequence.saturating_add(1);
             }
             StateDecoderCommand::BlockDetails(row, column, reply) => {
                 let _ = reply.send(decoder.block_details(row, column));
@@ -717,20 +731,22 @@ fn message_tempo_clock(message: &IncomingMessage) -> Option<TempoClockFrame> {
 
 fn publish_state_frame(
     event_log: &Arc<Mutex<VecDeque<DecodedStateFrame>>>,
-    subscribers: &Arc<Mutex<Vec<mpsc::Sender<DecodedStateFrame>>>>,
+    subscribers: &Arc<Mutex<Vec<mpsc::SyncSender<DecodedStateFrame>>>>,
     frame: DecodedStateFrame,
 ) {
     {
-        let mut log = event_log.lock().expect("decoded state event log lock");
+        let mut log = event_log.lock_recover();
         log.push_back(frame.clone());
         while log.len() > STATE_EVENT_MAXIMUM_LIMIT {
             log.pop_front();
         }
     }
     subscribers
-        .lock()
-        .expect("decoded state subscriber lock")
-        .retain(|subscriber| subscriber.send(frame.clone()).is_ok());
+        .lock_recover()
+        .retain(|subscriber| match subscriber.try_send(frame.clone()) {
+            Ok(()) | Err(mpsc::TrySendError::Full(_)) => true,
+            Err(mpsc::TrySendError::Disconnected(_)) => false,
+        });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -747,31 +763,28 @@ fn ingest_incoming(
 ) {
     update_message(state, &mut connected.latest_messages, message.clone());
     latest_messages
-        .lock()
-        .expect("latest message lock")
+        .lock_recover()
         .insert(message.message_type, message.clone());
     {
-        let mut log = raw_events.log.lock().expect("event log lock");
+        let mut log = raw_events.log.lock_recover();
         log.push_back(message.clone());
         while log.len() > STATE_EVENT_MAXIMUM_LIMIT {
             log.pop_front();
         }
     }
-    raw_events
-        .subscribers
-        .lock()
-        .expect("raw event subscriber lock")
-        .retain(|subscriber| subscriber.send(message.clone()).is_ok());
+    raw_events.subscribers.lock_recover().retain(|subscriber| {
+        match subscriber.try_send(message.clone()) {
+            Ok(()) | Err(mpsc::TrySendError::Full(_)) => true,
+            Err(mpsc::TrySendError::Disconnected(_)) => false,
+        }
+    });
     let _ = state_messages.send(StateDecoderCommand::Message(
         state_generation,
         message.clone(),
     ));
     if message.message_type == 4 {
         if let Ok(Some(listing)) = decode_preset_folder(&message.payload) {
-            preset_library
-                .lock()
-                .expect("preset library lock")
-                .ingest(listing);
+            preset_library.lock_recover().ingest(listing);
         }
     }
     deliver_pending(pending_requests, &message);
@@ -797,7 +810,7 @@ fn run(
         while let Ok(command) = commands.try_recv() {
             match command {
                 Command::Reconnect { force, reply } => {
-                    let phase = state.lock().expect("device status lock").phase.clone();
+                    let phase = state.lock_recover().phase.clone();
                     if reconnect_is_satisfied(force, connection.is_some(), &phase) {
                         let _ = reply.send(());
                         continue;
@@ -806,10 +819,10 @@ fn run(
                         session.outbound(session_clock.elapsed().as_millis() as u64);
                     }
                     fail_pending(&mut pending_requests, "Device session restarted");
-                    latest_messages.lock().expect("latest message lock").clear();
-                    raw_events.log.lock().expect("event log lock").clear();
-                    preset_library.lock().expect("preset library lock").clear();
-                    state_generation += 1;
+                    latest_messages.lock_recover().clear();
+                    raw_events.log.lock_recover().clear();
+                    preset_library.lock_recover().clear();
+                    state_generation = state_generation.saturating_add(1);
                     let _ = state_messages.send(StateDecoderCommand::Reset(state_generation));
                     auto_connect = true;
                     session.request_reconnect(session_clock.elapsed().as_millis() as u64);
@@ -819,10 +832,10 @@ fn run(
                 Command::Disconnect => {
                     connection = None;
                     fail_pending(&mut pending_requests, "Device session closed");
-                    latest_messages.lock().expect("latest message lock").clear();
-                    raw_events.log.lock().expect("event log lock").clear();
-                    preset_library.lock().expect("preset library lock").clear();
-                    state_generation += 1;
+                    latest_messages.lock_recover().clear();
+                    raw_events.log.lock_recover().clear();
+                    preset_library.lock_recover().clear();
+                    state_generation = state_generation.saturating_add(1);
                     let _ = state_messages.send(StateDecoderCommand::Reset(state_generation));
                     auto_connect = false;
                     session.disconnect(session_clock.elapsed().as_millis() as u64, false);
@@ -966,13 +979,12 @@ fn run(
             match QcUsb::connect(&mut session, &session_clock) {
                 Ok(connected) => {
                     let handshake_ms = started.elapsed().as_millis();
-                    state_generation += 1;
+                    state_generation = state_generation.saturating_add(1);
                     let _ = state_messages.send(StateDecoderCommand::Reset(state_generation));
                     install_connection_status(&state, &connected, handshake_ms);
-                    *latest_messages.lock().expect("latest message lock") =
-                        connected.latest_messages.clone();
+                    *latest_messages.lock_recover() = connected.latest_messages.clone();
                     {
-                        let mut log = raw_events.log.lock().expect("event log lock");
+                        let mut log = raw_events.log.lock_recover();
                         log.clear();
                         let mut initial = connected
                             .latest_messages
@@ -1116,7 +1128,7 @@ fn set_phase(
     connected: bool,
     synchronized: bool,
 ) {
-    let mut status = state.lock().expect("device status lock");
+    let mut status = state.lock_recover();
     status.phase = phase.into();
     status.detail = detail.into();
     status.connected = connected;
@@ -1133,7 +1145,7 @@ fn install_connection_status(
     connection: &ConnectedQc,
     handshake_ms: u128,
 ) {
-    let mut status = state.lock().expect("device status lock");
+    let mut status = state.lock_recover();
     status.phase = if connection.synchronized {
         "ready"
     } else {
@@ -1188,8 +1200,8 @@ fn update_message(
         None
     };
     latest.insert(message_type, message);
-    let mut status = state.lock().expect("device status lock");
-    status.messages_received += 1;
+    let mut status = state.lock_recover();
+    status.messages_received = status.messages_received.saturating_add(1);
     status.last_message_type = Some(message_type);
     if message_type == 15 {
         status.phase = "ready".into();
@@ -1205,6 +1217,47 @@ fn update_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn poisoned_cache_locks_recover_without_cascading_worker_failure() {
+        let value = Arc::new(Mutex::new(41_u32));
+        let poison = Arc::clone(&value);
+        let _ = thread::spawn(move || {
+            let _guard = poison.lock().expect("initial lock");
+            panic!("test poison");
+        })
+        .join();
+
+        *value.lock_recover() += 1;
+        assert_eq!(*value.lock_recover(), 42);
+    }
+
+    #[test]
+    fn stalled_state_subscribers_are_bounded_and_do_not_block_publication() {
+        let event_log = Arc::new(Mutex::new(VecDeque::new()));
+        let (subscriber, receiver) = mpsc::sync_channel(1);
+        let subscribers = Arc::new(Mutex::new(vec![subscriber]));
+        let frame = DecodedStateFrame {
+            sequence: 1,
+            observed_at: 0,
+            states: Vec::new(),
+            tempo_clock: None,
+        };
+
+        publish_state_frame(&event_log, &subscribers, frame.clone());
+        publish_state_frame(
+            &event_log,
+            &subscribers,
+            DecodedStateFrame {
+                sequence: 2,
+                ..frame
+            },
+        );
+
+        assert_eq!(receiver.try_recv().expect("first queued frame").sequence, 1);
+        assert!(receiver.try_recv().is_err());
+        assert_eq!(event_log.lock_recover().len(), 2);
+    }
 
     #[test]
     fn default_status_distinguishes_searching_from_ready() {

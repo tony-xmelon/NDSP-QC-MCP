@@ -180,6 +180,7 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
   const rust = source("packages/rust/qc-device-runtime/src/generated_gateway.rs");
   const tauriHost = source("apps/windows/src-tauri/src/lib.rs");
   const java = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedGatewayMethods.java");
+  const broker = source("services/device-broker/src/rpc.rs");
   const transport = source("apps/windows/src/tauri-transport.ts");
   assert.ok(contract.methods.length >= 37, "the generated gateway must retain the complete baseline API");
   for (const method of contract.methods) {
@@ -189,6 +190,34 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
     assert.match(rust, new RegExp(method.rpc.replace(".", "\\.")));
     assert.match(java, new RegExp(method.rpc.replace(".", "\\.")));
   }
+  const assertCompleteDispatch = (name: "androidDispatch" | "brokerDispatch") => {
+    const entries = Object.entries(contract[name] as Record<string, string[]>).flatMap(([kind, methods]) =>
+      methods.map((method) => ({ kind, method }))
+    );
+    assert.equal(entries.length, contract.methods.length, `${name} must classify every method exactly once`);
+    assert.deepEqual(
+      [...new Set(entries.map(({ method }) => method))].sort(),
+      contract.methods.map(({ rpc }: { rpc: string }) => rpc).sort(),
+      `${name} must contain exactly the public gateway surface`
+    );
+    return entries;
+  };
+  assertCompleteDispatch("androidDispatch");
+  const brokerEntries = assertCompleteDispatch("brokerDispatch");
+  const rustVariant = (value: string) => value.toLowerCase().split(/[^a-z0-9]+/).map((part) => `${part[0].toUpperCase()}${part.slice(1)}`).join("");
+  for (const { kind, method } of brokerEntries) {
+    const variant = rustVariant(kind);
+    assert.match(
+      rust,
+      new RegExp(`${method.replaceAll(".", "\\.")}\" => Some\\(BrokerDispatch::${variant}\\)`),
+      `${method} must retain its generated Windows dispatch class`
+    );
+    assert.match(
+      broker,
+      new RegExp(`Some\\(generated_gateway::BrokerDispatch::${variant}\\)`),
+      `the Windows broker must implement the generated ${kind} dispatch class`
+    );
+  }
   assert.match(rust, new RegExp(`API_VERSION: u64 = ${contract.apiVersion}`));
   for (const capability of contract.capabilities) assert.match(rust, new RegExp(capability));
   assert.match(source("apps/windows/src-tauri/src/lib.rs"), /use qc_device_runtime::\{[\s\S]{0,120}generated_gateway,[\s\S]{0,60}generated_gateway::rpc/);
@@ -196,7 +225,16 @@ test("one generated gateway manifest owns dispatch and both native bindings", ()
   assert.match(tauriHost, /generated_gateway::METHODS\.contains/);
   assert.match(tauriHost, /\bgateway_invoke,/);
   assert.doesNotMatch(tauriHost, /async fn (?:current_snapshot|toggle_bypass|set_parameter)\b/);
-  assert.match(source("services/device-broker/src/rpc.rs"), /generated_gateway::API_VERSION/);
+  assert.match(broker, /generated_gateway::API_VERSION/);
+  assert.match(broker, /generated_gateway::broker_dispatch\(&request\.method\)/);
+  const brokerHandle = broker.slice(broker.indexOf("fn handle("), broker.indexOf("fn connection_state("));
+  for (const { rpc } of contract.methods) {
+    assert.doesNotMatch(
+      brokerHandle,
+      new RegExp(`\"${rpc.replaceAll(".", "\\.")}\"`),
+      `${rpc} must be routed by generated metadata instead of a duplicated string match`
+    );
+  }
   assert.match(transport, /createGatewayClientTransport<GatewayTransport>/);
   assert.match(transport, /callTauri<T>\("gateway_invoke", \{ method, params \}\)[\s\S]*"rpc"/);
   assert.match(source("packages/python/qc-gateway-client/src/qc_gateway_client/client.py"), /method not in GATEWAY_METHODS/);
@@ -208,6 +246,9 @@ test("one shared action registry drives model tools and MCP safety classes", () 
   const chat = source("apps/windows/src/model-chat.ts");
   const assistantTools = source("packages/typescript/qc-core/src/assistant-tools.ts");
   const mcp = source("services/mcp-server/src/qc_mcp_server/server.py");
+  const rustRuntime = source("services/rust-mcp/src/actions.rs");
+  const rustGenerated = source("services/rust-mcp/src/generated_actions.rs");
+  const pythonParityTests = source("services/mcp-server/tests/test_mcp_server.py");
   assert.equal(new Set(actions.map((action: { name: string }) => action.name)).size, actions.length);
   for (const name of ["move_block", "add_block", "remove_block", "set_block_footswitch", "set_chain_input", "set_chain_output", "set_chain_split"]) {
     assert.ok(actions.some((action: { name: string }) => action.name === name), name);
@@ -217,6 +258,11 @@ test("one shared action registry drives model tools and MCP safety classes", () 
   assert.match(assistantTools, /action\.classification === "read"/);
   assert.match(mcp, /for name, action in SHARED_QC_ACTIONS\.items\(\)/);
   assert.match(mcp, /annotations\[action\["classification"\]\]/);
+  assert.match(rustRuntime, /include!\("generated_actions\.rs"\)/);
+  assert.doesNotMatch(rustRuntime, /name:\s*"reconnect_device"/);
+  assert.equal((rustGenerated.match(/\bActionSpec \{/g) ?? []).length, actions.length);
+  assert.match(pythonParityTests, /test_python_callable_signatures_match_all_contract_properties/);
+  assert.match(pythonParityTests, /test_every_python_tool_emits_exactly_the_canonical_gateway_arguments/);
 });
 
 test("both USB readers defer ModelRepo work away from realtime I/O", () => {
@@ -556,8 +602,9 @@ test("one shared completion policy keeps native realtime writes free of readback
   assert.match(runtime, /pub fn gateway_write_is_realtime/);
   assert.match(androidJni, /gateway_write_is_realtime\(&method\)/);
   assert.match(android, /if \(!plan\.realtime && !"none"\.equals/);
+  assert.match(windows, /fn gateway_operation\([\s\S]*gateway_write_is_realtime\(method\)/);
   for (const method of ["selectScene", "toggleBypass", "setTempo", "setMasterVolume"]) {
-    assert.match(windows, new RegExp(`execute_realtime_gateway_write\\(controller, "device\\.${method}"`));
+    assert.match(windows, new RegExp(`gateway_operation\\(controller, params, "device\\.${method}"\\)`));
   }
 });
 

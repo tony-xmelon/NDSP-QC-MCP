@@ -18,6 +18,9 @@ export interface QcActionExecutionContext {
 
 export interface QcActionExecutionResult {
   detail: string;
+  accepted?: boolean;
+  verified?: boolean;
+  verification?: "authoritative_readback" | "accepted_unverified";
   snapshot?: PresetSnapshot;
   block?: BlockDetails;
   connection?: ConnectionState;
@@ -143,8 +146,11 @@ const assertExpectedString = (call: AssistantToolCall, name: string, actual: str
   if (expected !== actual) throw new Error(`${call.name} was prepared for “${expected}”, but “${actual}” is active; no device action was taken.`);
 };
 
-const actionResult = (result: { detail: string; snapshot?: PresetSnapshot }): QcActionExecutionResult => ({
+const actionResult = (result: { detail: string; accepted?: boolean; verified?: boolean; verification?: "authoritative_readback" | "accepted_unverified"; snapshot?: PresetSnapshot }): QcActionExecutionResult => ({
   detail: result.detail,
+  accepted: result.accepted,
+  verified: result.verified,
+  verification: result.verification,
   snapshot: result.snapshot
 });
 
@@ -182,7 +188,8 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   if (!connected) throw new Error("Connect the Quad Cortex before using that device action.");
 
   if (call.name === "get_current_preset") {
-    return { detail: summarizeSnapshot(snapshot, selectedBlockId), data: snapshot };
+    const current = await gateway.currentSnapshot();
+    return { detail: summarizeSnapshot(current, selectedBlockId), snapshot: current, data: current };
   }
   if (call.name === "get_state_events") {
     const frames = await gateway.currentStateEvents(integerArgument(call, "after_sequence"), integerArgument(call, "limit"));
@@ -302,7 +309,7 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     const requested = numberArgument(call, "value");
     const value = call.name === "preview_parameter" || parameter.options.length > 1 ? requested : parameterNormalizedValue(parameter, requested);
     if (call.name === "preview_parameter") {
-      const preview = await gateway.previewParameter(row, column, parameterIndex, value, snapshot.activeScene, snapshot.presetName);
+      const preview = await gateway.previewParameter(row, column, parameterIndex, value, parameter.normalizedValue, snapshot.activeScene, snapshot.presetName);
       return { detail: preview.detail, data: preview };
     }
     if (parameter.scaleKnown === false) throw new Error(`${parameter.name} does not yet have a verified Quad Cortex display scale. It was not changed.`);
@@ -323,7 +330,7 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
       ? requested
       : parameterNormalizedValue(parameter, requested);
     if (call.name === "preview_lane_control_parameter") {
-      const preview = await gateway.previewLaneControlParameter(row, control, parameterIndex, value, snapshot.presetName);
+      const preview = await gateway.previewLaneControlParameter(row, control, parameterIndex, value, parameter.normalizedValue, snapshot.presetName);
       return { detail: preview.detail, data: preview };
     }
     if (parameter.scaleKnown === false) throw new Error(`${parameter.name} does not yet have a verified Quad Cortex display scale. It was not changed.`);
@@ -507,16 +514,27 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
 
   assertExpectedString(call, "expected_preset_name", snapshot.presetName);
 
-  if (call.name === "load_capture") return actionResult(await gateway.loadCapture(
-    integerArgument(call, "row"), integerArgument(call, "column"),
-    stringArgument(call, "key"), stringArgument(call, "name"),
-    nullableIntegerArgument(call, "model_id")
-  ));
-  if (call.name === "load_ir") return actionResult(await gateway.loadIr(
-    integerArgument(call, "row"), integerArgument(call, "column"),
-    stringArgument(call, "key"), stringArgument(call, "name"),
-    integerArgument(call, "slot"), nullableIntegerArgument(call, "model_id")
-  ));
+  if (call.name === "load_capture" || call.name === "load_ir") {
+    const row = integerArgument(call, "row");
+    const column = integerArgument(call, "column");
+    const current = snapshot.blocks.find((candidate) => candidate.row === row && candidate.column === column);
+    const actualModelId = current?.modelId ?? null;
+    const expectedModelId = nullableIntegerArgument(call, "expected_model_id");
+    if (expectedModelId !== actualModelId) {
+      throw new Error(`${call.name} was based on a stale Grid cell; refresh and try again.`);
+    }
+    const modelId = nullableIntegerArgument(call, "model_id");
+    const key = stringArgument(call, "key");
+    const name = stringArgument(call, "name");
+    if (call.name === "load_capture") return actionResult(await gateway.loadCapture(
+      row, column, key, name, modelId, expectedModelId, snapshot.presetName
+    ));
+    const slot = integerArgument(call, "slot");
+    if (slot !== 0 && slot !== 1) throw new Error("IR slot must be 0 or 1.");
+    return actionResult(await gateway.loadIr(
+      row, column, key, name, slot, modelId, expectedModelId, snapshot.presetName
+    ));
+  }
 
   if (call.name === "select_scene") return actionResult(await gateway.selectScene(integerArgument(call, "scene"), snapshot.presetName));
   if (call.name === "copy_scene") return actionResult(await gateway.copyScene(integerArgument(call, "from_scene"), integerArgument(call, "to_scene"), booleanArgument(call, "swap"), snapshot.presetName));

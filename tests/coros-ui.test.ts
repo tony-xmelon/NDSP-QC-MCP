@@ -274,8 +274,8 @@ test("master volume has an independent two-way live synchronization path", () =>
   assert.match(appSource, /masterVolume: recovered \? current\.masterVolume : snapshotRef\.current\.masterVolume/, "ordinary whole-preset synchronization must preserve the latest faster volume sample while recovery accepts the newly reattached device state");
   assert.match(transportSource, /createGatewayClientTransport<GatewayTransport>/, "native gateway calls must use the generated contract adapter");
   assert.match(gatewayBindings, /"currentMasterVolume": \{ rpc: "device\.masterVolume", tauri: "current_master_volume"/);
-  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?rpc::CURRENT_MASTER_VOLUME[\s\S]*?spawn_blocking[\s\S]*?try_with_gateway/, "volume polling must stay off the desktop UI thread and yield to device commands");
-  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?spawn_blocking[\s\S]*?with_gateway_params/, "volume writes must not block the desktop UI thread");
+  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?rpc::CURRENT_MASTER_VOLUME[\s\S]*?spawn_blocking[\s\S]*?if nonblocking_read[\s\S]*?try_lock\(\)[\s\S]*?request_detailed/, "volume polling must stay off the desktop UI thread and yield to device commands");
+  assert.match(rustSource, /async fn gateway_invoke[\s\S]*?spawn_blocking[\s\S]*?request_detailed\(&method, params\)/, "volume writes must not block the desktop UI thread");
   assert.match(runtimeSource, /GatewayVerification::MasterVolume \{ value \}/, "master-volume readback must use the shared authoritative predicate");
   assert.match(runtimeSource, /"device\.setMasterVolume"[\s\S]*DeviceCommand::SetMasterVolume/, "the native hosts must share the same master-volume plan");
 });

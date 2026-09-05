@@ -3,10 +3,10 @@ use jni::sys::{jbyteArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use qc_device_runtime::request::{
     assert_expected_parameter, finalize_device_backup, gateway_write_is_realtime,
-    gateway_write_retryable, merge_expected_state, plan_gateway_read, plan_gateway_write,
-    plan_preset_mutation, plan_preset_recall, GatewayReadPlan, GatewayResponseProjection,
-    GatewayTransaction, GatewayTransactionState, GatewayVerification, PlannedWrite,
-    PresetMutationPlan,
+    gateway_write_readback_method, gateway_write_retryable, merge_expected_state,
+    plan_gateway_read, plan_gateway_write, plan_preset_mutation, plan_preset_recall,
+    GatewayReadPlan, GatewayResponseProjection, GatewayTransaction, GatewayTransactionState,
+    GatewayVerification, PlannedWrite, PresetMutationPlan,
 };
 use qc_device_runtime::{GatewaySnapshot, PresetLibrary};
 use qc_protocol::commands::{self, OutboundMessage};
@@ -16,8 +16,10 @@ use qc_protocol::session::{FrameAssembler, SessionMachine};
 use qc_protocol::state::decode_preset_folder;
 use qc_protocol::state::{parse_model_repo, StateDecoder};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::ptr;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 struct DecoderHandle {
     state: Mutex<StateDecoder>,
@@ -28,9 +30,47 @@ struct DecoderHandle {
     backup: Mutex<BackupAssembler>,
 }
 
-fn handle<'a>(value: jlong) -> &'a DecoderHandle {
-    assert_ne!(value, 0, "native QC decoder handle is null");
-    unsafe { &*(value as *const DecoderHandle) }
+fn handles() -> &'static Mutex<HashMap<jlong, Arc<DecoderHandle>>> {
+    static HANDLES: OnceLock<Mutex<HashMap<jlong, Arc<DecoderHandle>>>> = OnceLock::new();
+    HANDLES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn handle(value: jlong) -> Result<Arc<DecoderHandle>, String> {
+    if value <= 0 {
+        return Err("native QC decoder handle is invalid".into());
+    }
+    handles()
+        .lock()
+        .map_err(|_| "native QC handle registry lock was poisoned".to_string())?
+        .get(&value)
+        .cloned()
+        .ok_or_else(|| "native QC decoder handle is closed".to_string())
+}
+
+fn register_handle() -> jlong {
+    static NEXT_HANDLE: AtomicI64 = AtomicI64::new(1);
+    let decoder = Arc::new(DecoderHandle {
+        state: Mutex::new(StateDecoder::new()),
+        snapshot: Mutex::new(GatewaySnapshot::default()),
+        presets: Mutex::new(PresetLibrary::default()),
+        frames: Mutex::new(FrameAssembler::new()),
+        session: Mutex::new(SessionMachine::new(0)),
+        backup: Mutex::new(BackupAssembler::default()),
+    });
+    let value = NEXT_HANDLE.fetch_add(1, Ordering::Relaxed);
+    match handles().lock() {
+        Ok(mut registry) if value > 0 => {
+            registry.insert(value, decoder);
+            value
+        }
+        _ => 0,
+    }
+}
+
+fn unregister_handle(value: jlong) {
+    if let Ok(mut registry) = handles().lock() {
+        registry.remove(&value);
+    }
 }
 
 fn json_result(env: &mut JNIEnv, result: Result<String, String>) -> jstring {
@@ -128,7 +168,12 @@ fn gateway_write_envelope(
     result.extend_from_slice(&verification);
     let (lane, controller, value, messages) = match write {
         PlannedWrite::HidCommand(command) => (0_u8, 0_u8, 0_u8, vec![command.encode()]),
-        PlannedWrite::HidOperation(operation) => (0, 0, 0, operation.encode()),
+        PlannedWrite::HidOperation(operation) => (
+            0,
+            0,
+            0,
+            operation.try_encode().map_err(|error| error.to_string())?,
+        ),
         PlannedWrite::MidiControlChange { controller, value } => (1, controller, value, Vec::new()),
     };
     result.extend_from_slice(&[
@@ -142,12 +187,14 @@ fn gateway_write_envelope(
     Ok(result)
 }
 
-fn planned_messages(write: PlannedWrite) -> Vec<OutboundMessage> {
-    match write {
+fn planned_messages(write: PlannedWrite) -> Result<Vec<OutboundMessage>, String> {
+    Ok(match write {
         PlannedWrite::HidCommand(command) => vec![command.encode()],
-        PlannedWrite::HidOperation(operation) => operation.encode(),
+        PlannedWrite::HidOperation(operation) => {
+            operation.try_encode().map_err(|error| error.to_string())?
+        }
         PlannedWrite::MidiControlChange { .. } => Vec::new(),
-    }
+    })
 }
 
 fn gateway_workflow_envelope(plan: PresetMutationPlan) -> Result<Vec<u8>, String> {
@@ -189,7 +236,7 @@ fn gateway_workflow_envelope(plan: PresetMutationPlan) -> Result<Vec<u8>, String
                 .to_le_bytes(),
         );
         result.extend_from_slice(&verification);
-        result.extend_from_slice(&message_envelope(planned_messages(stage.write))?);
+        result.extend_from_slice(&message_envelope(planned_messages(stage.write)?)?);
     }
     Ok(result)
 }
@@ -217,7 +264,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeReco
             .into_owned();
         let position = u32::try_from(position)
             .map_err(|_| "preset position must be non-negative".to_string())?;
-        handle(value)
+        handle(value)?
             .presets
             .lock()
             .map_err(|_| "native QC preset library lock was poisoned".to_string())?
@@ -240,7 +287,11 @@ fn gateway_read_envelope(plan: GatewayReadPlan) -> Result<Vec<u8>, String> {
             .to_le_bytes(),
     );
     result.extend_from_slice(&projection);
-    result.extend_from_slice(&message_envelope(plan.operation.encode())?);
+    result.extend_from_slice(&message_envelope(
+        plan.operation
+            .try_encode()
+            .map_err(|error| error.to_string())?,
+    )?);
     Ok(result)
 }
 
@@ -267,6 +318,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeEnco
     args_json: JString,
 ) -> jbyteArray {
     let result = (|| {
+        let native = handle(value)?;
         let command = env
             .get_string(&command)
             .map_err(|error| error.to_string())?
@@ -297,7 +349,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeEnco
             )],
             "keepalive" => vec![commands::keepalive()],
             "backup" => {
-                handle(value)
+                native
                     .backup
                     .lock()
                     .map_err(|_| "native QC backup lock was poisoned".to_string())?
@@ -320,6 +372,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
     args_json: JString,
 ) -> jbyteArray {
     let result = (|| {
+        let native = handle(value)?;
         let method = env
             .get_string(&method)
             .map_err(|error| error.to_string())?
@@ -335,7 +388,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
             let row = unsigned(&args, "row")?;
             let column = unsigned(&args, "column")?;
             let parameter_index = unsigned(&args, "parameterIndex")?;
-            let actual = handle(value)
+            let actual = native
                 .state
                 .lock()
                 .map_err(|_| "native QC state lock was poisoned".to_string())?
@@ -349,7 +402,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
                 });
             assert_expected_parameter(actual, &args)?;
         }
-        let snapshot = handle(value)
+        let snapshot = native
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
@@ -387,6 +440,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
     args_json: JString,
 ) -> jbyteArray {
     let result = (|| {
+        let native = handle(value)?;
         let method = env
             .get_string(&method)
             .map_err(|error| error.to_string())?
@@ -398,11 +452,11 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
             .to_string_lossy()
             .into_owned();
         let args: Value = serde_json::from_str(&args_json).map_err(|error| error.to_string())?;
-        let snapshot = handle(value)
+        let snapshot = native
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
-        let presets = handle(value)
+        let presets = native
             .presets
             .lock()
             .map_err(|_| "native QC preset library lock was poisoned".to_string())?;
@@ -471,12 +525,13 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGate
     _class: JClass,
     value: jlong,
     verification_json: JString,
-    after_observed_at_ms: jlong,
+    after_sequence: jlong,
     deadline_ms: jlong,
-    observed_at_ms: jlong,
+    observation_sequence: jlong,
     now_ms: jlong,
 ) -> jint {
     let result = (|| {
+        let native = handle(value)?;
         let verification_json = env
             .get_string(&verification_json)
             .map_err(|error| error.to_string())?
@@ -486,7 +541,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGate
             serde_json::from_str(&verification_json).map_err(|error| error.to_string())?;
         let parameter_value =
             if let Some((row, column, parameter_index)) = verification.parameter_target() {
-                handle(value)
+                native
                     .state
                     .lock()
                     .map_err(|_| "native QC state lock was poisoned".to_string())?
@@ -501,20 +556,20 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGate
             } else {
                 None
             };
-        let snapshot = handle(value)
+        let snapshot = native
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
         let transaction = GatewayTransaction::new(
             verification,
-            after_observed_at_ms.max(0) as u128,
+            after_sequence.max(0) as u128,
             0,
             deadline_ms.max(0) as u64,
         );
         Ok::<_, String>(transaction.state(
             &snapshot,
             parameter_value,
-            observed_at_ms.max(0) as u128,
+            observation_sequence.max(0) as u128,
             now_ms.max(0) as u64,
         ))
     })();
@@ -527,6 +582,63 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGate
             2
         }
     }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGatewayReadbackMatches(
+    mut env: JNIEnv,
+    _class: JClass,
+    method: JString,
+    params_json: JString,
+    response_json: JString,
+) -> jint {
+    let result = (|| {
+        let method = env
+            .get_string(&method)
+            .map_err(|error| error.to_string())?
+            .to_string_lossy()
+            .into_owned();
+        let params: Value = serde_json::from_str(
+            &env.get_string(&params_json)
+                .map_err(|error| error.to_string())?
+                .to_string_lossy(),
+        )
+        .map_err(|error| error.to_string())?;
+        let response: Value = serde_json::from_str(
+            &env.get_string(&response_json)
+                .map_err(|error| error.to_string())?
+                .to_string_lossy(),
+        )
+        .map_err(|error| error.to_string())?;
+        Ok::<_, String>(qc_device_runtime::request::gateway_write_readback_matches(
+            &method, &params, &response,
+        ))
+    })();
+    match result {
+        Ok(true) => 1,
+        Ok(false) => 0,
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalArgumentException", error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeGatewayWriteReadbackMethod(
+    mut env: JNIEnv,
+    _class: JClass,
+    method: JString,
+) -> jstring {
+    let result = env
+        .get_string(&method)
+        .map_err(|error| error.to_string())
+        .map(|method| {
+            gateway_write_readback_method(&method.to_string_lossy())
+                .unwrap_or("")
+                .to_string()
+        });
+    json_result(&mut env, result)
 }
 
 #[no_mangle]
@@ -561,7 +673,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePush
         let report = env
             .convert_byte_array(report)
             .map_err(|error| error.to_string())?;
-        let Some((message_type, payload)) = handle(value)
+        let Some((message_type, payload)) = handle(value)?
             .frames
             .lock()
             .map_err(|_| "native QC frame lock was poisoned".to_string())?
@@ -607,14 +719,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeCrea
     _env: JNIEnv,
     _class: JClass,
 ) -> jlong {
-    Box::into_raw(Box::new(DecoderHandle {
-        state: Mutex::new(StateDecoder::new()),
-        snapshot: Mutex::new(GatewaySnapshot::default()),
-        presets: Mutex::new(PresetLibrary::default()),
-        frames: Mutex::new(FrameAssembler::new()),
-        session: Mutex::new(SessionMachine::new(0)),
-        backup: Mutex::new(BackupAssembler::default()),
-    })) as jlong
+    register_handle()
 }
 
 #[no_mangle]
@@ -642,6 +747,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeCons
     name: JString,
 ) -> jstring {
     let result = (|| {
+        let native = handle(value)?;
         let bytes = env
             .convert_byte_array(payload)
             .map_err(|error| error.to_string())?;
@@ -651,7 +757,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeCons
             .to_string_lossy()
             .into_owned();
         let (complete, started, chunks, ignored_prefix_chunks, ignored_prefix_terminators) = {
-            let mut assembler = handle(value)
+            let mut assembler = native
                 .backup
                 .lock()
                 .map_err(|_| "native QC backup lock was poisoned".to_string())?;
@@ -681,7 +787,10 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeCons
 }
 
 fn with_session(value: jlong, action: impl FnOnce(&mut SessionMachine) -> jint) -> jint {
-    handle(value)
+    let Ok(handle) = handle(value) else {
+        return -3;
+    };
+    handle
         .session
         .lock()
         .map(|mut session| action(&mut session))
@@ -793,7 +902,14 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeRese
     _class: JClass,
     value: jlong,
 ) {
-    match handle(value).state.lock() {
+    let Ok(handle) = handle(value) else {
+        let _ = env.throw_new(
+            "java/lang/IllegalStateException",
+            "native QC decoder handle is closed",
+        );
+        return;
+    };
+    match handle.state.lock() {
         Ok(mut decoder) => decoder.reset(),
         Err(_) => {
             let _ = env.throw_new(
@@ -802,18 +918,18 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeRese
             );
         }
     }
-    if let Ok(mut frames) = handle(value).frames.lock() {
+    if let Ok(mut frames) = handle.frames.lock() {
         frames.reset();
     }
-    if let Ok(mut snapshot) = handle(value).snapshot.lock() {
+    if let Ok(mut snapshot) = handle.snapshot.lock() {
         *snapshot = GatewaySnapshot::default();
     }
-    if let Ok(mut presets) = handle(value).presets.lock() {
+    if let Ok(mut presets) = handle.presets.lock() {
         presets.clear();
     }
-    if let Ok(mut backup) = handle(value).backup.lock() {
+    if let Ok(mut backup) = handle.backup.lock() {
         backup.reset();
-    }
+    };
 }
 
 #[no_mangle]
@@ -822,11 +938,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDest
     _class: JClass,
     value: jlong,
 ) {
-    if value != 0 {
-        unsafe {
-            drop(Box::from_raw(value as *mut DecoderHandle));
-        }
-    }
+    unregister_handle(value);
 }
 
 #[no_mangle]
@@ -838,6 +950,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDeco
     payload: JByteArray,
 ) -> jstring {
     let result = (|| {
+        let native = handle(value)?;
         let bytes = env
             .convert_byte_array(payload)
             .map_err(|error| error.to_string())?;
@@ -845,7 +958,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDeco
             if let Some(listing) =
                 decode_preset_folder(&bytes).map_err(|error| error.to_string())?
             {
-                handle(value)
+                native
                     .presets
                     .lock()
                     .map_err(|_| "native QC preset library lock was poisoned".to_string())?
@@ -854,7 +967,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDeco
             return Ok("[]".to_string());
         }
         let states = {
-            let mut decoder = handle(value)
+            let mut decoder = native
                 .state
                 .lock()
                 .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
@@ -867,7 +980,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeDeco
                 .map_err(|error| error.to_string())?
         };
         {
-            let mut snapshot = handle(value)
+            let mut snapshot = native
                 .snapshot
                 .lock()
                 .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
@@ -888,6 +1001,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeInst
     payload: JByteArray,
 ) -> jstring {
     let result = (|| {
+        let native = handle(value)?;
         // Parsing intentionally happens before the decoder lock. Hot state can
         // continue to flow while the metadata executor expands the catalog.
         let bytes = env
@@ -895,14 +1009,14 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeInst
             .map_err(|error| error.to_string())?;
         let catalog = parse_model_repo(&bytes).map_err(|error| error.to_string())?;
         let states = {
-            let mut decoder = handle(value)
+            let mut decoder = native
                 .state
                 .lock()
                 .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
             decoder.install_catalog(catalog)
         };
         {
-            let mut snapshot = handle(value)
+            let mut snapshot = native
                 .snapshot
                 .lock()
                 .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
@@ -921,11 +1035,14 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeSnap
     _class: JClass,
     value: jlong,
 ) -> jstring {
-    let result = handle(value)
-        .snapshot
-        .lock()
-        .map_err(|_| "native QC snapshot lock was poisoned".to_string())
-        .and_then(|snapshot| serde_json::to_string(&*snapshot).map_err(|error| error.to_string()));
+    let result = (|| {
+        let native = handle(value)?;
+        let snapshot = native
+            .snapshot
+            .lock()
+            .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
+        serde_json::to_string(&*snapshot).map_err(|error| error.to_string())
+    })();
     json_result(&mut env, result)
 }
 
@@ -938,7 +1055,8 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeBloc
     column: i32,
 ) -> jstring {
     let result = (|| {
-        let decoder = handle(value)
+        let native = handle(value)?;
+        let decoder = native
             .state
             .lock()
             .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
@@ -962,11 +1080,12 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeLane
     control: JString,
 ) -> jstring {
     let result = (|| {
+        let native = handle(value)?;
         let control = String::from(
             env.get_string(&control)
                 .map_err(|error| error.to_string())?,
         );
-        let decoder = handle(value)
+        let decoder = native
             .state
             .lock()
             .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
@@ -987,7 +1106,14 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeMode
     _class: JClass,
     value: jlong,
 ) -> jint {
-    match handle(value).state.lock() {
+    let Ok(native) = handle(value) else {
+        let _ = env.throw_new(
+            "java/lang/IllegalStateException",
+            "native QC decoder handle is closed",
+        );
+        return 0;
+    };
+    let result = match native.state.lock() {
         Ok(decoder) => decoder.model_count().min(i32::MAX as usize) as jint,
         Err(_) => {
             let _ = env.throw_new(
@@ -996,7 +1122,8 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeMode
             );
             0
         }
-    }
+    };
+    result
 }
 
 #[no_mangle]
@@ -1005,13 +1132,14 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativeMode
     _class: JClass,
     value: jlong,
 ) -> jstring {
-    let result = handle(value)
-        .state
-        .lock()
-        .map_err(|_| "native QC decoder lock was poisoned".to_string())
-        .and_then(|decoder| {
-            serde_json::to_string(&decoder.model_list()).map_err(|error| error.to_string())
-        });
+    let result = (|| {
+        let native = handle(value)?;
+        let decoder = native
+            .state
+            .lock()
+            .map_err(|_| "native QC decoder lock was poisoned".to_string())?;
+        serde_json::to_string(&decoder.model_list()).map_err(|error| error.to_string())
+    })();
     json_result(&mut env, result)
 }
 
@@ -1021,14 +1149,15 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePres
     _class: JClass,
     value: jlong,
 ) -> jstring {
-    let result = handle(value)
-        .presets
-        .lock()
-        .map_err(|_| "native QC preset library lock was poisoned".to_string())
-        .and_then(|presets| {
-            serde_json::to_string(&serde_json::json!({"folders": presets.folders()}))
-                .map_err(|error| error.to_string())
-        });
+    let result = (|| {
+        let native = handle(value)?;
+        let presets = native
+            .presets
+            .lock()
+            .map_err(|_| "native QC preset library lock was poisoned".to_string())?;
+        serde_json::to_string(&serde_json::json!({"folders": presets.folders()}))
+            .map_err(|error| error.to_string())
+    })();
     json_result(&mut env, result)
 }
 
@@ -1040,16 +1169,17 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePres
     setlist_key: JString,
 ) -> jstring {
     let result = (|| {
+        let native = handle(value)?;
         let key = env
             .get_string(&setlist_key)
             .map_err(|error| error.to_string())?
             .to_string_lossy()
             .into_owned();
-        let snapshot = handle(value)
+        let snapshot = native
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
-        let presets = handle(value)
+        let presets = native
             .presets
             .lock()
             .map_err(|_| "native QC preset library lock was poisoned".to_string())?;
@@ -1068,11 +1198,12 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePres
     value: jlong,
 ) -> jstring {
     let result = (|| {
-        let snapshot = handle(value)
+        let native = handle(value)?;
+        let snapshot = native
             .snapshot
             .lock()
             .map_err(|_| "native QC snapshot lock was poisoned".to_string())?;
-        let presets = handle(value)
+        let presets = native
             .presets
             .lock()
             .map_err(|_| "native QC preset library lock was poisoned".to_string())?;
@@ -1087,6 +1218,29 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePres
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registered_handles_make_destroy_idempotent_and_keep_in_flight_calls_alive() {
+        let value = register_handle();
+        assert!(value > 0);
+        let in_flight = handle(value).expect("registered handle");
+
+        unregister_handle(value);
+        unregister_handle(value);
+
+        assert!(handle(value).is_err());
+        assert_eq!(
+            in_flight.state.lock().expect("decoder lock").model_count(),
+            0
+        );
+    }
+
+    #[test]
+    fn invalid_handles_are_rejected_without_dereferencing_foreign_memory() {
+        assert!(handle(0).is_err());
+        assert!(handle(-1).is_err());
+        assert!(handle(i64::MAX).is_err());
+    }
 
     #[test]
     fn gateway_write_envelope_exposes_shared_realtime_completion_policy() {

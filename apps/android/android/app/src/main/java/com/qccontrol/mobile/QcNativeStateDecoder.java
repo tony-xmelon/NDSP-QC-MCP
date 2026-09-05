@@ -227,12 +227,21 @@ final class QcNativeStateDecoder implements AutoCloseable {
     }
 
     int gatewayTransactionState(
-        PlannedGatewayWrite plan, long afterObservedAtMs, long deadlineMs,
-        long observedAtMs, long nowMs
+        PlannedGatewayWrite plan, long afterSequence, long deadlineMs,
+        long observationSequence, long nowMs
     ) {
         return nativeGatewayTransactionState(
-            requireHandle(), plan.verificationJson, afterObservedAtMs,
-            deadlineMs, observedAtMs, nowMs);
+            requireHandle(), plan.verificationJson, afterSequence,
+            deadlineMs, observationSequence, nowMs);
+    }
+
+    boolean gatewayReadbackMatches(String method, org.json.JSONObject params, org.json.JSONObject response) {
+        return nativeGatewayReadbackMatches(method, params.toString(), response.toString()) == 1;
+    }
+
+    String gatewayWriteReadbackMethod(String method) {
+        String readMethod = nativeGatewayWriteReadbackMethod(method);
+        return readMethod.isEmpty() ? null : readMethod;
     }
 
     PlannedGatewayWorkflow gatewayWorkflow(String method, JSObject args) throws Exception {
@@ -412,6 +421,9 @@ final class QcNativeStateDecoder implements AutoCloseable {
     private static native int nativeGatewayTransactionState(
         long handle, String verificationJson, long afterObservedAtMs,
         long deadlineMs, long observedAtMs, long nowMs);
+    private static native int nativeGatewayReadbackMatches(
+        String method, String paramsJson, String responseJson);
+    private static native String nativeGatewayWriteReadbackMethod(String method);
     private static native byte[] nativeEncodeFrame(int messageType, byte[] payload);
     private static native byte[] nativePushReport(long handle, byte[] report);
     private static native void nativeReset(long handle);

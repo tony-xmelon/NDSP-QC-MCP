@@ -333,4 +333,7 @@ class PresetSnapshot(TypedDict):
 
 class DeviceActionResult(TypedDict):
     detail: str
+    accepted: NotRequired[bool]
+    verified: NotRequired[bool]
+    verification: NotRequired[Literal["authoritative_readback", "accepted_unverified"]]
     snapshot: NotRequired[PresetSnapshot]

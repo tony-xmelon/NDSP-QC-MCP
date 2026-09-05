@@ -1,8 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(await readFile(resolve(root, "contracts/qc-actions.v1.json"), "utf8"));
+const gatewayManifest = JSON.parse(await readFile(resolve(root, "contracts/gateway-methods.v1.json"), "utf8"));
 const domain = JSON.parse(await readFile(resolve(root, "contracts/qc-domain.v1.json"), "utf8"));
 const { gridRows, gridColumns, scenes, minimumTempoBpm, maximumTempoBpm } = domain.limits;
 const accessModes = manifest.accessModes;
@@ -10,11 +12,19 @@ if (!Array.isArray(accessModes) || accessModes.join(",") !== "read-only,performa
   throw new Error("QC access modes must define the cumulative read-only, performance, modify, full order");
 }
 const schemaType = (kind) => {
+  if (kind === "string") return { type: "string", minLength: 1 };
   if (kind === "nullable-string") return { type: ["string", "null"] };
   if (kind === "nullable-integer") return { type: ["integer", "null"] };
   if (kind === "nullable-boolean") return { type: ["boolean", "null"] };
   if (kind === "nullable-normalized") return { type: ["number", "null"], minimum: 0, maximum: 1 };
   if (kind === "nullable-input-gain") return { type: ["number", "null"], minimum: -12, maximum: 60 };
+  if (kind === "nullable-pan") return { type: ["number", "null"], minimum: -1, maximum: 1 };
+  if (kind === "nullable-tempo-volume-db") return { type: ["number", "null"], minimum: -60, maximum: 9 };
+  if (kind === "nullable-time-signature") return { type: ["string", "null"], enum: ["2/4", "3/4", "4/4", "5/4", "6/4", "7/4", "8/4", "9/4", "10/4", "11/4", "12/4", "13/4", "3/8", "6/8", "9/8", "12/8", "5/8 (3+2)", "5/8 (2+3)", "7/8 (3+2+2)", "7/8 (2+3+2)", "7/8 (2+2+3)", null] };
+  if (kind === "nullable-tempo-subdivision") return { type: ["string", "null"], enum: ["1/4", "1/8", "1/8T", "1/16", null] };
+  if (kind === "nullable-metronome-sound") return { type: ["string", "null"], enum: ["BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT", null] };
+  if (kind === "nullable-metronome-routing") return { type: ["string", "null"], enum: ["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2", null] };
+  if (kind === "nullable-metronome-beats") return { type: ["array", "null"], maxItems: 13, items: { type: "string", enum: ["OFF", "MUTE", "DOWN", "ON"] } };
   if (kind === "io-input-port") return { type: "integer", minimum: 1, maximum: 14 };
   if (kind === "io-output-port") return { type: "integer", minimum: 1, maximum: 22 };
   if (kind === "grid-row") return { type: "integer", minimum: 0, maximum: gridRows - 1 };
@@ -24,6 +34,7 @@ const schemaType = (kind) => {
   if (kind === "general-integer-setting") return { type: "string", enum: ["screenBrightness", "ledBrightness", "dimmedLedBrightness", "holdTiming", "midiChannel"] };
   if (kind === "general-toggle-setting") return { type: "string", enum: ["midiOverUsb", "ignoreDuplicatePc", "stompModeAutoAssign", "swapTempoTunerAccess", "disableInternetConnectionCheck", "dynamicDelayCompensation", "presetDimmed", "midiClockIn", "gigViewStompAccess"] };
   if (kind === "scene-bypass-behavior") return { type: "string", enum: ["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"] };
+  if (kind === "tempo-mode") return { type: "string", enum: ["PRESET", "GLOBAL"] };
   if (kind === "global-eq-filter") return { type: ["integer", "null"], minimum: 0, maximum: 4 };
   if (kind === "mode-cycle") return { type: "array", minItems: 1, maxItems: 3, uniqueItems: true, items: { type: "integer", minimum: 0, maximum: 8 } };
   if (kind === "looper-command") return { type: "string", enum: ["open", "close", "duplicate", "oneShot", "halfSpeed", "punch", "record", "play", "reverse", "undoRedo", "duplicateMode", "quantize", "midiClockStart", "performMode", "routingMode"] };
@@ -55,6 +66,13 @@ const description = (value) => value
   .replaceAll("{maxScene}", String(scenes - 1))
   .replaceAll("{minTempo}", String(minimumTempoBpm))
   .replaceAll("{maxTempo}", String(maximumTempoBpm));
+const pyLiteral = (value) => value === null ? "None"
+  : value === true ? "True"
+  : value === false ? "False"
+  : typeof value === "string" ? JSON.stringify(value)
+  : Array.isArray(value) ? `[${value.map(pyLiteral).join(", ")}]`
+  : typeof value === "object" ? `{${Object.entries(value).map(([key, child]) => `${JSON.stringify(key)}: ${pyLiteral(child)}`).join(", ")}}`
+  : String(value);
 const accessByName = new Map();
 for (const [tier, names] of Object.entries(manifest.accessTiers)) {
   for (const name of names) {
@@ -73,8 +91,34 @@ const actions = manifest.actions.map((action) => ({
     additionalProperties: false
   }
 }));
+const snakeName = (value) => value.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+const gatewaySchemas = Object.fromEntries(actions.map((action) => {
+  const method = gatewayManifest.methods.find((candidate) => candidate.rpc === action.rpc);
+  if (!method) throw new Error(`Action ${action.name} has no gateway method`);
+  const properties = Object.fromEntries((method.args ?? []).map((argument) => {
+    const name = typeof argument === "string" ? argument : argument.name;
+    const actionName = action.rpc === "device.renameCurrentPreset" && name === "name" ? "new_name" : snakeName(name);
+    const schema = name === "confirmRename" ? { type: "boolean" } : action.inputSchema.properties[actionName];
+    if (!schema) throw new Error(`Gateway argument ${action.rpc}.${name} has no MCP schema`);
+    return [name, schema];
+  }));
+  return [action.name, properties];
+}));
 for (const action of actions) {
   if (!action.access) throw new Error(`Write action ${action.name} has no access tier`);
+  const confirmationFields = Object.keys(action.properties).filter((name) => name.startsWith("confirm_"));
+  if (confirmationFields.some((name) => action.properties[name] !== "boolean" || !action.required.includes(name))) {
+    throw new Error(`Action ${action.name} has an optional or non-boolean confirmation field`);
+  }
+  if (action.classification === "risky-write" && !confirmationFields.includes("confirm_risky_operation")) {
+    throw new Error(`Risky action ${action.name} must require confirm_risky_operation`);
+  }
+  if (action.classification === "persistent-write" && !confirmationFields.includes("confirm_persistent_write")) {
+    throw new Error(`Persistent action ${action.name} must require confirm_persistent_write`);
+  }
+  if (["read", "live-write"].includes(action.classification) && confirmationFields.length) {
+    throw new Error(`Non-confirmed action ${action.name} unexpectedly declares confirmation fields`);
+  }
 }
 for (const name of accessByName.keys()) {
   const action = actions.find((candidate) => candidate.name === name);
@@ -87,6 +131,13 @@ export const SHARED_QC_ACTIONS = ${JSON.stringify(actions, null, 2)} as const;
 export type SharedQcActionName = typeof SHARED_QC_ACTIONS[number]["name"];
 `;
 const python = `# Generated by scripts/generate-qc-actions.mjs. Do not edit by hand.
+MCP_INSTRUCTIONS = ${JSON.stringify(manifest.mcpInstructions)}
+MCP_GATEWAY_ARGUMENTS = ${JSON.stringify(Object.fromEntries(actions.map((action) => {
+  const method = gatewayManifest.methods.find((candidate) => candidate.rpc === action.rpc);
+  if (!method) throw new Error(`Action ${action.name} has no gateway method`);
+  return [action.name, (method.args ?? []).map((argument) => typeof argument === "string" ? argument : argument.name)];
+})), null, 2)}
+MCP_GATEWAY_SCHEMAS = ${pyLiteral(gatewaySchemas)}
 SHARED_QC_ACTIONS = ${JSON.stringify(Object.fromEntries(actions.map(({ name, rpc, classification, access, description }) => [name, { rpc, classification, access, description }])), null, 2)
   .replaceAll("true", "True").replaceAll("false", "False").replaceAll("null", "None")}
 `;
@@ -182,12 +233,102 @@ pub(crate) fn is_modify(method: &str) -> bool {
     MODIFY.contains(&method)
 }
 `;
+const rustKind = (action, name, kind) => {
+  const enums = {
+    "lane-control": '["inputGate", "laneOutput"]',
+    "general-integer-setting": '["screenBrightness", "ledBrightness", "dimmedLedBrightness", "holdTiming", "midiChannel"]',
+    "general-toggle-setting": '["midiOverUsb", "ignoreDuplicatePc", "stompModeAutoAssign", "swapTempoTunerAccess", "disableInternetConnectionCheck", "dynamicDelayCompensation", "presetDimmed", "midiClockIn", "gigViewStompAccess"]',
+    "scene-bypass-behavior": '["alwaysOverwrite", "nonstompOverwrite", "neverOverwrite"]',
+    "tempo-mode": '["PRESET", "GLOBAL"]',
+    "looper-command": '["open", "close", "duplicate", "oneShot", "halfSpeed", "punch", "record", "play", "reverse", "undoRedo", "duplicateMode", "quantize", "midiClockStart", "performMode", "routingMode"]'
+  };
+  if (enums[kind]) return `Kind::StringEnum(&${enums[kind]})`;
+  const nullableEnums = {
+    "nullable-time-signature": '["2/4", "3/4", "4/4", "5/4", "6/4", "7/4", "8/4", "9/4", "10/4", "11/4", "12/4", "13/4", "3/8", "6/8", "9/8", "12/8", "5/8 (3+2)", "5/8 (2+3)", "7/8 (3+2+2)", "7/8 (2+3+2)", "7/8 (2+2+3)"]',
+    "nullable-tempo-subdivision": '["1/4", "1/8", "1/8T", "1/16"]',
+    "nullable-metronome-sound": '["BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT"]',
+    "nullable-metronome-routing": '["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2"]'
+  };
+  if (nullableEnums[kind]) return `Kind::NullableStringEnum(&${nullableEnums[kind]})`;
+  const direct = {
+    boolean: "BOOL", "boolean-row-array": "Kind::BooleanRows", "bypass-delay": "BYPASS_DELAY",
+    "expression-switch-mode": "EXPRESSION_SWITCH_MODE", "grid-column": "GRID_COLUMN",
+    "grid-row": "GRID_ROW", "parameter-column": "PARAMETER_COLUMN", "scene-index": "SCENE",
+    tempo: "TEMPO", pedal: "PEDAL", "midi-message-array": "Kind::MidiMessages",
+    "nullable-string": "Kind::NullableString", "nullable-boolean": "Kind::NullableBoolean",
+    "nullable-looper-value": "Kind::NullableInteger { min: 0, max: Some(13) }",
+    "nullable-normalized": "Kind::NullableNumber { min: 0.0, max: Some(1.0) }",
+    "nullable-input-gain": "Kind::NullableNumber { min: -12.0, max: Some(60.0) }",
+    "nullable-pan": "Kind::NullableNumber { min: -1.0, max: Some(1.0) }",
+    "nullable-tempo-volume-db": "Kind::NullableNumber { min: -60.0, max: Some(9.0) }",
+    "global-eq-filter": "Kind::NullableInteger { min: 0, max: Some(4) }",
+    "io-input-port": "Kind::Integer { min: 1, max: Some(14) }",
+    "io-output-port": "Kind::Integer { min: 1, max: Some(22) }",
+    "mode-cycle": "Kind::IntegerArray { min: 0, max: 8, min_items: 1, max_items: 3, unique: true }",
+    "nullable-metronome-beats": "Kind::NullableStringArray { max_items: 13, values: &[\"OFF\", \"MUTE\", \"DOWN\", \"ON\"] }"
+  };
+  if (direct[kind]) return direct[kind];
+  if (kind === "number") return action.name === "set_tuner_reference"
+    ? "Kind::Number { min: -f64::MAX, max: Some(f64::MAX) }" : "NORMALIZED";
+  if (kind === "string") {
+    if (action.name === "set_stomp_label" && name === "label") return "Kind::VisibleString { max_chars: 32 }";
+    if (["create_device_backup", "set_device_name", "create_setlist", "delete_setlist"].includes(action.name) && name === "name") return "Kind::VisibleString { max_chars: 64 }";
+    if (action.name === "duplicate_setlist" && name === "destination_name") return "Kind::VisibleString { max_chars: 64 }";
+    return "TEXT";
+  }
+  if (kind === "screen-x") return "Kind::Integer { min: 0, max: Some(799) }";
+  if (kind === "screen-y") return "Kind::Integer { min: 0, max: Some(479) }";
+  if (kind === "integer") {
+    if (name === "color") return "Kind::Integer { min: 0, max: Some(u32::MAX as i64) }";
+    if (action.name === "press_footswitch" && name === "index") return "Kind::Integer { min: 0, max: Some(10) }";
+    if (action.name === "navigate_bank" && name === "direction") return "Kind::Integer { min: -1, max: Some(1) }";
+    if (action.name === "select_mode_slot" && name === "slot") return "Kind::Integer { min: 0, max: Some(2) }";
+    if (action.name === "set_parameter_expression" && name === "pedal") return "Kind::Integer { min: 0, max: Some(2) }";
+    if (action.name === "set_midi_out" && name === "source") return "Kind::Integer { min: 0, max: Some(9) }";
+    if (action.name === "set_global_eq_band" && name === "band") return "Kind::Integer { min: 1, max: Some(5) }";
+    if (action.name === "load_ir" && name === "slot") return "Kind::Integer { min: 0, max: Some(1) }";
+    if ((action.name === "duplicate_setlist" && name === "expected_position") || (action.name === "move_preset" && name === "position")) return "Kind::Integer { min: 0, max: Some(255) }";
+    if (name === "value" && action.name === "set_master_volume") return "PERCENT";
+    if (name === "expected_value" && action.name === "set_master_volume") return "PERCENT";
+    if (name === "model_id" && ["add_block", "set_model_pinned"].includes(action.name)) return "Kind::Integer { min: 1, max: None }";
+    if (action.name === "set_tuner_input" && name === "input_port_id") return "Kind::Integer { min: 1, max: Some(9) }";
+    if (action.name === "set_general_integer" && name === "value") return "PERCENT";
+    return "UINT";
+  }
+  if (kind === "nullable-integer") {
+    if (["footswitch", "expected_footswitch"].includes(name)) return "Kind::NullableInteger { min: 0, max: Some(7) }";
+    if (["split_column", "mix_column", "expected_split_column", "expected_mix_column"].includes(name)) return "Kind::NullableInteger { min: -1, max: Some(7) }";
+    if (name === "model_id") return "Kind::NullableInteger { min: 1, max: None }";
+    if (name === "limit") return "Kind::NullableInteger { min: 0, max: Some(256) }";
+    return "Kind::NullableInteger { min: 0, max: None }";
+  }
+  throw new Error(`No Rust MCP kind mapping for ${action.name}.${name}: ${kind}`);
+};
+const rustClassification = {
+  read: "Read", "live-write": "LiveWrite", "persistent-write": "PersistentWrite", "risky-write": "RiskyWrite"
+};
+const rustMcpActionsRaw = `// Generated by scripts/generate-qc-actions.mjs. Do not edit by hand.\n\
+pub static ACTIONS: &[ActionSpec] = &[\n${actions.map((action) => `    ActionSpec {\n\
+        name: ${JSON.stringify(action.name)},\n\
+        rpc: ${JSON.stringify(action.rpc)},\n\
+        classification: Classification::${rustClassification[action.classification]},\n\
+        description: ${JSON.stringify(action.description)},\n\
+        properties: &[${Object.entries(action.properties).map(([name, kind]) => `${action.required.includes(name) ? "p!" : "p!"}(${action.required.includes(name) ? "" : "? "}${JSON.stringify(name)}, ${rustKind(action, name, kind)})`).join(", ")}],\n\
+    }`).join(",\n")}\n];\n`;
+const rustMcpActions = execFileSync("rustfmt", ["--edition", "2024"], {
+  input: rustMcpActionsRaw,
+  encoding: "utf8"
+});
+const rustMcpInstructions = `// Generated by scripts/generate-qc-actions.mjs. Do not edit by hand.
+pub const MCP_INSTRUCTIONS: &str = ${JSON.stringify(manifest.mcpInstructions)};
+`;
 const relayClass = {
   read: "Read",
   "live-write": "LiveWrite",
   "risky-write": "RiskyWrite",
   "persistent-write": "PersistentWrite"
 };
+const snakeToCamel = (value) => value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 const relayRust = `// Generated by scripts/generate-qc-actions.mjs. Do not edit by hand.
 use crate::protocol::{ActionClass, ActionPolicy};
 
@@ -198,17 +339,37 @@ pub static ACTIONS: &[ActionPolicy] = &[
         rpc: "system.status",
         class: ActionClass::Read,
         required_argument_confirmations: NONE,
+        allowed_arguments: NONE,
+        required_arguments: NONE,
+        gateway_arguments: &[],
+        gateway_true_arguments: NONE,
     },
 ${actions.map((action) => {
   const confirmations = action.required.filter((name) => name.startsWith("confirm_"));
   const required = confirmations.length
     ? `&[${confirmations.map((name) => JSON.stringify(name)).join(", ")}]`
     : "NONE";
+  const gatewayMethod = gatewayManifest.methods.find((candidate) => candidate.rpc === action.rpc);
+  if (!gatewayMethod) throw new Error(`Action ${action.name} has no gateway method`);
+  const gatewayNames = new Set((gatewayMethod.args ?? []).map((argument) =>
+    typeof argument === "string" ? argument : argument.name));
+  const mappings = Object.keys(action.properties).flatMap((name) => {
+    const target = action.name === "rename_current_preset" && name === "new_name"
+      ? "name" : snakeToCamel(name);
+    return gatewayNames.has(target) ? [[name, target]] : [];
+  });
+  const mappedTargets = new Set(mappings.map(([, target]) => target));
+  const gatewayTrueArguments = [...gatewayNames].filter((name) =>
+    name.startsWith("confirm") && !mappedTargets.has(name));
   return `    ActionPolicy {
         name: ${JSON.stringify(action.name)},
         rpc: ${JSON.stringify(action.rpc)},
         class: ActionClass::${relayClass[action.classification]},
         required_argument_confirmations: ${required},
+        allowed_arguments: &[${Object.keys(action.properties).map((name) => JSON.stringify(name)).join(", ")}],
+        required_arguments: &[${action.required.map((name) => JSON.stringify(name)).join(", ")}],
+        gateway_arguments: &[${mappings.map(([source, target]) => `(${JSON.stringify(source)}, ${JSON.stringify(target)})`).join(", ")}],
+        gateway_true_arguments: &[${gatewayTrueArguments.map((name) => JSON.stringify(name)).join(", ")}],
     },`;
 }).join("\n")}
 ];
@@ -216,6 +377,8 @@ ${actions.map((action) => {
 const outputs = [
   [resolve(root, "packages/typescript/qc-core/src/generated-actions.ts"), typescript],
   [resolve(root, "services/mcp-server/src/qc_mcp_server/generated_actions.py"), python],
+  [resolve(root, "services/rust-mcp/src/generated_instructions.rs"), rustMcpInstructions],
+  [resolve(root, "services/rust-mcp/src/generated_actions.rs"), rustMcpActions],
   [resolve(root, "apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedRemoteActions.java"), java],
   [resolve(root, "packages/rust/qc-relay-client/src/generated_actions.rs"), rust],
   [resolve(root, "services/qc-relay/src/generated_actions.rs"), relayRust]

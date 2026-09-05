@@ -55,17 +55,8 @@ pub struct HostMidiPlan {
     pub detail: String,
 }
 
-pub const HOST_MIDI_METHODS: &[&str] = &[
-    "device.pressFootswitch",
-    "device.tapTempo",
-    "device.selectModeSlot",
-    "device.showTuner",
-    "device.showGigView",
-    "device.controlLooper",
-];
-
 pub fn is_host_midi_method(method: &str) -> bool {
-    HOST_MIDI_METHODS.contains(&method)
+    crate::generated_gateway::PERFORMANCE_MIDI_METHODS.contains(&method)
 }
 
 /// Shared mapping for physical QC controls. Both native hosts execute this
@@ -360,20 +351,20 @@ pub fn merge_expected_state(params: &Value, expected: &Value) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GatewayTransaction {
     verification: GatewayVerification,
-    after_observed_at_ms: u128,
+    after_observation_token: u128,
     deadline_ms: u64,
 }
 
 impl GatewayTransaction {
     pub fn new(
         verification: GatewayVerification,
-        after_observed_at_ms: u128,
+        after_observation_token: u128,
         started_at_ms: u64,
         timeout_ms: u64,
     ) -> Self {
         Self {
             verification,
-            after_observed_at_ms,
+            after_observation_token,
             deadline_ms: started_at_ms.saturating_add(timeout_ms),
         }
     }
@@ -382,16 +373,15 @@ impl GatewayTransaction {
         &self,
         snapshot: &GatewaySnapshot,
         parameter_value: Option<f64>,
-        observed_at_ms: u128,
+        observation_token: u128,
         now_ms: u64,
     ) -> GatewayTransactionState {
-        if observed_at_ms > self.after_observed_at_ms
-            && observed_at_ms <= u128::from(self.deadline_ms)
+        if now_ms >= self.deadline_ms {
+            GatewayTransactionState::TimedOut
+        } else if observation_token > self.after_observation_token
             && self.verification.matches(snapshot, parameter_value)
         {
             GatewayTransactionState::Verified
-        } else if now_ms >= self.deadline_ms {
-            GatewayTransactionState::TimedOut
         } else {
             GatewayTransactionState::Pending
         }
@@ -405,6 +395,13 @@ impl GatewayTransaction {
 impl GatewayVerification {
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
+    }
+
+    /// Whether a fresh device observation can authoritatively prove this
+    /// write landed. A missing predicate must never match an arbitrary state
+    /// update merely because that update arrived after the write.
+    pub fn requires_authoritative_readback(&self) -> bool {
+        !self.is_none()
     }
 
     pub fn parameter_target(&self) -> Option<(u32, u32, u32)> {
@@ -421,7 +418,7 @@ impl GatewayVerification {
 
     pub fn matches(&self, snapshot: &GatewaySnapshot, parameter_value: Option<f64>) -> bool {
         match self {
-            Self::None => true,
+            Self::None => false,
             Self::Scene { scene } => snapshot.active_scene == *scene,
             Self::SceneLabel { scene, label } => {
                 snapshot
@@ -791,6 +788,272 @@ impl GatewayResponseProjection {
     }
 }
 
+/// Correlated settings read used to prove a global write where CorOS exposes
+/// the written value through an existing public read operation.
+pub fn gateway_write_readback_method(method: &str) -> Option<&'static str> {
+    match method {
+        "device.setTunerInput"
+        | "device.setTunerMute"
+        | "device.restoreTunerAudio"
+        | "device.setTunerReference" => Some("device.tunerSettings"),
+        "device.setGeneralInteger"
+        | "device.setGeneralToggle"
+        | "device.setSceneBypassBehavior"
+        | "device.setMasterVolumeAssignment"
+        | "device.setGlobalBypass" => Some("device.generalSettings"),
+        "device.setInputPort"
+        | "device.setOutputPort"
+        | "device.setUsbPort"
+        | "device.setMidiThru"
+        | "device.setOutputPairing" => Some("device.ioSettings"),
+        "device.setModeCycle" => Some("device.modeCycle"),
+        "device.setGlobalEqBypassed" | "device.setGlobalEqBand" | "device.setGlobalEqOutput" => {
+            Some("device.globalEq")
+        }
+        "device.setTempoMetronome" | "device.setTempoMode" => Some("device.globalTempoSettings"),
+        _ => None,
+    }
+}
+
+fn json_number_matches(actual: Option<&Value>, expected: &Value) -> bool {
+    actual
+        .and_then(Value::as_f64)
+        .zip(expected.as_f64())
+        .is_some_and(|(actual, expected)| (actual - expected).abs() <= 0.001)
+}
+
+fn supplied_fields_match(params: &Value, response: &Value, fields: &[(&str, &str)]) -> bool {
+    fields
+        .iter()
+        .all(|(argument, output)| match params.get(*argument) {
+            None | Some(Value::Null) => true,
+            Some(expected) if expected.is_number() => {
+                json_number_matches(response.get(*output), expected)
+            }
+            Some(expected) => response.get(*output) == Some(expected),
+        })
+}
+
+/// Compare a correlated settings reply with the exact fields a write changed.
+pub fn gateway_write_readback_matches(method: &str, params: &Value, response: &Value) -> bool {
+    let eq_value = |index: i64| {
+        response
+            .get("parameters")
+            .and_then(Value::as_array)
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.get("parameterIndex").and_then(Value::as_i64) == Some(index))
+                    .and_then(|item| item.get("value"))
+                    .and_then(Value::as_f64)
+            })
+    };
+    match method {
+        "device.setTunerInput" => {
+            supplied_fields_match(params, response, &[("inputPortId", "inputPortId")])
+        }
+        "device.setTunerMute" => supplied_fields_match(params, response, &[("muted", "muted")]),
+        "device.restoreTunerAudio" => response.get("muted") == Some(&Value::Bool(false)),
+        "device.setTunerReference" => supplied_fields_match(
+            params,
+            response,
+            &[("referenceOffsetHz", "referenceOffsetHz")],
+        ),
+        "device.setModeCycle" => supplied_fields_match(params, response, &[("slots", "slots")]),
+        "device.setGlobalEqBypassed" => {
+            supplied_fields_match(params, response, &[("bypassed", "bypassed")])
+        }
+        "device.setGlobalEqBand" => {
+            let Some(band) = params.get("band").and_then(Value::as_i64) else {
+                return false;
+            };
+            let base = (band - 1) * 5;
+            [("gain", 0), ("frequency", 1), ("q", 2)]
+                .iter()
+                .all(|(field, offset)| {
+                    params.get(*field).is_none_or(|expected| {
+                        expected.is_null()
+                            || eq_value(base + offset)
+                                .zip(expected.as_f64())
+                                .is_some_and(|(a, e)| (a - e).abs() <= 0.001)
+                    })
+                })
+                && params.get("filterType").is_none_or(|expected| {
+                    expected.is_null()
+                        || eq_value(base + 3)
+                            .zip(expected.as_f64())
+                            .is_some_and(|(a, e)| (a - e / 4.0).abs() <= 0.001)
+                })
+                && params.get("enabled").is_none_or(|expected| {
+                    expected.is_null()
+                        || expected
+                            .as_bool()
+                            .zip(eq_value(base + 4))
+                            .is_some_and(|(e, a)| (a - if e { 1.0 } else { 0.0 }).abs() <= 0.001)
+                })
+        }
+        "device.setGlobalEqOutput" => {
+            [("level", 25), ("out12", 26), ("out34", 27)]
+                .iter()
+                .all(|(field, index)| {
+                    params.get(*field).is_none_or(|expected| {
+                        expected.is_null()
+                            || if let Some(boolean) = expected.as_bool() {
+                                eq_value(*index).is_some_and(|actual| {
+                                    (actual - if boolean { 1.0 } else { 0.0 }).abs() <= 0.001
+                                })
+                            } else {
+                                eq_value(*index)
+                                    .zip(expected.as_f64())
+                                    .is_some_and(|(a, e)| (a - e).abs() <= 0.001)
+                            }
+                    })
+                })
+        }
+        "device.setTempoMode" => supplied_fields_match(params, response, &[("mode", "mode")]),
+        "device.setTempoMetronome" => supplied_fields_match(
+            params,
+            response,
+            &[
+                ("ledEnabled", "ledEnabled"),
+                ("volumeDb", "volumeDb"),
+                ("running", "running"),
+                ("pan", "pan"),
+                ("timeSignature", "timeSignature"),
+                ("subdivision", "subdivision"),
+                ("sound", "sound"),
+                ("routing", "routing"),
+                ("beats", "beats"),
+            ],
+        ),
+        "device.setGeneralInteger" | "device.setGeneralToggle" => {
+            let Some(setting) = params.get("setting").and_then(Value::as_str) else {
+                return false;
+            };
+            let output = if setting == "holdTiming" {
+                "holdTimingIndex"
+            } else {
+                setting
+            };
+            let expected = params.get("value").or_else(|| params.get("enabled"));
+            expected.is_some_and(|expected| {
+                if expected.is_number() {
+                    json_number_matches(response.get(output), expected)
+                } else {
+                    response.get(output) == Some(expected)
+                }
+            })
+        }
+        "device.setSceneBypassBehavior" => {
+            supplied_fields_match(params, response, &[("behavior", "sceneBypassBehavior")])
+        }
+        "device.setMasterVolumeAssignment" => {
+            response
+                .get("masterVolumeAssignment")
+                .is_some_and(|nested| {
+                    supplied_fields_match(
+                        params,
+                        nested,
+                        &[
+                            ("out12", "out12"),
+                            ("out34", "out34"),
+                            ("send12", "send12"),
+                            ("headphones", "headphones"),
+                        ],
+                    )
+                })
+        }
+        "device.setGlobalBypass" => ["cab", "ir"].iter().all(|name| {
+            let Some(expected) = params.get(*name).and_then(Value::as_array) else {
+                return false;
+            };
+            let output = if *name == "cab" {
+                "globalBypassCab"
+            } else {
+                "globalBypassIr"
+            };
+            let Some(actual) = response.get(output).and_then(Value::as_object) else {
+                return false;
+            };
+            expected
+                .iter()
+                .enumerate()
+                .all(|(index, value)| actual.get(&format!("row{}", index + 1)) == Some(value))
+        }),
+        "device.setInputPort" => response
+            .get("inputs")
+            .and_then(Value::as_array)
+            .and_then(|ports| {
+                let id = params.get("inputPortId")?;
+                ports
+                    .iter()
+                    .find(|port| port.get("inputPortId") == Some(id))
+            })
+            .is_some_and(|port| {
+                supplied_fields_match(
+                    params,
+                    port,
+                    &[
+                        ("levelDb", "levelDb"),
+                        ("impedance", "impedance"),
+                        ("inputType", "inputType"),
+                        ("groundLift", "groundLift"),
+                    ],
+                )
+            }),
+        "device.setOutputPort" => response
+            .get("outputs")
+            .and_then(Value::as_array)
+            .and_then(|ports| {
+                let id = params.get("outputPortId")?;
+                ports
+                    .iter()
+                    .find(|port| port.get("outputPortId") == Some(id))
+            })
+            .is_some_and(|port| {
+                supplied_fields_match(
+                    params,
+                    port,
+                    &[
+                        ("level", "level"),
+                        ("groundLift", "groundLift"),
+                        ("mute", "muted"),
+                    ],
+                )
+            }),
+        "device.setUsbPort" => response.get("usb").is_some_and(|usb| {
+            supplied_fields_match(
+                params,
+                usb,
+                &[
+                    ("level", "level"),
+                    ("headphonesSource", "headphonesSource"),
+                    ("dryWet", "dryWet"),
+                ],
+            )
+        }),
+        "device.setMidiThru" => params
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .zip(
+                response
+                    .get("midi")
+                    .and_then(|midi| midi.get("thru"))
+                    .and_then(Value::as_f64),
+            )
+            .is_some_and(|(enabled, thru)| (thru - if enabled { 1.0 } else { 0.0 }).abs() <= 0.001),
+        "device.setOutputPairing" => supplied_fields_match(
+            params,
+            response,
+            &[
+                ("xlr12Linked", "xlr12Linked"),
+                ("out34Linked", "out34Linked"),
+            ],
+        ),
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GatewayReadPlan {
     pub operation: DeviceOperation,
@@ -913,6 +1176,7 @@ pub fn plan_gateway_read(
                     .unwrap_or("local_ir_root")
                     .to_string()
             };
+            let folder_key = validate_library_key(folder_key, "folder")?;
             Ok(GatewayReadPlan {
                 operation: DeviceOperation::ReadLibraryFiles {
                     folder_key: folder_key.clone(),
@@ -934,7 +1198,12 @@ pub fn plan_gateway_read(
             projection: GatewayResponseProjection::InhibitedModules,
         }),
         "device.presetScreenshot" => {
-            let folder_name = required_text(params, "folderName")?;
+            let folder_name = validate_path_component(
+                required_text(params, "folderName")?,
+                "folderName",
+                64,
+                &[],
+            )?;
             let position = bounded_u32(params, "position", 255)?;
             let is_factory = params
                 .get("isFactory")
@@ -980,13 +1249,7 @@ fn screen_coordinate(params: &Value, field: &str, upper: f64) -> Result<f32, Str
 
 fn preset_name(params: &Value) -> Result<String, String> {
     let name = required_text(params, "name")?.trim().to_string();
-    if name.is_empty() {
-        return Err("name must be a non-empty string".into());
-    }
-    if name.chars().count() > 80 {
-        return Err("Preset name must be 80 characters or fewer.".into());
-    }
-    Ok(name)
+    validate_path_component(name, "Preset name", 80, &[])
 }
 
 fn save_stage(
@@ -1027,7 +1290,8 @@ pub fn plan_preset_mutation(
 
     match method {
         "device.savePresetAs" => {
-            let setlist_key = required_text(params, "setlistKey")?;
+            let setlist_key =
+                validate_setlist_key(required_text(params, "setlistKey")?, "setlistKey")?;
             let position = bounded_u32(params, "position", 255)?;
             let name = preset_name(params)?;
             let confirm_overwrite = params
@@ -1115,8 +1379,11 @@ pub fn plan_preset_mutation(
             if params.get("confirmOverwrite").and_then(Value::as_bool) != Some(true) {
                 return Err("Pasting a preset requires explicit overwrite confirmation.".into());
             }
-            let source_key = required_text(params, "sourceSetlistKey")?;
-            let destination_key = required_text(params, "destinationSetlistKey")?;
+            let source_key = validate_setlist_key(
+                required_text(params, "sourceSetlistKey")?,
+                "sourceSetlistKey",
+            )?;
+            let destination_key = writable_setlist_key(params, "destinationSetlistKey")?;
             let source_position = bounded_u32(params, "sourcePosition", 255)?;
             let destination_position = bounded_u32(params, "destinationPosition", 255)?;
             if source_key.trim_end_matches('/') == destination_key.trim_end_matches('/')
@@ -1193,9 +1460,12 @@ pub fn plan_preset_mutation(
             })
         }
         "device.duplicateSetlist" => {
-            let source_key = required_text(params, "sourceSetlistKey")?
-                .trim_end_matches('/')
-                .to_string();
+            let source_key = validate_setlist_key(
+                required_text(params, "sourceSetlistKey")?,
+                "sourceSetlistKey",
+            )?
+            .trim_end_matches('/')
+            .to_string();
             let destination_name =
                 validate_setlist_name(required_text(params, "destinationName")?)?;
             let destination_key = format!("/media/p4/Presets/{destination_name}");
@@ -1308,6 +1578,63 @@ pub fn required_text(params: &Value, field: &str) -> Result<String, String> {
         .ok_or_else(|| format!("{field} must be a non-empty string"))
 }
 
+fn validate_visible_text(value: String, field: &str, maximum: usize) -> Result<String, String> {
+    if value.is_empty() || value.chars().count() > maximum || value.chars().any(char::is_control) {
+        return Err(format!(
+            "{field} must contain 1-{maximum} visible characters"
+        ));
+    }
+    Ok(value)
+}
+
+fn validate_path_component(
+    value: String,
+    field: &str,
+    maximum: usize,
+    reserved: &[&str],
+) -> Result<String, String> {
+    let value = validate_visible_text(value, field, maximum)?;
+    if value.trim() != value
+        || value.contains(['/', '\\'])
+        || matches!(value.as_str(), "." | "..")
+        || reserved
+            .iter()
+            .any(|candidate| value.eq_ignore_ascii_case(candidate))
+    {
+        return Err(format!(
+            "{field} must not have surrounding whitespace, path separators, traversal components, or a reserved name"
+        ));
+    }
+    Ok(value)
+}
+
+fn validate_library_key(value: String, field: &str) -> Result<String, String> {
+    let value = validate_visible_text(value, field, 512)?;
+    if value.trim() != value
+        || value.trim_end_matches('/').is_empty()
+        || value.contains('\\')
+        || value.contains("//")
+        || value
+            .trim_end_matches('/')
+            .split('/')
+            .filter(|component| !component.is_empty())
+            .any(|component| component.is_empty() || matches!(component, "." | ".."))
+    {
+        return Err(format!(
+            "{field} must be a library key without control characters, backslashes, or traversal components"
+        ));
+    }
+    Ok(value)
+}
+
+fn validate_setlist_key(value: String, field: &str) -> Result<String, String> {
+    let value = validate_library_key(value, field)?;
+    if !value.starts_with('/') {
+        return Err(format!("{field} must be an absolute setlist key"));
+    }
+    Ok(value)
+}
+
 pub fn optional_i32(params: &Value, field: &str) -> Result<Option<i32>, String> {
     match params.get(field) {
         None | Some(Value::Null) => Ok(None),
@@ -1332,23 +1659,19 @@ fn optional_positive_u32(params: &Value, field: &str) -> Result<Option<u32>, Str
 }
 
 fn writable_setlist_key(params: &Value, field: &str) -> Result<String, String> {
-    let key = required_text(params, field)?;
-    if !key.starts_with("/media/p4/Presets/") || key.contains("..") {
+    let key = validate_setlist_key(required_text(params, field)?, field)?;
+    let trimmed = key.trim_end_matches('/');
+    let Some(name) = trimmed.strip_prefix("/media/p4/Presets/") else {
+        return Err(format!("{field} must identify a writable user setlist"));
+    };
+    if name.is_empty() || name.contains('/') {
         return Err(format!("{field} must identify a writable user setlist"));
     }
-    Ok(key.trim_end_matches('/').to_string())
+    Ok(trimmed.to_string())
 }
 
 fn validate_setlist_name(name: String) -> Result<String, String> {
-    if name.trim() != name
-        || name.chars().count() > 64
-        || name.chars().any(char::is_control)
-        || name.contains(['/', '\\'])
-        || matches!(name.as_str(), "." | ".." | "My Presets")
-    {
-        return Err("setlist name must be 1-64 visible characters without slashes and cannot name a built-in setlist".into());
-    }
-    Ok(name)
+    validate_path_component(name, "setlist name", 64, &["My Presets"])
 }
 
 pub fn expected_position(params: &Value) -> Result<u32, String> {
@@ -1397,7 +1720,8 @@ pub fn plan_preset_recall(
 
     let (setlist_key, position, require_clean, detail) = match method {
         "device.recallPreset" => {
-            let setlist_key = required_text(params, "setlistKey")?;
+            let setlist_key =
+                validate_setlist_key(required_text(params, "setlistKey")?, "setlistKey")?;
             if before.setlist_key.trim_end_matches('/') != setlist_key.trim_end_matches('/') {
                 return Err(
                     "The active setlist changed on the Quad Cortex. Refresh and retry.".into(),
@@ -1529,7 +1853,19 @@ pub fn assert_expected_state(
     else {
         return Ok(());
     };
-    if let Some(expected) = params.get("expectedModelId").and_then(Value::as_u64) {
+    if let Some(expected_value) = params.get("expectedModelId") {
+        let expected = if expected_value.is_null() {
+            None
+        } else {
+            Some(
+                expected_value
+                    .as_u64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .ok_or_else(|| {
+                        "expectedModelId must be an unsigned 32-bit integer or null".to_string()
+                    })?,
+            )
+        };
         let actual = snapshot
             .blocks
             .iter()
@@ -1543,15 +1879,15 @@ pub fn assert_expected_state(
                             .unwrap_or(u64::MAX) as u32
             })
             .and_then(|block| block.model_id);
-        if actual != Some(expected as u32) {
+        if actual != expected {
             return Err(format!(
-                "The block at row {row}, column {} changed: expected model {expected}, found {:?}. Refresh and retry.",
+                "The block at row {row}, column {} changed: expected model {:?}, found {:?}. Refresh and retry.",
                 params
                     .get("fromColumn")
                     .or_else(|| params.get("column"))
                     .and_then(Value::as_u64)
                     .unwrap_or(u64::MAX),
-                actual
+                expected, actual
             ));
         }
     }
@@ -2116,13 +2452,16 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             },
         )),
         "setFavorite" => {
-            let name = required_text(params, "name")?;
-            let folder_key = required_text(params, "folderKey")?;
+            let name = validate_path_component(required_text(params, "name")?, "name", 80, &[])?;
+            let folder_key =
+                validate_library_key(required_text(params, "folderKey")?, "folderKey")?;
             let folder_name = params
                 .get("folderName")
                 .and_then(Value::as_str)
                 .filter(|value| !value.is_empty())
                 .map(str::to_string)
+                .map(|value| validate_path_component(value, "folderName", 64, &[]))
+                .transpose()?
                 .unwrap_or_else(|| {
                     folder_key
                         .trim_end_matches('/')
@@ -2159,25 +2498,25 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
         }
         "deletePreset" => Ok(DeviceOperation::DeletePreset {
             setlist_key: writable_setlist_key(params, "setlistKey")?,
-            name: required_text(params, "name")?,
+            name: validate_path_component(required_text(params, "name")?, "name", 80, &[])?,
         }),
         "movePreset" => Ok(DeviceOperation::MovePreset {
             setlist_key: writable_setlist_key(params, "setlistKey")?,
-            name: required_text(params, "name")?,
+            name: validate_path_component(required_text(params, "name")?, "name", 80, &[])?,
             position: bounded_u32(params, "position", 255)?,
         }),
         "loadCapture" => Ok(DeviceOperation::LoadCapture {
             row: row()?,
             column: column("column")?,
-            key: required_text(params, "key")?,
-            name: required_text(params, "name")?,
+            key: validate_library_key(required_text(params, "key")?, "key")?,
+            name: validate_visible_text(required_text(params, "name")?, "name", 128)?,
             model_id: optional_positive_u32(params, "modelId")?,
         }),
         "loadIr" => Ok(DeviceOperation::LoadIr {
             row: row()?,
             column: column("column")?,
-            key: required_text(params, "key")?,
-            name: required_text(params, "name")?,
+            key: validate_library_key(required_text(params, "key")?, "key")?,
+            name: validate_visible_text(required_text(params, "name")?, "name", 128)?,
             slot: bounded_u32(params, "slot", 1)?,
             model_id: optional_positive_u32(params, "modelId")?,
         }),
@@ -2348,10 +2687,7 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             })
         }
         "device.setStompLabel" | "setStompLabel" => {
-            let label = required_text(params, "label")?;
-            if label.chars().count() > 32 || label.chars().any(char::is_control) {
-                return Err("label must contain at most 32 printable characters".into());
-            }
+            let label = validate_visible_text(required_text(params, "label")?, "label", 32)?;
             Ok(DeviceOperation::SetStompLabel {
                 footswitch: bounded_u32(params, "footswitch", domain::SCENE_COUNT - 1)?,
                 label,
@@ -2388,9 +2724,9 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
         }
         "listPresetFolders" => Ok(DeviceOperation::ListPresetFolders),
         "savePreset" => Ok(DeviceOperation::SavePreset {
-            setlist_key: required_text(params, "setlistKey")?,
+            setlist_key: validate_setlist_key(required_text(params, "setlistKey")?, "setlistKey")?,
             position: bounded_u32(params, "position", 255)?,
-            name: required_text(params, "name")?,
+            name: validate_path_component(required_text(params, "name")?, "name", 80, &[])?,
             instrument: params
                 .get("instrument")
                 .and_then(Value::as_i64)
@@ -2406,10 +2742,8 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             scene: bounded_u32(params, "scene", domain::SCENE_COUNT - 1)?,
             label: match params.get("label") {
                 None | Some(Value::Null) => None,
-                Some(Value::String(label))
-                    if label.chars().count() <= 32 && !label.chars().any(char::is_control) =>
-                {
-                    Some(label.clone())
+                Some(Value::String(label)) => {
+                    Some(validate_visible_text(label.clone(), "label", 32)?)
                 }
                 _ => return Err("label must be null or at most 32 visible characters".into()),
             },
@@ -2447,6 +2781,23 @@ fn verification_for_operation(
             column: *column,
             model_id: None,
             present: false,
+        },
+        DeviceOperation::LoadCapture {
+            row,
+            column,
+            model_id: Some(model_id),
+            ..
+        }
+        | DeviceOperation::LoadIr {
+            row,
+            column,
+            model_id: Some(model_id),
+            ..
+        } => GatewayVerification::Block {
+            row: *row,
+            column: *column,
+            model_id: Some(*model_id),
+            present: true,
         },
         DeviceOperation::MoveBlock {
             to_row, to_column, ..
@@ -2617,8 +2968,8 @@ fn verification_for_operation(
         | DeviceOperation::DeleteSetlist { .. }
         | DeviceOperation::DeletePreset { .. }
         | DeviceOperation::MovePreset { .. }
-        | DeviceOperation::LoadCapture { .. }
-        | DeviceOperation::LoadIr { .. }
+        | DeviceOperation::LoadCapture { model_id: None, .. }
+        | DeviceOperation::LoadIr { model_id: None, .. }
         | DeviceOperation::PresetScreenshot { .. }
         | DeviceOperation::CaptureScreen
         | DeviceOperation::ScreenTap { .. } => GatewayVerification::None,
@@ -2630,6 +2981,57 @@ pub fn plan_gateway_write(
     params: &Value,
     snapshot: Option<&GatewaySnapshot>,
 ) -> Result<GatewayWritePlan, String> {
+    let required_guards: &[&str] = match method {
+        "device.selectScene"
+        | "device.copyScene"
+        | "device.setSceneLabel"
+        | "device.setSceneColor"
+        | "device.selectModeSlot"
+        | "device.setParameterSceneMode"
+        | "device.setParameterExpression"
+        | "device.setLaneControlSceneMode"
+        | "device.setExpressionBypass"
+        | "device.addBlock"
+        | "device.setStompMomentary"
+        | "device.setStompLabel"
+        | "device.setMidiOut"
+        | "device.setPresetLoadMidiOut" => &["expectedPresetName"],
+        "device.pressFootswitch" | "device.tapTempo" => &["expectedMode", "expectedPresetName"],
+        "device.setMasterVolume" => &["expectedValue"],
+        "device.setTempo" => &["expectedTempo", "expectedPresetName"],
+        "device.toggleBypass" => &["expectedBypassed", "expectedScene", "expectedPresetName"],
+        "device.setParameter" | "device.previewParameter" => {
+            &["expectedValue", "expectedScene", "expectedPresetName"]
+        }
+        "device.setLaneControlParameter" | "device.previewLaneControlParameter" => {
+            &["expectedValue", "expectedPresetName"]
+        }
+        "device.moveBlock" | "device.removeBlock" | "device.loadCapture" | "device.loadIr" => {
+            &["expectedModelId", "expectedPresetName"]
+        }
+        "device.setBlockFootswitch" => &[
+            "expectedFootswitch",
+            "expectedModelId",
+            "expectedPresetName",
+        ],
+        "device.setChainInput" => &["expectedInputId", "expectedPresetName"],
+        "device.setChainOutput" => &["expectedOutputId", "expectedPresetName"],
+        "device.setChainSplit" => &[
+            "expectedSplitColumn",
+            "expectedMixColumn",
+            "expectedPresetName",
+        ],
+        "device.setSplitMute" => &["expectedMuted", "expectedPresetName"],
+        _ => &[],
+    };
+    for field in required_guards {
+        let present = params.get(*field).is_some_and(|value| {
+            *field != "expectedPresetName" || value.as_str().is_some_and(|name| !name.is_empty())
+        });
+        if !present {
+            return Err(format!("{field} is required to guard {method}"));
+        }
+    }
     if method.starts_with("device.") && !method.starts_with("device.command.") {
         assert_expected_preset(snapshot, params)?;
         assert_expected_state(method, snapshot, params)?;
@@ -2884,10 +3286,7 @@ pub fn plan_gateway_write(
             }
         }
         "device.setDeviceName" => {
-            let name = required_text(params, "name")?;
-            if name.chars().any(char::is_control) || name.chars().count() > 64 {
-                return Err("Device name must be at most 64 visible characters".into());
-            }
+            let name = validate_visible_text(required_text(params, "name")?, "Device name", 64)?;
             GatewayWritePlan {
                 write: PlannedWrite::HidOperation(DeviceOperation::SetDeviceName(name.clone())),
                 detail: format!("Device name change to {name} sent"),
@@ -2988,10 +3387,7 @@ pub fn plan_gateway_write(
         }
         "device.setStompLabel" => {
             let footswitch = bounded_u32(params, "footswitch", domain::SCENE_COUNT - 1)?;
-            let label = required_text(params, "label")?;
-            if label.chars().count() > 32 || label.chars().any(char::is_control) {
-                return Err("label must contain at most 32 printable characters".into());
-            }
+            let label = validate_visible_text(required_text(params, "label")?, "label", 32)?;
             let single = snapshot
                 .ok_or_else(|| {
                     "A synchronized preset is required to label a stomp switch".to_string()
@@ -3091,6 +3487,85 @@ mod tests {
     }
 
     #[test]
+    fn every_guarded_public_write_requires_its_optimistic_token() {
+        for (method, first_guard) in [
+            ("device.selectScene", "expectedPresetName"),
+            ("device.copyScene", "expectedPresetName"),
+            ("device.setSceneLabel", "expectedPresetName"),
+            ("device.setSceneColor", "expectedPresetName"),
+            ("device.pressFootswitch", "expectedMode"),
+            ("device.tapTempo", "expectedMode"),
+            ("device.selectModeSlot", "expectedPresetName"),
+            ("device.setMasterVolume", "expectedValue"),
+            ("device.setTempo", "expectedTempo"),
+            ("device.toggleBypass", "expectedBypassed"),
+            ("device.setParameter", "expectedValue"),
+            ("device.previewParameter", "expectedValue"),
+            ("device.setParameterSceneMode", "expectedPresetName"),
+            ("device.setParameterExpression", "expectedPresetName"),
+            ("device.setLaneControlParameter", "expectedValue"),
+            ("device.previewLaneControlParameter", "expectedValue"),
+            ("device.setLaneControlSceneMode", "expectedPresetName"),
+            ("device.setExpressionBypass", "expectedPresetName"),
+            ("device.moveBlock", "expectedModelId"),
+            ("device.addBlock", "expectedPresetName"),
+            ("device.removeBlock", "expectedModelId"),
+            ("device.setBlockFootswitch", "expectedFootswitch"),
+            ("device.setStompMomentary", "expectedPresetName"),
+            ("device.setStompLabel", "expectedPresetName"),
+            ("device.setMidiOut", "expectedPresetName"),
+            ("device.setPresetLoadMidiOut", "expectedPresetName"),
+            ("device.setChainInput", "expectedInputId"),
+            ("device.setChainOutput", "expectedOutputId"),
+            ("device.setChainSplit", "expectedSplitColumn"),
+            ("device.setSplitMute", "expectedMuted"),
+            ("device.loadCapture", "expectedModelId"),
+            ("device.loadIr", "expectedModelId"),
+        ] {
+            let error = plan_gateway_write(method, &json!({}), Some(&GatewaySnapshot::default()))
+                .expect_err(method);
+            assert!(error.contains(first_guard), "{method}: {error}");
+        }
+    }
+
+    #[test]
+    fn correlated_global_readbacks_match_only_the_fields_written() {
+        assert!(gateway_write_readback_matches(
+            "device.setTunerReference",
+            &json!({"referenceOffsetHz": 2.5}),
+            &json!({"inputPortId": 1, "referenceOffsetHz": 2.5, "muted": false})
+        ));
+        assert!(!gateway_write_readback_matches(
+            "device.setTunerMute",
+            &json!({"muted": true}),
+            &json!({"muted": false})
+        ));
+        assert!(gateway_write_readback_matches(
+            "device.setInputPort",
+            &json!({"inputPortId": 2, "levelDb": -10.0, "impedance": null}),
+            &json!({"inputs": [{"inputPortId": 2, "levelDb": -10.0, "impedance": 1.0}]})
+        ));
+        assert!(gateway_write_readback_matches(
+            "device.setTempoMetronome",
+            &json!({"ledEnabled": true, "volumeDb": null, "timeSignature": "4/4"}),
+            &json!({"ledEnabled": true, "volumeDb": -12.0, "timeSignature": "4/4"})
+        ));
+        assert_eq!(
+            gateway_write_readback_method("device.setGlobalEqBand"),
+            Some("device.globalEq")
+        );
+        assert!(gateway_write_readback_matches(
+            "device.setGlobalEqBand",
+            &json!({"band": 2, "gain": 0.75, "filterType": 2, "enabled": true}),
+            &json!({"parameters": [
+                {"parameterIndex": 5, "value": 0.75},
+                {"parameterIndex": 8, "value": 0.5},
+                {"parameterIndex": 9, "value": 1.0}
+            ]})
+        ));
+    }
+
+    #[test]
     fn realtime_completion_policy_is_shared_for_performance_controls() {
         for method in [
             "device.selectScene",
@@ -3151,6 +3626,24 @@ mod tests {
         assert_eq!(transaction.remaining_ms(5_600), 50);
         assert_eq!(
             transaction.state(&after, None, 5_700, 5_700),
+            GatewayTransactionState::TimedOut
+        );
+    }
+
+    #[test]
+    fn unverified_writes_never_match_an_unrelated_snapshot() {
+        let snapshot = GatewaySnapshot::default();
+        let verification = GatewayVerification::None;
+        assert!(!verification.requires_authoritative_readback());
+        assert!(!verification.matches(&snapshot, None));
+
+        let transaction = GatewayTransaction::new(verification, 5_000, 5_000, 650);
+        assert_eq!(
+            transaction.state(&snapshot, None, 5_001, 5_100),
+            GatewayTransactionState::Pending
+        );
+        assert_eq!(
+            transaction.state(&snapshot, None, 5_001, 5_700),
             GatewayTransactionState::TimedOut
         );
     }
@@ -3294,10 +3787,11 @@ mod tests {
 
     #[test]
     fn public_and_low_level_writes_share_operation_planning() {
+        let snapshot = GatewaySnapshot::default();
         let public = plan_gateway_write(
             "device.moveBlock",
-            &json!({"row": 1, "fromColumn": 2, "toColumn": 4}),
-            None,
+            &json!({"row": 1, "fromColumn": 2, "toColumn": 4, "expectedModelId": null, "expectedPresetName": "Unsaved"}),
+            Some(&snapshot),
         )
         .unwrap();
         let native = plan_gateway_write("device.command.operation", &json!({"operation": "moveBlock", "row": 1, "fromColumn": 2, "toRow": 1, "toColumn": 4}), None).unwrap();
@@ -3775,8 +4269,8 @@ mod tests {
     fn nullable_gateway_assignments_are_preserved_as_explicit_clears() {
         let footswitch = plan_gateway_write(
             "device.setBlockFootswitch",
-            &json!({"row": 0, "column": 1, "footswitch": null}),
-            None,
+            &json!({"row": 0, "column": 1, "footswitch": null, "expectedFootswitch": null, "expectedModelId": null, "expectedPresetName": "Unsaved"}),
+            Some(&GatewaySnapshot::default()),
         )
         .unwrap();
         assert_eq!(
@@ -3789,8 +4283,20 @@ mod tests {
         );
         let split = plan_gateway_write(
             "device.setChainSplit",
-            &json!({"row": 2, "splitColumn": null, "mixColumn": null}),
-            None,
+            &json!({"row": 2, "splitColumn": null, "mixColumn": null, "expectedSplitColumn": null, "expectedMixColumn": null, "expectedPresetName": "Unsaved"}),
+            Some(&GatewaySnapshot {
+                routes: vec![GridRoute {
+                    row: 2,
+                    input_id: None,
+                    output_id: None,
+                    input: String::new(),
+                    output: String::new(),
+                    split_column: None,
+                    mix_column: None,
+                    split_muted: false,
+                }],
+                ..GatewaySnapshot::default()
+            }),
         )
         .unwrap();
         assert_eq!(
@@ -3888,7 +4394,7 @@ mod tests {
 
         let bypass = plan_gateway_write(
             "device.toggleBypass",
-            &json!({"row": 1, "column": 4, "desiredBypassed": true}),
+            &json!({"row": 1, "column": 4, "desiredBypassed": true, "expectedBypassed": true, "expectedScene": 2, "expectedPresetName": "Live"}),
             Some(&snapshot),
         )
         .unwrap();
@@ -3896,7 +4402,7 @@ mod tests {
 
         let parameter = plan_gateway_write(
             "device.setParameter",
-            &json!({"row": 1, "column": 4, "parameterIndex": 7, "value": 0.75}),
+            &json!({"row": 1, "column": 4, "parameterIndex": 7, "value": 0.75, "expectedValue": 0.5, "expectedScene": 2, "expectedPresetName": "Live"}),
             Some(&snapshot),
         )
         .unwrap();
@@ -3905,7 +4411,7 @@ mod tests {
 
         let splitter = plan_gateway_write(
             "device.setParameter",
-            &json!({"row": 0, "column": 8, "parameterIndex": 5, "value": 0.25}),
+            &json!({"row": 0, "column": 8, "parameterIndex": 5, "value": 0.25, "expectedValue": 0.5, "expectedScene": 2, "expectedPresetName": "Live"}),
             Some(&snapshot),
         )
         .unwrap();
@@ -3922,7 +4428,7 @@ mod tests {
 
         let lane = plan_gateway_write(
             "device.setLaneControlParameter",
-            &json!({"row": 3, "control": "laneOutput", "parameterIndex": 0, "value": 0.64}),
+            &json!({"row": 3, "control": "laneOutput", "parameterIndex": 0, "value": 0.64, "expectedValue": 0.5, "expectedPresetName": "Live"}),
             Some(&snapshot),
         )
         .unwrap();
@@ -4081,7 +4587,7 @@ mod tests {
             "device.loadCapture",
             &json!({
                 "row": 1, "column": 2, "key": "capture/", "name": "Crunch",
-                "modelId": null, "expectedPresetName": "Current"
+                "modelId": null, "expectedModelId": null, "expectedPresetName": "Current"
             }),
             Some(&GatewaySnapshot {
                 preset_name: "Current".into(),
@@ -4099,7 +4605,19 @@ mod tests {
             "device.loadIr",
             &json!({
                 "row": 1, "column": 2, "key": "ir/key", "name": "Room",
-                "slot": 2, "modelId": null, "expectedPresetName": "Current"
+                "slot": 2, "modelId": null, "expectedModelId": null, "expectedPresetName": "Current"
+            }),
+            Some(&GatewaySnapshot {
+                preset_name: "Current".into(),
+                ..GatewaySnapshot::default()
+            }),
+        )
+        .is_err());
+        assert!(plan_gateway_write(
+            "device.loadCapture",
+            &json!({
+                "row": 1, "column": 2, "key": "capture/", "name": "Crunch",
+                "modelId": null, "expectedPresetName": "Current"
             }),
             Some(&GatewaySnapshot {
                 preset_name: "Current".into(),
@@ -4267,8 +4785,8 @@ mod tests {
             &json!({"command": "record", "value": 1}),
         )
         .is_err());
-        assert_eq!(HOST_MIDI_METHODS.len(), 6);
-        assert!(HOST_MIDI_METHODS
+        assert_eq!(crate::generated_gateway::PERFORMANCE_MIDI_METHODS.len(), 6);
+        assert!(crate::generated_gateway::PERFORMANCE_MIDI_METHODS
             .iter()
             .all(|method| is_host_midi_method(method)));
         assert!(!is_host_midi_method("device.setTempo"));
@@ -4324,5 +4842,49 @@ mod tests {
         assert!(finalize_device_backup("{}", "Tour").is_err());
         assert!(finalize_device_backup("not json", "Tour").is_err());
         assert!(finalize_device_backup(r#"{"type":"backup","creator":"quad"}"#, "\n").is_err());
+    }
+
+    #[test]
+    fn user_supplied_names_and_library_keys_reject_path_injection() {
+        for name in ["../Tour", "Tour/Encore", "Tour\\Encore", "My Presets"] {
+            assert!(
+                plan_gateway_write("device.createSetlist", &json!({"name": name}), None,).is_err()
+            );
+        }
+
+        for name in ["../Stage", "Stage/Lead", "Stage\nLead"] {
+            assert!(operation(
+                "deletePreset",
+                &json!({"setlistKey": "/media/p4/Presets/Live", "name": name}),
+            )
+            .is_err());
+        }
+
+        for key in [
+            "/media/p4/Presets/../Factory",
+            "/media/p4/Presets/Live/Child",
+            "/media/p4/Presets/Live\\Child",
+        ] {
+            assert!(operation(
+                "movePreset",
+                &json!({"setlistKey": key, "name": "Stage", "position": 1}),
+            )
+            .is_err());
+        }
+
+        assert!(operation(
+            "loadCapture",
+            &json!({"row": 0, "column": 0, "key": "capture/../", "name": "Lead"}),
+        )
+        .is_err());
+        assert!(
+            plan_gateway_read("device.irs", &json!({"folder": "factory/../private"}), 1,).is_err()
+        );
+        assert!(plan_gateway_write(
+            "device.setDeviceName",
+            &json!({"name": "x".repeat(65)}),
+            None,
+        )
+        .is_err());
     }
 }

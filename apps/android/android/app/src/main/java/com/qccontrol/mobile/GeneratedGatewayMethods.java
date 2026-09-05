@@ -4,6 +4,32 @@ package com.qccontrol.mobile;
 final class GeneratedGatewayMethods {
     private GeneratedGatewayMethods() {}
 
+    static final int API_VERSION = 17;
+    static final String[] CAPABILITIES = {
+        "modelRepoParameterMetadata",
+        "nativeStateEvents",
+        "nativeDeviceIdentity",
+        "nativeRemoteScreen",
+        "nativeSceneManagement",
+        "nativeParameterAssignments",
+        "nativeStompMetadata",
+        "nativePresetMidiOut",
+        "nativeExpressionBypass",
+        "nativeTunerSettings",
+        "nativeTunerWrites",
+        "nativeLaneControls",
+        "nativeGeneralSettings",
+        "nativeIoSettings",
+        "nativeGlobalEq",
+        "nativeModeCycle",
+        "nativeLooper",
+        "nativeLibraryManagement",
+        "nativeSplitMute",
+        "nativeTempoMetronome",
+        "nativeGateway",
+        "androidUsbRelay"
+    };
+
     static final String[] ALL = {
         "system.status",
         "device.reconnect",
@@ -221,6 +247,376 @@ final class GeneratedGatewayMethods {
             case "device.showTuner": return "PLANNED_WRITE";
             case "device.showGigView": return "PLANNED_WRITE";
             default: return "UNSUPPORTED";
+        }
+    }
+
+    static String resultKind(String method) {
+        switch (method) {
+            case "system.status": return "Object";
+            case "device.reconnect": return "Object";
+            case "device.resetSession": return "Object";
+            case "device.disconnect": return "Object";
+            case "device.snapshot": return "PresetSnapshot";
+            case "device.stateEvents": return "Object";
+            case "device.tempoClock": return "Object";
+            case "device.listModels": return "Object";
+            case "device.identity": return "Object";
+            case "device.setDeviceName": return "DeviceActionResult";
+            case "device.undo": return "DeviceActionResult";
+            case "device.redo": return "DeviceActionResult";
+            case "device.inhibitedModules": return "Object";
+            case "device.tunerSettings": return "Object";
+            case "device.setTunerInput": return "DeviceActionResult";
+            case "device.setTunerMute": return "DeviceActionResult";
+            case "device.restoreTunerAudio": return "DeviceActionResult";
+            case "device.setTunerReference": return "DeviceActionResult";
+            case "device.generalSettings": return "Object";
+            case "device.ioSettings": return "Object";
+            case "device.setInputPort": return "DeviceActionResult";
+            case "device.setOutputPort": return "DeviceActionResult";
+            case "device.setUsbPort": return "DeviceActionResult";
+            case "device.setMidiThru": return "DeviceActionResult";
+            case "device.setOutputPairing": return "DeviceActionResult";
+            case "device.globalEq": return "Object";
+            case "device.setGlobalEqBypassed": return "DeviceActionResult";
+            case "device.setGlobalEqBand": return "DeviceActionResult";
+            case "device.setGlobalEqOutput": return "DeviceActionResult";
+            case "device.modeCycle": return "Object";
+            case "device.setModeCycle": return "DeviceActionResult";
+            case "device.globalTempoSettings": return "Object";
+            case "device.setTempoMetronome": return "DeviceActionResult";
+            case "device.setTempoMode": return "DeviceActionResult";
+            case "device.looperStatus": return "Object";
+            case "device.controlLooper": return "DeviceActionResult";
+            case "device.recents": return "Object";
+            case "device.favorites": return "Object";
+            case "device.setFavorite": return "DeviceActionResult";
+            case "device.pinnedModels": return "Object";
+            case "device.setModelPinned": return "DeviceActionResult";
+            case "device.captures": return "Object";
+            case "device.loadCapture": return "DeviceActionResult";
+            case "device.irs": return "Object";
+            case "device.loadIr": return "DeviceActionResult";
+            case "device.createSetlist": return "DeviceActionResult";
+            case "device.deleteSetlist": return "DeviceActionResult";
+            case "device.duplicateSetlist": return "DeviceActionResult";
+            case "device.deletePreset": return "DeviceActionResult";
+            case "device.movePreset": return "DeviceActionResult";
+            case "device.setGeneralInteger": return "DeviceActionResult";
+            case "device.setGeneralToggle": return "DeviceActionResult";
+            case "device.setSceneBypassBehavior": return "DeviceActionResult";
+            case "device.setMasterVolumeAssignment": return "DeviceActionResult";
+            case "device.setGlobalBypass": return "DeviceActionResult";
+            case "device.presetScreenshot": return "Object";
+            case "device.captureScreen": return "Object";
+            case "device.tapScreen": return "DeviceActionResult";
+            case "device.selectScene": return "DeviceActionResult";
+            case "device.copyScene": return "DeviceActionResult";
+            case "device.setSceneLabel": return "DeviceActionResult";
+            case "device.setSceneColor": return "DeviceActionResult";
+            case "device.toggleBypass": return "DeviceActionResult";
+            case "device.moveBlock": return "DeviceActionResult";
+            case "device.addBlock": return "DeviceActionResult";
+            case "device.removeBlock": return "DeviceActionResult";
+            case "device.setBlockFootswitch": return "DeviceActionResult";
+            case "device.setStompMomentary": return "DeviceActionResult";
+            case "device.setStompLabel": return "DeviceActionResult";
+            case "device.setMidiOut": return "DeviceActionResult";
+            case "device.setPresetLoadMidiOut": return "DeviceActionResult";
+            case "device.setExpressionBypass": return "DeviceActionResult";
+            case "device.setChainInput": return "DeviceActionResult";
+            case "device.setChainOutput": return "DeviceActionResult";
+            case "device.setChainSplit": return "DeviceActionResult";
+            case "device.setSplitMute": return "DeviceActionResult";
+            case "device.listPresets": return "Object";
+            case "device.listPresetFolders": return "Object";
+            case "device.navigateBank": return "DeviceActionResult";
+            case "device.recallPreset": return "DeviceActionResult";
+            case "device.reloadPreset": return "DeviceActionResult";
+            case "device.blockDetails": return "Object";
+            case "device.laneControlDetails": return "Object";
+            case "device.previewParameter": return "Object";
+            case "device.previewLaneControlParameter": return "Object";
+            case "device.setParameter": return "DeviceActionResult";
+            case "device.setLaneControlParameter": return "DeviceActionResult";
+            case "device.setLaneControlSceneMode": return "DeviceActionResult";
+            case "device.setParameterSceneMode": return "DeviceActionResult";
+            case "device.setParameterExpression": return "DeviceActionResult";
+            case "device.setTempo": return "DeviceActionResult";
+            case "device.setMasterVolume": return "DeviceActionResult";
+            case "device.masterVolume": return "Object";
+            case "device.pressFootswitch": return "DeviceActionResult";
+            case "device.tapTempo": return "DeviceActionResult";
+            case "device.selectModeSlot": return "DeviceActionResult";
+            case "device.listPresetSlots": return "Object";
+            case "device.savePresetAs": return "DeviceActionResult";
+            case "device.copyPreset": return "DeviceActionResult";
+            case "device.renameCurrentPreset": return "DeviceActionResult";
+            case "device.createBackup": return "Object";
+            case "device.showTuner": return "DeviceActionResult";
+            case "device.showGigView": return "DeviceActionResult";
+            default: return "Unsupported";
+        }
+    }
+
+    static void validateResult(String method, org.json.JSONObject result) {
+        String kind = resultKind(method);
+        if ("Unsupported".equals(kind)) throw new IllegalArgumentException("Unsupported gateway method: " + method);
+        if ("PresetSnapshot".equals(kind)
+                && (!(result.opt("presetName") instanceof String) || !(result.opt("blocks") instanceof org.json.JSONArray)))
+            throw new IllegalArgumentException(method + " returned a malformed PresetSnapshot result");
+        boolean hasOutcome = result.has("accepted") || result.has("verified") || result.has("verification");
+        if ("DeviceActionResult".equals(kind) && !hasOutcome)
+            throw new IllegalArgumentException(method + " returned a device action result without verification semantics");
+        if (hasOutcome) {
+            Object accepted = result.opt("accepted");
+            Object verified = result.opt("verified");
+            String expected = Boolean.TRUE.equals(verified) ? "authoritative_readback" : "accepted_unverified";
+            if (!Boolean.TRUE.equals(accepted) || !(verified instanceof Boolean)
+                    || !expected.equals(result.optString("verification", ""))
+                    || !(result.opt("detail") instanceof String) || result.optString("detail").codePointCount(0, result.optString("detail").length()) > 4096)
+                throw new IllegalArgumentException(method + " returned a malformed device action result");
+        }
+    }
+
+    static void validateParams(String method, org.json.JSONObject params) {
+        final String[] allowed;
+        final String[] required;
+        switch (method) {
+            case "system.status": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.reconnect": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.resetSession": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.disconnect": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.snapshot": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.stateEvents": allowed = new String[] { "afterSequence", "limit" }; required = new String[] {  }; break;
+            case "device.tempoClock": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.listModels": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.identity": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setDeviceName": allowed = new String[] { "name" }; required = new String[] { "name" }; break;
+            case "device.undo": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.redo": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.inhibitedModules": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.tunerSettings": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setTunerInput": allowed = new String[] { "inputPortId", "confirmTunerActivation" }; required = new String[] { "inputPortId", "confirmTunerActivation" }; break;
+            case "device.setTunerMute": allowed = new String[] { "muted", "confirmTunerActivation" }; required = new String[] { "muted", "confirmTunerActivation" }; break;
+            case "device.restoreTunerAudio": allowed = new String[] { "confirmPreferenceReset" }; required = new String[] { "confirmPreferenceReset" }; break;
+            case "device.setTunerReference": allowed = new String[] { "referenceOffsetHz", "confirmTunerActivation" }; required = new String[] { "referenceOffsetHz", "confirmTunerActivation" }; break;
+            case "device.generalSettings": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.ioSettings": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setInputPort": allowed = new String[] { "inputPortId", "levelDb", "impedance", "inputType", "groundLift" }; required = new String[] { "inputPortId", "levelDb", "impedance", "inputType", "groundLift" }; break;
+            case "device.setOutputPort": allowed = new String[] { "outputPortId", "level", "groundLift", "mute" }; required = new String[] { "outputPortId", "level", "groundLift", "mute" }; break;
+            case "device.setUsbPort": allowed = new String[] { "level", "headphonesSource", "dryWet" }; required = new String[] { "level", "headphonesSource", "dryWet" }; break;
+            case "device.setMidiThru": allowed = new String[] { "enabled" }; required = new String[] { "enabled" }; break;
+            case "device.setOutputPairing": allowed = new String[] { "xlr12Linked", "out34Linked" }; required = new String[] { "xlr12Linked", "out34Linked" }; break;
+            case "device.globalEq": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setGlobalEqBypassed": allowed = new String[] { "bypassed" }; required = new String[] { "bypassed" }; break;
+            case "device.setGlobalEqBand": allowed = new String[] { "band", "gain", "frequency", "q", "filterType", "enabled" }; required = new String[] { "band", "gain", "frequency", "q", "filterType", "enabled" }; break;
+            case "device.setGlobalEqOutput": allowed = new String[] { "level", "out12", "out34" }; required = new String[] { "level", "out12", "out34" }; break;
+            case "device.modeCycle": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setModeCycle": allowed = new String[] { "slots" }; required = new String[] { "slots" }; break;
+            case "device.globalTempoSettings": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setTempoMetronome": allowed = new String[] { "ledEnabled", "volumeDb", "running", "pan", "timeSignature", "subdivision", "sound", "routing", "beats" }; required = new String[] { "ledEnabled", "volumeDb", "running", "pan", "timeSignature", "subdivision", "sound", "routing", "beats" }; break;
+            case "device.setTempoMode": allowed = new String[] { "mode" }; required = new String[] { "mode" }; break;
+            case "device.looperStatus": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.controlLooper": allowed = new String[] { "command", "value" }; required = new String[] { "command", "value" }; break;
+            case "device.recents": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.favorites": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setFavorite": allowed = new String[] { "name", "folderKey", "folderName", "isFactory", "favorite" }; required = new String[] { "name", "folderKey", "folderName", "isFactory", "favorite" }; break;
+            case "device.pinnedModels": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.setModelPinned": allowed = new String[] { "modelId", "pinned" }; required = new String[] { "modelId", "pinned" }; break;
+            case "device.captures": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.loadCapture": allowed = new String[] { "row", "column", "key", "name", "modelId", "expectedModelId", "expectedPresetName" }; required = new String[] { "row", "column", "key", "name", "modelId", "expectedModelId" }; break;
+            case "device.irs": allowed = new String[] { "folder" }; required = new String[] { "folder" }; break;
+            case "device.loadIr": allowed = new String[] { "row", "column", "key", "name", "slot", "modelId", "expectedModelId", "expectedPresetName" }; required = new String[] { "row", "column", "key", "name", "slot", "modelId", "expectedModelId" }; break;
+            case "device.createSetlist": allowed = new String[] { "name" }; required = new String[] { "name" }; break;
+            case "device.deleteSetlist": allowed = new String[] { "name" }; required = new String[] { "name" }; break;
+            case "device.duplicateSetlist": allowed = new String[] { "sourceSetlistKey", "destinationName", "limit", "expectedPresetName", "expectedPosition" }; required = new String[] { "sourceSetlistKey", "destinationName", "limit", "expectedPosition" }; break;
+            case "device.deletePreset": allowed = new String[] { "setlistKey", "name" }; required = new String[] { "setlistKey", "name" }; break;
+            case "device.movePreset": allowed = new String[] { "setlistKey", "name", "position" }; required = new String[] { "setlistKey", "name", "position" }; break;
+            case "device.setGeneralInteger": allowed = new String[] { "setting", "value" }; required = new String[] { "setting", "value" }; break;
+            case "device.setGeneralToggle": allowed = new String[] { "setting", "enabled" }; required = new String[] { "setting", "enabled" }; break;
+            case "device.setSceneBypassBehavior": allowed = new String[] { "behavior" }; required = new String[] { "behavior" }; break;
+            case "device.setMasterVolumeAssignment": allowed = new String[] { "out12", "out34", "send12", "headphones" }; required = new String[] { "out12", "out34", "send12", "headphones" }; break;
+            case "device.setGlobalBypass": allowed = new String[] { "cab", "ir" }; required = new String[] { "cab", "ir" }; break;
+            case "device.presetScreenshot": allowed = new String[] { "folderName", "position", "isFactory" }; required = new String[] { "folderName", "position" }; break;
+            case "device.captureScreen": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.tapScreen": allowed = new String[] { "x", "y" }; required = new String[] { "x", "y" }; break;
+            case "device.selectScene": allowed = new String[] { "scene", "expectedPresetName" }; required = new String[] { "scene" }; break;
+            case "device.copyScene": allowed = new String[] { "fromScene", "toScene", "swap", "expectedPresetName" }; required = new String[] { "fromScene", "toScene" }; break;
+            case "device.setSceneLabel": allowed = new String[] { "scene", "label", "expectedPresetName" }; required = new String[] { "scene", "label" }; break;
+            case "device.setSceneColor": allowed = new String[] { "scene", "color", "expectedPresetName" }; required = new String[] { "scene", "color" }; break;
+            case "device.toggleBypass": allowed = new String[] { "row", "column", "expectedScene", "expectedBypassed", "desiredBypassed", "expectedPresetName" }; required = new String[] { "row", "column", "expectedScene", "expectedBypassed", "desiredBypassed" }; break;
+            case "device.moveBlock": allowed = new String[] { "row", "fromColumn", "toColumn", "expectedModelId", "expectedPresetName" }; required = new String[] { "row", "fromColumn", "toColumn", "expectedModelId" }; break;
+            case "device.addBlock": allowed = new String[] { "row", "column", "modelId", "expectedPresetName" }; required = new String[] { "row", "column", "modelId" }; break;
+            case "device.removeBlock": allowed = new String[] { "row", "column", "expectedModelId", "expectedPresetName" }; required = new String[] { "row", "column", "expectedModelId" }; break;
+            case "device.setBlockFootswitch": allowed = new String[] { "row", "column", "footswitch", "expectedFootswitch", "expectedModelId", "expectedPresetName" }; required = new String[] { "row", "column", "footswitch", "expectedFootswitch", "expectedModelId" }; break;
+            case "device.setStompMomentary": allowed = new String[] { "footswitch", "momentary", "expectedPresetName" }; required = new String[] { "footswitch", "momentary" }; break;
+            case "device.setStompLabel": allowed = new String[] { "footswitch", "label", "expectedPresetName" }; required = new String[] { "footswitch", "label" }; break;
+            case "device.setMidiOut": allowed = new String[] { "source", "messages", "expectedPresetName" }; required = new String[] { "source", "messages" }; break;
+            case "device.setPresetLoadMidiOut": allowed = new String[] { "messages", "expectedPresetName" }; required = new String[] { "messages" }; break;
+            case "device.setExpressionBypass": allowed = new String[] { "row", "column", "pedal", "mode", "invert", "delayMs", "latchEmulation", "expectedPresetName" }; required = new String[] { "row", "column", "pedal", "mode", "invert", "delayMs", "latchEmulation" }; break;
+            case "device.setChainInput": allowed = new String[] { "row", "inputId", "expectedInputId", "expectedPresetName" }; required = new String[] { "row", "inputId", "expectedInputId" }; break;
+            case "device.setChainOutput": allowed = new String[] { "row", "outputId", "expectedOutputId", "expectedPresetName" }; required = new String[] { "row", "outputId", "expectedOutputId" }; break;
+            case "device.setChainSplit": allowed = new String[] { "row", "splitColumn", "mixColumn", "expectedSplitColumn", "expectedMixColumn", "expectedPresetName" }; required = new String[] { "row", "splitColumn", "mixColumn", "expectedSplitColumn", "expectedMixColumn" }; break;
+            case "device.setSplitMute": allowed = new String[] { "row", "muted", "expectedMuted", "expectedPresetName" }; required = new String[] { "row", "muted", "expectedMuted" }; break;
+            case "device.listPresets": allowed = new String[] { "refresh", "setlistKey" }; required = new String[] { "setlistKey" }; break;
+            case "device.listPresetFolders": allowed = new String[] { "refresh" }; required = new String[] {  }; break;
+            case "device.navigateBank": allowed = new String[] { "direction", "expectedPresetName", "expectedPosition" }; required = new String[] { "direction", "expectedPosition" }; break;
+            case "device.recallPreset": allowed = new String[] { "setlistKey", "position", "expectedPresetName", "expectedPosition" }; required = new String[] { "setlistKey", "position", "expectedPosition" }; break;
+            case "device.reloadPreset": allowed = new String[] { "expectedPresetName", "expectedPosition" }; required = new String[] { "expectedPosition" }; break;
+            case "device.blockDetails": allowed = new String[] { "row", "column", "expectedPresetName" }; required = new String[] { "row", "column" }; break;
+            case "device.laneControlDetails": allowed = new String[] { "row", "control", "expectedPresetName" }; required = new String[] { "row", "control" }; break;
+            case "device.previewParameter": allowed = new String[] { "row", "column", "parameterIndex", "value", "expectedValue", "expectedScene", "expectedPresetName" }; required = new String[] { "row", "column", "parameterIndex", "value", "expectedValue", "expectedScene" }; break;
+            case "device.previewLaneControlParameter": allowed = new String[] { "row", "control", "parameterIndex", "value", "expectedValue", "expectedPresetName" }; required = new String[] { "row", "control", "parameterIndex", "value", "expectedValue" }; break;
+            case "device.setParameter": allowed = new String[] { "row", "column", "parameterIndex", "value", "expectedValue", "expectedScene", "expectedPresetName" }; required = new String[] { "row", "column", "parameterIndex", "value", "expectedValue", "expectedScene" }; break;
+            case "device.setLaneControlParameter": allowed = new String[] { "row", "control", "parameterIndex", "value", "expectedValue", "expectedPresetName" }; required = new String[] { "row", "control", "parameterIndex", "value", "expectedValue" }; break;
+            case "device.setLaneControlSceneMode": allowed = new String[] { "row", "control", "parameterIndex", "enabled", "expectedPresetName" }; required = new String[] { "row", "control", "parameterIndex", "enabled" }; break;
+            case "device.setParameterSceneMode": allowed = new String[] { "row", "column", "parameterIndex", "enabled", "expectedPresetName" }; required = new String[] { "row", "column", "parameterIndex", "enabled" }; break;
+            case "device.setParameterExpression": allowed = new String[] { "row", "column", "parameterIndex", "pedal", "minimum", "maximum", "expectedPresetName" }; required = new String[] { "row", "column", "parameterIndex", "pedal", "minimum", "maximum" }; break;
+            case "device.setTempo": allowed = new String[] { "bpm", "expectedTempo", "expectedPresetName" }; required = new String[] { "bpm", "expectedTempo" }; break;
+            case "device.setMasterVolume": allowed = new String[] { "value", "expectedValue" }; required = new String[] { "value", "expectedValue" }; break;
+            case "device.masterVolume": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.pressFootswitch": allowed = new String[] { "index", "expectedMode", "expectedPresetName" }; required = new String[] { "index", "expectedMode" }; break;
+            case "device.tapTempo": allowed = new String[] { "expectedMode", "expectedPresetName" }; required = new String[] { "expectedMode" }; break;
+            case "device.selectModeSlot": allowed = new String[] { "slot", "expectedPresetName" }; required = new String[] { "slot" }; break;
+            case "device.listPresetSlots": allowed = new String[] {  }; required = new String[] {  }; break;
+            case "device.savePresetAs": allowed = new String[] { "setlistKey", "position", "name", "expectedPresetName", "expectedPosition", "confirmOverwrite" }; required = new String[] { "setlistKey", "position", "name", "expectedPosition" }; break;
+            case "device.copyPreset": allowed = new String[] { "sourceSetlistKey", "sourcePosition", "sourceName", "destinationSetlistKey", "destinationPosition", "expectedPresetName", "expectedPosition", "confirmOverwrite" }; required = new String[] { "sourceSetlistKey", "sourcePosition", "destinationSetlistKey", "destinationPosition", "expectedPosition" }; break;
+            case "device.renameCurrentPreset": allowed = new String[] { "name", "expectedPresetName", "expectedPosition", "confirmRename" }; required = new String[] { "name", "expectedPosition" }; break;
+            case "device.createBackup": allowed = new String[] { "name" }; required = new String[] {  }; break;
+            case "device.showTuner": allowed = new String[] { "shown" }; required = new String[] {  }; break;
+            case "device.showGigView": allowed = new String[] { "shown" }; required = new String[] {  }; break;
+            default: throw new IllegalArgumentException("Unsupported gateway method: " + method);
+        }
+        java.util.Iterator<String> keys = params.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            boolean known = false;
+            for (String candidate : allowed) if (candidate.equals(key)) { known = true; break; }
+            if (!known) throw new IllegalArgumentException("Unexpected argument for " + method + ": " + key);
+        }
+        for (String key : required) {
+            if (!params.has(key)) throw new IllegalArgumentException("Missing required argument for " + method + ": " + key);
+        }
+        final String[][] kinds;
+        switch (method) {
+            case "system.status": kinds = new String[][] {  }; break;
+            case "device.reconnect": kinds = new String[][] {  }; break;
+            case "device.resetSession": kinds = new String[][] {  }; break;
+            case "device.disconnect": kinds = new String[][] {  }; break;
+            case "device.snapshot": kinds = new String[][] {  }; break;
+            case "device.stateEvents": kinds = new String[][] { { "afterSequence", "integer" }, { "limit", "integer" } }; break;
+            case "device.tempoClock": kinds = new String[][] {  }; break;
+            case "device.listModels": kinds = new String[][] {  }; break;
+            case "device.identity": kinds = new String[][] {  }; break;
+            case "device.setDeviceName": kinds = new String[][] { { "name", "string" } }; break;
+            case "device.undo": kinds = new String[][] {  }; break;
+            case "device.redo": kinds = new String[][] {  }; break;
+            case "device.inhibitedModules": kinds = new String[][] {  }; break;
+            case "device.tunerSettings": kinds = new String[][] {  }; break;
+            case "device.setTunerInput": kinds = new String[][] { { "inputPortId", "integer" }, { "confirmTunerActivation", "boolean" } }; break;
+            case "device.setTunerMute": kinds = new String[][] { { "muted", "boolean" }, { "confirmTunerActivation", "boolean" } }; break;
+            case "device.restoreTunerAudio": kinds = new String[][] { { "confirmPreferenceReset", "boolean" } }; break;
+            case "device.setTunerReference": kinds = new String[][] { { "referenceOffsetHz", "number" }, { "confirmTunerActivation", "boolean" } }; break;
+            case "device.generalSettings": kinds = new String[][] {  }; break;
+            case "device.ioSettings": kinds = new String[][] {  }; break;
+            case "device.setInputPort": kinds = new String[][] { { "inputPortId", "integer" }, { "levelDb", "nullable-number" }, { "impedance", "nullable-number" }, { "inputType", "nullable-number" }, { "groundLift", "nullable-number" } }; break;
+            case "device.setOutputPort": kinds = new String[][] { { "outputPortId", "integer" }, { "level", "nullable-number" }, { "groundLift", "nullable-number" }, { "mute", "nullable-boolean" } }; break;
+            case "device.setUsbPort": kinds = new String[][] { { "level", "nullable-number" }, { "headphonesSource", "nullable-number" }, { "dryWet", "nullable-number" } }; break;
+            case "device.setMidiThru": kinds = new String[][] { { "enabled", "boolean" } }; break;
+            case "device.setOutputPairing": kinds = new String[][] { { "xlr12Linked", "nullable-boolean" }, { "out34Linked", "nullable-boolean" } }; break;
+            case "device.globalEq": kinds = new String[][] {  }; break;
+            case "device.setGlobalEqBypassed": kinds = new String[][] { { "bypassed", "boolean" } }; break;
+            case "device.setGlobalEqBand": kinds = new String[][] { { "band", "integer" }, { "gain", "nullable-number" }, { "frequency", "nullable-number" }, { "q", "nullable-number" }, { "filterType", "nullable-integer" }, { "enabled", "nullable-boolean" } }; break;
+            case "device.setGlobalEqOutput": kinds = new String[][] { { "level", "nullable-number" }, { "out12", "nullable-boolean" }, { "out34", "nullable-boolean" } }; break;
+            case "device.modeCycle": kinds = new String[][] {  }; break;
+            case "device.setModeCycle": kinds = new String[][] { { "slots", "integer" } }; break;
+            case "device.globalTempoSettings": kinds = new String[][] {  }; break;
+            case "device.setTempoMetronome": kinds = new String[][] { { "ledEnabled", "nullable-boolean" }, { "volumeDb", "nullable-number" }, { "running", "nullable-boolean" }, { "pan", "nullable-number" }, { "timeSignature", "nullable-string" }, { "subdivision", "nullable-string" }, { "sound", "nullable-string" }, { "routing", "nullable-string" }, { "beats", "nullable-array" } }; break;
+            case "device.setTempoMode": kinds = new String[][] { { "mode", "string" } }; break;
+            case "device.looperStatus": kinds = new String[][] {  }; break;
+            case "device.controlLooper": kinds = new String[][] { { "command", "string" }, { "value", "nullable-integer" } }; break;
+            case "device.recents": kinds = new String[][] {  }; break;
+            case "device.favorites": kinds = new String[][] {  }; break;
+            case "device.setFavorite": kinds = new String[][] { { "name", "string" }, { "folderKey", "string" }, { "folderName", "string" }, { "isFactory", "boolean" }, { "favorite", "boolean" } }; break;
+            case "device.pinnedModels": kinds = new String[][] {  }; break;
+            case "device.setModelPinned": kinds = new String[][] { { "modelId", "integer" }, { "pinned", "boolean" } }; break;
+            case "device.captures": kinds = new String[][] {  }; break;
+            case "device.loadCapture": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "key", "string" }, { "name", "string" }, { "modelId", "nullable-integer" }, { "expectedModelId", "nullable-integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.irs": kinds = new String[][] { { "folder", "nullable-string" } }; break;
+            case "device.loadIr": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "key", "string" }, { "name", "string" }, { "slot", "integer" }, { "modelId", "nullable-integer" }, { "expectedModelId", "nullable-integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.createSetlist": kinds = new String[][] { { "name", "string" } }; break;
+            case "device.deleteSetlist": kinds = new String[][] { { "name", "string" } }; break;
+            case "device.duplicateSetlist": kinds = new String[][] { { "sourceSetlistKey", "string" }, { "destinationName", "string" }, { "limit", "nullable-integer" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" } }; break;
+            case "device.deletePreset": kinds = new String[][] { { "setlistKey", "string" }, { "name", "string" } }; break;
+            case "device.movePreset": kinds = new String[][] { { "setlistKey", "string" }, { "name", "string" }, { "position", "integer" } }; break;
+            case "device.setGeneralInteger": kinds = new String[][] { { "setting", "string" }, { "value", "integer" } }; break;
+            case "device.setGeneralToggle": kinds = new String[][] { { "setting", "string" }, { "enabled", "boolean" } }; break;
+            case "device.setSceneBypassBehavior": kinds = new String[][] { { "behavior", "string" } }; break;
+            case "device.setMasterVolumeAssignment": kinds = new String[][] { { "out12", "boolean" }, { "out34", "boolean" }, { "send12", "boolean" }, { "headphones", "boolean" } }; break;
+            case "device.setGlobalBypass": kinds = new String[][] { { "cab", "array" }, { "ir", "array" } }; break;
+            case "device.presetScreenshot": kinds = new String[][] { { "folderName", "string" }, { "position", "integer" }, { "isFactory", "boolean" } }; break;
+            case "device.captureScreen": kinds = new String[][] {  }; break;
+            case "device.tapScreen": kinds = new String[][] { { "x", "integer" }, { "y", "integer" } }; break;
+            case "device.selectScene": kinds = new String[][] { { "scene", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.copyScene": kinds = new String[][] { { "fromScene", "integer" }, { "toScene", "integer" }, { "swap", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.setSceneLabel": kinds = new String[][] { { "scene", "integer" }, { "label", "nullable-string" }, { "expectedPresetName", "string" } }; break;
+            case "device.setSceneColor": kinds = new String[][] { { "scene", "integer" }, { "color", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.toggleBypass": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "expectedScene", "integer" }, { "expectedBypassed", "boolean" }, { "desiredBypassed", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.moveBlock": kinds = new String[][] { { "row", "integer" }, { "fromColumn", "integer" }, { "toColumn", "integer" }, { "expectedModelId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.addBlock": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "modelId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.removeBlock": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "expectedModelId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setBlockFootswitch": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "footswitch", "nullable-integer" }, { "expectedFootswitch", "nullable-integer" }, { "expectedModelId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setStompMomentary": kinds = new String[][] { { "footswitch", "integer" }, { "momentary", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.setStompLabel": kinds = new String[][] { { "footswitch", "integer" }, { "label", "string" }, { "expectedPresetName", "string" } }; break;
+            case "device.setMidiOut": kinds = new String[][] { { "source", "integer" }, { "messages", "array" }, { "expectedPresetName", "string" } }; break;
+            case "device.setPresetLoadMidiOut": kinds = new String[][] { { "messages", "array" }, { "expectedPresetName", "string" } }; break;
+            case "device.setExpressionBypass": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "pedal", "integer" }, { "mode", "integer" }, { "invert", "boolean" }, { "delayMs", "integer" }, { "latchEmulation", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.setChainInput": kinds = new String[][] { { "row", "integer" }, { "inputId", "integer" }, { "expectedInputId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setChainOutput": kinds = new String[][] { { "row", "integer" }, { "outputId", "integer" }, { "expectedOutputId", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setChainSplit": kinds = new String[][] { { "row", "integer" }, { "splitColumn", "nullable-integer" }, { "mixColumn", "nullable-integer" }, { "expectedSplitColumn", "nullable-integer" }, { "expectedMixColumn", "nullable-integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setSplitMute": kinds = new String[][] { { "row", "integer" }, { "muted", "boolean" }, { "expectedMuted", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.listPresets": kinds = new String[][] { { "refresh", "boolean" }, { "setlistKey", "nullable-string" } }; break;
+            case "device.listPresetFolders": kinds = new String[][] { { "refresh", "boolean" } }; break;
+            case "device.navigateBank": kinds = new String[][] { { "direction", "integer" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" } }; break;
+            case "device.recallPreset": kinds = new String[][] { { "setlistKey", "string" }, { "position", "integer" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" } }; break;
+            case "device.reloadPreset": kinds = new String[][] { { "expectedPresetName", "string" }, { "expectedPosition", "integer" } }; break;
+            case "device.blockDetails": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.laneControlDetails": kinds = new String[][] { { "row", "integer" }, { "control", "string" }, { "expectedPresetName", "string" } }; break;
+            case "device.previewParameter": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "parameterIndex", "integer" }, { "value", "number" }, { "expectedValue", "number" }, { "expectedScene", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.previewLaneControlParameter": kinds = new String[][] { { "row", "integer" }, { "control", "string" }, { "parameterIndex", "integer" }, { "value", "number" }, { "expectedValue", "number" }, { "expectedPresetName", "string" } }; break;
+            case "device.setParameter": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "parameterIndex", "integer" }, { "value", "number" }, { "expectedValue", "number" }, { "expectedScene", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setLaneControlParameter": kinds = new String[][] { { "row", "integer" }, { "control", "string" }, { "parameterIndex", "integer" }, { "value", "number" }, { "expectedValue", "number" }, { "expectedPresetName", "string" } }; break;
+            case "device.setLaneControlSceneMode": kinds = new String[][] { { "row", "integer" }, { "control", "string" }, { "parameterIndex", "integer" }, { "enabled", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.setParameterSceneMode": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "parameterIndex", "integer" }, { "enabled", "boolean" }, { "expectedPresetName", "string" } }; break;
+            case "device.setParameterExpression": kinds = new String[][] { { "row", "integer" }, { "column", "integer" }, { "parameterIndex", "integer" }, { "pedal", "integer" }, { "minimum", "number" }, { "maximum", "number" }, { "expectedPresetName", "string" } }; break;
+            case "device.setTempo": kinds = new String[][] { { "bpm", "integer" }, { "expectedTempo", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.setMasterVolume": kinds = new String[][] { { "value", "integer" }, { "expectedValue", "integer" } }; break;
+            case "device.masterVolume": kinds = new String[][] {  }; break;
+            case "device.pressFootswitch": kinds = new String[][] { { "index", "integer" }, { "expectedMode", "string" }, { "expectedPresetName", "string" } }; break;
+            case "device.tapTempo": kinds = new String[][] { { "expectedMode", "string" }, { "expectedPresetName", "string" } }; break;
+            case "device.selectModeSlot": kinds = new String[][] { { "slot", "integer" }, { "expectedPresetName", "string" } }; break;
+            case "device.listPresetSlots": kinds = new String[][] {  }; break;
+            case "device.savePresetAs": kinds = new String[][] { { "setlistKey", "string" }, { "position", "integer" }, { "name", "string" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" }, { "confirmOverwrite", "boolean" } }; break;
+            case "device.copyPreset": kinds = new String[][] { { "sourceSetlistKey", "string" }, { "sourcePosition", "integer" }, { "sourceName", "string" }, { "destinationSetlistKey", "string" }, { "destinationPosition", "integer" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" }, { "confirmOverwrite", "boolean" } }; break;
+            case "device.renameCurrentPreset": kinds = new String[][] { { "name", "string" }, { "expectedPresetName", "string" }, { "expectedPosition", "integer" }, { "confirmRename", "boolean" } }; break;
+            case "device.createBackup": kinds = new String[][] { { "name", "string" } }; break;
+            case "device.showTuner": kinds = new String[][] { { "shown", "boolean" } }; break;
+            case "device.showGigView": kinds = new String[][] { { "shown", "boolean" } }; break;
+            default: kinds = new String[0][0];
+        }
+        for (String[] entry : kinds) {
+            if (!params.has(entry[0])) continue;
+            Object value = params.opt(entry[0]);
+            boolean nullable = entry[1].startsWith("nullable-");
+            String base = nullable ? entry[1].substring(9) : entry[1];
+            if (nullable && value == org.json.JSONObject.NULL) continue;
+            boolean valid = ("boolean".equals(base) && value instanceof Boolean)
+                || ("integer".equals(base) && (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))
+                || ("number".equals(base) && value instanceof Number && Double.isFinite(((Number) value).doubleValue()))
+                || ("string".equals(base) && value instanceof String)
+                || ("array".equals(base) && value instanceof org.json.JSONArray);
+            if (!valid) throw new IllegalArgumentException(method + "." + entry[0] + " must be " + entry[1]);
         }
     }
 }

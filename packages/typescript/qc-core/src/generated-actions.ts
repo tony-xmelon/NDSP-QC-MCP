@@ -168,7 +168,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 9
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -211,7 +212,8 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -546,7 +548,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "folder_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "position": {
           "type": "integer"
@@ -630,7 +633,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -692,7 +696,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "number"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -724,7 +729,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -755,7 +761,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -882,7 +889,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -927,7 +935,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -970,7 +979,8 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1009,7 +1019,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1043,10 +1054,12 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_mode": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1075,10 +1088,12 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "expected_mode": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1111,7 +1126,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -1196,7 +1212,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1265,13 +1282,15 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "position": {
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -1306,7 +1325,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -1353,7 +1373,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 240
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1411,7 +1432,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1477,7 +1499,8 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1532,7 +1555,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1595,7 +1619,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "number"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1657,7 +1682,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "number"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1713,7 +1739,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1787,7 +1814,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1845,7 +1873,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1893,7 +1922,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -1940,7 +1970,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2003,7 +2034,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2043,7 +2075,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2077,10 +2110,12 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "label": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2156,7 +2191,8 @@ export const SHARED_QC_ACTIONS = [
           }
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2227,7 +2263,8 @@ export const SHARED_QC_ACTIONS = [
           }
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2270,7 +2307,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2315,7 +2353,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2382,7 +2421,8 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2429,7 +2469,8 @@ export const SHARED_QC_ACTIONS = [
           "type": "boolean"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2469,16 +2510,19 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "position": {
           "type": "integer"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -2524,10 +2568,12 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "new_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -2577,22 +2623,26 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "source_setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "source_position": {
           "type": "integer"
         },
         "source_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "destination_setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "destination_position": {
           "type": "integer"
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -3214,7 +3264,12 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "volume_db": {
-          "type": "nullable-tempo-volume-db"
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -60,
+          "maximum": 9
         },
         "running": {
           "type": [
@@ -3223,22 +3278,100 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "pan": {
-          "type": "nullable-pan"
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -1,
+          "maximum": 1
         },
         "time_signature": {
-          "type": "nullable-time-signature"
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "2/4",
+            "3/4",
+            "4/4",
+            "5/4",
+            "6/4",
+            "7/4",
+            "8/4",
+            "9/4",
+            "10/4",
+            "11/4",
+            "12/4",
+            "13/4",
+            "3/8",
+            "6/8",
+            "9/8",
+            "12/8",
+            "5/8 (3+2)",
+            "5/8 (2+3)",
+            "7/8 (3+2+2)",
+            "7/8 (2+3+2)",
+            "7/8 (2+2+3)",
+            null
+          ]
         },
         "subdivision": {
-          "type": "nullable-tempo-subdivision"
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "1/4",
+            "1/8",
+            "1/8T",
+            "1/16",
+            null
+          ]
         },
         "sound": {
-          "type": "nullable-metronome-sound"
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "BLIP",
+            "BLOCK",
+            "COWBELL",
+            "DIGITAL",
+            "DRUM KIT",
+            "SOFT KIT",
+            null
+          ]
         },
         "routing": {
-          "type": "nullable-metronome-routing"
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "MULTI",
+            "HP",
+            "OUT 1/2",
+            "OUT 3/4",
+            "SEND 1/2",
+            null
+          ]
         },
         "beats": {
-          "type": "nullable-metronome-beats"
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 13,
+          "items": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "MUTE",
+              "DOWN",
+              "ON"
+            ]
+          }
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -3277,7 +3410,11 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "mode": {
-          "type": "tempo-mode"
+          "type": "string",
+          "enum": [
+            "PRESET",
+            "GLOBAL"
+          ]
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -3414,13 +3551,16 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "folder_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "folder_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "is_factory": {
           "type": "boolean"
@@ -3514,13 +3654,14 @@ export const SHARED_QC_ACTIONS = [
     "name": "load_capture",
     "rpc": "device.loadCapture",
     "classification": "live-write",
-    "description": "Place or retarget a Neural Capture block using a device library key and name.",
+    "description": "Place or retarget a Neural Capture block using a device library key and name, guarded by the current Grid cell and preset.",
     "properties": {
       "row": "grid-row",
       "column": "grid-column",
       "key": "string",
       "name": "string",
       "model_id": "nullable-integer",
+      "expected_model_id": "nullable-integer",
       "expected_preset_name": "string"
     },
     "required": [
@@ -3529,6 +3670,7 @@ export const SHARED_QC_ACTIONS = [
       "key",
       "name",
       "model_id",
+      "expected_model_id",
       "expected_preset_name"
     ],
     "access": "modify",
@@ -3546,10 +3688,12 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "model_id": {
           "type": [
@@ -3557,8 +3701,15 @@ export const SHARED_QC_ACTIONS = [
             "null"
           ]
         },
+        "expected_model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -3567,6 +3718,7 @@ export const SHARED_QC_ACTIONS = [
         "key",
         "name",
         "model_id",
+        "expected_model_id",
         "expected_preset_name"
       ],
       "additionalProperties": false
@@ -3604,7 +3756,7 @@ export const SHARED_QC_ACTIONS = [
     "name": "load_ir",
     "rpc": "device.loadIr",
     "classification": "live-write",
-    "description": "Place or retarget an IR Loader and set one of its two IR slots by key and name.",
+    "description": "Place or retarget an IR Loader and set one of its two IR slots by key and name, guarded by the current Grid cell and preset.",
     "properties": {
       "row": "grid-row",
       "column": "grid-column",
@@ -3612,6 +3764,7 @@ export const SHARED_QC_ACTIONS = [
       "name": "string",
       "slot": "integer",
       "model_id": "nullable-integer",
+      "expected_model_id": "nullable-integer",
       "expected_preset_name": "string"
     },
     "required": [
@@ -3621,6 +3774,7 @@ export const SHARED_QC_ACTIONS = [
       "name",
       "slot",
       "model_id",
+      "expected_model_id",
       "expected_preset_name"
     ],
     "access": "modify",
@@ -3638,10 +3792,12 @@ export const SHARED_QC_ACTIONS = [
           "maximum": 7
         },
         "key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "slot": {
           "type": "integer"
@@ -3652,8 +3808,15 @@ export const SHARED_QC_ACTIONS = [
             "null"
           ]
         },
+        "expected_model_id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -3663,6 +3826,7 @@ export const SHARED_QC_ACTIONS = [
         "name",
         "slot",
         "model_id",
+        "expected_model_id",
         "expected_preset_name"
       ],
       "additionalProperties": false
@@ -3686,7 +3850,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -3717,7 +3882,8 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -3756,10 +3922,12 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "source_setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "destination_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "limit": {
           "type": [
@@ -3768,7 +3936,8 @@ export const SHARED_QC_ACTIONS = [
           ]
         },
         "expected_preset_name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "expected_position": {
           "type": "integer"
@@ -3808,10 +3977,12 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "confirm_persistent_write": {
           "type": "boolean"
@@ -3847,10 +4018,12 @@ export const SHARED_QC_ACTIONS = [
       "type": "object",
       "properties": {
         "setlist_key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "position": {
           "type": "integer"

@@ -49,19 +49,19 @@ explicit development exception: its in-process Python adapter owns USB itself.
 
 ## Tools and safety
 
-Read tools include the current preset, block details, models, preset
-folders/slots, and master volume. Temporary live controls include scenes,
-banks, views, recalls, tempo, mode slots, bypass, and parameters. Master-volume
-changes and preset reload are risky controls with explicit confirmation.
-Persistent preset tools are `save_preset_as`, `rename_current_preset`, and
-`copy_preset`.
+The complete 102-action tool surface is generated from
+`contracts/qc-actions.v1.json`. It includes device and library reads; guarded
+performance, Grid, routing, scene, parameter, I/O, global-setting, and library
+writes; and persistent preset/backup operations. Master-volume changes and
+preset reload are risky controls with explicit confirmation.
 
 All preset-affecting mutations require expected preset/scene/value/position
 state from a fresh snapshot. The gateway performs authoritative readback.
 `save_preset_as` and `rename_current_preset` are deliberately separate and
 additionally require `confirm_persistent_write=true`. Rename applies only to the
 active stored user preset and verifies the new name. No arbitrary JSON-RPC,
-protobuf, raw HID, or global-setting write tool is exposed.
+protobuf, or raw HID tool is exposed; global settings use only their dedicated
+typed, confirmation-gated actions.
 
 The MCP server provides tools to an MCP host; it does not itself contain an LLM
 or chat UI.

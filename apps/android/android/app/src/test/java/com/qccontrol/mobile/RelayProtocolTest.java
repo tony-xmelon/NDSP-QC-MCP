@@ -41,4 +41,28 @@ public class RelayProtocolTest {
         assertNull(QcRelayPlugin.normalizedEndpoint("https://token@relay.example.com"));
         assertNull(QcRelayPlugin.normalizedEndpoint("https://relay.example.com?token=secret"));
     }
+
+    @Test public void generatedRuntimeStatusMetadataDescribesTheAndroidNativeGateway() {
+        assertTrue(GeneratedGatewayMethods.API_VERSION > 0);
+        assertTrue(java.util.Arrays.asList(GeneratedGatewayMethods.CAPABILITIES).contains("nativeGateway"));
+        assertTrue(java.util.Arrays.asList(GeneratedGatewayMethods.CAPABILITIES).contains("androidUsbRelay"));
+        assertFalse(java.util.Arrays.asList(GeneratedGatewayMethods.CAPABILITIES).contains("nativeBroker"));
+    }
+
+    @Test public void relayFrameLimitsCountUtf8BytesRatherThanUtf16Characters() {
+        assertEquals(3, QcRelayService.utf8Length("€"));
+        assertEquals(4, QcRelayService.utf8Length("\uD83D\uDE00"));
+    }
+
+    @Test public void generatedGatewayValidationRejectsCoercionAndArgumentDrift() throws Exception {
+        GeneratedGatewayMethods.validateParams("device.setTempo", new org.json.JSONObject()
+            .put("bpm", 120).put("expectedTempo", 120).put("expectedPresetName", "Clean"));
+        assertThrows(IllegalArgumentException.class, () -> GeneratedGatewayMethods.validateParams(
+            "device.setTempo", new org.json.JSONObject()
+                .put("bpm", true).put("expectedTempo", 120).put("expectedPresetName", "Clean")));
+        assertThrows(IllegalArgumentException.class, () -> GeneratedGatewayMethods.validateParams(
+            "device.snapshot", new org.json.JSONObject().put("ignored", 1)));
+        assertThrows(IllegalArgumentException.class, () -> GeneratedGatewayMethods.validateParams(
+            "device.setTempo", new org.json.JSONObject().put("expectedTempo", 120).put("expectedPresetName", "Clean")));
+    }
 }

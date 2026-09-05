@@ -91,7 +91,7 @@ public final class QcRelayService extends Service {
         }
 
         @Override public void onMessage(WebSocket webSocket, String text) {
-            if (text.length() > GeneratedRelayProfile.MAX_REQUEST_FRAME_BYTES) { webSocket.close(1009, "message too large"); return; }
+            if (utf8Length(text) > GeneratedRelayProfile.MAX_REQUEST_FRAME_BYTES) { webSocket.close(1009, "message too large"); return; }
             final JSONObject request;
             final String id;
             try {
@@ -100,6 +100,12 @@ public final class QcRelayService extends Service {
                 if (!"invoke".equals(request.getString("type"))) throw new IllegalArgumentException("Unsupported message type.");
             } catch (Exception error) {
                 try { webSocket.send(RelayProtocol.error("", "INVALID_REQUEST", "Invalid relay request.", false).toString()); }
+                catch (Exception ignored) {}
+                return;
+            }
+            if (id.isEmpty() || id.length() > 128) {
+                try { webSocket.send(RelayProtocol.error("", "INVALID_REQUEST",
+                    "The request identifier is invalid.", false).toString()); }
                 catch (Exception ignored) {}
                 return;
             }
@@ -115,11 +121,8 @@ public final class QcRelayService extends Service {
                     completedRequestIds.remove(completedRequestIds.iterator().next());
             }
             if (!RelayProtocol.isAllowed(method)) {
-                String code = RelayProtocol.requiresConfirmation(method) ? "CONFIRMATION_REQUIRED" : "METHOD_NOT_ALLOWED";
-                String message = RelayProtocol.requiresConfirmation(method)
-                    ? "This operation is not supported by the Android bridge until local confirmation and authoritative verification are available."
-                    : "The requested method is not in the Android relay allowlist.";
-                try { webSocket.send(RelayProtocol.error(id, code, message, false).toString()); }
+                try { webSocket.send(RelayProtocol.error(id, "METHOD_NOT_ALLOWED",
+                    "The requested method is not in the Android relay allowlist.", false).toString()); }
                 catch (Exception ignored) {}
                 return;
             }
@@ -128,11 +131,22 @@ public final class QcRelayService extends Service {
                 catch (Exception ignored) {}
                 return;
             }
-            QcUsbPlugin.invokeFromRelay(method, request.optJSONObject("params"), request.optJSONObject("expectedState"))
+            Object rawParams = request.opt("params");
+            Object rawExpected = request.opt("expectedState");
+            if (rawParams != null && rawParams != JSONObject.NULL && !(rawParams instanceof JSONObject)) {
+                sendError(webSocket, id, "INVALID_ARGUMENT", "params must be an object.");
+                return;
+            }
+            if (rawExpected != null && rawExpected != JSONObject.NULL && !(rawExpected instanceof JSONObject)) {
+                sendError(webSocket, id, "INVALID_ARGUMENT", "expectedState must be an object.");
+                return;
+            }
+            QcUsbPlugin.invokeFromRelay(method, (JSONObject) (rawParams == JSONObject.NULL ? null : rawParams),
+                    (JSONObject) (rawExpected == JSONObject.NULL ? null : rawExpected))
                 .whenComplete((result, error) -> {
                     try {
                         JSONObject reply = error == null
-                            ? RelayProtocol.result(id, result)
+                            ? validatedResult(id, method, result)
                             : RelayProtocol.error(id, error instanceof QcUsbPlugin.RelayException
                                 ? ((QcUsbPlugin.RelayException) error).code : "DEVICE_ERROR",
                                 error.getMessage() == null ? "The device operation failed." : error.getMessage(), false);
@@ -143,6 +157,11 @@ public final class QcRelayService extends Service {
                         sendResult(webSocket, id, reply);
                     } catch (Exception ignored) {}
                 });
+        }
+
+        private JSONObject validatedResult(String id, String method, JSONObject result) throws Exception {
+            GeneratedGatewayMethods.validateResult(method, result);
+            return RelayProtocol.result(id, result);
         }
 
         @Override public void onClosed(WebSocket webSocket, int code, String reason) {
@@ -187,11 +206,20 @@ public final class QcRelayService extends Service {
 
     private void sendResult(WebSocket webSocket, String id, JSONObject reply) throws Exception {
         String text = reply.toString();
-        if (text.length() > GeneratedRelayProfile.MAX_RESULT_FRAME_BYTES) {
+        if (utf8Length(text) > GeneratedRelayProfile.MAX_RESULT_FRAME_BYTES) {
             text = RelayProtocol.error(id, "RESULT_TOO_LARGE",
                 "The device result exceeds the relay frame limit.", false).toString();
         }
         webSocket.send(text);
+    }
+
+    private void sendError(WebSocket webSocket, String id, String code, String message) {
+        try { webSocket.send(RelayProtocol.error(id, code, message, false).toString()); }
+        catch (Exception ignored) {}
+    }
+
+    static int utf8Length(String value) {
+        return value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
     }
 
     private synchronized void reconnect(int failedGeneration) {

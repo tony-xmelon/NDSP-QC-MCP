@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import queue
 import shlex
 import struct
 import subprocess
@@ -11,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, BinaryIO, Protocol
 
 from .generated_domain import IPC_MAX_FRAME_BYTES
-from .generated_gateway_methods import GATEWAY_METHODS
+from .generated_gateway_methods import GATEWAY_METHODS, GATEWAY_RESULT_KINDS
 
 GATEWAY_PROTOCOL = "gateway.v1"
 
@@ -19,9 +20,10 @@ GATEWAY_PROTOCOL = "gateway.v1"
 class GatewayError(RuntimeError):
     """A stable, sanitized error returned by or raised while calling the gateway."""
 
-    def __init__(self, message: str, *, code: int = -32000) -> None:
+    def __init__(self, message: str, *, code: int = -32000, retryable: bool = False) -> None:
         super().__init__(message)
         self.code = code
+        self.retryable = retryable
 
 
 class GatewayHandler(Protocol):
@@ -29,13 +31,24 @@ class GatewayHandler(Protocol):
 
 
 def _read_frame(stream: BinaryIO) -> dict[str, Any]:
-    header = stream.read(4)
+    def read_exact(length: int) -> bytes:
+        chunks: list[bytes] = []
+        remaining = length
+        while remaining:
+            chunk = stream.read(remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
+    header = read_exact(4)
     if len(header) != 4:
         raise GatewayError("The QC Gateway closed its response stream.")
     (length,) = struct.unpack(">I", header)
     if length == 0 or length > IPC_MAX_FRAME_BYTES:
         raise GatewayError("The QC Gateway returned an invalid frame length.")
-    payload = stream.read(length)
+    payload = read_exact(length)
     if len(payload) != length:
         raise GatewayError("The QC Gateway returned an incomplete response.")
     try:
@@ -75,23 +88,71 @@ class _RequestMixin:
                 "method": method,
                 "params": dict(params or {}),
             })
-        if response.get("id") != request_id or response.get("jsonrpc") != "2.0":
+        response_id = response.get("id")
+        if (
+            type(response_id) is not int
+            or response_id != request_id
+            or response.get("jsonrpc") != "2.0"
+            or not set(response).issubset({"jsonrpc", "id", "result", "error"})
+        ):
             raise GatewayError("The QC Gateway response did not match the request.")
-        error = response.get("error")
-        if isinstance(error, dict):
-            raise GatewayError(str(error.get("message", "QC Gateway request failed.")), code=int(error.get("code", -32000)))
-        if "result" not in response:
-            raise GatewayError("The QC Gateway response did not contain a result.")
-        return response["result"]
+        has_error = "error" in response
+        has_result = "result" in response
+        if has_error == has_result:
+            raise GatewayError("The QC Gateway response must contain exactly one result or error.")
+        if has_error:
+            error = response["error"]
+            if not isinstance(error, dict) or not set(error).issubset({"code", "message", "data"}):
+                raise GatewayError("The QC Gateway returned a malformed error.")
+            data = error.get("data") if isinstance(error.get("data"), dict) else {}
+            raw_code = error.get("code", -32000)
+            code = raw_code if isinstance(raw_code, int) and not isinstance(raw_code, bool) else -32000
+            message = error.get("message")
+            if not isinstance(message, str):
+                raise GatewayError("The QC Gateway returned a malformed error.", code=code)
+            raw_retryable = data.get("retryable", False)
+            retryable = raw_retryable if isinstance(raw_retryable, bool) else False
+            raise GatewayError(
+                message,
+                code=code,
+                retryable=retryable,
+            )
+        result = response["result"]
+        if not isinstance(result, dict):
+            raise GatewayError(f"{method} returned a malformed {GATEWAY_RESULT_KINDS[method]} result.")
+        kind = GATEWAY_RESULT_KINDS[method]
+        if kind == "PresetSnapshot" and (
+            not isinstance(result.get("presetName"), str) or not isinstance(result.get("blocks"), list)
+        ):
+            raise GatewayError(f"{method} returned a malformed PresetSnapshot result.")
+        markers = ("accepted", "verified", "verification")
+        has_outcome = any(marker in result for marker in markers)
+        if kind == "DeviceActionResult" and not has_outcome:
+            raise GatewayError(f"{method} returned a device action result without verification semantics.")
+        if has_outcome:
+            verified = result.get("verified")
+            expected = "authoritative_readback" if verified is True else "accepted_unverified"
+            if (
+                result.get("accepted") is not True
+                or not isinstance(verified, bool)
+                or result.get("verification") != expected
+                or not isinstance(result.get("detail"), str)
+                or len(result["detail"]) > 4096
+            ):
+                raise GatewayError(f"{method} returned a malformed device action result.")
+        return result
 
 
 class StdioGatewayClient(_RequestMixin):
     """Own a gateway child process and call its framed stdio contract."""
 
-    def __init__(self, command: Sequence[str]) -> None:
+    def __init__(self, command: Sequence[str], *, response_timeout: float = 300.0) -> None:
         if not command:
             raise ValueError("A gateway command is required.")
+        if response_timeout <= 0:
+            raise ValueError("The gateway response timeout must be positive.")
         self.command = tuple(command)
+        self.response_timeout = response_timeout
         self._next_id = 1
         self._lock = threading.Lock()
         self._process: subprocess.Popen[bytes] | None = None
@@ -125,9 +186,46 @@ class StdioGatewayClient(_RequestMixin):
             raise GatewayError("The QC Gateway stdio transport is unavailable.")
         try:
             _write_frame(process.stdin, request)
-            return _read_frame(process.stdout)
+            result: queue.Queue[dict[str, Any] | Exception] = queue.Queue(maxsize=1)
+
+            def read_response() -> None:
+                try:
+                    result.put_nowait(_read_frame(process.stdout))
+                except Exception as exc:  # transported back to the caller thread
+                    result.put_nowait(exc)
+
+            reader = threading.Thread(
+                target=read_response,
+                name="qc-gateway-response",
+                daemon=True,
+            )
+            reader.start()
+            try:
+                outcome = result.get(timeout=self.response_timeout)
+            except queue.Empty as exc:
+                # Closing the process also closes stdout and releases the daemon
+                # reader. Never reuse a stream after a timed-out request because
+                # its eventual response could be mistaken for the next call.
+                if self._process is process:
+                    self._process = None
+                process.kill()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+                raise GatewayError(
+                    f"The QC Gateway did not respond within {self.response_timeout:g} seconds.",
+                    retryable=True,
+                ) from exc
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
         except (BrokenPipeError, OSError) as exc:
-            raise GatewayError("Communication with the QC Gateway failed.") from exc
+            if self._process is process:
+                self._process = None
+            raise GatewayError(
+                "Communication with the QC Gateway failed.", retryable=True
+            ) from exc
 
     def close(self) -> None:
         process = self._process

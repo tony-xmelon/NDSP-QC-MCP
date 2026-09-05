@@ -12,7 +12,7 @@ use std::{
 use tokio::sync::watch;
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{client::IntoClientRequest, Message},
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
 };
 
 pub use qc_relay_protocol::{
@@ -24,6 +24,11 @@ pub use qc_relay_protocol::{
 };
 
 mod generated_actions;
+
+const ADAPTER_READY_TIMEOUT: Duration = Duration::from_secs(10);
+const ADAPTER_INVOKE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+const SOCKET_SEND_TIMEOUT: Duration = Duration::from_secs(15);
+const SOCKET_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -161,6 +166,8 @@ pub struct Client {
     state: watch::Sender<ConnectionState>,
     access: watch::Receiver<AccessMode>,
     stop: watch::Receiver<bool>,
+    completed: HashSet<String>,
+    completed_order: VecDeque<String>,
 }
 
 impl Client {
@@ -177,6 +184,8 @@ impl Client {
             state,
             access,
             stop,
+            completed: HashSet::new(),
+            completed_order: VecDeque::new(),
         }
     }
 
@@ -222,10 +231,20 @@ impl Client {
             request.headers_mut().insert("Authorization", credential);
             request.headers_mut().insert(
                 "Sec-WebSocket-Protocol",
-                PROTOCOL_VERSION.parse().expect("static protocol header"),
+                HeaderValue::from_static(PROTOCOL_VERSION),
             );
-            match connect_async(request).await {
-                Ok((socket, response)) => {
+            let connection = tokio::select! {
+                result = tokio::time::timeout(SOCKET_CONNECT_TIMEOUT, connect_async(request)) => result,
+                changed = self.stop.changed() => {
+                    if changed.is_err() || *self.stop.borrow() {
+                        self.state.send_replace(ConnectionState::Stopped);
+                        return;
+                    }
+                    continue;
+                }
+            };
+            match connection {
+                Ok(Ok((socket, response))) => {
                     if response
                         .headers()
                         .get("Sec-WebSocket-Protocol")
@@ -244,13 +263,15 @@ impl Client {
                         return;
                     }
                 }
-                Err(tokio_tungstenite::tungstenite::Error::Http(response))
+                Ok(Err(tokio_tungstenite::tungstenite::Error::Http(response)))
                     if matches!(response.status().as_u16(), 401 | 403) =>
                 {
                     self.state.send_replace(ConnectionState::PairingRequired);
                     return;
                 }
-                Err(_) => failures = failures.saturating_add(1).clamp(1, MAXIMUM_FAILURE_COUNT),
+                Ok(Err(_)) | Err(_) => {
+                    failures = failures.saturating_add(1).clamp(1, MAXIMUM_FAILURE_COUNT)
+                }
             }
             if *self.stop.borrow() {
                 self.state.send_replace(ConnectionState::Stopped);
@@ -278,33 +299,70 @@ impl Client {
     {
         let (mut sink, mut stream) = socket.split();
         let mut readiness = tokio::time::interval(Duration::from_millis(READINESS_INTERVAL_MS));
-        let mut completed = HashSet::new();
-        let mut completed_order = VecDeque::new();
         loop {
             tokio::select! {
                 _ = readiness.tick() => {
-                    let frame = DeviceFrame::Ready { protocol: PROTOCOL_VERSION.into(), usb_connected: self.adapter.ready().await };
+                    let adapter = Arc::clone(&self.adapter);
+                    let ready = tokio::select! {
+                        result = tokio::time::timeout(ADAPTER_READY_TIMEOUT, adapter.ready()) => result.unwrap_or(false),
+                        changed = self.stop.changed() => {
+                            if changed.is_err() || *self.stop.borrow() {
+                                let _ = send_close(&mut sink).await;
+                                return Ok(());
+                            }
+                            false
+                        }
+                    };
+                    let frame = DeviceFrame::Ready { protocol: PROTOCOL_VERSION.into(), usb_connected: ready };
                     if send_frame(&mut sink, &frame).await.is_err() { return Err(()); }
                 }
                 changed = self.stop.changed() => {
                     if changed.is_err() || *self.stop.borrow() {
-                        let _ = sink.send(Message::Close(None)).await;
+                        let _ = send_close(&mut sink).await;
                         return Ok(());
                     }
                 }
                 message = stream.next() => match message {
                     Some(Ok(Message::Text(text))) if text.len() <= MAX_REQUEST_FRAME_BYTES => {
                         let DeviceFrame::Invoke { id, action: _, method, params } = serde_json::from_str(&text).map_err(|_| ())? else { return Err(()); };
-                        let response = if !completed.insert(id.clone()) {
+                        let response = if id.is_empty() || id.len() > 128 {
+                            DeviceFrame::Result { id, ok: false, result: None, error: Some(DeviceError::new("INVALID_REQUEST", "The request identifier is invalid", false)) }
+                        } else if !self.completed.insert(id.clone()) {
                             DeviceFrame::Result { id, ok: false, result: None, error: Some(DeviceError::new("REPLAYED_REQUEST", "This request identifier was already processed", false)) }
                         } else {
-                            completed_order.push_back(id.clone());
-                            if completed_order.len() > COMPLETED_REQUEST_CACHE_SIZE { if let Some(old) = completed_order.pop_front() { completed.remove(&old); } }
+                            self.completed_order.push_back(id.clone());
+                            if self.completed_order.len() > COMPLETED_REQUEST_CACHE_SIZE { if let Some(old) = self.completed_order.pop_front() { self.completed.remove(&old); } }
                             let result = if !generated_actions::contains(&method) {
                                 Err(DeviceError::new("METHOD_NOT_ALLOWED", "The requested method is not in the generated remote action contract", false))
                             } else if !self.access.borrow().permits(&method) {
                                 Err(DeviceError::new("ACCESS_MODE_RESTRICTED", "The requested operation is outside this computer's remote access mode", false))
-                            } else { self.adapter.invoke(&method, params).await };
+                            } else {
+                                let adapter = Arc::clone(&self.adapter);
+                                tokio::select! {
+                                    result = tokio::time::timeout(
+                                        ADAPTER_INVOKE_TIMEOUT,
+                                        adapter.invoke(&method, params),
+                                    ) => match result {
+                                        Ok(result) => result,
+                                        Err(_) => Err(DeviceError::new(
+                                            "DEVICE_TIMEOUT",
+                                            "The local device adapter did not complete the request before its deadline",
+                                            true,
+                                        )),
+                                    },
+                                    changed = self.stop.changed() => {
+                                        if changed.is_err() || *self.stop.borrow() {
+                                            let _ = send_close(&mut sink).await;
+                                            return Ok(());
+                                        }
+                                        Err(DeviceError::new(
+                                            "DEVICE_INTERRUPTED",
+                                            "The local device request was interrupted",
+                                            true,
+                                        ))
+                                    }
+                                }
+                            };
                             match result {
                                 Ok(value) => DeviceFrame::Result { id, ok: true, result: Some(value), error: None },
                                 Err(error) => DeviceFrame::Result { id, ok: false, result: None, error: Some(error) },
@@ -312,13 +370,13 @@ impl Client {
                         };
                         if send_frame(&mut sink, &response).await.is_err() { return Err(()); }
                     }
-                    Some(Ok(Message::Ping(value))) => if sink.send(Message::Pong(value)).await.is_err() { return Err(()); },
+                    Some(Ok(Message::Ping(value))) => if send_message(&mut sink, Message::Pong(value)).await.is_err() { return Err(()); },
                     Some(Ok(Message::Close(Some(frame)))) if matches!(u16::from(frame.code), 4001 | 4003) => {
                         self.state.send_replace(ConnectionState::PairingRequired);
                         return Ok(());
                     }
                     Some(Ok(Message::Close(_))) | Some(Err(_)) | None => return Err(()),
-                    Some(Ok(Message::Text(_))) => { let _ = sink.send(Message::Close(None)).await; return Err(()); }
+                    Some(Ok(Message::Text(_))) => { let _ = send_close(&mut sink).await; return Err(()); }
                     _ => {}
                 }
             }
@@ -334,7 +392,24 @@ where
     if text.len() > MAX_RESULT_FRAME_BYTES {
         return Err(());
     }
-    sink.send(Message::Text(text.into())).await.map_err(|_| ())
+    send_message(sink, Message::Text(text.into())).await
+}
+
+async fn send_message<S>(sink: &mut S, message: Message) -> Result<(), ()>
+where
+    S: futures_util::Sink<Message> + Unpin,
+{
+    tokio::time::timeout(SOCKET_SEND_TIMEOUT, sink.send(message))
+        .await
+        .map_err(|_| ())?
+        .map_err(|_| ())
+}
+
+async fn send_close<S>(sink: &mut S) -> Result<(), ()>
+where
+    S: futures_util::Sink<Message> + Unpin,
+{
+    send_message(sink, Message::Close(None)).await
 }
 
 #[cfg(test)]

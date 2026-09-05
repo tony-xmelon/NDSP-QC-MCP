@@ -89,16 +89,24 @@ struct HidIo {
     device: Arc<SharedWindowsHid>,
     receiver: mpsc::Receiver<HidReadEvent>,
     stopping: Arc<AtomicBool>,
+    overflowed: Arc<AtomicBool>,
     reader: Option<JoinHandle<()>>,
 }
+
+// A complete maximum-sized logical frame fits in this queue. The queue is
+// deliberately finite: a stalled command lane must never turn sustained USB
+// input into unbounded process memory.
+const HID_READ_QUEUE_CAPACITY: usize = profile::MAX_FRAME_BYTES / framing::CHUNK_SIZE + 2;
 
 impl HidIo {
     fn start(device: HidDevice) -> Result<Self, UsbError> {
         let device = Arc::new(SharedWindowsHid(UnsafeCell::new(device)));
         let stopping = Arc::new(AtomicBool::new(false));
-        let (sender, receiver) = mpsc::channel();
+        let (sender, receiver) = mpsc::sync_channel(HID_READ_QUEUE_CAPACITY);
         let reader_device = Arc::clone(&device);
         let reader_stopping = Arc::clone(&stopping);
+        let overflowed = Arc::new(AtomicBool::new(false));
+        let reader_overflowed = Arc::clone(&overflowed);
         let reader = thread::Builder::new()
             .name("qc-native-hid-rx".into())
             .spawn(move || {
@@ -109,18 +117,27 @@ impl HidIo {
                         Ok(0) => consecutive_errors = 0,
                         Ok(read) => {
                             consecutive_errors = 0;
-                            if sender
-                                .send(HidReadEvent::Report(report[..read].to_vec()))
-                                .is_err()
-                            {
-                                break;
+                            match sender.try_send(HidReadEvent::Report(report[..read].to_vec())) {
+                                Ok(()) => {}
+                                Err(mpsc::TrySendError::Full(_)) => {
+                                    // A dropped report invalidates the current logical frame.
+                                    // Let the broker tear down and re-open the session rather
+                                    // than attempting to decode a discontinuous byte stream.
+                                    reader_overflowed.store(true, Ordering::Release);
+                                }
+                                Err(mpsc::TrySendError::Disconnected(_)) => break,
                             }
                         }
                         Err(error) => {
                             consecutive_errors = consecutive_errors.saturating_add(1);
-                            if sender.send(HidReadEvent::Error(error)).is_err()
-                                || consecutive_errors >= 2
-                            {
+                            match sender.try_send(HidReadEvent::Error(error)) {
+                                Ok(()) => {}
+                                Err(mpsc::TrySendError::Full(_)) => {
+                                    reader_overflowed.store(true, Ordering::Release);
+                                }
+                                Err(mpsc::TrySendError::Disconnected(_)) => break,
+                            }
+                            if consecutive_errors >= 2 {
                                 break;
                             }
                         }
@@ -132,6 +149,7 @@ impl HidIo {
             device,
             receiver,
             stopping,
+            overflowed,
             reader: Some(reader),
         })
     }
@@ -141,6 +159,12 @@ impl HidIo {
     }
 
     fn read(&self, timeout_ms: i32) -> Result<Option<Vec<u8>>, UsbError> {
+        if self.overflowed.swap(false, Ordering::AcqRel) {
+            return Err(UsbError::Read(
+                "native HID receive queue overflowed; reconnecting to restore frame alignment"
+                    .into(),
+            ));
+        }
         let timeout = if timeout_ms <= 0 {
             Duration::ZERO
         } else {
@@ -245,12 +269,13 @@ impl QcUsb {
         self.flight.event("initialization-sent");
         let deadline = Instant::now() + Duration::from_millis(profile::INITIAL_SYNC_TIMEOUT_MS);
         let mut synchronized = false;
-        let mut message_counts = HashMap::new();
+        let mut message_counts: HashMap<u16, usize> = HashMap::new();
         let mut latest_messages = HashMap::new();
         while Instant::now() < deadline {
             if let Some(message) = self.read_message(100)? {
                 let is_preset = message.message_type == 15;
-                *message_counts.entry(message.message_type).or_default() += 1;
+                let count = message_counts.entry(message.message_type).or_default();
+                *count = count.saturating_add(1);
                 latest_messages.insert(message.message_type, message);
                 if is_preset {
                     synchronized = true;
@@ -264,7 +289,8 @@ impl QcUsb {
             while Instant::now() < deadline {
                 if let Some(message) = self.read_message(200)? {
                     let is_preset = message.message_type == 15;
-                    *message_counts.entry(message.message_type).or_default() += 1;
+                    let count = message_counts.entry(message.message_type).or_default();
+                    *count = count.saturating_add(1);
                     latest_messages.insert(message.message_type, message);
                     if is_preset {
                         synchronized = true;
@@ -286,7 +312,8 @@ impl QcUsb {
                 .any(|message_type| !latest_messages.contains_key(message_type))
         {
             if let Some(message) = self.read_message(100)? {
-                *message_counts.entry(message.message_type).or_default() += 1;
+                let count = message_counts.entry(message.message_type).or_default();
+                *count = count.saturating_add(1);
                 latest_messages.insert(message.message_type, message);
             }
         }
@@ -340,7 +367,7 @@ impl QcUsb {
         if report.len() >= 3 && report[2] & framing::FLAG_FIRST != 0 {
             self.frame_report_count = 1;
         } else if self.frame_report_count > 0 {
-            self.frame_report_count += 1;
+            self.frame_report_count = self.frame_report_count.saturating_add(1);
         }
         let assembled = match self.frames.push(report) {
             Ok(assembled) => assembled,
@@ -374,7 +401,7 @@ impl QcUsb {
             payload = decoded;
         }
         let sequence = self.next_sequence;
-        self.next_sequence += 1;
+        self.next_sequence = self.next_sequence.saturating_add(1);
         Ok(Some(IncomingMessage {
             sequence,
             message_type,

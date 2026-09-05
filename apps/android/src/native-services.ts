@@ -29,7 +29,7 @@ interface QcUsbNativePlugin {
   connect(): Promise<{ connected: boolean; synchronized: boolean; name: string; deviceId: number }>;
   disconnect(): Promise<void>;
   diagnostics(): Promise<{ connected: boolean; device: string; messagesReceived: number; messagesSent: number; decodeErrors: number; expectedWriteStalls: number; lastMessageType: number; connectedAt: number; setlistKnown: boolean; presetPosition: number; modelCount: number; readAttempts: number; negativeReads: number; interfaceId: number; inputEndpointAddress: number; inputMaxPacketSize: number; reportBytes: number; midiAvailable: boolean; midiInterfaceId: number; midiOutputEndpointAddress: number; lastMidiQueueDelayMs: number; maxMidiQueueDelayMs: number; lastStateAt: number; lastError?: string }>;
-  gatewayInvoke(options: { method: string; params?: Record<string, unknown>; expectedState?: Record<string, unknown> }): Promise<unknown>;
+  gatewayInvoke<T>(options: { method: string; params?: Record<string, unknown>; expectedState?: Record<string, unknown> }): Promise<T>;
   addListener(eventName: "qcStateBatch", listener: (frame: NativeStateFrame<QcStateUpdate>) => void): Promise<PluginListenerHandle>;
   addListener(eventName: "qcConnection", listener: (status: { state: "available" | "disconnected"; name?: string }) => void): Promise<PluginListenerHandle>;
 }
@@ -76,7 +76,7 @@ export const publicRelay: PublicRelayPort = {
 };
 
 export const androidGatewayTransport = createGatewayClientTransport<GatewayTransport>(
-  (method, params) => QcUsbNative.gatewayInvoke({ method, params }) as Promise<never>,
+  <T,>(method: string, params?: Record<string, unknown>) => QcUsbNative.gatewayInvoke<T>({ method, params }),
   "rpc"
 );
 

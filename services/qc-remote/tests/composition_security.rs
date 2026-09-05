@@ -85,7 +85,22 @@ async fn validated_mcp_call_round_trips_through_the_paired_phone() {
         phone.accept(DeviceFrame::Result {
             id,
             ok: true,
-            result: Some(json!({"presetName":"Relay Clean","activeScene":0})),
+            result: Some(json!({
+                "deviceName": "Test QC",
+                "presetName": "Relay Clean",
+                "presetLocation": "1A",
+                "presetPosition": 0,
+                "setlistKey": "factory",
+                "setlistName": "Factory",
+                "mode": "PRESET",
+                "activeScene": 0,
+                "scenes": ["A", "B", "C", "D", "E", "F", "G", "H"],
+                "blocks": [],
+                "routes": [],
+                "tempo": 120,
+                "masterVolume": 50.0,
+                "dirty": false
+            })),
             error: None,
         }).await;
     });

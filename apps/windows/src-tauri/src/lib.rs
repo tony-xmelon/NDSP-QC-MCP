@@ -1,11 +1,6 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use qc_device_runtime::{
-    generated_gateway,
-    generated_gateway::rpc,
-    request::{is_host_midi_method, plan_host_midi},
-};
+use qc_device_runtime::{generated_gateway, generated_gateway::rpc};
 use qc_relay_client::{DeviceAdapter, DeviceError};
-use qc_windows_midi::PerformanceMidi;
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufReader, Read, Write};
@@ -39,8 +34,46 @@ enum GatewayReaderMessage {
 
 enum GatewayRequestFailure {
     Transport(String),
-    Remote(String),
+    Remote {
+        code: i64,
+        message: String,
+        retryable: bool,
+    },
 }
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GatewayUiError {
+    code: String,
+    message: String,
+    retryable: bool,
+}
+
+impl From<GatewayRequestFailure> for GatewayUiError {
+    fn from(failure: GatewayRequestFailure) -> Self {
+        match failure {
+            GatewayRequestFailure::Remote {
+                code,
+                message,
+                retryable,
+            } => Self {
+                code: code.to_string(),
+                message,
+                retryable,
+            },
+            GatewayRequestFailure::Transport(message) => Self {
+                code: "DEVICE_TRANSPORT".into(),
+                message,
+                retryable: true,
+            },
+        }
+    }
+}
+
+// Library mutations can contain several verified stages and backup is the
+// longest single RPC (three minutes). The desktop host still needs a hard
+// upper bound so a wedged child cannot hold the gateway mutex forever.
+const GATEWAY_RESPONSE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 impl Drop for GatewayProcess {
     fn drop(&mut self) {
@@ -50,7 +83,7 @@ impl Drop for GatewayProcess {
 }
 
 impl GatewayProcess {
-    fn start(event_tx: Option<mpsc::Sender<Value>>) -> Result<Self, String> {
+    fn start(event_tx: Option<mpsc::SyncSender<Value>>) -> Result<Self, String> {
         let executable_directory = std::env::current_exe()
             .ok()
             .and_then(|path| path.parent().map(Path::to_path_buf));
@@ -109,7 +142,10 @@ impl GatewayProcess {
                             if let (Some(sender), Some(params)) =
                                 (event_tx.as_ref(), value.get("params"))
                             {
-                                let _ = sender.send(params.clone());
+                                // State events carry sequence numbers and the UI can
+                                // reconcile from a fresh snapshot. Never let a stalled
+                                // renderer block the response reader needed by commands.
+                                let _ = sender.try_send(params.clone());
                             }
                         }
                         Ok(value) => {
@@ -138,11 +174,17 @@ impl GatewayProcess {
 
     fn request(&mut self, method: &str, params: Value) -> Result<Value, GatewayRequestFailure> {
         let id = self.next_id;
-        self.next_id += 1;
+        self.next_id = self.next_id.checked_add(1).unwrap_or(1);
         let payload = serde_json::to_vec(&json!({
             "jsonrpc": "2.0", "id": id, "method": method, "params": params
         }))
         .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
+        if payload.len() > qc_protocol::domain::IPC_MAX_FRAME_BYTES {
+            return Err(GatewayRequestFailure::Transport(format!(
+                "Gateway request exceeds the {} byte IPC limit",
+                qc_protocol::domain::IPC_MAX_FRAME_BYTES
+            )));
+        }
         let length = u32::try_from(payload.len())
             .map_err(|_| GatewayRequestFailure::Transport("Gateway request is too large".into()))?;
         self.stdin
@@ -155,31 +197,130 @@ impl GatewayProcess {
             .flush()
             .map_err(|error| GatewayRequestFailure::Transport(error.to_string()))?;
 
-        let response = match self.responses.recv() {
+        let response = match self.responses.recv_timeout(GATEWAY_RESPONSE_TIMEOUT) {
             Ok(GatewayReaderMessage::Response(value)) => value,
             Ok(GatewayReaderMessage::Failed(error)) => {
                 return Err(GatewayRequestFailure::Transport(error));
             }
-            Err(error) => return Err(GatewayRequestFailure::Transport(error.to_string())),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                return Err(GatewayRequestFailure::Transport(format!(
+                    "Gateway did not answer {method} within {} seconds",
+                    GATEWAY_RESPONSE_TIMEOUT.as_secs()
+                )));
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(GatewayRequestFailure::Transport(
+                    "Gateway response channel closed".into(),
+                ));
+            }
         };
-        if response.get("id").and_then(Value::as_u64) != Some(id) {
+        let Some(object) = response.as_object() else {
+            return Err(GatewayRequestFailure::Transport(
+                "Gateway response was not an object".into(),
+            ));
+        };
+        if response.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+            || response.get("id").and_then(Value::as_u64) != Some(id)
+            || object
+                .keys()
+                .any(|key| !matches!(key.as_str(), "jsonrpc" | "id" | "result" | "error"))
+        {
             return Err(GatewayRequestFailure::Transport(
                 "Gateway response did not match the request".into(),
             ));
         }
-        if let Some(error) = response.get("error") {
-            return Err(GatewayRequestFailure::Remote(
-                error
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("Gateway request failed")
-                    .into(),
+        let has_result = object.contains_key("result");
+        let has_error = object.contains_key("error");
+        if has_result == has_error {
+            return Err(GatewayRequestFailure::Transport(
+                "Gateway response must contain exactly one result or error".into(),
             ));
         }
-        response.get("result").cloned().ok_or_else(|| {
-            GatewayRequestFailure::Transport("Gateway response has no result".into())
+        if has_result {
+            let result = response["result"].clone();
+            validate_gateway_result(method, &result)?;
+            return Ok(result);
+        }
+        let error = response["error"].as_object().ok_or_else(|| {
+            GatewayRequestFailure::Transport("Gateway returned a malformed error".into())
+        })?;
+        if error
+            .keys()
+            .any(|key| !matches!(key.as_str(), "code" | "message" | "data"))
+        {
+            return Err(GatewayRequestFailure::Transport(
+                "Gateway returned a malformed error".into(),
+            ));
+        }
+        let code = error.get("code").and_then(Value::as_i64).ok_or_else(|| {
+            GatewayRequestFailure::Transport("Gateway returned a malformed error code".into())
+        })?;
+        let message = error
+            .get("message")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                GatewayRequestFailure::Transport(
+                    "Gateway returned a malformed error message".into(),
+                )
+            })?;
+        let retryable = error
+            .get("data")
+            .and_then(Value::as_object)
+            .and_then(|data| data.get("retryable"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        Err(GatewayRequestFailure::Remote {
+            code,
+            message: message.into(),
+            retryable,
         })
     }
+}
+
+fn validate_gateway_result(method: &str, result: &Value) -> Result<(), GatewayRequestFailure> {
+    let kind = generated_gateway::result_kind(method).ok_or_else(|| {
+        GatewayRequestFailure::Transport(format!("Unknown gateway result contract: {method}"))
+    })?;
+    let object = result.as_object().ok_or_else(|| {
+        GatewayRequestFailure::Transport(format!("{method} returned a malformed result"))
+    })?;
+    if kind == generated_gateway::GatewayResultKind::PresetSnapshot
+        && (!object.get("presetName").is_some_and(Value::is_string)
+            || !object.get("blocks").is_some_and(Value::is_array))
+    {
+        return Err(GatewayRequestFailure::Transport(format!(
+            "{method} returned a malformed PresetSnapshot result"
+        )));
+    }
+    let has_outcome = ["accepted", "verified", "verification"]
+        .iter()
+        .any(|key| object.contains_key(*key));
+    if kind == generated_gateway::GatewayResultKind::DeviceActionResult && !has_outcome {
+        return Err(GatewayRequestFailure::Transport(format!(
+            "{method} returned a device action result without verification semantics"
+        )));
+    }
+    if has_outcome {
+        let verified = object.get("verified").and_then(Value::as_bool);
+        let expected = if verified == Some(true) {
+            "authoritative_readback"
+        } else {
+            "accepted_unverified"
+        };
+        if object.get("accepted").and_then(Value::as_bool) != Some(true)
+            || verified.is_none()
+            || object.get("verification").and_then(Value::as_str) != Some(expected)
+            || object
+                .get("detail")
+                .and_then(Value::as_str)
+                .is_none_or(|detail| detail.chars().count() > 4096)
+        {
+            return Err(GatewayRequestFailure::Transport(format!(
+                "{method} returned a malformed device action result"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn locate_native_broker(executable_directory: Option<&Path>) -> Option<PathBuf> {
@@ -298,18 +439,29 @@ struct Gateway {
     voice_recognition_available: Option<bool>,
     voice_last_event: Option<String>,
     voice_event_at_unix: Option<u64>,
-    event_tx: Option<mpsc::Sender<Value>>,
+    event_tx: Option<mpsc::SyncSender<Value>>,
 }
 
 impl Gateway {
-    fn request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+    fn request_detailed(
+        &mut self,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, GatewayRequestFailure> {
         if self.process.is_none() {
-            self.process = Some(GatewayProcess::start(self.event_tx.clone())?);
+            self.process = Some(
+                GatewayProcess::start(self.event_tx.clone())
+                    .map_err(GatewayRequestFailure::Transport)?,
+            );
         }
         let result = self
             .process
             .as_mut()
-            .expect("gateway process was initialized")
+            .ok_or_else(|| {
+                GatewayRequestFailure::Transport(
+                    "Gateway process initialization did not produce a process".into(),
+                )
+            })?
             .request(method, params);
         let (output, status) = match result {
             Ok(value) => {
@@ -320,25 +472,44 @@ impl Gateway {
                 }
                 (Ok(value), "ok")
             }
-            Err(GatewayRequestFailure::Remote(message)) => {
+            Err(GatewayRequestFailure::Remote {
+                code,
+                message,
+                retryable,
+            }) => {
                 if message.contains("No Quad Cortex session") {
                     self.connected = false;
                 }
-                (Err(message), "remote-error")
+                (
+                    Err(GatewayRequestFailure::Remote {
+                        code,
+                        message,
+                        retryable,
+                    }),
+                    "remote-error",
+                )
             }
             Err(GatewayRequestFailure::Transport(message)) => {
                 self.process = None;
                 self.connected = false;
                 (
-                    Err(format!(
+                    Err(GatewayRequestFailure::Transport(format!(
                         "{message}. The failed command was not replayed; the communication session was cleared for a safe reconnect."
-                    )),
+                    ))),
                     "transport-error",
                 )
             }
         };
         write_runtime_health(self, method, status);
         output
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        self.request_detailed(method, params)
+            .map_err(|failure| match failure {
+                GatewayRequestFailure::Transport(message)
+                | GatewayRequestFailure::Remote { message, .. } => message,
+            })
     }
 
     fn restart(&mut self, method: &str) -> Result<Value, String> {
@@ -803,17 +974,6 @@ fn with_gateway_params(
         .request(method, params)
 }
 
-fn try_with_gateway(
-    state: State<'_, Mutex<Gateway>>,
-    method: &str,
-    params: Value,
-) -> Result<Value, String> {
-    state
-        .try_lock()
-        .map_err(|_| "Device transport is busy".to_string())?
-        .request(method, params)
-}
-
 #[derive(Clone)]
 struct WindowsRelayAdapter {
     app: AppHandle,
@@ -845,32 +1005,28 @@ impl DeviceAdapter for WindowsRelayAdapter {
     }
 
     async fn invoke(&self, method: &str, params: Value) -> Result<Value, DeviceError> {
-        if is_host_midi_method(method) {
-            let plan = plan_host_midi(method, &params)
-                .map_err(|message| DeviceError::new("INVALID_ARGUMENT", message, false))?;
-            let app = self.app.clone();
-            return tauri::async_runtime::spawn_blocking(move || {
-                app.state::<Mutex<PerformanceMidi>>()
-                    .lock()
-                    .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
-                    .send(plan.controller, plan.value)
-            })
-            .await
-            .map_err(|error| relay_device_error(error.to_string()))?
-            .map(|endpoint| json!({"accepted": true, "immediate": true, "transport": endpoint}))
-            .map_err(relay_device_error);
-        }
         let app = self.app.clone();
         let method = method.to_owned();
         tauri::async_runtime::spawn_blocking(move || {
             app.state::<Mutex<Gateway>>()
                 .lock()
-                .map_err(|_| "Gateway session lock was poisoned".to_string())?
-                .request(&method, params)
+                .map_err(|_| {
+                    GatewayRequestFailure::Transport("Gateway session lock was poisoned".into())
+                })?
+                .request_detailed(&method, params)
         })
         .await
         .map_err(|error| relay_device_error(error.to_string()))?
-        .map_err(relay_device_error)
+        .map_err(|failure| match failure {
+            GatewayRequestFailure::Remote {
+                code,
+                message,
+                retryable,
+            } => DeviceError::new(code.to_string(), message, retryable),
+            GatewayRequestFailure::Transport(message) => {
+                DeviceError::new("DEVICE_TRANSPORT", message, true)
+            }
+        })
     }
 }
 
@@ -938,9 +1094,17 @@ async fn background_gateway_request_params(
 /// generated gateway manifest. Keeping that envelope intact removes the need
 /// for a second hand-written Tauri argument adapter for every QC operation.
 #[tauri::command]
-async fn gateway_invoke(app: AppHandle, method: String, params: Value) -> Result<Value, String> {
+async fn gateway_invoke(
+    app: AppHandle,
+    method: String,
+    params: Value,
+) -> Result<Value, GatewayUiError> {
     if !generated_gateway::METHODS.contains(&method.as_str()) {
-        return Err("The requested gateway method is not part of the public app contract".into());
+        return Err(GatewayUiError {
+            code: "METHOD_NOT_ALLOWED".into(),
+            message: "The requested gateway method is not part of the public app contract".into(),
+            retryable: false,
+        });
     }
 
     if method == rpc::RESET_SESSION {
@@ -951,25 +1115,16 @@ async fn gateway_invoke(app: AppHandle, method: String, params: Value) -> Result
                 .restart(rpc::RESET_SESSION)
         })
         .await
-        .map_err(|error| error.to_string())?;
-    }
-
-    if is_host_midi_method(&method) {
-        let plan = plan_host_midi(&method, &params)?;
-        let detail = plan.detail.clone();
-        let endpoint = tauri::async_runtime::spawn_blocking(move || {
-            app.state::<Mutex<PerformanceMidi>>()
-                .lock()
-                .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
-                .send(plan.controller, plan.value)
-        })
-        .await
-        .map_err(|error| error.to_string())??;
-        return Ok(json!({
-            "detail": format!("{detail} immediately through {endpoint}; live USB state will reconcile the result."),
-            "immediate": true,
-            "transport": endpoint
-        }));
+        .map_err(|error| GatewayUiError {
+            code: "DEVICE_TRANSPORT".into(),
+            message: error.to_string(),
+            retryable: true,
+        })?
+        .map_err(|message| GatewayUiError {
+            code: "DEVICE_ERROR".into(),
+            message,
+            retryable: false,
+        });
     }
 
     let nonblocking_read = matches!(
@@ -979,13 +1134,26 @@ async fn gateway_invoke(app: AppHandle, method: String, params: Value) -> Result
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Mutex<Gateway>>();
         if nonblocking_read {
-            try_with_gateway(state, &method, params)
+            state
+                .try_lock()
+                .map_err(|_| GatewayRequestFailure::Transport("Device transport is busy".into()))?
+                .request_detailed(&method, params)
         } else {
-            with_gateway_params(state, &method, params)
+            state
+                .lock()
+                .map_err(|_| {
+                    GatewayRequestFailure::Transport("Gateway session lock was poisoned".into())
+                })?
+                .request_detailed(&method, params)
         }
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(|error| GatewayUiError {
+        code: "DEVICE_TRANSPORT".into(),
+        message: error.to_string(),
+        retryable: true,
+    })?
+    .map_err(GatewayUiError::from)
 }
 
 const MAX_WORKSPACE_BYTES: usize = 16 * 1024 * 1024;
@@ -1424,14 +1592,14 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let (device_event_tx, device_event_rx) = mpsc::channel::<Value>();
+    let (device_event_tx, device_event_rx) =
+        mpsc::sync_channel::<Value>(qc_protocol::domain::STATE_EVENT_DEFAULT_LIMIT);
     let gateway = Gateway {
         event_tx: Some(device_event_tx),
         ..Gateway::default()
     };
     tauri::Builder::default()
         .manage(Mutex::new(gateway))
-        .manage(Mutex::new(PerformanceMidi::default()))
         .manage(ChatBridge::default())
         .manage(RelayBridge::default())
         .setup(move |app| {

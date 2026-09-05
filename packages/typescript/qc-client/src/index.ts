@@ -305,9 +305,9 @@ export interface GatewayTransport {
   pinnedModels(): Promise<PinnedModels>;
   setModelPinned(modelId: number, pinned: boolean): Promise<DeviceActionResult>;
   captures(): Promise<LibraryEntries>;
-  loadCapture(row: number, column: number, key: string, name: string, modelId: number | null): Promise<DeviceActionResult>;
+  loadCapture(row: number, column: number, key: string, name: string, modelId: number | null, expectedModelId: number | null, expectedPresetName: string): Promise<DeviceActionResult>;
   irs(folder: string | null): Promise<LibraryEntries>;
-  loadIr(row: number, column: number, key: string, name: string, slot: number, modelId: number | null): Promise<DeviceActionResult>;
+  loadIr(row: number, column: number, key: string, name: string, slot: number, modelId: number | null, expectedModelId: number | null, expectedPresetName: string): Promise<DeviceActionResult>;
   createSetlist(name: string): Promise<DeviceActionResult>;
   deleteSetlist(name: string): Promise<DeviceActionResult>;
   duplicateSetlist(sourceSetlistKey: string, destinationName: string, limit: number | null, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
@@ -345,8 +345,8 @@ export interface GatewayTransport {
   reloadPreset(expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;
   blockDetails(row: number, column: number, expectedPresetName: string): Promise<BlockDetails>;
   laneControlDetails(row: number, control: LaneControl, expectedPresetName: string): Promise<BlockDetails>;
-  previewParameter(row: number, column: number, parameterIndex: number, value: number, expectedScene: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
-  previewLaneControlParameter(row: number, control: LaneControl, parameterIndex: number, value: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
+  previewParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
+  previewLaneControlParameter(row: number, control: LaneControl, parameterIndex: number, value: number, expectedValue: number, expectedPresetName: string): Promise<{ detail: string; acceptedValue: number }>;
   setParameter(row: number, column: number, parameterIndex: number, value: number, expectedValue: number, expectedScene: number, expectedPresetName: string): Promise<ParameterActionResult>;
   setLaneControlParameter(row: number, control: LaneControl, parameterIndex: number, value: number, expectedValue: number, expectedPresetName: string): Promise<ParameterActionResult>;
   setLaneControlSceneMode(row: number, control: LaneControl, parameterIndex: number, enabled: boolean, expectedPresetName: string): Promise<DeviceActionResult>;

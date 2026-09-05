@@ -40,13 +40,17 @@ fn backend_error(code: &'static str, message: impl Into<String>, retryable: bool
 }
 
 fn map_relay_error(error: RelayError) -> BackendError {
+    if matches!(error, RelayError::Device(_)) {
+        return backend_error("device_error", "The paired device rejected the request", false);
+    }
     let (code, retryable) = match error {
         RelayError::DeviceOffline | RelayError::Disconnected | RelayError::Timeout => ("device_unavailable", true),
         RelayError::Forbidden => ("forbidden", false),
         RelayError::AmbiguousDevice => ("ambiguous_device", false),
         RelayError::ConfirmationRequired | RelayError::ConfirmationArgumentRequired(_) => ("confirmation_required", false),
         RelayError::UnknownAction => ("unsupported_action", false),
-        RelayError::Device(_) => ("device_error", false),
+        RelayError::InvalidArguments => ("invalid_arguments", false),
+        RelayError::Device(_) => unreachable!("device errors are sanitized above"),
     };
     backend_error(code, error.to_string(), retryable)
 }

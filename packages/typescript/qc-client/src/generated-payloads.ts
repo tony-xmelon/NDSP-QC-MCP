@@ -362,5 +362,8 @@ export interface PresetSnapshot {
 
 export interface DeviceActionResult {
   detail: string;
+  accepted?: boolean;
+  verified?: boolean;
+  verification?: "authoritative_readback" | "accepted_unverified";
   snapshot?: PresetSnapshot;
 }

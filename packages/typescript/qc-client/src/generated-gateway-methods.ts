@@ -107,6 +107,111 @@ export const GATEWAY_METHODS = [
   "device.showGigView"
 ] as const;
 export type GatewayRpcMethod = typeof GATEWAY_METHODS[number];
+export const GATEWAY_RESULT_KINDS = {
+  "system.status": "Object",
+  "device.reconnect": "Object",
+  "device.resetSession": "Object",
+  "device.disconnect": "Object",
+  "device.snapshot": "PresetSnapshot",
+  "device.stateEvents": "Object",
+  "device.tempoClock": "Object",
+  "device.listModels": "Object",
+  "device.identity": "Object",
+  "device.setDeviceName": "DeviceActionResult",
+  "device.undo": "DeviceActionResult",
+  "device.redo": "DeviceActionResult",
+  "device.inhibitedModules": "Object",
+  "device.tunerSettings": "Object",
+  "device.setTunerInput": "DeviceActionResult",
+  "device.setTunerMute": "DeviceActionResult",
+  "device.restoreTunerAudio": "DeviceActionResult",
+  "device.setTunerReference": "DeviceActionResult",
+  "device.generalSettings": "Object",
+  "device.ioSettings": "Object",
+  "device.setInputPort": "DeviceActionResult",
+  "device.setOutputPort": "DeviceActionResult",
+  "device.setUsbPort": "DeviceActionResult",
+  "device.setMidiThru": "DeviceActionResult",
+  "device.setOutputPairing": "DeviceActionResult",
+  "device.globalEq": "Object",
+  "device.setGlobalEqBypassed": "DeviceActionResult",
+  "device.setGlobalEqBand": "DeviceActionResult",
+  "device.setGlobalEqOutput": "DeviceActionResult",
+  "device.modeCycle": "Object",
+  "device.setModeCycle": "DeviceActionResult",
+  "device.globalTempoSettings": "Object",
+  "device.setTempoMetronome": "DeviceActionResult",
+  "device.setTempoMode": "DeviceActionResult",
+  "device.looperStatus": "Object",
+  "device.controlLooper": "DeviceActionResult",
+  "device.recents": "Object",
+  "device.favorites": "Object",
+  "device.setFavorite": "DeviceActionResult",
+  "device.pinnedModels": "Object",
+  "device.setModelPinned": "DeviceActionResult",
+  "device.captures": "Object",
+  "device.loadCapture": "DeviceActionResult",
+  "device.irs": "Object",
+  "device.loadIr": "DeviceActionResult",
+  "device.createSetlist": "DeviceActionResult",
+  "device.deleteSetlist": "DeviceActionResult",
+  "device.duplicateSetlist": "DeviceActionResult",
+  "device.deletePreset": "DeviceActionResult",
+  "device.movePreset": "DeviceActionResult",
+  "device.setGeneralInteger": "DeviceActionResult",
+  "device.setGeneralToggle": "DeviceActionResult",
+  "device.setSceneBypassBehavior": "DeviceActionResult",
+  "device.setMasterVolumeAssignment": "DeviceActionResult",
+  "device.setGlobalBypass": "DeviceActionResult",
+  "device.presetScreenshot": "Object",
+  "device.captureScreen": "Object",
+  "device.tapScreen": "DeviceActionResult",
+  "device.selectScene": "DeviceActionResult",
+  "device.copyScene": "DeviceActionResult",
+  "device.setSceneLabel": "DeviceActionResult",
+  "device.setSceneColor": "DeviceActionResult",
+  "device.toggleBypass": "DeviceActionResult",
+  "device.moveBlock": "DeviceActionResult",
+  "device.addBlock": "DeviceActionResult",
+  "device.removeBlock": "DeviceActionResult",
+  "device.setBlockFootswitch": "DeviceActionResult",
+  "device.setStompMomentary": "DeviceActionResult",
+  "device.setStompLabel": "DeviceActionResult",
+  "device.setMidiOut": "DeviceActionResult",
+  "device.setPresetLoadMidiOut": "DeviceActionResult",
+  "device.setExpressionBypass": "DeviceActionResult",
+  "device.setChainInput": "DeviceActionResult",
+  "device.setChainOutput": "DeviceActionResult",
+  "device.setChainSplit": "DeviceActionResult",
+  "device.setSplitMute": "DeviceActionResult",
+  "device.listPresets": "Object",
+  "device.listPresetFolders": "Object",
+  "device.navigateBank": "DeviceActionResult",
+  "device.recallPreset": "DeviceActionResult",
+  "device.reloadPreset": "DeviceActionResult",
+  "device.blockDetails": "Object",
+  "device.laneControlDetails": "Object",
+  "device.previewParameter": "Object",
+  "device.previewLaneControlParameter": "Object",
+  "device.setParameter": "DeviceActionResult",
+  "device.setLaneControlParameter": "DeviceActionResult",
+  "device.setLaneControlSceneMode": "DeviceActionResult",
+  "device.setParameterSceneMode": "DeviceActionResult",
+  "device.setParameterExpression": "DeviceActionResult",
+  "device.setTempo": "DeviceActionResult",
+  "device.setMasterVolume": "DeviceActionResult",
+  "device.masterVolume": "Object",
+  "device.pressFootswitch": "DeviceActionResult",
+  "device.tapTempo": "DeviceActionResult",
+  "device.selectModeSlot": "DeviceActionResult",
+  "device.listPresetSlots": "Object",
+  "device.savePresetAs": "DeviceActionResult",
+  "device.copyPreset": "DeviceActionResult",
+  "device.renameCurrentPreset": "DeviceActionResult",
+  "device.createBackup": "Object",
+  "device.showTuner": "DeviceActionResult",
+  "device.showGigView": "DeviceActionResult"
+} as const;
 export const GATEWAY_CLIENT_METHODS = {
   "runtimeStatus": { rpc: "system.status", tauri: "runtime_status", params: [] },
   "reconnect": { rpc: "device.reconnect", tauri: "reconnect_device", params: [] },
@@ -150,9 +255,9 @@ export const GATEWAY_CLIENT_METHODS = {
   "pinnedModels": { rpc: "device.pinnedModels", tauri: "pinned_models", params: [] },
   "setModelPinned": { rpc: "device.setModelPinned", tauri: "set_model_pinned", params: ["modelId","pinned"] },
   "captures": { rpc: "device.captures", tauri: "captures", params: [] },
-  "loadCapture": { rpc: "device.loadCapture", tauri: "load_capture", params: ["row","column","key","name","modelId"] },
+  "loadCapture": { rpc: "device.loadCapture", tauri: "load_capture", params: ["row","column","key","name","modelId","expectedModelId","expectedPresetName"] },
   "irs": { rpc: "device.irs", tauri: "irs", params: ["folder"] },
-  "loadIr": { rpc: "device.loadIr", tauri: "load_ir", params: ["row","column","key","name","slot","modelId"] },
+  "loadIr": { rpc: "device.loadIr", tauri: "load_ir", params: ["row","column","key","name","slot","modelId","expectedModelId","expectedPresetName"] },
   "createSetlist": { rpc: "device.createSetlist", tauri: "create_setlist", params: ["name"] },
   "deleteSetlist": { rpc: "device.deleteSetlist", tauri: "delete_setlist", params: ["name"] },
   "duplicateSetlist": { rpc: "device.duplicateSetlist", tauri: "duplicate_setlist", params: ["sourceSetlistKey","destinationName","limit","expectedPresetName","expectedPosition"] },
@@ -191,8 +296,8 @@ export const GATEWAY_CLIENT_METHODS = {
   "reloadPreset": { rpc: "device.reloadPreset", tauri: "reload_preset", params: ["expectedPresetName","expectedPosition"] },
   "blockDetails": { rpc: "device.blockDetails", tauri: "block_details", params: ["row","column","expectedPresetName"] },
   "laneControlDetails": { rpc: "device.laneControlDetails", tauri: "lane_control_details", params: ["row","control","expectedPresetName"] },
-  "previewParameter": { rpc: "device.previewParameter", tauri: "preview_parameter", params: ["row","column","parameterIndex","value","expectedScene","expectedPresetName"] },
-  "previewLaneControlParameter": { rpc: "device.previewLaneControlParameter", tauri: "preview_lane_control_parameter", params: ["row","control","parameterIndex","value","expectedPresetName"] },
+  "previewParameter": { rpc: "device.previewParameter", tauri: "preview_parameter", params: ["row","column","parameterIndex","value","expectedValue","expectedScene","expectedPresetName"] },
+  "previewLaneControlParameter": { rpc: "device.previewLaneControlParameter", tauri: "preview_lane_control_parameter", params: ["row","control","parameterIndex","value","expectedValue","expectedPresetName"] },
   "setParameter": { rpc: "device.setParameter", tauri: "set_parameter", params: ["row","column","parameterIndex","value","expectedValue","expectedScene","expectedPresetName"] },
   "setLaneControlParameter": { rpc: "device.setLaneControlParameter", tauri: "set_lane_control_parameter", params: ["row","control","parameterIndex","value","expectedValue","expectedPresetName"] },
   "setLaneControlSceneMode": { rpc: "device.setLaneControlSceneMode", tauri: "set_lane_control_scene_mode", params: ["row","control","parameterIndex","enabled","expectedPresetName"] },
@@ -215,13 +320,69 @@ export const GATEWAY_CLIENT_METHODS = {
 export type GatewayClientMethod = keyof typeof GATEWAY_CLIENT_METHODS;
 export type GatewayClientInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
+export class GatewayClientError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+  constructor(message: string, code = "DEVICE_ERROR", retryable = false) {
+    super(message);
+    this.name = "GatewayClientError";
+    this.code = code;
+    this.retryable = retryable;
+  }
+}
+
+function gatewayClientError(error: unknown): GatewayClientError {
+  if (error instanceof GatewayClientError) return error;
+  if (error !== null && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    return new GatewayClientError(
+      typeof value.message === "string" ? value.message : "The gateway request failed.",
+      typeof value.code === "string" ? value.code : "DEVICE_ERROR",
+      value.retryable === true || (value.data !== null && typeof value.data === "object"
+        && (value.data as Record<string, unknown>).retryable === true),
+    );
+  }
+  return new GatewayClientError(typeof error === "string" ? error : "The gateway request failed.");
+}
+
+const hasOwn = (value: Record<string, unknown>, key: string) => Object.prototype.hasOwnProperty.call(value, key);
+
+/** Reject partial or contradictory command acknowledgements at every TS host boundary. */
+export function validateGatewayResult<T>(command: string, result: T): T {
+  if (result === undefined) throw new TypeError(`${command} returned no result`);
+  const kind = GATEWAY_RESULT_KINDS[command as GatewayRpcMethod];
+  if (!kind) throw new TypeError(`Unknown gateway result contract: ${command}`);
+  if (result === null || typeof result !== "object" || Array.isArray(result)) {
+    throw new TypeError(`${command} returned a malformed ${kind} result`);
+  }
+  const value = result as Record<string, unknown>;
+  if (kind === "PresetSnapshot" && (typeof value.presetName !== "string" || !Array.isArray(value.blocks))) {
+    throw new TypeError(`${command} returned a malformed PresetSnapshot result`);
+  }
+  const hasOutcome = hasOwn(value, "accepted") || hasOwn(value, "verified") || hasOwn(value, "verification");
+  if (kind === "DeviceActionResult" && !hasOutcome) {
+    throw new TypeError(`${command} returned a device action result without verification semantics`);
+  }
+  if (!hasOutcome) return result;
+  const verified = value.verified;
+  const expectedVerification = verified === true ? "authoritative_readback" : "accepted_unverified";
+  if (value.accepted !== true || typeof verified !== "boolean" || value.verification !== expectedVerification
+      || typeof value.detail !== "string" || [...value.detail].length > 4096) {
+    throw new TypeError(`${command} returned a malformed device action result`);
+  }
+  return result;
+}
+
 /** Build a typed client from the contract instead of mirroring every native method by hand. */
-export function createGatewayClientTransport<TTransport extends object>(invoke: GatewayClientInvoker, target: "tauri" | "rpc" = "tauri"): TTransport {
+export function createGatewayClientTransport<TTransport extends object>(invoke: GatewayClientInvoker, target: "tauri" | "rpc" = "rpc"): TTransport {
   return Object.fromEntries(Object.entries(GATEWAY_CLIENT_METHODS).map(([client, descriptor]) => [
     client,
     (...values: unknown[]) => {
       const args = Object.fromEntries(descriptor.params.map((name, index) => [name, values[index]]));
-      return invoke(descriptor[target], args);
+      const command = descriptor[target];
+      return invoke(command, args)
+        .then((result) => validateGatewayResult(descriptor.rpc, result))
+        .catch((error) => { throw gatewayClientError(error); });
     }
   ])) as TTransport;
 }

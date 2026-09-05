@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import io
+import inspect
 import json
+import struct
 import sys
 import unittest
 from pathlib import Path
@@ -12,8 +15,10 @@ sys.path.insert(0, str(ROOT / "services" / "mcp-server" / "src"))
 sys.path.insert(0, str(ROOT / "packages" / "python" / "qc-gateway-client" / "src"))
 
 from qc_gateway_client import GatewayError, InProcessGatewayClient, StdioGatewayClient
-from qc_mcp_server.generated_actions import SHARED_QC_ACTIONS
-from qc_mcp_server.server import QcTools, create_mcp
+from qc_gateway_client.client import _read_frame
+from qc_mcp_server.generated_actions import MCP_INSTRUCTIONS, SHARED_QC_ACTIONS
+from qc_mcp_server.generated_result_kinds import GATEWAY_RESULT_KINDS
+from qc_mcp_server.server import QcTools, _validated_backend_result, create_mcp
 
 
 class RecordingBackend:
@@ -23,7 +28,13 @@ class RecordingBackend:
     def request(self, method: str, params: dict[str, Any] | None = None) -> Any:
         payload = dict(params or {})
         self.calls.append((method, payload))
-        return {"method": method, "params": payload}
+        result = {"method": method, "params": payload}
+        if method == "device.snapshot":
+            result.update({"presetName": "Clean", "blocks": []})
+        if GATEWAY_RESULT_KINDS.get(method) == "DeviceActionResult":
+            result.update({"detail": "accepted", "accepted": True, "verified": False,
+                           "verification": "accepted_unverified"})
+        return result
 
     def close(self) -> None:
         pass
@@ -32,14 +43,14 @@ class RecordingBackend:
 class Service:
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         if request["method"] == "device.snapshot":
-            return {"jsonrpc": "2.0", "id": request["id"], "result": {"presetName": "Clean"}}
+            return {"jsonrpc": "2.0", "id": request["id"], "result": {"presetName": "Clean", "blocks": []}}
         return {"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32010, "message": "No QC"}}
 
 
 class GatewayClientTests(unittest.TestCase):
     def test_in_process_client_validates_envelope_and_surfaces_safe_error(self) -> None:
         client = InProcessGatewayClient(Service())
-        self.assertEqual(client.request("device.snapshot"), {"presetName": "Clean"})
+        self.assertEqual(client.request("device.snapshot"), {"presetName": "Clean", "blocks": []})
         with self.assertRaisesRegex(GatewayError, "No QC") as raised:
             client.request("system.status")
         self.assertEqual(raised.exception.code, -32010)
@@ -55,16 +66,84 @@ class GatewayClientTests(unittest.TestCase):
         client = StdioGatewayClient.from_command_line('"C:\\Program Files\\QC Gateway.exe" --stdio')
         self.assertEqual(client.command, ("C:\\Program Files\\QC Gateway.exe", "--stdio"))
 
+    def test_framed_client_accepts_partial_pipe_reads(self) -> None:
+        payload = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"ok": True}}).encode()
+
+        class PartialStream(io.BytesIO):
+            def read(self, size: int = -1) -> bytes:
+                return super().read(min(size, 2) if size >= 0 else 2)
+
+        self.assertEqual(
+            _read_frame(PartialStream(struct.pack(">I", len(payload)) + payload))["result"],
+            {"ok": True},
+        )
+
+    def test_malformed_gateway_error_code_stays_a_gateway_error(self) -> None:
+        class MalformedErrorService:
+            def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+                return {"jsonrpc": "2.0", "id": request["id"], "error": {"code": "invalid", "message": "No QC"}}
+
+        with self.assertRaises(GatewayError) as raised:
+            InProcessGatewayClient(MalformedErrorService()).request("device.snapshot")
+        self.assertEqual(raised.exception.code, -32000)
+
+    def test_client_rejects_ambiguous_or_wrongly_typed_response_envelopes(self) -> None:
+        class InvalidEnvelopeService:
+            response: dict[str, Any]
+
+            def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+                return {"jsonrpc": "2.0", "id": request["id"], **self.response}
+
+        service = InvalidEnvelopeService()
+        client = InProcessGatewayClient(service)
+        for response in (
+            {"result": {}, "error": {"code": -32010, "message": "ambiguous"}},
+            {"error": "not-an-object"},
+            {"result": {}, "extra": True},
+        ):
+            service.response = response
+            with self.assertRaises(GatewayError):
+                client.request("device.snapshot")
+
+    def test_retryability_is_preserved_only_from_a_boolean_error_data_field(self) -> None:
+        class ErrorService:
+            retryable: object = True
+
+            def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+                return {"jsonrpc": "2.0", "id": request["id"], "error": {
+                    "code": -32010, "message": "No QC", "data": {"retryable": self.retryable}
+                }}
+
+        service = ErrorService()
+        client = InProcessGatewayClient(service)
+        with self.assertRaises(GatewayError) as raised:
+            client.request("device.snapshot")
+        self.assertTrue(raised.exception.retryable)
+        service.retryable = "false"
+        with self.assertRaises(GatewayError) as raised:
+            client.request("device.snapshot")
+        self.assertFalse(raised.exception.retryable)
+
 
 class ToolSafetyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.backend = RecordingBackend()
         self.tools = QcTools(self.backend)
 
+    def test_backend_results_reject_contradictory_action_outcomes(self) -> None:
+        valid = {"detail": "sent", "accepted": True, "verified": False,
+                 "verification": "accepted_unverified"}
+        self.assertIs(_validated_backend_result("device.showTuner", valid), valid)
+        with self.assertRaisesRegex(RuntimeError, "malformed device action result"):
+            _validated_backend_result("device.showTuner", {
+                "detail": "sent", "accepted": True, "verified": False,
+                "verification": "authoritative_readback",
+            })
+
     def test_read_tools_map_to_versioned_gateway_methods(self) -> None:
         self.tools.get_current_preset()
         self.tools.get_block_details(1, 4, "Clean")
-        self.tools.list_models()
+        self.tools.list_models(None)
         self.tools.list_presets(True, "factory")
         self.tools.list_preset_folders(True)
         self.tools.list_preset_slots()
@@ -74,6 +153,92 @@ class ToolSafetyTests(unittest.TestCase):
             "device.snapshot", "device.blockDetails", "device.listModels", "device.listPresets",
             "device.listPresetFolders", "device.listPresetSlots", "device.masterVolume",
             "device.tunerSettings",
+        ])
+
+    def test_model_query_filters_locally_without_gateway_schema_drift(self) -> None:
+        class ModelBackend(RecordingBackend):
+            def request(self, method: str, params: dict[str, Any] | None = None) -> Any:
+                super().request(method, params)
+                return {"models": [
+                    {"id": 1, "name": "Vintage Delay", "category": "Delay"},
+                    {"id": 2, "name": "Plini Lead", "category": "Plugin", "basedOn": "Archetype Plini"},
+                ]}
+
+        backend = ModelBackend()
+        result = QcTools(backend).list_models("PLINI")
+        self.assertEqual([model["id"] for model in result["models"]], [2])
+        self.assertEqual(backend.calls, [("device.listModels", {})])
+
+    def test_parameter_nodes_accept_routing_columns_but_blocks_do_not(self) -> None:
+        for column in (8, 9):
+            self.tools.get_block_details(0, column, "Clean")
+            self.tools.preview_parameter(0, column, 0, .5, .4, 0, "Clean")
+            self.tools.set_parameter(0, column, 0, .5, .4, 0, "Clean")
+            self.tools.set_parameter_scene_mode(0, column, 0, True, "Clean")
+            self.tools.set_parameter_expression(0, column, 0, 1, 0, 1, "Clean")
+        with self.assertRaises(ValueError):
+            self.tools.get_block_details(0, 10, "Clean")
+        with self.assertRaises(ValueError):
+            self.tools.set_bypass(0, 8, True, False, 0, "Clean")
+
+    def test_python_boundary_rejects_fractional_indexes_and_nonfinite_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "row must be an integer"):
+            self.tools.set_bypass(1.5, 2, True, False, 0, "Clean")
+        with self.assertRaisesRegex(ValueError, "parameter_index must be a non-negative integer"):
+            self.tools.set_parameter(0, 0, 1.5, 0.5, 0.4, 0, "Clean")
+        with self.assertRaisesRegex(ValueError, "normalized"):
+            self.tools.set_parameter(0, 0, 1, float("nan"), 0.4, 0, "Clean")
+        with self.assertRaisesRegex(ValueError, "expected_scene must be an integer"):
+            self.tools.set_parameter(0, 0, 1, 0.5, 0.4, 1.5, "Clean")
+        with self.assertRaisesRegex(ValueError, "after_sequence must be a non-negative integer"):
+            self.tools.get_state_events(1.5, 10)
+        with self.assertRaisesRegex(ValueError, "index must be an integer"):
+            self.tools.press_footswitch(1.5, "STOMP", "Clean")
+        with self.assertRaisesRegex(ValueError, "value must be an integer"):
+            self.tools.set_master_volume(50.5, 50, True)
+        calls = len(self.backend.calls)
+        for invoke in (
+            lambda: self.tools.show_tuner(1),
+            lambda: self.tools.list_presets(1, None),
+            lambda: self.tools.set_midi_thru(1, True),
+            lambda: self.tools.set_input_port(1, float("inf"), None, None, None, True),
+            lambda: self.tools.set_global_bypass([True, False, True, 0], [False] * 4, True),
+        ):
+            with self.assertRaises(ValueError):
+                invoke()
+        self.assertEqual(len(self.backend.calls), calls)
+
+    def test_tap_screen_requires_integer_pixel_coordinates(self) -> None:
+        with self.assertRaises(ValueError):
+            self.tools.tap_screen(1.5, 2, True)
+        with self.assertRaises(ValueError):
+            self.tools.tap_screen(1, 2.5, True)
+        self.tools.tap_screen(799, 479, True)
+        self.assertEqual(self.backend.calls[-1], ("device.tapScreen", {"x": 799, "y": 479}))
+
+    def test_backend_errors_preserve_code_message_and_retryability(self) -> None:
+        class FailingBackend(RecordingBackend):
+            def request(self, method: str, params: dict[str, Any] | None = None) -> Any:
+                raise GatewayError("USB disconnected", code=-32010, retryable=True)
+
+        with self.assertRaises(RuntimeError) as raised:
+            QcTools(FailingBackend()).get_current_preset()
+        self.assertEqual(json.loads(str(raised.exception)), {
+            "code": -32010, "message": "USB disconnected", "retryable": True,
+        })
+
+    def test_capture_and_ir_loads_forward_nullable_cell_guards(self) -> None:
+        self.tools.load_capture(1, 2, "capture/key", "Crunch", None, None, "Lead")
+        self.tools.load_ir(2, 3, "ir/key", "Room", 1, 29_001, 14_000, "Lead")
+        self.assertEqual(self.backend.calls, [
+            ("device.loadCapture", {
+                "row": 1, "column": 2, "key": "capture/key", "name": "Crunch",
+                "modelId": None, "expectedModelId": None, "expectedPresetName": "Lead",
+            }),
+            ("device.loadIr", {
+                "row": 2, "column": 3, "key": "ir/key", "name": "Room", "slot": 1,
+                "modelId": 29_001, "expectedModelId": 14_000, "expectedPresetName": "Lead",
+            }),
         ])
 
     def test_tuner_writes_require_both_explicit_confirmations(self) -> None:
@@ -286,6 +451,71 @@ class ToolSafetyTests(unittest.TestCase):
 
 
 class McpSurfaceTests(unittest.TestCase):
+    @staticmethod
+    def _sample(kind: str, name: str) -> Any:
+        if name.startswith("confirm_"):
+            return True
+        if kind.startswith("nullable-"):
+            return None
+        return {
+            "boolean": True,
+            "boolean-row-array": [False, False, False, False],
+            "bypass-delay": 0,
+            "expression-switch-mode": 0,
+            "general-integer-setting": "screenBrightness",
+            "general-toggle-setting": "midiOverUsb",
+            "global-eq-filter": 0,
+            "grid-column": 0,
+            "grid-row": 0,
+            "integer": 0,
+            "io-input-port": 1,
+            "io-output-port": 1,
+            "lane-control": "inputGate",
+            "looper-command": "open",
+            "midi-message-array": [],
+            "mode-cycle": [0],
+            "number": 0.5,
+            "parameter-column": 0,
+            "pedal": 1,
+            "scene-bypass-behavior": "alwaysOverwrite",
+            "scene-index": 0,
+            "screen-x": 0,
+            "screen-y": 0,
+            "string": "Test",
+            "tempo": 120,
+            "tempo-mode": "PRESET",
+        }[kind]
+
+    def test_python_callable_signatures_match_all_contract_properties(self) -> None:
+        contract = json.loads((ROOT / "contracts" / "qc-actions.v1.json").read_text(encoding="utf-8"))
+        self.assertEqual(MCP_INSTRUCTIONS, contract["mcpInstructions"])
+        for action in contract["actions"]:
+            signature = inspect.signature(getattr(QcTools, action["name"]))
+            parameters = [value for name, value in signature.parameters.items() if name != "self"]
+            self.assertEqual([value.name for value in parameters], list(action["properties"]), action["name"])
+            required = {value.name for value in parameters if value.default is inspect.Parameter.empty}
+            self.assertEqual(required, set(action["required"]), action["name"])
+
+    def test_every_python_tool_emits_exactly_the_canonical_gateway_arguments(self) -> None:
+        contract = json.loads((ROOT / "contracts" / "qc-actions.v1.json").read_text(encoding="utf-8"))
+        backend = RecordingBackend()
+        tools = QcTools(backend)
+        for action in contract["actions"]:
+            arguments = []
+            for name, kind in action["properties"].items():
+                value = self._sample(kind, name)
+                if action["name"] == "navigate_bank" and name == "direction":
+                    value = 1
+                elif action["name"] == "copy_scene" and name == "to_scene":
+                    value = 1
+                elif name in ("input_port_id", "output_port_id", "band", "limit"):
+                    value = 1
+                arguments.append(value)
+            try:
+                getattr(tools, action["name"])(*arguments)
+            except Exception as error:
+                self.fail(f"{action['name']} did not map its canonical arguments: {error}")
+
     def test_server_publishes_only_intent_level_tools_and_resources(self) -> None:
         server = create_mcp(RecordingBackend())
         tools = asyncio.run(server.list_tools())
@@ -295,6 +525,7 @@ class McpSurfaceTests(unittest.TestCase):
         by_name = {tool.name: tool for tool in tools}
         self.assertEqual(by_name["set_tempo"].description, SHARED_QC_ACTIONS["set_tempo"]["description"])
         self.assertTrue(by_name["get_current_preset"].annotations.read_only_hint)
+        self.assertTrue(by_name["get_current_preset"].annotations.idempotent_hint)
         self.assertFalse(by_name["set_parameter"].annotations.destructive_hint)
         self.assertTrue(by_name["save_preset_as"].annotations.destructive_hint)
         self.assertTrue(by_name["rename_current_preset"].annotations.destructive_hint)

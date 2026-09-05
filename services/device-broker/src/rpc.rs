@@ -19,12 +19,17 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Request {
     jsonrpc: String,
     id: Value,
     method: String,
-    #[serde(default)]
+    #[serde(default = "empty_params")]
     params: Value,
+}
+
+fn empty_params() -> Value {
+    json!({})
 }
 
 #[derive(Debug, Serialize)]
@@ -77,14 +82,19 @@ fn handle(
     request: Request,
 ) -> Value {
     let id = request.id.clone();
-    if request.jsonrpc != "2.0" || !(id.is_u64() || id.is_i64()) {
+    if request.jsonrpc != "2.0" || id.as_u64().is_none_or(|id| id == 0) {
         return error(id, -32600, "Invalid JSON-RPC request");
     }
-    if !request.params.is_null() && !request.params.is_object() {
+    if !request.params.is_object() {
         return error(id, -32602, "JSON-RPC params must be an object");
     }
-    let result = match request.method.as_str() {
-        "system.status" => {
+    if generated_gateway::broker_dispatch(&request.method).is_some() {
+        if let Err(message) = generated_gateway::validate_params(&request.method, &request.params) {
+            return error(id, -32602, &message);
+        }
+    }
+    let result = match generated_gateway::broker_dispatch(&request.method) {
+        Some(generated_gateway::BrokerDispatch::SystemStatus) => {
             let mut capabilities = vec!["nativeGateway"];
             capabilities.extend_from_slice(generated_gateway::CAPABILITIES);
             capabilities.push("hostMidiPerformance");
@@ -96,172 +106,156 @@ fn handle(
                 "message": "Shared Rust QC engine active"
             }))
         }
-        "device.status" => {
-            serde_json::to_value(controller.status()).map_err(|error| error.to_string())
-        }
-        "device.reconnect" => controller
+        Some(generated_gateway::BrokerDispatch::Reconnect) => controller
             .reconnect()
             .map(|_| ready_connection_state(controller, "Quad Cortex handshake complete")),
-        "device.resetSession" => controller
+        Some(generated_gateway::BrokerDispatch::ResetSession) => controller
             .reset_session()
             .map(|_| ready_connection_state(controller, "Communication session reset")),
-        "device.disconnect" => {
+        Some(generated_gateway::BrokerDispatch::Disconnect) => {
             controller.disconnect();
             Ok(connection_state(controller, "Quad Cortex session closed"))
         }
         // The native broker implements the generated gateway contract without
         // exposing raw HID/protobuf details to either client.
-        "device.stateEvents" => gateway_state_events(controller, &request.params),
-        "device.snapshot" => controller
+        Some(generated_gateway::BrokerDispatch::StateEvents) => {
+            gateway_state_events(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::Snapshot) => controller
             .gateway_snapshot()
             .map(|snapshot| serde_json::to_value(snapshot).map_err(|error| error.to_string()))
             .unwrap_or_else(|| Err("No Quad Cortex preset has been synchronized yet".into())),
-        "device.listModels" => gateway_list_models(controller),
-        "device.identity" => gateway_identity(controller),
-        "device.tunerSettings" => {
-            execute_gateway_read(controller, "device.tunerSettings", &request.params)
+        Some(generated_gateway::BrokerDispatch::ListModels) => gateway_list_models(controller),
+        Some(generated_gateway::BrokerDispatch::Identity) => gateway_identity(controller),
+        Some(generated_gateway::BrokerDispatch::GatewayRead) => {
+            execute_gateway_read(controller, &request.method, &request.params)
         }
-        "device.setTunerInput"
-        | "device.setTunerMute"
-        | "device.restoreTunerAudio"
-        | "device.setTunerReference" => {
+        Some(generated_gateway::BrokerDispatch::GatewayOperation) => {
             gateway_operation(controller, &request.params, &request.method)
         }
-        "device.generalSettings" => {
-            execute_gateway_read(controller, "device.generalSettings", &request.params)
+        Some(generated_gateway::BrokerDispatch::SetDeviceName) => {
+            gateway_set_device_name(controller, &request.params)
         }
-        "device.ioSettings" => {
-            execute_gateway_read(controller, "device.ioSettings", &request.params)
+        Some(generated_gateway::BrokerDispatch::Undo) => gateway_history(controller, true),
+        Some(generated_gateway::BrokerDispatch::Redo) => gateway_history(controller, false),
+        Some(generated_gateway::BrokerDispatch::InhibitedModules) => {
+            gateway_inhibited_modules(controller)
         }
-        "device.globalEq"
-        | "device.modeCycle"
-        | "device.globalTempoSettings"
-        | "device.looperStatus"
-        | "device.recents"
-        | "device.favorites"
-        | "device.pinnedModels"
-        | "device.captures"
-        | "device.irs" => execute_gateway_read(controller, &request.method, &request.params),
-        "device.setInputPort"
-        | "device.setOutputPort"
-        | "device.setUsbPort"
-        | "device.setMidiThru"
-        | "device.setOutputPairing" => {
-            gateway_operation(controller, &request.params, &request.method)
+        Some(generated_gateway::BrokerDispatch::PresetScreenshot) => {
+            gateway_preset_screenshot(controller, &request.params)
         }
-        "device.setGlobalEqBypassed"
-        | "device.setGlobalEqBand"
-        | "device.setGlobalEqOutput"
-        | "device.setModeCycle"
-        | "device.setTempoMetronome"
-        | "device.setTempoMode" => gateway_operation(controller, &request.params, &request.method),
-        "device.setFavorite"
-        | "device.setModelPinned"
-        | "device.createSetlist"
-        | "device.deleteSetlist"
-        | "device.deletePreset"
-        | "device.movePreset"
-        | "device.loadCapture"
-        | "device.loadIr" => gateway_operation(controller, &request.params, &request.method),
-        "device.setGeneralInteger"
-        | "device.setGeneralToggle"
-        | "device.setSceneBypassBehavior"
-        | "device.setMasterVolumeAssignment"
-        | "device.setGlobalBypass" => {
-            gateway_operation(controller, &request.params, &request.method)
+        Some(generated_gateway::BrokerDispatch::CaptureScreen) => {
+            gateway_capture_screen(controller)
         }
-        "device.setDeviceName" => gateway_set_device_name(controller, &request.params),
-        "device.undo" => gateway_history(controller, true),
-        "device.redo" => gateway_history(controller, false),
-        "device.inhibitedModules" => gateway_inhibited_modules(controller),
-        "device.presetScreenshot" => gateway_preset_screenshot(controller, &request.params),
-        "device.captureScreen" => gateway_capture_screen(controller),
-        "device.tapScreen" => gateway_tap_screen(controller, &request.params),
-        "device.tempoClock" => gateway_tempo_clock(controller),
-        "device.selectScene" => gateway_select_scene(controller, &request.params),
-        "device.copyScene" | "device.setSceneLabel" | "device.setSceneColor" => {
-            gateway_operation(controller, &request.params, &request.method)
+        Some(generated_gateway::BrokerDispatch::TapScreen) => {
+            gateway_tap_screen(controller, &request.params)
         }
-        "device.toggleBypass" => gateway_toggle_bypass(controller, &request.params),
-        "device.blockDetails" => gateway_block_details(controller, &request.params),
-        "device.laneControlDetails" => gateway_lane_control_details(controller, &request.params),
-        "device.previewParameter" => gateway_parameter(controller, &request.params, true),
-        "device.setParameter" => gateway_parameter(controller, &request.params, false),
-        "device.previewLaneControlParameter" => {
+        Some(generated_gateway::BrokerDispatch::TempoClock) => gateway_tempo_clock(controller),
+        Some(generated_gateway::BrokerDispatch::SelectScene) => {
+            gateway_select_scene(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::ToggleBypass) => {
+            gateway_toggle_bypass(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::BlockDetails) => {
+            gateway_block_details(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::LaneControlDetails) => {
+            gateway_lane_control_details(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::PreviewParameter) => {
+            gateway_parameter(controller, &request.params, true)
+        }
+        Some(generated_gateway::BrokerDispatch::SetParameter) => {
+            gateway_parameter(controller, &request.params, false)
+        }
+        Some(generated_gateway::BrokerDispatch::PreviewLaneControlParameter) => {
             gateway_lane_control_parameter(controller, &request.params, true)
         }
-        "device.setLaneControlParameter" => {
+        Some(generated_gateway::BrokerDispatch::SetLaneControlParameter) => {
             gateway_lane_control_parameter(controller, &request.params, false)
         }
-        "device.setLaneControlSceneMode" => {
+        Some(generated_gateway::BrokerDispatch::SetLaneControlSceneMode) => {
             gateway_lane_control_scene_mode(controller, &request.params)
         }
-        "device.setParameterSceneMode" | "device.setParameterExpression" => {
+        Some(generated_gateway::BrokerDispatch::ParameterAssignment) => {
             gateway_parameter_assignment(controller, &request.params, &request.method)
         }
-        "device.setStompMomentary" | "device.setStompLabel" => {
-            gateway_operation(controller, &request.params, &request.method)
+        Some(generated_gateway::BrokerDispatch::SetTempo) => {
+            gateway_set_tempo(controller, &request.params)
         }
-        "device.setMidiOut" | "device.setPresetLoadMidiOut" | "device.setExpressionBypass" => {
-            gateway_operation(controller, &request.params, &request.method)
+        Some(generated_gateway::BrokerDispatch::SetMasterVolume) => {
+            gateway_set_master_volume(controller, &request.params)
         }
-        "device.setTempo" => gateway_set_tempo(controller, &request.params),
-        "device.setMasterVolume" => gateway_set_master_volume(controller, &request.params),
-        "device.masterVolume" => gateway_master_volume(controller),
-        "device.pressFootswitch"
-        | "device.tapTempo"
-        | "device.selectModeSlot"
-        | "device.showTuner"
-        | "device.showGigView"
-        | "device.controlLooper" => gateway_performance_midi(
+        Some(generated_gateway::BrokerDispatch::MasterVolume) => gateway_master_volume(controller),
+        Some(generated_gateway::BrokerDispatch::PerformanceMidi) => gateway_performance_midi(
             controller,
             performance_midi,
             &request.method,
             &request.params,
         ),
-        "device.addBlock" => gateway_operation(controller, &request.params, "device.addBlock"),
-        "device.removeBlock" => {
-            gateway_operation(controller, &request.params, "device.removeBlock")
+        Some(generated_gateway::BrokerDispatch::NavigateBank) => {
+            gateway_navigate_bank(controller, &request.params)
         }
-        "device.moveBlock" => gateway_operation(controller, &request.params, "device.moveBlock"),
-        "device.setBlockFootswitch" => {
-            gateway_operation(controller, &request.params, "device.setBlockFootswitch")
+        Some(generated_gateway::BrokerDispatch::RecallPreset) => {
+            gateway_recall_preset(controller, &request.params)
         }
-        "device.setChainInput" => {
-            gateway_operation(controller, &request.params, "device.setChainInput")
+        Some(generated_gateway::BrokerDispatch::ReloadPreset) => {
+            gateway_reload_preset(controller, &request.params)
         }
-        "device.setChainOutput" => {
-            gateway_operation(controller, &request.params, "device.setChainOutput")
+        Some(generated_gateway::BrokerDispatch::ListPresetFolders) => {
+            gateway_list_preset_folders(controller, &request.params)
         }
-        "device.setChainSplit" => {
-            gateway_operation(controller, &request.params, "device.setChainSplit")
+        Some(generated_gateway::BrokerDispatch::ListPresets) => {
+            gateway_list_presets(controller, &request.params)
         }
-        "device.setSplitMute" => {
-            gateway_operation(controller, &request.params, "device.setSplitMute")
+        Some(generated_gateway::BrokerDispatch::ListPresetSlots) => {
+            gateway_list_preset_slots(controller)
         }
-        "device.navigateBank" => gateway_navigate_bank(controller, &request.params),
-        "device.recallPreset" => gateway_recall_preset(controller, &request.params),
-        "device.reloadPreset" => gateway_reload_preset(controller, &request.params),
-        "device.listPresetFolders" => gateway_list_preset_folders(controller, &request.params),
-        "device.listPresets" => gateway_list_presets(controller, &request.params),
-        "device.listPresetSlots" => gateway_list_preset_slots(controller),
-        "device.savePresetAs" => gateway_save_preset_as(controller, &request.params),
-        "device.renameCurrentPreset" => gateway_rename_current_preset(controller, &request.params),
-        "device.createBackup" => gateway_create_backup(controller, &request.params),
-        "device.copyPreset" => gateway_copy_preset(controller, &request.params),
-        "device.duplicateSetlist" => gateway_duplicate_setlist(controller, &request.params),
-        "device.raw.latest" => raw_latest(controller, &request.params),
-        "device.raw.events" => raw_events(controller, &request.params),
-        "device.state.events" => state_events(controller, &request.params),
-        "device.state.blockDetails" => state_block_details(controller, &request.params),
-        "device.command.scene" => command_scene(controller, &request.params),
-        "device.command.bypass" => command_bypass(controller, &request.params),
-        "device.command.parameter" => command_parameter(controller, &request.params),
-        "device.command.tempo" => command_tempo(controller, &request.params),
-        "device.command.operation" => command_operation(controller, &request.params),
-        "device.raw.send" => raw_send(controller, &request.params),
-        "device.raw.request" => raw_request(controller, &request.params),
-        _ => return error(id, -32601, &format!("Method not found: {}", request.method)),
+        Some(generated_gateway::BrokerDispatch::SavePresetAs) => {
+            gateway_save_preset_as(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::RenameCurrentPreset) => {
+            gateway_rename_current_preset(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::CreateBackup) => {
+            gateway_create_backup(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::CopyPreset) => {
+            gateway_copy_preset(controller, &request.params)
+        }
+        Some(generated_gateway::BrokerDispatch::DuplicateSetlist) => {
+            gateway_duplicate_setlist(controller, &request.params)
+        }
+        None if request.method == "device.status" => {
+            serde_json::to_value(controller.status()).map_err(|error| error.to_string())
+        }
+        None if request.method == "device.raw.latest" => raw_latest(controller, &request.params),
+        None if request.method == "device.raw.events" => raw_events(controller, &request.params),
+        None if request.method == "device.state.events" => {
+            state_events(controller, &request.params)
+        }
+        None if request.method == "device.state.blockDetails" => {
+            state_block_details(controller, &request.params)
+        }
+        None if request.method == "device.command.scene" => {
+            command_scene(controller, &request.params)
+        }
+        None if request.method == "device.command.bypass" => {
+            command_bypass(controller, &request.params)
+        }
+        None if request.method == "device.command.parameter" => {
+            command_parameter(controller, &request.params)
+        }
+        None if request.method == "device.command.tempo" => {
+            command_tempo(controller, &request.params)
+        }
+        None if request.method == "device.command.operation" => {
+            command_operation(controller, &request.params)
+        }
+        None if request.method == "device.raw.send" => raw_send(controller, &request.params),
+        None if request.method == "device.raw.request" => raw_request(controller, &request.params),
+        None => return error(id, -32601, &format!("Method not found: {}", request.method)),
     };
     match result {
         Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
@@ -334,7 +328,10 @@ fn execute_gateway_read(
 ) -> Result<Value, String> {
     let plan = runtime_request::plan_gateway_read(method, params, next_request_id())?;
     let timeout = Duration::from_millis(plan.timeout_ms);
-    let messages = plan.operation.encode();
+    let messages = plan
+        .operation
+        .try_encode()
+        .map_err(|error| error.to_string())?;
     if let GatewayResponseProjection::PresetScreenshot { request_id, .. } = &plan.projection {
         let mut messages = messages.into_iter();
         let message = messages
@@ -399,10 +396,7 @@ fn gateway_history(controller: &DeviceController, undo: bool) -> Result<Value, S
     let method = if undo { "device.undo" } else { "device.redo" };
     let plan = plan_gateway_write(controller, method, &Value::Null)?;
     execute_gateway_write(controller, &plan)?;
-    Ok(json!({
-        "detail": plan.detail,
-        "immediate": true,
-    }))
+    Ok(accepted_unverified(plan.detail))
 }
 
 fn gateway_inhibited_modules(controller: &DeviceController) -> Result<Value, String> {
@@ -424,7 +418,7 @@ fn gateway_tap_screen(controller: &DeviceController, params: &Value) -> Result<V
     gateway_capture_screen(controller)?;
     let plan = plan_gateway_write(controller, "device.tapScreen", params)?;
     execute_gateway_write(controller, &plan)?;
-    Ok(json!({"detail": plan.detail, "immediate": true}))
+    Ok(accepted_unverified(plan.detail))
 }
 
 fn gateway_tempo_clock(controller: &DeviceController) -> Result<Value, String> {
@@ -467,19 +461,6 @@ fn execute_gateway_write(
     execute_planned_write(controller, &plan.write)
 }
 
-fn execute_realtime_gateway_write(
-    controller: &DeviceController,
-    method: &str,
-    plan: &GatewayWritePlan,
-) -> Result<(), String> {
-    if !runtime_request::gateway_write_is_realtime(method) {
-        return Err(format!(
-            "{method} is not classified as a realtime gateway write"
-        ));
-    }
-    execute_gateway_write(controller, plan)
-}
-
 fn execute_planned_write(
     controller: &DeviceController,
     write: &PlannedWrite,
@@ -491,6 +472,15 @@ fn execute_planned_write(
             Err("Host MIDI must be executed by the native application transport".into())
         }
     }
+}
+
+fn accepted_unverified(detail: impl Into<String>) -> Value {
+    json!({
+        "accepted": true,
+        "verified": false,
+        "verification": "accepted_unverified",
+        "detail": detail.into()
+    })
 }
 
 fn gateway_performance_midi(
@@ -512,43 +502,60 @@ fn gateway_performance_midi(
         .lock()
         .map_err(|_| "Performance MIDI lock was poisoned".to_string())?
         .send(controller, value)?;
-    Ok(json!({
-        "detail": format!("{} immediately through {endpoint}; live USB state will reconcile the result.", plan.detail),
-        "immediate": true,
-        "transport": endpoint,
-    }))
-}
-
-fn unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(u128::from(u64::MAX)) as u64
+    let mut result = accepted_unverified(format!(
+        "{} immediately through {endpoint}; live USB state will reconcile the result.",
+        plan.detail
+    ));
+    if let Some(object) = result.as_object_mut() {
+        object.insert("immediate".into(), json!(true));
+        object.insert("transport".into(), json!(endpoint));
+    }
+    Ok(result)
 }
 
 fn wait_for_transaction_event(
     controller: &DeviceController,
     events: &std::sync::mpsc::Receiver<crate::worker::DecodedStateFrame>,
     verification: GatewayVerification,
-    after_observed_at_ms: u128,
+    after_sequence: u64,
     timeout: Duration,
 ) -> Option<qc_device_runtime::GatewaySnapshot> {
-    let started_at_ms = unix_ms();
+    let parameter_target = verification.parameter_target();
+    let started = std::time::Instant::now();
     let transaction = GatewayTransaction::new(
         verification,
-        after_observed_at_ms,
-        started_at_ms,
+        u128::from(after_sequence),
+        0,
         timeout.as_millis().min(u128::from(u64::MAX)) as u64,
     );
     loop {
-        let remaining = transaction.remaining_ms(unix_ms());
+        let now_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+        let remaining = transaction.remaining_ms(now_ms);
         if remaining == 0 {
             return None;
         }
         let frame = events.recv_timeout(Duration::from_millis(remaining)).ok()?;
         let snapshot = controller.gateway_snapshot()?;
-        match transaction.state(&snapshot, None, frame.observed_at, unix_ms()) {
+        let parameter_value = parameter_target.and_then(|(row, column, parameter_index)| {
+            controller
+                .block_details(row, column)
+                .ok()
+                .flatten()
+                .and_then(|details| {
+                    details
+                        .parameters
+                        .into_iter()
+                        .find(|parameter| parameter.index == parameter_index)
+                        .and_then(|parameter| parameter.normalized_value)
+                })
+        });
+        let now_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+        match transaction.state(
+            &snapshot,
+            parameter_value,
+            u128::from(frame.sequence),
+            now_ms,
+        ) {
             GatewayTransactionState::Verified => return Some(snapshot),
             GatewayTransactionState::TimedOut => return None,
             GatewayTransactionState::Pending => {}
@@ -557,15 +564,11 @@ fn wait_for_transaction_event(
 }
 
 fn gateway_select_scene(controller: &DeviceController, params: &Value) -> Result<Value, String> {
-    let plan = plan_gateway_write(controller, "device.selectScene", params)?;
-    execute_realtime_gateway_write(controller, "device.selectScene", &plan)?;
-    Ok(json!({"detail": plan.detail}))
+    gateway_operation(controller, params, "device.selectScene")
 }
 
 fn gateway_toggle_bypass(controller: &DeviceController, params: &Value) -> Result<Value, String> {
-    let plan = plan_gateway_write(controller, "device.toggleBypass", params)?;
-    execute_realtime_gateway_write(controller, "device.toggleBypass", &plan)?;
-    Ok(json!({"detail": plan.detail}))
+    gateway_operation(controller, params, "device.toggleBypass")
 }
 
 fn gateway_block_details(controller: &DeviceController, params: &Value) -> Result<Value, String> {
@@ -630,10 +633,14 @@ fn gateway_lane_control_parameter(
     let plan = plan_gateway_write(controller, method, params)?;
     if preview {
         execute_gateway_write(controller, &plan)?;
-        return Ok(json!({
-            "detail": plan.detail,
-            "acceptedValue": params.get("value").and_then(Value::as_f64).unwrap_or_default()
-        }));
+        let mut result = accepted_unverified(plan.detail);
+        if let Some(object) = result.as_object_mut() {
+            object.insert(
+                "acceptedValue".into(),
+                params.get("value").cloned().unwrap_or_else(|| json!(0.0)),
+            );
+        }
+        return Ok(result);
     }
     let mut result = gateway_operation(controller, params, method)?;
     let details = controller
@@ -712,13 +719,17 @@ fn gateway_parameter(
         "device.setParameter"
     };
     let plan = plan_gateway_write(controller, method, params)?;
-    execute_gateway_write(controller, &plan)?;
     let value = params
         .get("value")
         .and_then(Value::as_f64)
         .unwrap_or_default();
     if preview {
-        Ok(json!({"detail": plan.detail, "acceptedValue": value}))
+        execute_gateway_write(controller, &plan)?;
+        let mut result = accepted_unverified(plan.detail);
+        if let Some(object) = result.as_object_mut() {
+            object.insert("acceptedValue".into(), json!(value));
+        }
+        Ok(result)
     } else {
         // Return the latest local view immediately, patched with the accepted
         // value.  Waiting for a USB round-trip here made sliders visibly lag;
@@ -733,7 +744,11 @@ fn gateway_parameter(
                 }
             }
         }
-        Ok(json!({"detail": plan.detail, "block": block}))
+        let mut result = gateway_operation(controller, params, method)?;
+        if let Some(object) = result.as_object_mut() {
+            object.insert("block".into(), block);
+        }
+        Ok(result)
     }
 }
 
@@ -809,9 +824,7 @@ fn gateway_parameter_assignment(
 }
 
 fn gateway_set_tempo(controller: &DeviceController, params: &Value) -> Result<Value, String> {
-    let plan = plan_gateway_write(controller, "device.setTempo", params)?;
-    execute_realtime_gateway_write(controller, "device.setTempo", &plan)?;
-    Ok(json!({"detail": plan.detail}))
+    gateway_operation(controller, params, "device.setTempo")
 }
 
 fn latest_master_volume(controller: &DeviceController) -> Option<f32> {
@@ -833,9 +846,7 @@ fn gateway_set_master_volume(
     controller: &DeviceController,
     params: &Value,
 ) -> Result<Value, String> {
-    let plan = plan_gateway_write(controller, "device.setMasterVolume", params)?;
-    execute_realtime_gateway_write(controller, "device.setMasterVolume", &plan)?;
-    Ok(json!({"detail": plan.detail}))
+    gateway_operation(controller, params, "device.setMasterVolume")
 }
 
 fn gateway_operation(
@@ -845,8 +856,30 @@ fn gateway_operation(
 ) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, method, params)?;
     let events = controller.subscribe_state_events();
-    let after_observed_at_ms = u128::from(unix_ms());
+    let after_sequence = controller.latest_state_sequence();
     execute_gateway_write(controller, &plan)?;
+    if runtime_request::gateway_write_is_realtime(method) {
+        return Ok(accepted_unverified(plan.detail));
+    }
+    if !plan.verification.requires_authoritative_readback() {
+        let Some(read_method) = runtime_request::gateway_write_readback_method(method) else {
+            return Ok(accepted_unverified(plan.detail));
+        };
+        let response = execute_gateway_read(controller, read_method, &json!({}))?;
+        if !runtime_request::gateway_write_readback_matches(method, params, &response) {
+            return Err(format!(
+                "{} was sent, but correlated {read_method} readback did not match",
+                plan.detail
+            ));
+        }
+        return Ok(json!({
+            "accepted": true,
+            "verified": true,
+            "verification": "authoritative_readback",
+            "detail": plan.detail,
+            "readback": response
+        }));
+    }
     if method == "device.copyScene" {
         // CorOS applies a scene copy asynchronously. An immediate preset READ
         // can return the pre-copy colors and no later snapshot, especially
@@ -866,7 +899,7 @@ fn gateway_operation(
         controller,
         &events,
         plan.verification.clone(),
-        after_observed_at_ms,
+        after_sequence,
         Duration::from_secs(2),
     )
     .ok_or_else(|| {
@@ -875,13 +908,35 @@ fn gateway_operation(
             plan.detail
         )
     })?;
-    if !plan.verification.matches(&snapshot, None) {
+    let parameter_value =
+        plan.verification
+            .parameter_target()
+            .and_then(|(row, column, parameter_index)| {
+                controller
+                    .block_details(row, column)
+                    .ok()
+                    .flatten()
+                    .and_then(|details| {
+                        details
+                            .parameters
+                            .into_iter()
+                            .find(|parameter| parameter.index == parameter_index)
+                            .and_then(|parameter| parameter.normalized_value)
+                    })
+            });
+    if !plan.verification.matches(&snapshot, parameter_value) {
         return Err(format!(
             "{} was sent, but authoritative preset readback rejected it",
             plan.detail
         ));
     }
-    Ok(json!({"detail": plan.detail, "snapshot": snapshot}))
+    Ok(json!({
+        "accepted": true,
+        "verified": true,
+        "verification": "authoritative_readback",
+        "detail": plan.detail,
+        "snapshot": snapshot
+    }))
 }
 
 fn wait_for_recovered_position(
@@ -918,14 +973,14 @@ fn execute_preset_recall(
             && (!plan.require_clean || !snapshot.dirty)
     };
     let device_events = controller.subscribe_state_events();
-    let after_observed_at_ms = u128::from(unix_ms());
+    let after_sequence = controller.latest_state_sequence();
     let verification = plan.verification();
     let confirm = || -> Result<qc_device_runtime::GatewaySnapshot, String> {
         if let Some(after) = wait_for_transaction_event(
             controller,
             &device_events,
             verification.clone(),
-            after_observed_at_ms,
+            after_sequence,
             Duration::from_millis(650),
         ) {
             return Ok(after);
@@ -948,7 +1003,7 @@ fn execute_preset_recall(
             controller,
             &device_events,
             verification.clone(),
-            after_observed_at_ms,
+            after_sequence,
             Duration::from_millis(300),
         )
         .ok_or_else(|| "The QC position readback did not reach the state engine".to_string())
@@ -1118,7 +1173,7 @@ fn execute_preset_mutation(
     let mut observed = None;
     for stage in plan.stages {
         let events = controller.subscribe_state_events();
-        let before_observed_at_ms = u128::from(unix_ms());
+        let before_sequence = controller.latest_state_sequence();
         execute_planned_write(controller, &stage.write)?;
         let verification = stage.verification;
         if !matches!(verification, GatewayVerification::None) {
@@ -1126,7 +1181,7 @@ fn execute_preset_mutation(
                 controller,
                 &events,
                 verification.clone(),
-                before_observed_at_ms,
+                before_sequence,
                 Duration::from_millis(stage.timeout_ms),
             )
             .ok_or_else(|| {
@@ -1238,19 +1293,13 @@ fn raw_latest(controller: &DeviceController, params: &Value) -> Result<Value, St
 }
 
 fn raw_events(controller: &DeviceController, params: &Value) -> Result<Value, String> {
-    let after = params
-        .get("afterSequence")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
+    let after = optional_u64(params, "afterSequence")?.unwrap_or(0);
     let kind = params
         .get("messageType")
         .map(|_| message_type(params, "messageType"))
         .transpose()?;
-    let limit = params
-        .get("limit")
-        .and_then(Value::as_u64)
-        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64)
-        .clamp(1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64) as usize;
+    let limit = optional_bounded_u64(params, "limit", 1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64)?
+        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64) as usize;
     let messages = controller
         .events_since(after, kind, limit)
         .into_iter()
@@ -1265,15 +1314,9 @@ fn raw_events(controller: &DeviceController, params: &Value) -> Result<Value, St
 }
 
 fn state_events(controller: &DeviceController, params: &Value) -> Result<Value, String> {
-    let after = params
-        .get("afterSequence")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let limit = params
-        .get("limit")
-        .and_then(Value::as_u64)
-        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64)
-        .clamp(1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64) as usize;
+    let after = optional_u64(params, "afterSequence")?.unwrap_or(0);
+    let limit = optional_bounded_u64(params, "limit", 1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64)?
+        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64) as usize;
     serde_json::to_value(controller.state_events_since(after, limit))
         .map_err(|error| error.to_string())
 }
@@ -1286,6 +1329,33 @@ fn state_block_details(controller: &DeviceController, params: &Value) -> Result<
 
 fn bounded_u32(params: &Value, field: &str, maximum: u32) -> Result<u32, String> {
     runtime_request::bounded_u32(params, field, maximum)
+}
+
+fn optional_u64(params: &Value, field: &str) -> Result<Option<u64>, String> {
+    match params.get(field) {
+        None => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .map(Some)
+            .ok_or_else(|| format!("{field} must be a non-negative integer")),
+    }
+}
+
+fn optional_bounded_u64(
+    params: &Value,
+    field: &str,
+    minimum: u64,
+    maximum: u64,
+) -> Result<Option<u64>, String> {
+    let Some(value) = optional_u64(params, field)? else {
+        return Ok(None);
+    };
+    if !(minimum..=maximum).contains(&value) {
+        return Err(format!(
+            "{field} must be an integer from {minimum} through {maximum}"
+        ));
+    }
+    Ok(Some(value))
 }
 
 fn normalized_f64(params: &Value, field: &str) -> Result<f64, String> {
@@ -1343,12 +1413,8 @@ fn raw_request(controller: &DeviceController, params: &Value) -> Result<Value, S
         .map(|_| message_type(params, "expectedType"))
         .transpose()?
         .unwrap_or(kind);
-    let request_id = params.get("requestId").and_then(Value::as_u64);
-    let timeout_ms = params
-        .get("timeoutMs")
-        .and_then(Value::as_u64)
-        .unwrap_or(10_000)
-        .clamp(1, 60_000);
+    let request_id = optional_u64(params, "requestId")?;
+    let timeout_ms = optional_bounded_u64(params, "timeoutMs", 1, 60_000)?.unwrap_or(10_000);
     let message = controller.request(
         kind,
         payload(params)?,
@@ -1395,6 +1461,9 @@ fn read_request(input: &mut impl Read) -> Result<Option<Request>, String> {
 
 fn write_response(output: &mut impl Write, response: &Value) -> Result<(), String> {
     let body = serde_json::to_vec(response).map_err(|error| error.to_string())?;
+    if body.len() > qc_protocol::domain::IPC_MAX_FRAME_BYTES {
+        return Err("Native broker response exceeds the IPC frame limit".into());
+    }
     let length =
         u32::try_from(body.len()).map_err(|_| "Native broker response is too large".to_string())?;
     output
@@ -1409,6 +1478,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn optional_event_and_raw_request_numbers_are_strictly_typed_and_bounded() {
+        assert_eq!(optional_u64(&json!({}), "afterSequence"), Ok(None));
+        assert_eq!(
+            optional_u64(&json!({"afterSequence": 7}), "afterSequence"),
+            Ok(Some(7))
+        );
+        for invalid in [json!(null), json!(-1), json!(1.5), json!("7"), json!(true)] {
+            assert!(optional_u64(&json!({"afterSequence": invalid}), "afterSequence").is_err());
+        }
+        assert!(optional_bounded_u64(&json!({"limit": 0}), "limit", 1, 4096).is_err());
+        assert!(optional_bounded_u64(&json!({"limit": 4097}), "limit", 1, 4096).is_err());
+        assert_eq!(
+            optional_bounded_u64(&json!({"timeoutMs": 60_000}), "timeoutMs", 1, 60_000),
+            Ok(Some(60_000))
+        );
+    }
+
+    #[test]
     fn framing_reads_one_request() {
         let body = br#"{"jsonrpc":"2.0","id":1,"method":"system.status"}"#;
         let mut frame = (body.len() as u32).to_be_bytes().to_vec();
@@ -1419,11 +1506,88 @@ mod tests {
     }
 
     #[test]
+    fn request_envelope_rejects_unknown_fields_and_nonpositive_ids() {
+        let body = br#"{"jsonrpc":"2.0","id":1,"method":"system.status","extra":true}"#;
+        let mut frame = (body.len() as u32).to_be_bytes().to_vec();
+        frame.extend_from_slice(body);
+        assert!(read_request(&mut frame.as_slice()).is_err());
+
+        let controller = DeviceController::start_disconnected();
+        let performance_midi = Mutex::new(PerformanceMidi::default());
+        let response = handle(
+            &controller,
+            &performance_midi,
+            Request {
+                jsonrpc: "2.0".into(),
+                id: json!(0),
+                method: "system.status".into(),
+                params: json!({}),
+            },
+        );
+        assert_eq!(response["error"]["code"], -32600);
+    }
+
+    #[test]
+    fn canonical_gateway_boundary_rejects_missing_extra_and_wrong_typed_arguments() {
+        assert!(generated_gateway::validate_params("device.snapshot", &json!({})).is_ok());
+        assert!(
+            generated_gateway::validate_params("device.snapshot", &json!({"ignored": true}))
+                .is_err()
+        );
+        assert!(generated_gateway::validate_params(
+            "device.setTempo",
+            &json!({
+                "bpm": 120, "expectedTempo": 120, "expectedPresetName": "Clean"
+            })
+        )
+        .is_ok());
+        assert!(generated_gateway::validate_params(
+            "device.setTempo",
+            &json!({
+                "bpm": true, "expectedTempo": 120, "expectedPresetName": "Clean"
+            })
+        )
+        .is_err());
+        assert!(generated_gateway::validate_params(
+            "device.setTempo",
+            &json!({
+                "expectedTempo": 120, "expectedPresetName": "Clean"
+            })
+        )
+        .is_err());
+        assert!(generated_gateway::validate_params(
+            "device.setInputPort",
+            &json!({
+                "inputPortId": 1, "levelDb": null, "impedance": null,
+                "inputType": null, "groundLift": null
+            })
+        )
+        .is_ok());
+        assert!(generated_gateway::validate_params(
+            "device.setInputPort",
+            &json!({
+                "inputPortId": 1, "levelDb": "12", "impedance": null,
+                "inputType": null, "groundLift": null
+            })
+        )
+        .is_err());
+    }
+
+    #[test]
     fn raw_message_types_are_bounded_to_registry() {
         assert!(message_type(&json!({"messageType": 1}), "messageType").is_ok());
         assert!(message_type(&json!({"messageType": 72}), "messageType").is_ok());
         assert!(message_type(&json!({"messageType": 0}), "messageType").is_err());
         assert!(message_type(&json!({"messageType": 73}), "messageType").is_err());
+    }
+
+    #[test]
+    fn writes_without_a_readback_predicate_are_explicitly_unverified() {
+        let result = accepted_unverified("Undo sent");
+        assert_eq!(result["accepted"], true);
+        assert_eq!(result["verified"], false);
+        assert_eq!(result["verification"], "accepted_unverified");
+        assert_eq!(result["detail"], "Undo sent");
     }
 
     #[test]

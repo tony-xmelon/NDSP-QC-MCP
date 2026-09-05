@@ -3,7 +3,7 @@ import type { BlockParameter, GatewayTransport, PresetSnapshot } from "@ndsp-qc/
 import type { BlockEditorSessionController } from "./use-block-editor-session";
 import type { DeviceHistoryEntry } from "./use-device-history";
 
-type Preview = { row: number; column: number; parameterIndex: number; value: number; revision: number; expectedScene: number; expectedPresetName: string };
+type Preview = { row: number; column: number; parameterIndex: number; value: number; expectedValue: number; revision: number; expectedScene: number; expectedPresetName: string };
 
 export interface ParameterWorkflowOptions {
   gateway: GatewayTransport;
@@ -43,7 +43,7 @@ export function useParameterWorkflow(options: ParameterWorkflowOptions) {
       while (previewQueue.current) {
         const next = previewQueue.current;
         previewQueue.current = undefined;
-        try { await gateway.previewParameter(next.row, next.column, next.parameterIndex, next.value, next.expectedScene, next.expectedPresetName); }
+        try { await gateway.previewParameter(next.row, next.column, next.parameterIndex, next.value, next.expectedValue, next.expectedScene, next.expectedPresetName); }
         catch { /* The verified release write owns reconciliation and errors. */ }
       }
     } finally {
@@ -107,8 +107,8 @@ export function useParameterWorkflow(options: ParameterWorkflowOptions) {
     if (connected && !snapshot.dirty) reconcile({ ...snapshot, dirty: true });
     const continuous = !parameter.options.length && ["float", "floatwithled", "int", "fader"].includes(parameter.type.toLocaleLowerCase());
     const details = detailsRef.current;
-    if (connected && continuous && details) {
-      previewQueue.current = { row: details.row, column: details.column, parameterIndex: parameter.index, value, revision, expectedScene: snapshot.activeScene, expectedPresetName: snapshot.presetName };
+    if (connected && continuous && details && parameter.normalizedValue !== null) {
+      previewQueue.current = { row: details.row, column: details.column, parameterIndex: parameter.index, value, expectedValue: parameter.normalizedValue, revision, expectedScene: snapshot.activeScene, expectedPresetName: snapshot.presetName };
       void drainPreviews();
     }
     return revision;

@@ -12,6 +12,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
+import android.hardware.usb.UsbRequest;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,8 +45,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @CapacitorPlugin(name = "QcUsb")
 public class QcUsbPlugin extends Plugin {
+    private static long monotonicMillis() { return System.nanoTime() / 1_000_000L; }
     private static final int HID_WRITE_TIMEOUT_MS = 250;
     private static final int MIDI_WRITE_TIMEOUT_MS = 250;
+    private static final int MAINTENANCE_POLL_MS = 1000;
     private static final String USB_PERMISSION = "com.qccontrol.mobile.USB_PERMISSION";
 
     private UsbManager manager;
@@ -52,6 +56,7 @@ public class QcUsbPlugin extends Plugin {
     private UsbDeviceConnection connection;
     private UsbInterface hidInterface;
     private UsbEndpoint inputEndpoint;
+    private volatile UsbRequest activeInputRequest;
     private UsbInterface midiInterface;
     private UsbEndpoint midiOutputEndpoint;
     private PluginCall pendingConnect;
@@ -69,6 +74,7 @@ public class QcUsbPlugin extends Plugin {
     private volatile int currentPosition = -1;
     private volatile boolean currentSetlistFactory;
     private volatile long messagesReceived;
+    private volatile long rawReportsReceived;
     private volatile long messagesSent;
     private volatile long decodeErrors;
     private volatile long expectedWriteStalls;
@@ -89,6 +95,12 @@ public class QcUsbPlugin extends Plugin {
     private volatile long lastMidiQueueDelayMs;
     private volatile long maxMidiQueueDelayMs;
     private volatile long lastStateAt;
+    private volatile long lastHidWriteDurationMs;
+    private volatile int lastHidWriteResult;
+    private volatile boolean lastHidWriteIncludedReportId;
+    private volatile boolean readerWaiting;
+    private volatile long readerExitedAt;
+    private volatile String lastReaderError;
     private volatile long lastPresetLibraryAt;
     private final AtomicBoolean presetLibrarySettlementScheduled = new AtomicBoolean();
     private final AtomicLong connectionGeneration = new AtomicLong();
@@ -157,15 +169,26 @@ public class QcUsbPlugin extends Plugin {
             getContext(), deviceReceiver, deviceFilter, ContextCompat.RECEIVER_EXPORTED
         );
         keepalive.scheduleWithFixedDelay(() -> {
-            if (!isReady() || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
+            boolean backupActive = pendingBackup != null;
+            if (!isReady() || !backupActive && !pendingOperations.isEmpty()
+                || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
             // Keepalives share the serialized writer, but only enter the queue
             // after five completely idle seconds. Normal interaction therefore
             // never waits for recurring maintenance traffic.
             commandIo.execute(() -> {
-                if (!isReady() || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
-                try { writeMessage(stateDecoder.keepaliveCommand()); } catch (Exception ignored) {}
+                boolean currentBackupActive = pendingBackup != null;
+                if (!isReady() || !currentBackupActive && !pendingOperations.isEmpty()
+                    || !stateDecoder.sessionShouldKeepalive(System.currentTimeMillis())) return;
+                // Android USB hosts can stop completing interrupt-IN requests
+                // after a device-silent interval. Version type 10 is a minimal,
+                // side-effect-free correlated read with a physical reply.
+                try {
+                    writeMessage(currentBackupActive
+                        ? stateDecoder.keepaliveCommand()
+                        : stateDecoder.readCommand(10));
+                } catch (Exception ignored) {}
             });
-        }, QcUsbProfile.KEEPALIVE_INTERVAL_MS, QcUsbProfile.KEEPALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS);
+        }, MAINTENANCE_POLL_MS, MAINTENANCE_POLL_MS, TimeUnit.MILLISECONDS);
     }
 
     static boolean relaySessionAvailable() {
@@ -183,6 +206,10 @@ public class QcUsbPlugin extends Plugin {
     static final class RelayException extends RuntimeException {
         final String code;
         RelayException(String code, String message) { super(message); this.code = code; }
+        boolean retryable() {
+            return "NOT_CONNECTED".equals(code) || "READBACK_TIMEOUT".equals(code)
+                || "USB_CONNECT_FAILED".equals(code) || "DEVICE_TRANSPORT".equals(code);
+        }
     }
 
     private static CompletableFuture<org.json.JSONObject> failedRelay(String code, String message) {
@@ -199,6 +226,12 @@ public class QcUsbPlugin extends Plugin {
         volatile int chunks;
         volatile int ignoredPrefixChunks;
         volatile int attempts = 1;
+        volatile int rawReports;
+        volatile int decodedMessages;
+        volatile int lastRawReportBytes;
+        volatile boolean recoveryStarted;
+        volatile long recoveryAfterState;
+        volatile org.json.JSONObject savedResult;
 
         PendingBackup(String name) {
             this.name = name;
@@ -268,10 +301,12 @@ public class QcUsbPlugin extends Plugin {
         return state;
     }
 
-    private org.json.JSONObject relayStateEvents(org.json.JSONObject params) {
-        long after = Math.max(0, params.optLong("afterSequence", 0));
-        int limit = Math.max(1, Math.min(QcDomain.STATE_EVENT_MAXIMUM_LIMIT,
-            params.optInt("limit", QcDomain.STATE_EVENT_DEFAULT_LIMIT)));
+    private org.json.JSONObject relayStateEvents(org.json.JSONObject params) throws Exception {
+        long after = params.has("afterSequence") ? params.getLong("afterSequence") : 0;
+        int limit = params.has("limit") ? params.getInt("limit") : QcDomain.STATE_EVENT_DEFAULT_LIMIT;
+        if (after < 0) throw new IllegalArgumentException("afterSequence must be a non-negative integer.");
+        if (limit < 1 || limit > QcDomain.STATE_EVENT_MAXIMUM_LIMIT)
+            throw new IllegalArgumentException("limit must be an integer from 1 through " + QcDomain.STATE_EVENT_MAXIMUM_LIMIT + ".");
         org.json.JSONArray frames = new org.json.JSONArray();
         synchronized (stateEventLock) {
             for (JSObject frame : stateEventLog) {
@@ -302,6 +337,7 @@ public class QcUsbPlugin extends Plugin {
         commandIo.execute(() -> {
             try {
                 if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the backup.");
+                android.util.Log.i("QcUsbPlugin", "Sending native backup request 1; includeReportId=" + includeReportId);
                 writeMessage(stateDecoder.backupCommand());
             } catch (Exception error) {
                 if (pendingBackup == pending) pendingBackup = null;
@@ -319,6 +355,7 @@ public class QcUsbPlugin extends Plugin {
         keepalive.schedule(() -> {
             if (pendingBackup != pending || pending.result.isDone()) return;
             PendingBackup operation = pending.operation;
+            if (operation.recoveryStarted) return;
             long now = System.currentTimeMillis();
             long stallLimit = operation.started ? QcUsbProfile.BACKUP_STREAM_STALL_TIMEOUT_MS : QcUsbProfile.BACKUP_FIRST_CHUNK_TIMEOUT_MS;
             long idle = now - operation.lastActivityAt;
@@ -329,19 +366,28 @@ public class QcUsbPlugin extends Plugin {
             if (operation.started) {
                 pendingBackup = null;
                 if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
-                    "READBACK_TIMEOUT", "The native backup stream stalled after " + operation.chunks + " chunks; the partial document was discarded."));
+                    "READBACK_TIMEOUT", "The native backup stream stalled after " + operation.chunks
+                        + " chunks; the partial document was discarded. Android observed " + operation.rawReports
+                        + " raw HID reports and " + operation.decodedMessages + " decoded messages during the operation."));
                 return;
             }
             if (operation.attempts >= QcUsbProfile.BACKUP_MAXIMUM_ATTEMPTS) {
                 pendingBackup = null;
                 if (pendingOperations.remove(pending)) pending.result.completeExceptionally(new RelayException(
-                    "READBACK_TIMEOUT", "No native backup document started after " + operation.attempts + " requests and " + operation.ignoredPrefixChunks + " stale chunks."));
+                    "READBACK_TIMEOUT", "No native backup document started after " + operation.attempts
+                        + " requests and " + operation.ignoredPrefixChunks + " stale chunks. Android observed "
+                        + operation.rawReports + " raw HID reports, " + operation.decodedMessages
+                        + " decoded messages, and a last raw report length of " + operation.lastRawReportBytes + " bytes."));
                 return;
             }
             operation.attempts += 1;
             operation.lastActivityAt = now;
             commandIo.execute(() -> {
-                try { writeMessage(stateDecoder.backupCommand()); }
+                try {
+                    android.util.Log.i("QcUsbPlugin", "Sending native backup request " + operation.attempts
+                        + "; includeReportId=" + includeReportId);
+                    writeMessage(stateDecoder.backupCommand());
+                }
                 catch (Exception error) {
                     if (pendingBackup == pending) pendingBackup = null;
                     pendingOperations.remove(pending);
@@ -393,9 +439,15 @@ public class QcUsbPlugin extends Plugin {
         try {
             params = stateDecoder.mergeExpectedState(
                 JSObject.fromJSONObject(params), JSObject.fromJSONObject(expected));
+            GeneratedGatewayMethods.validateParams(method, params);
             String dispatch = GeneratedGatewayMethods.dispatchKind(method);
             if ("SYSTEM".equals(dispatch)) {
                 return CompletableFuture.completedFuture(new JSObject()
+                    .put("platform", "Rust Android USB gateway")
+                    .put("gatewayAvailable", true)
+                    .put("gatewayApiVersion", GeneratedGatewayMethods.API_VERSION)
+                    .put("capabilities", GeneratedGatewayMethods.CAPABILITIES)
+                    .put("message", "Shared Rust QC engine active")
                     .put("connected", isReady()).put("synchronized", presetSynchronized && currentSetlist != null)
                     .put("transport", "android-usb-relay"));
             }
@@ -421,7 +473,7 @@ public class QcUsbPlugin extends Plugin {
                 case "TAP_SCREEN": return relayTapScreen(params);
                 case "BACKUP": return relayCreateBackup(params);
                 case "PREVIEW_PARAMETER": return relayPreviewParameter(method, params);
-                case "PLANNED_WRITE": return relayPlannedGatewayWrite(
+                case "PLANNED_WRITE": return relayPlannedGatewayWriteWithReadback(
                     method, params, QcUsbProfile.COMMAND_CONFIRMATION_TIMEOUT_MS);
                 case "PRESET_WRITE": return relayPlannedGatewayWrite(
                     method, params, QcUsbProfile.PRESET_SYNC_TIMEOUT_MS);
@@ -438,16 +490,44 @@ public class QcUsbPlugin extends Plugin {
         return executeRelayPlan(plan, timeoutMs);
     }
 
+    private CompletableFuture<org.json.JSONObject> relayPlannedGatewayWriteWithReadback(
+        String method, org.json.JSONObject params, long timeoutMs
+    ) throws Exception {
+        String readMethod = stateDecoder.gatewayWriteReadbackMethod(method);
+        CompletableFuture<org.json.JSONObject> write = relayPlannedGatewayWrite(method, params, timeoutMs);
+        if (readMethod == null) return write;
+        return write.thenCompose(ignored -> {
+            try { return relayGatewayRead(readMethod, new org.json.JSONObject()); }
+            catch (Exception error) {
+                CompletableFuture<org.json.JSONObject> failed = new CompletableFuture<>();
+                failed.completeExceptionally(error);
+                return failed;
+            }
+        }).thenApply(readback -> {
+            if (!stateDecoder.gatewayReadbackMatches(method, params, readback)) {
+                throw new java.util.concurrent.CompletionException(new RelayException(
+                    "READBACK_MISMATCH", "The QC returned settings that do not match the requested write."));
+            }
+            try { return new org.json.JSONObject()
+                .put("accepted", true).put("verified", true)
+                .put("verification", "authoritative_readback")
+                .put("detail", "The QC confirmed the settings update.").put("readback", readback); }
+            catch (Exception error) { throw new java.util.concurrent.CompletionException(error); }
+        });
+    }
+
     private CompletableFuture<org.json.JSONObject> executeRelayPlan(
         QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs
     ) {
         if (plan.midi) return relayMidi(plan.controller, plan.value).thenApply(result -> {
-            try { return result.put("detail", plan.detail).put("verification", "authoritative_state_pending"); }
+            try { return result.put("accepted", true).put("verified", false).put("detail", plan.detail)
+                .put("verification", "accepted_unverified"); }
             catch (Exception error) { throw new java.util.concurrent.CompletionException(error); }
         });
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
-        long stateBeforeWrite = lastStateAt;
-        long deadline = System.currentTimeMillis() + timeoutMs;
+        long stateBeforeWrite;
+        synchronized (stateEventLock) { stateBeforeWrite = nextStateSequence - 1; }
+        long deadline = monotonicMillis() + timeoutMs;
         PendingGatewayTransaction operation = new PendingGatewayTransaction(
             plan, stateBeforeWrite, deadline);
         QcPendingOperations.Entry<PendingGatewayTransaction> pending = null;
@@ -467,10 +547,12 @@ public class QcUsbPlugin extends Plugin {
                 org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
                 for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
                 if (plan.realtime || "none".equals(verification.optString("kind"))) {
-                    result.complete(new org.json.JSONObject().put("accepted", true).put("detail", plan.detail)
-                        .put("verification", "authoritative_state_pending"));
+                    result.complete(new org.json.JSONObject().put("accepted", true).put("verified", false)
+                        .put("detail", plan.detail).put("verification", "accepted_unverified"));
                 } else {
-                    resolvePendingGatewayTransactions(lastStateAt, System.currentTimeMillis());
+                    long currentSequence;
+                    synchronized (stateEventLock) { currentSequence = nextStateSequence - 1; }
+                    resolvePendingGatewayTransactions(currentSequence, monotonicMillis());
                     pendingOperations.timeout(registered, timeoutMs, keepalive,
                         () -> new RelayException("READBACK_TIMEOUT", "The QC did not confirm the requested state in time."));
                 }
@@ -538,21 +620,6 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
-        // Android reports the QC's normal SET_REPORT status-stage STALL as -1,
-        // which is indistinguishable from a transfer the controller never
-        // accepted. Correlated reads are idempotent, so retry one unanswered
-        // request inside its original deadline. Mutations never use this path.
-        keepalive.schedule(() -> {
-            if (result.isDone()) return;
-            commandIo.execute(() -> {
-                if (result.isDone() || !isReady()) return;
-                try {
-                    for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
-                } catch (Exception ignored) {
-                    // The original timeout remains the authoritative failure.
-                }
-            });
-        }, Math.max(250, plan.timeoutMs / 2), TimeUnit.MILLISECONDS);
         pendingOperations.timeout(pending, plan.timeoutMs, keepalive,
             () -> new RelayException("READBACK_TIMEOUT", "The QC did not provide the requested reply in time."));
         return result;
@@ -688,7 +755,10 @@ public class QcUsbPlugin extends Plugin {
                 int written = connection.bulkTransfer(midiOutputEndpoint, packet, packet.length, MIDI_WRITE_TIMEOUT_MS);
                 lastMidiCommandAt = System.currentTimeMillis();
                 if (written != packet.length) throw new RelayException("MIDI_WRITE_FAILED", "The complete MIDI packet was not written.");
-                result.complete(new org.json.JSONObject().put("accepted", true));
+                result.complete(new org.json.JSONObject()
+                    .put("accepted", true).put("verified", false)
+                    .put("verification", "accepted_unverified")
+                    .put("detail", "Performance MIDI command accepted; live USB state will reconcile the result."));
             } catch (Exception error) { result.completeExceptionally(error); }
         });
         return result;
@@ -772,6 +842,7 @@ public class QcUsbPlugin extends Plugin {
         result.put("connected", connection != null);
         result.put("device", device == null || device.getProductName() == null ? getContext().getString(R.string.device_name) : device.getProductName());
         result.put("messagesReceived", messagesReceived);
+        result.put("rawReportsReceived", rawReportsReceived);
         result.put("messagesSent", messagesSent);
         result.put("decodeErrors", decodeErrors);
         result.put("expectedWriteStalls", expectedWriteStalls);
@@ -794,6 +865,13 @@ public class QcUsbPlugin extends Plugin {
         result.put("lastMidiQueueDelayMs", lastMidiQueueDelayMs);
         result.put("maxMidiQueueDelayMs", maxMidiQueueDelayMs);
         result.put("lastStateAt", lastStateAt);
+        result.put("lastHidWriteDurationMs", lastHidWriteDurationMs);
+        result.put("lastHidWriteResult", lastHidWriteResult);
+        result.put("lastHidWriteIncludedReportId", lastHidWriteIncludedReportId);
+        result.put("readerRequestActive", activeInputRequest != null);
+        result.put("readerWaiting", readerWaiting);
+        result.put("readerExitedAt", readerExitedAt);
+        if (lastReaderError != null) result.put("lastReaderError", lastReaderError);
         if (lastError != null) result.put("lastError", lastError);
         call.resolve(result);
     }
@@ -810,13 +888,19 @@ public class QcUsbPlugin extends Plugin {
         relayInvoke(method, params == null ? new JSObject() : params,
             expected == null ? new JSObject() : expected).whenComplete((result, error) -> {
                 if (error == null) {
-                    try { call.resolve(JSObject.fromJSONObject(result)); }
+                    try {
+                        GeneratedGatewayMethods.validateResult(method, result);
+                        call.resolve(JSObject.fromJSONObject(result));
+                    }
                     catch (Exception conversionError) {
-                        call.reject("The gateway result was not valid JSON.", "DEVICE_ERROR", conversionError);
+                        call.reject("The gateway result did not match the generated contract.", "MALFORMED_RESPONSE", conversionError);
                     }
                 }
-                else if (error instanceof RelayException)
-                    call.reject(error.getMessage(), ((RelayException) error).code, (Exception) error);
+                else if (error instanceof RelayException) {
+                    RelayException relayError = (RelayException) error;
+                    call.reject(error.getMessage(), relayError.code, relayError,
+                        new JSObject().put("retryable", relayError.retryable()));
+                }
                 else if (error instanceof Exception)
                     call.reject(error.getMessage() == null ? "The gateway operation failed." : error.getMessage(),
                         "DEVICE_ERROR", (Exception) error);
@@ -908,6 +992,7 @@ public class QcUsbPlugin extends Plugin {
         selectedInputEndpointAddress = selectedInput.getAddress();
         selectedInputMaxPacketSize = selectedInput.getMaxPacketSize();
         messagesReceived = 0;
+        rawReportsReceived = 0;
         messagesSent = 0;
         decodeErrors = 0;
         expectedWriteStalls = 0;
@@ -920,6 +1005,9 @@ public class QcUsbPlugin extends Plugin {
         lastMidiQueueDelayMs = 0;
         maxMidiQueueDelayMs = 0;
         lastStateAt = 0;
+        readerWaiting = false;
+        readerExitedAt = 0;
+        lastReaderError = null;
         lastPresetLibraryAt = 0;
         stateDecoder.sessionOpened(connectedAt);
         startReader();
@@ -947,10 +1035,9 @@ public class QcUsbPlugin extends Plugin {
             if (reportMode == -2) break;
             if (reportMode == -1) continue;
             attempts++;
-            // Android vendors differ in how their raw USB stack represents a
-            // numbered HID SET_REPORT. Try the standards-shaped 129-byte form
-            // first, then the 128-byte body-only form, and retain the one that
-            // receives the device's correlated reset reply.
+            // Prefer the same 129-byte logical HID report used by the proven
+            // Windows path. Retain the 128-byte fallback for Android USB stacks
+            // that expose SET_REPORT's data stage without the report-ID byte.
             includeReportId = reportMode == 1;
             String session = UUID.randomUUID().toString().replace("-", "");
             resetReply = new CountDownLatch(1);
@@ -979,6 +1066,14 @@ public class QcUsbPlugin extends Plugin {
             throw new IllegalStateException("Could not encode the QC USB initialization commands.", error);
         }
         handshakeComplete = true;
+        // The QC's initial burst can finish before the first five-second
+        // maintenance deadline. Prime one reply-producing read while that
+        // interrupt stream is still active, then let the shared session clock
+        // maintain the normal five-second cadence.
+        keepalive.schedule(() -> commandIo.execute(() -> {
+            if (!isReady() || !pendingOperations.isEmpty()) return;
+            try { writeMessage(stateDecoder.readCommand(10)); } catch (Exception ignored) {}
+        }), MAINTENANCE_POLL_MS, TimeUnit.MILLISECONDS);
     }
 
     private synchronized void writeMessage(QcNativeStateDecoder.EncodedMessage message) {
@@ -993,7 +1088,11 @@ public class QcUsbPlugin extends Plugin {
                 ? framedReport
                 : Arrays.copyOfRange(framedReport, 1, framedReport.length);
             if (connection == null || hidInterface == null) throw new IllegalStateException("Quad Cortex USB disconnected during write.");
+            long writeStartedAt = System.currentTimeMillis();
             int written = connection.controlTransfer(0x21, 0x09, (2 << 8) | QcNativeStateDecoder.OUT_REPORT_ID, hidInterface.getId(), report, report.length, HID_WRITE_TIMEOUT_MS);
+            lastHidWriteDurationMs = System.currentTimeMillis() - writeStartedAt;
+            lastHidWriteResult = written;
+            lastHidWriteIncludedReportId = withReportId;
             // The QC accepts the complete 128-byte data stage, then deliberately
             // STALLs SET_REPORT's status stage. Android surfaces that as -1,
             // exactly as hidapi does on the hardware-verified desktop path.
@@ -1012,30 +1111,102 @@ public class QcUsbPlugin extends Plugin {
         reading = true;
         long generation = connectionGeneration.incrementAndGet();
         readerIo.execute(() -> {
-            while (reading && generation == connectionGeneration.get() && connection != null) {
+            UsbDeviceConnection activeConnection = connection;
+            UsbEndpoint activeEndpoint = inputEndpoint;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                readInputReportsAsync(activeConnection, activeEndpoint, generation);
+                return;
+            }
+            while (readerIsActive(activeConnection, generation)) {
                 byte[] buffer = new byte[QcNativeStateDecoder.REPORT_SIZE];
                 readAttempts++;
-                int count = connection.bulkTransfer(inputEndpoint, buffer, buffer.length, 250);
+                int count = activeConnection.bulkTransfer(activeEndpoint, buffer, buffer.length, 250);
                 if (count <= 0) {
                     if (count < 0) negativeReads++;
                     continue;
                 }
-                byte[] report = normalizeInputReport(buffer, count);
-                DecodedMessage decoded = decodeMessage(report);
-                if (decoded != null) {
-                    messagesReceived++;
-                    lastMessageType = decoded.messageType;
-                    if (decoded.messageType == 4) {
-                        android.util.Log.i("QcUsbPlugin", "Received preset catalog frame");
-                        lastPresetLibraryAt = System.currentTimeMillis();
-                        schedulePresetLibrarySettlement();
-                    }
-                    if (decoded.messageType == QcUsbProfile.MESSAGE_TYPE_DEVICE_VERSION && resetReply != null) resetReply.countDown();
-                    dispatchGatewayResponse(decoded.messageType, decoded.payload);
-                    publishStateBatch(decoded.states, decoded.tempoClock);
-                }
+                consumeInputReport(buffer, count);
             }
         });
+    }
+
+    private boolean readerIsActive(UsbDeviceConnection activeConnection, long generation) {
+        return reading && generation == connectionGeneration.get() && connection == activeConnection;
+    }
+
+    private void readInputReportsAsync(
+        UsbDeviceConnection activeConnection, UsbEndpoint activeEndpoint, long generation
+    ) {
+        UsbRequest request = new UsbRequest();
+        if (!request.initialize(activeConnection, activeEndpoint)) {
+            lastError = "Could not initialize the asynchronous QC HID reader.";
+            return;
+        }
+        activeInputRequest = request;
+        try {
+            while (readerIsActive(activeConnection, generation)) {
+                ByteBuffer buffer = ByteBuffer.allocateDirect(QcNativeStateDecoder.REPORT_SIZE);
+                if (!request.queue(buffer)) {
+                    lastError = "Could not queue the next QC HID input report.";
+                    return;
+                }
+                readerWaiting = true;
+                UsbRequest completed = null;
+                while (completed == null && readerIsActive(activeConnection, generation)) {
+                    readAttempts++;
+                    try { completed = activeConnection.requestWait(); }
+                    finally { readerWaiting = false; }
+                }
+                if (!readerIsActive(activeConnection, generation)) return;
+                if (completed != request) {
+                    lastError = "The QC HID input request ended without a matching completion.";
+                    return;
+                }
+                int count = buffer.position();
+                if (count <= 0) continue;
+                buffer.flip();
+                byte[] bytes = new byte[count];
+                buffer.get(bytes);
+                consumeInputReport(bytes, count);
+            }
+        } catch (Exception error) {
+            if (readerIsActive(activeConnection, generation)) {
+                lastReaderError = error.getClass().getName() + ": " + error.getMessage();
+                lastError = "QC HID reader stopped: " + lastReaderError;
+                android.util.Log.e("QcUsbPlugin", lastError, error);
+            }
+        } finally {
+            readerWaiting = false;
+            readerExitedAt = System.currentTimeMillis();
+            if (activeInputRequest == request) {
+                activeInputRequest = null;
+                request.cancel();
+                request.close();
+            }
+        }
+    }
+
+    private void consumeInputReport(byte[] buffer, int count) {
+        rawReportsReceived += 1;
+        QcPendingOperations.Entry<PendingBackup> activeBackup = pendingBackup;
+        if (activeBackup != null) {
+            activeBackup.operation.rawReports += 1;
+            activeBackup.operation.lastRawReportBytes = count;
+        }
+        byte[] report = normalizeInputReport(buffer, count);
+        DecodedMessage decoded = decodeMessage(report);
+        if (decoded == null) return;
+        if (activeBackup != null) activeBackup.operation.decodedMessages += 1;
+        messagesReceived++;
+        lastMessageType = decoded.messageType;
+        if (decoded.messageType == 4) {
+            android.util.Log.i("QcUsbPlugin", "Received preset catalog frame");
+            lastPresetLibraryAt = System.currentTimeMillis();
+            schedulePresetLibrarySettlement();
+        }
+        if (decoded.messageType == QcUsbProfile.MESSAGE_TYPE_DEVICE_VERSION && resetReply != null) resetReply.countDown();
+        dispatchGatewayResponse(decoded.messageType, decoded.payload);
+        publishStateBatch(decoded.states, decoded.tempoClock);
     }
 
     private static byte[] normalizeInputReport(byte[] buffer, int count) {
@@ -1102,15 +1273,15 @@ public class QcUsbPlugin extends Plugin {
 
     private static final class PendingGatewayTransaction {
         final QcNativeStateDecoder.PlannedGatewayWrite plan;
-        final long afterObservedAt;
+        final long afterSequence;
         final long deadline;
 
         PendingGatewayTransaction(
-            QcNativeStateDecoder.PlannedGatewayWrite plan, long afterObservedAt,
+            QcNativeStateDecoder.PlannedGatewayWrite plan, long afterSequence,
             long deadline
         ) {
             this.plan = plan;
-            this.afterObservedAt = afterObservedAt;
+            this.afterSequence = afterSequence;
             this.deadline = deadline;
         }
     }
@@ -1125,7 +1296,7 @@ public class QcUsbPlugin extends Plugin {
         }
     }
 
-    private void resolvePendingGatewayTransactions(long observedAt, long now) {
+    private void resolvePendingGatewayTransactions(long observationSequence, long now) {
         for (QcPendingOperations.Entry<PendingGatewayTransaction> entry : pendingOperations.entries(PendingGatewayTransaction.class)) {
             PendingGatewayTransaction pending = entry.operation;
             if (entry.result.isDone()) {
@@ -1133,14 +1304,15 @@ public class QcUsbPlugin extends Plugin {
                 continue;
             }
             int state = stateDecoder.gatewayTransactionState(
-                pending.plan, pending.afterObservedAt, pending.deadline, observedAt, now);
+                pending.plan, pending.afterSequence, pending.deadline, observationSequence, now);
             if (state == 0) continue;
             if (!pendingOperations.remove(entry)) continue;
             if (state == 1) {
                 try {
                     entry.result.complete(new org.json.JSONObject()
                         .put("accepted", true).put("verified", true)
-                        .put("observedAt", observedAt).put("detail", pending.plan.detail));
+                        .put("verification", "authoritative_readback")
+                        .put("stateSequence", observationSequence).put("detail", pending.plan.detail));
                 } catch (Exception error) {
                     entry.result.completeExceptionally(error);
                 }
@@ -1188,7 +1360,7 @@ public class QcUsbPlugin extends Plugin {
     private void dispatchGatewayResponse(int messageType, byte[] payload) {
         if (messageType == QcUsbProfile.MESSAGE_TYPE_BACKUP) {
             QcPendingOperations.Entry<PendingBackup> pending = pendingBackup;
-            if (pending != null) {
+            if (pending != null && !pending.operation.recoveryStarted) {
                 try {
                     JSObject update = stateDecoder.consumeBackupChunk(payload, pending.operation.name);
                     int chunks = update.getInteger("chunks", pending.operation.chunks);
@@ -1198,14 +1370,20 @@ public class QcUsbPlugin extends Plugin {
                     pending.operation.ignoredPrefixChunks = ignored;
                     pending.operation.started = update.getBoolean("started", pending.operation.started);
                     if (update.getBoolean("complete", false) && pendingBackup == pending) {
-                        pendingBackup = null;
-                        if (pendingOperations.remove(pending)) {
-                            org.json.JSONObject document = (org.json.JSONObject) update.get("backup");
-                            metadataIo.execute(() -> {
-                                try { pending.result.complete(saveBackupDocument(document, pending.operation.name)); }
-                                catch (Exception error) { pending.result.completeExceptionally(error); }
-                            });
-                        }
+                        pending.operation.recoveryStarted = true;
+                        pending.operation.recoveryAfterState = lastStateAt;
+                        org.json.JSONObject document = (org.json.JSONObject) update.get("backup");
+                        metadataIo.execute(() -> {
+                            try {
+                                pending.operation.savedResult = saveBackupDocument(document, pending.operation.name);
+                                commandIo.execute(() -> {
+                                    try { writeMessage(stateDecoder.readCommand(17)); }
+                                    catch (Exception error) { failPendingBackupRecovery(pending, error); }
+                                });
+                            } catch (Exception error) {
+                                failPendingBackupRecovery(pending, error);
+                            }
+                        });
                     }
                 } catch (Exception error) {
                     if (pendingBackup == pending) pendingBackup = null;
@@ -1232,10 +1410,14 @@ public class QcUsbPlugin extends Plugin {
         if (decodedStates.isEmpty() && tempoClock == null) return;
         long observedAt = System.currentTimeMillis();
         lastStateAt = observedAt;
+        long sequence;
+        synchronized (stateEventLock) { sequence = nextStateSequence++; }
         JSArray states = new JSArray();
+        boolean masterObserved = false;
         for (JSObject state : decodedStates) {
             String kind = state.getString("kind", "");
             if ("master".equals(kind) && state.has("masterVolume")) {
+                masterObserved = true;
                 double volume = state.optDouble("masterVolume", -1);
                 currentMasterVolume = volume < 0 ? -1 : (int) Math.round(volume <= 1 ? volume * 100 : volume);
             }
@@ -1251,13 +1433,13 @@ public class QcUsbPlugin extends Plugin {
             states.put(state);
         }
         stateDecoder.sessionStateObserved(observedAt, presetSynchronized);
+        if (masterObserved) completePendingBackupRecovery(observedAt);
         resolvePendingReady();
-        resolvePendingGatewayTransactions(observedAt, observedAt);
+        resolvePendingGatewayTransactions(sequence, monotonicMillis());
         JSObject frame = new JSObject();
         frame.put("observedAt", observedAt);
         frame.put("states", states);
         synchronized (stateEventLock) {
-            long sequence = nextStateSequence++;
             frame.put("sequence", sequence);
             if (tempoClock != null) {
                 frame.put("tempoClock", tempoClock);
@@ -1273,6 +1455,23 @@ public class QcUsbPlugin extends Plugin {
             while (stateEventLog.size() > QcDomain.STATE_EVENT_MAXIMUM_LIMIT) stateEventLog.removeFirst();
         }
         notifyListeners("qcStateBatch", frame, true);
+    }
+
+    private void completePendingBackupRecovery(long observedAt) {
+        QcPendingOperations.Entry<PendingBackup> pending = pendingBackup;
+        if (pending == null || !pending.operation.recoveryStarted
+            || pending.operation.savedResult == null
+            || observedAt <= pending.operation.recoveryAfterState
+            || !isReady() || !presetSynchronized || currentSetlist == null) return;
+        pendingBackup = null;
+        if (pendingOperations.remove(pending)) pending.result.complete(pending.operation.savedResult);
+    }
+
+    private void failPendingBackupRecovery(
+        QcPendingOperations.Entry<PendingBackup> pending, Exception error
+    ) {
+        if (pendingBackup == pending) pendingBackup = null;
+        if (pendingOperations.remove(pending)) pending.result.completeExceptionally(error);
     }
 
     private void scheduleModelCatalogDecode(byte[] payload, long generation) {
@@ -1307,6 +1506,12 @@ public class QcUsbPlugin extends Plugin {
         handshakeComplete = false;
         presetSynchronized = false;
         connectionGeneration.incrementAndGet();
+        UsbRequest inputRequest = activeInputRequest;
+        if (inputRequest != null) {
+            activeInputRequest = null;
+            inputRequest.cancel();
+            inputRequest.close();
+        }
         if (connection != null) {
             if (midiInterface != null) connection.releaseInterface(midiInterface);
             if (hidInterface != null) connection.releaseInterface(hidInterface);

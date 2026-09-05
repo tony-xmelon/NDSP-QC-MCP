@@ -21,6 +21,17 @@ pub struct ActionPolicy {
     pub rpc: &'static str,
     pub class: ActionClass,
     pub required_argument_confirmations: &'static [&'static str],
+    /// Complete public action argument surface, used to reject smuggled fields.
+    pub allowed_arguments: &'static [&'static str],
+    /// Arguments required by the public action contract (including confirmations).
+    pub required_arguments: &'static [&'static str],
+    /// Public snake_case argument to canonical native-gateway argument mappings.
+    /// Confirmation-only MCP fields are deliberately absent and are consumed by
+    /// the relay confirmation gate rather than forwarded to a native host.
+    pub gateway_arguments: &'static [(&'static str, &'static str)],
+    /// Native-only confirmation flags derived after the public confirmation
+    /// gates have succeeded (for example `confirmRename`).
+    pub gateway_true_arguments: &'static [&'static str],
 }
 
 impl ActionPolicy {

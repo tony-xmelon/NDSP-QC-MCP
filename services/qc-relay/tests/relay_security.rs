@@ -316,6 +316,98 @@ async fn risky_and_persistent_actions_require_layered_confirmation() {
 }
 
 #[tokio::test]
+async fn public_actions_reject_smuggled_fields_and_translate_only_gateway_arguments() {
+    let credentials = DeviceCredentialStore::new();
+    let pairing = PairingManager::new(credentials.clone());
+    let (alice, credential) = paired("alice", "phone-a", &credentials, &pairing).await;
+    let hub = RelayHub::with_timeout(credentials, Duration::from_secs(1));
+    let mut connection = hub.connect(credential).await;
+    connection.set_ready(true);
+    let proof = Some(ConfirmationProof {
+        approved: true,
+        source: "explicit user approval".into(),
+    });
+
+    let invalid = hub
+        .invoke(
+            &alice,
+            InvokeRequest {
+                device_id: DeviceId("phone-a".into()),
+                action: "set_device_name".into(),
+                arguments: json!({
+                    "name": "Stage QC",
+                    "confirm_persistent_write": true,
+                    "device.raw.request": "smuggled"
+                }),
+                confirmation: proof.clone(),
+            },
+        )
+        .await;
+    assert_eq!(invalid.unwrap_err(), RelayError::InvalidArguments);
+
+    let caller = {
+        let hub = hub.clone();
+        tokio::spawn(async move {
+            hub.invoke(
+                &alice,
+                InvokeRequest {
+                    device_id: DeviceId("phone-a".into()),
+                    action: "set_device_name".into(),
+                    arguments: json!({
+                        "name": "Stage QC",
+                        "confirm_persistent_write": true
+                    }),
+                    confirmation: proof,
+                },
+            )
+            .await
+        })
+    };
+    let DeviceFrame::Invoke { id, method, params, .. } = connection.outbound.recv().await.unwrap() else {
+        panic!("invoke expected");
+    };
+    assert_eq!(method, "device.setDeviceName");
+    assert_eq!(params, json!({"name": "Stage QC"}));
+    connection
+        .accept(DeviceFrame::Result {
+            id,
+            ok: true,
+            result: Some(json!({"accepted": true})),
+            error: None,
+        })
+        .await;
+    assert!(caller.await.unwrap().is_ok());
+}
+
+#[test]
+fn generated_action_policy_has_one_closed_argument_surface() {
+    let mut names = std::collections::HashSet::new();
+    let mut rpcs = std::collections::HashSet::new();
+    assert_eq!(qc_relay::protocol::ACTIONS.len(), 103); // 102 QC actions plus system status.
+    for policy in qc_relay::protocol::ACTIONS {
+        assert!(names.insert(policy.name), "duplicate action {}", policy.name);
+        assert!(rpcs.insert(policy.rpc), "duplicate RPC {}", policy.rpc);
+        for required in policy.required_arguments {
+            assert!(policy.allowed_arguments.contains(required));
+        }
+        for confirmation in policy.required_argument_confirmations {
+            assert!(policy.required_arguments.contains(confirmation));
+        }
+        for (source, target) in policy.gateway_arguments {
+            assert!(policy.allowed_arguments.contains(source));
+            assert!(!target.starts_with("confirmPersistent") && !target.starts_with("confirmRisky"));
+        }
+        assert!(policy.gateway_true_arguments.iter().all(|name| name.starts_with("confirm")));
+    }
+    assert!(!rpcs.contains("device.raw.request"));
+    assert!(!rpcs.contains("device.command.operation"));
+    let rename = qc_relay::ActionPolicy::find("rename_current_preset").unwrap();
+    assert_eq!(rename.gateway_true_arguments, &["confirmRename"]);
+    let save = qc_relay::ActionPolicy::find("save_preset_as").unwrap();
+    assert!(save.gateway_arguments.contains(&("confirm_overwrite", "confirmOverwrite")));
+}
+
+#[tokio::test]
 async fn principal_routing_refuses_ambiguous_active_devices() {
     let credentials = DeviceCredentialStore::new();
     let pairing = PairingManager::new(credentials.clone());
