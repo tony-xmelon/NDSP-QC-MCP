@@ -136,6 +136,13 @@ Run `android:prepare:firebase` first, test that staged APK, and collect both
 hardware reports. The publish command verifies and uploads those same bytes; it
 does not rebuild the APK after physical validation.
 
+Every staged APK is rejected unless its signing certificate matches the
+Firebase-registered SHA-256 in the shared branding contract. Local development
+uses the machine's standard debug keystore. CI restores the same stable identity
+from `QC_ANDROID_KEYSTORE_BASE64`, `QC_ANDROID_STORE_PASSWORD`,
+`QC_ANDROID_KEY_ALIAS`, and `QC_ANDROID_KEY_PASSWORD` repository secrets; it
+never publishes an APK signed by an ephemeral runner key.
+
 `apps/android/package.json` is the Android version source. Increment it with
 `npm run version:android:patch` (or `:minor` / `:major`), or set an explicit
 version with `npm run version:android:set -- 1.2.3`. The shared version tool

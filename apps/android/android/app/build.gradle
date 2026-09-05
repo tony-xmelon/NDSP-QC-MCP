@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+def qcSigningValues = [
+    store: System.getenv('QC_ANDROID_KEYSTORE'),
+    storePassword: System.getenv('QC_ANDROID_STORE_PASSWORD'),
+    keyAlias: System.getenv('QC_ANDROID_KEY_ALIAS'),
+    keyPassword: System.getenv('QC_ANDROID_KEY_PASSWORD')
+]
+def qcSigningConfigured = qcSigningValues.values().every { value -> value != null && !value.trim().isEmpty() }
+if (qcSigningValues.values().any { value -> value != null && !value.trim().isEmpty() } && !qcSigningConfigured) {
+    throw new GradleException('QC Android signing requires QC_ANDROID_KEYSTORE, QC_ANDROID_STORE_PASSWORD, QC_ANDROID_KEY_ALIAS, and QC_ANDROID_KEY_PASSWORD together.')
+}
+
 android {
     namespace = "com.qccontrol.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -19,7 +30,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        qcDistribution {
+            if (qcSigningConfigured) {
+                storeFile file(qcSigningValues.store)
+                storePassword qcSigningValues.storePassword
+                keyAlias qcSigningValues.keyAlias
+                keyPassword qcSigningValues.keyPassword
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (qcSigningConfigured) signingConfig signingConfigs.qcDistribution
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -6,6 +6,7 @@
   "surfaceCaption": "CONTROL SURFACE",
   "companionCaption": "QUAD CORTEX COMPANION",
   "androidPackage": "com.qccontrol.mobile",
+  "androidSigningSha256": "3fc9b99645962e4b5348a6d4ade05ae9671f0b7dcae6c3b5db42cd8bc8fe7a08",
   "windowsIdentifier": "com.tonyxmelon.qcvoicecontrol",
   "windowsShortDescription": "Safe desktop control for Neural DSP Quad Cortex",
   "windowsLongDescription": "Unofficial Windows controller for a connected Neural DSP Quad Cortex with guarded live controls, workspaces, typed commands, and explicit device-save confirmation."

@@ -2,6 +2,11 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $androidRoot = Join-Path $repoRoot "apps\android"
+$brandContract = Get-Content -LiteralPath (Join-Path $repoRoot "packages\typescript\qc-theme\src\brand.json") -Raw | ConvertFrom-Json
+$expectedSigningSha256 = ([string]$brandContract.androidSigningSha256).Replace(":", "").ToLowerInvariant()
+if ($expectedSigningSha256 -notmatch '^[a-f0-9]{64}$') {
+    throw "The shared branding contract must define the registered Android signing SHA-256 fingerprint."
+}
 
 function Test-JavaHome([string]$candidate) {
     if (-not $candidate) { return $false }
@@ -32,6 +37,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the Android app version." }
     npm run android:sync
     if ($LASTEXITCODE -ne 0) { throw "Capacitor sync failed with exit code $LASTEXITCODE." }
+    $signingReport = @(& ".\android\gradlew.bat" -p ".\android" signingReport)
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect the Android signing identity." }
+    $signingFingerprintLine = $signingReport | Where-Object { $_ -match '^SHA-256:\s*([0-9A-Fa-f:]{64,})\s*$' } | Select-Object -First 1
+    if (-not $signingFingerprintLine) { throw "Gradle did not report a debug APK signing SHA-256 fingerprint." }
+    $actualSigningSha256 = ([regex]::Match($signingFingerprintLine, '^SHA-256:\s*([0-9A-Fa-f:]+)\s*$').Groups[1].Value).Replace(":", "").ToLowerInvariant()
+    if ($actualSigningSha256 -ne $expectedSigningSha256) {
+        throw "Android candidate signing SHA-256 $actualSigningSha256 does not match the Firebase-registered identity $expectedSigningSha256."
+    }
     & ".\android\gradlew.bat" -p ".\android" assembleDebug lintDebug
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed with exit code $LASTEXITCODE." }
 }

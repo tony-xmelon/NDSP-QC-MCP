@@ -9,10 +9,18 @@ const script = (name: string) => readFileSync(new URL(`../scripts/${name}`, impo
 test("Android preparation emits provenance and Firebase publishes the verified staged APK", () => {
   const build = script("build-android-debug.ps1");
   const publish = script("publish-android-firebase.ps1");
+  const gradle = readFileSync(new URL("../apps/android/android/app/build.gradle", import.meta.url), "utf8");
+  const brand = JSON.parse(readFileSync(new URL("../packages/typescript/qc-theme/src/brand.json", import.meta.url), "utf8"));
   assert.match(build, /release-candidates\.mjs"\) finalize android \$builtApkPath/);
   assert.match(build, /lib\/arm64-v8a\/libqc_android\.so/);
   assert.match(build, /lib\/x86_64\/libqc_android\.so/);
   assert.match(build, /assembleDebug lintDebug/);
+  assert.match(build, /androidSigningSha256/);
+  assert.match(build, /signingReport/);
+  assert.match(build, /actualSigningSha256 -ne \$expectedSigningSha256/);
+  assert.match(brand.androidSigningSha256, /^[a-f0-9]{64}$/);
+  assert.match(gradle, /System\.getenv\('QC_ANDROID_KEYSTORE'\)/);
+  assert.match(gradle, /signingConfig signingConfigs\.qcDistribution/);
   assert.ok(build.indexOf("lib/arm64-v8a/libqc_android.so") < build.indexOf("release-candidates.mjs"));
   assert.match(publish, /if \(\$PrepareOnly\)[\s\S]*npm run android:build:debug/);
   assert.match(publish, /release-candidates\.mjs"\) verify/);
@@ -148,6 +156,11 @@ test("CI packages the Android app with pinned native prerequisites and provenanc
   assert.match(workflow, /java-version: 21/);
   assert.match(workflow, /ndk;27\.2\.12479018/);
   assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
+  assert.match(workflow, /secrets\.QC_ANDROID_KEYSTORE_BASE64/);
+  assert.match(workflow, /secrets\.QC_ANDROID_STORE_PASSWORD/);
+  assert.match(workflow, /secrets\.QC_ANDROID_KEY_ALIAS/);
+  assert.match(workflow, /secrets\.QC_ANDROID_KEY_PASSWORD/);
+  assert.match(workflow, /QC_ANDROID_KEYSTORE=\$keystore/);
   assert.match(workflow, /npm run android:build:debug/);
   assert.match(workflow, /artifacts\/android\/QC-Control-Android-\*\.apk/);
   assert.match(workflow, /QC-Control-Android-\*\.apk\.source\.json/);
