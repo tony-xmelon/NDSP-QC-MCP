@@ -9,6 +9,7 @@ const { chromium } = await import(playwrightModule);
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:5173/";
 const outputDirectory = process.argv[3] ?? ".artifacts/ui-android";
 const requestedIds = new Set((process.env.QC_CAPTURE_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean));
+const shouldCapture = (id) => !requestedIds.size || requestedIds.has(id);
 let captureCount = 0;
 await mkdir(outputDirectory, { recursive: true });
 
@@ -33,7 +34,7 @@ async function load(extra = {}) {
 }
 
 async function capture(id) {
-  if (requestedIds.size && !requestedIds.has(id)) return;
+  if (!shouldCapture(id)) return;
   const screen = page.locator(".qc-screen-bezel");
   const box = await screen.boundingBox();
   if (!box || Math.round(box.width) !== 800 || Math.round(box.height) !== 480) {
@@ -47,6 +48,7 @@ async function capture(id) {
 }
 
 async function gridState(id, action) {
+  if (!shouldCapture(id)) return;
   await load();
   if (action) await action();
   await capture(id);
@@ -60,6 +62,7 @@ await gridState("grid-scene-b", async () => {
   await page.getByRole("menuitem").nth(1).click();
 });
 for (const [id, screen] of [["copy-scene-destination", "fixture-copy-scene"], ["swap-scene-destination", "fixture-swap-scene"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen });
   await capture(id);
 }
@@ -73,6 +76,7 @@ await gridState("output-route-selector", async () => {
   await page.locator(".coros-route-options, .route-picker-list").evaluate((element) => { element.scrollTop = element.scrollHeight; });
 });
 for (const [id, screen] of [["device-browser-root", "corpus-device-browser-root"], ["device-browser-models", "corpus-device-browser-models"], ["device-browser-models-clean", "corpus-device-browser-models-clean"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen });
   await capture(id);
 }
@@ -87,6 +91,7 @@ const editors = [
   ["editor-ambience", "Ambience"]
 ];
 for (const [id, name] of editors) {
+  if (!shouldCapture(id)) continue;
   await load();
   await page.getByLabel(`Row 1, ${name}`).click();
   await page.locator(".coros-parameter-editor").waitFor({ state: "visible" });
@@ -94,10 +99,12 @@ for (const [id, name] of editors) {
 }
 
 for (const [id, mode] of [["gig-view", "STOMP"], ["gig-view-preset", "PRESET"], ["gig-view-scene", "SCENE"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen: "gig", mode });
   await capture(id);
 }
 for (const [id, view] of [["device-browser-plugin-list", "plugin-list"], ["device-browser-plugin-models", "plugin-models"], ["device-browser-plugin-locked", "plugin-locked"], ["device-presets-exotic-z-boost", "device-presets"], ["device-presets-user", "device-presets-user"], ["device-preset-actions", "device-preset-actions"], ["splitter-editor", "splitter-editor"], ["mixer-editor", "mixer-editor"], ["tempo-metronome", "tempo"], ["tuner", "tuner"], ["tuner-live-enabled", "tuner-live-enabled"], ["gig-view-live-tuner", "gig-live-tuner"], ["preset-midi-out", "midi-out"], ["modes-configuration", "modes"], ["save-as-editor", "save-as"], ["edit-details-editor", "edit-details"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen: view, ...(view === "tempo" ? { tempo: "56" } : {}) });
   await capture(id);
 }

@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **89.29%** | **97.04%** |
-| Android | 40/40 (100%) | **89.28%** | **97.04%** |
+| Windows | 40/40 (100%) | **90.17%** | **97.15%** |
+| Android | 40/40 (100%) | **90.16%** | **97.15%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -132,9 +132,9 @@ still need pixel-level reconstruction work.
 | `output-route-selector` | **90.74%** | **90.76%** |
 | `splitter-editor` | 87.61% | 87.65% |
 | `mixer-editor` | 89.85% | 89.89% |
-| `device-browser-root` | 85.50% | 85.52% |
-| `device-browser-models` | 87.64% | 87.63% |
-| `device-browser-models-clean` | 83.49% | 83.49% |
+| `device-browser-root` | **89.66%** | **89.67%** |
+| `device-browser-models` | **90.41%** | **90.40%** |
+| `device-browser-models-clean` | **90.77%** | **90.77%** |
 | `device-browser-plugin-list` | 86.22% | 86.22% |
 | `device-browser-plugin-models` | 90.50% | 90.50% |
 | `device-browser-plugin-locked` | 88.42% | 88.42% |
@@ -148,14 +148,14 @@ still need pixel-level reconstruction work.
 | `editor-ukc30-cab` | **85.59%** | **85.59%** |
 | `editor-parametric-8` | **88.33%** | **88.33%** |
 | `editor-ambience` | **86.06%** | **86.05%** |
-| `gig-view` (STOMP) | 83.30% | 83.30% |
+| `gig-view` (STOMP) | **94.41%** | **94.41%** |
 | `grid-restored` | 90.26% | 90.26% |
 | `grid-scene-b` | 90.34% | 90.34% |
 | `grid-scene-a-restored` | 90.26% | 90.26% |
 | `tempo-metronome` | **90.46%** | **90.46%** |
 | `tuner` | **90.68%** | **90.68%** |
 | `tuner-live-enabled` | **90.85%** | **90.86%** |
-| `gig-view-live-tuner` | 84.88% | 84.88% |
+| `gig-view-live-tuner` | **94.50%** | **94.50%** |
 | `preset-midi-out` | 88.29% | 88.29% |
 | `gig-view-preset` | 93.94% | 93.94% |
 | `gig-view-scene` | 88.75% | 88.76% |
@@ -165,6 +165,18 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Restored the physical device browser's independently sized bank code, red
+  slot letter, and 40px preset title instead of stretching one 64px text run
+  across the dimmed Grid. Aligned its category rail and model typography and
+  replaced the placeholder favorite diamond with a vector pushpin. The root,
+  tipped-model, and clean-model frames rise to **89.66%**, **90.41%**, and
+  **90.77%** on Windows (within 0.01 point on Android).
+- Reconstructed physical STOMP Gig View typography, header geometry, device
+  glyph scale, vector edit affordances, and per-tile label placement. The base
+  frame rises from **83.30% to 94.41%** structural match and its Live Tuner
+  variant from **84.88% to 94.50%**, identically on Windows and Android. Scoped
+  capture filters now skip unrelated navigation, reducing two-screen probes
+  from roughly a minute to a few seconds.
 - Replaced the desktop-style white selection ring with the QC's thick
   category-colored block border, pinned standard editor header actions to their
   measured framebuffer positions, and matched the 24px scene badge plus filled

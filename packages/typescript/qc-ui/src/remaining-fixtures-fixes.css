@@ -143,6 +143,19 @@
 .gig-device-icon{top:8%}.coros-gig-view.has-live-tuner .gig-tiles strong{transform:translateY(1cqw)}
 .coros-gig-view .gig-mode svg{width:3cqw;height:3cqw}
 .coros-gig-view .gig-tiles{column-gap:1%;row-gap:1cqw}
+.coros-gig-view:has(.gig-tiles.is-stomp),.coros-gig-view:has(.gig-tiles.is-stomp) *{font-family:Roboto,Arial,sans-serif}
+.coros-gig-view:has(.gig-tiles.is-stomp) header{gap:1.25cqw;padding-right:1cqw}
+.coros-gig-view:has(.gig-tiles.is-stomp) header>strong{translate:0 1px}
+.coros-gig-view:has(.gig-tiles.is-stomp) .gig-mode{flex-basis:8.25cqw}
+.coros-gig-view:has(.gig-tiles.is-stomp) .gig-scene{flex-basis:5cqw}
+.coros-gig-view:has(.gig-tiles.is-stomp) header button{flex-basis:12.25cqw}
+.coros-gig-view .gig-tiles.is-stomp .gig-device-icon{left:8.5%;width:36.85%}
+.coros-gig-view .gig-tiles.is-stomp .gig-edit{right:31.5%;top:8%;width:2.75cqw;height:2.75cqw;border:0;font-size:0;line-height:normal}
+.coros-gig-view .gig-tiles.is-stomp .gig-edit svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.coros-gig-view .gig-tiles.is-stomp>button>b{right:9.5%}
+.coros-gig-view .gig-tiles.is-stomp>button>strong{left:8.5%;bottom:8%}
+.coros-gig-view .gig-tiles.is-stomp>button>strong:not(.is-compact){translate:0 1px}
+.coros-gig-view .gig-tiles.is-stomp>button:nth-child(5)>strong{translate:0 6px}
 .coros-gig-view:has(.gig-tiles.is-scene),.coros-gig-view:has(.gig-tiles.is-scene) *{font-family:Roboto,Arial,sans-serif}
 .coros-gig-view:has(.gig-tiles.is-scene) header>strong{font-size:4.075cqw}
 .coros-gig-view .gig-tiles.is-scene .gig-scene-tile>b{left:16%;right:auto;top:12%;color:var(--gig-letter);font-size:22cqw;line-height:1}
@@ -188,7 +201,7 @@
 .splitter-panel>header>em svg rect,.splitter-panel>header>em svg path{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .splitter-panel>header>span{width:27.125cqw}.splitter-panel>header>svg{width:29.125cqw}.splitter-panel>header>b{width:16.5cqw}.splitter-panel>header>em svg{width:8.25cqw}.splitter-panel>header>button:last-child{margin-left:1.5cqw}.splitter-controls{border-radius:.75cqw;overflow:hidden}.splitter-controls label,.splitter-controls .splitter-empty{border-radius:0;color:#737d73}
 .coros-splitter-physical,.coros-splitter-physical *{font-family:Arial,sans-serif}.splitter-panel>header>svg{transform:translateX(-2cqw)}.splitter-panel>header>em svg{height:5.375cqw;background:#181c18;border-radius:.75cqw}.splitter-panel>header>button:last-child{width:7.5cqw;flex:0 0 7.5cqw;margin-left:1.5cqw;margin-right:1.25cqw;background:#292c29;color:#fff}
-.coros-device-browser:has(.coros-device-models)>nav{padding-top:3.25%;padding-bottom:.75%}.coros-device-browser:has(.coros-device-models) .device-model-pin{font-size:2cqw;transform:rotate(-18deg) scaleX(1.15)}
+.coros-device-browser,.coros-device-browser *{font-family:Roboto,Arial,sans-serif}.coros-device-browser:has(.coros-device-models)>nav{padding-top:calc(3.25% + 5px);padding-bottom:0}.coros-device-browser:has(.coros-device-models) .device-model-pin{width:2.25cqw;height:2.25cqw;margin-right:.75cqw;transform:none}.coros-device-browser:has(.coros-device-models) .device-model-pin svg{display:block;width:100%;height:100%;fill:currentColor}
 .coros-parameter-editor.editor-digital-flanger.is-bypassed .coros-parameter-controls{filter:brightness(.35);background:#2e392e}.coros-parameter-editor.editor-digital-flanger .coros-parameter-controls label{border-right-color:#2e2e2e}.coros-parameter-editor.editor-digital-flanger .coros-parameter-controls.is-two-row label:nth-child(-n+5){border-bottom-color:#2e2e2e}.coros-parameter-editor.editor-digital-flanger .coros-dial{border-color:#172e17;background:#2e452e}.coros-parameter-editor.editor-digital-flanger .coros-toggle>i{background:#172e17}
 .coros-directory,.coros-directory-header{background:#101010}.coros-directory .directory-category,.coros-directory .directory-folders,.coros-directory .directory-presets,.coros-directory .directory-presets>button,.coros-directory .directory-banks button{background:#292c29}.coros-directory .directory-cloud,.coros-directory .directory-tools button{background:#181c18}.coros-directory .directory-tools .directory-close{background:#292c29}.coros-directory .directory-folders button.is-active,.coros-directory .directory-presets>button.is-current{background:#181c18}.coros-directory .directory-banks button.is-active{background:#101810}
 .coros-directory .directory-folders button{gap:7%}.coros-directory .directory-category{gap:5.75%}.coros-directory .directory-folders button.is-active{background:#202521}.coros-directory .directory-presets>button.is-current{background:#252a26}

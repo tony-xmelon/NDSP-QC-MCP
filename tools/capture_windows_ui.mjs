@@ -9,6 +9,7 @@ const { chromium } = await import(playwrightModule);
 const baseUrl = process.argv[2] ?? "http://127.0.0.1:1420/";
 const outputDirectory = process.argv[3] ?? ".artifacts/ui-windows-corpus";
 const requestedIds = new Set((process.env.QC_CAPTURE_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean));
+const shouldCapture = (id) => !requestedIds.size || requestedIds.has(id);
 let captureCount = 0;
 await mkdir(outputDirectory, { recursive: true });
 
@@ -35,7 +36,7 @@ async function load(extra = {}) {
 }
 
 async function capture(id) {
-  if (requestedIds.size && !requestedIds.has(id)) return;
+  if (!shouldCapture(id)) return;
   const screen = page.locator(".qc-screen-bezel");
   const box = await screen.boundingBox();
   if (!box || Math.round(box.width) !== 800 || Math.round(box.height) !== 480) throw new Error(`${id}: expected 800x480, got ${box?.width}x${box?.height}`);
@@ -47,6 +48,7 @@ async function capture(id) {
 }
 
 async function gridState(id, action) {
+  if (!shouldCapture(id)) return;
   await load();
   if (action) await action();
   await capture(id);
@@ -57,6 +59,7 @@ await gridState("grid-scene-selector", async () => page.getByLabel("Select scene
 await gridState("grid-context-menu", async () => page.getByLabel("Open Grid menu").click());
 await gridState("grid-scene-b", async () => { await page.getByLabel("Select scene").click(); await page.getByRole("menuitem").nth(1).click(); });
 for (const [id, screen] of [["copy-scene-destination", "fixture-copy-scene"], ["swap-scene-destination", "fixture-swap-scene"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen, ...(screen === "tempo" ? { tempo: "56" } : {}) });
   await capture(id);
 }
@@ -64,20 +67,24 @@ await gridState("preset-directory", async () => page.getByLabel(/Open preset Dir
 await gridState("input-route-selector", async () => { await page.getByLabel("Edit row 1 input").click(); await page.locator(".coros-route-options, .route-picker-list").evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight - 20; }); });
 await gridState("output-route-selector", async () => { await page.getByLabel("Edit row 1 output").click(); await page.locator(".coros-route-options, .route-picker-list").evaluate((element) => { element.scrollTop = element.scrollHeight; }); });
 for (const [id, screen] of [["device-browser-root", "corpus-device-browser-root"], ["device-browser-models", "corpus-device-browser-models"], ["device-browser-models-clean", "corpus-device-browser-models-clean"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen });
   await capture(id);
 }
 for (const [id, name] of [["editor-simple-gate", "Simple Gate"], ["editor-chief-ds1", "Chief DS1"], ["editor-digital-flanger", "Digital Flanger"], ["editor-ukc30-topboost", "UK C30 TopBoost"], ["editor-ukc30-cab", "212 UK C30 65 (M)"], ["editor-parametric-8", "Parametric-8"], ["editor-ambience", "Ambience"]]) {
+  if (!shouldCapture(id)) continue;
   await load();
   await page.getByLabel(`Row 1, ${name}`).click();
   await page.locator(".coros-parameter-editor").waitFor({ state: "visible" });
   await capture(id);
 }
 for (const [id, mode] of [["gig-view", "STOMP"], ["gig-view-preset", "PRESET"], ["gig-view-scene", "SCENE"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen: "gig", mode });
   await capture(id);
 }
 for (const [id, screen] of [["device-browser-plugin-list", "plugin-list"], ["device-browser-plugin-models", "plugin-models"], ["device-browser-plugin-locked", "plugin-locked"], ["device-presets-exotic-z-boost", "device-presets"], ["device-presets-user", "device-presets-user"], ["device-preset-actions", "device-preset-actions"], ["splitter-editor", "splitter-editor"], ["mixer-editor", "mixer-editor"], ["tempo-metronome", "tempo"], ["tuner", "tuner"], ["tuner-live-enabled", "tuner-live-enabled"], ["gig-view-live-tuner", "gig-live-tuner"], ["preset-midi-out", "midi-out"], ["modes-configuration", "modes"], ["save-as-editor", "save-as"], ["edit-details-editor", "edit-details"]]) {
+  if (!shouldCapture(id)) continue;
   await load({ screen, ...(screen === "tempo" ? { tempo: "56" } : {}) });
   await capture(id);
 }

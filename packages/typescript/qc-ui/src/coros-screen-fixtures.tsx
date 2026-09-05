@@ -290,7 +290,7 @@ function CorOsGigView({ snapshot, onClose, liveTuner = false }: { snapshot: Pres
     const color = !block ? "#292c29" : block.bypassed ? "#101c21" : block.name === "Simple Gate" ? "#949694" : block.name === "Chief DS1" ? "#ff7100" : block.name === "UK C30 TopBoost" ? "#ff2421" : block.name === "212 UK C30 65 (M)" ? "#6b55ff" : block.name === "Parametric-8" ? "#0875e7" : block.name === "Ambience" ? "#00ffde" : officialBlockVisual(block).color;
     return <button key={index} className={!block ? "is-empty" : ""} style={{ "--gig-color": color } as CSSProperties} aria-label={`Footswitch ${String.fromCharCode(65 + index)}${block ? `, ${block.name}` : ", empty"}`}>
       {block && <span className="gig-device-icon"><DeviceGlyph block={block} x={43} y={43} size={70} /></span>}
-      {block && <span className="gig-edit">↗</span>}<b>{String.fromCharCode(65 + index)}</b>{block && <strong className={block.name === "Parametric-8" ? "is-compact" : ""}>{block.name}</strong>}
+      {block && <span className="gig-edit" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9v11h11M8 16 19 5l-3-3L5 13l-1 5 5-1Z" /></svg></span>}<b>{String.fromCharCode(65 + index)}</b>{block && <strong className={block.name === "Parametric-8" ? "is-compact" : ""}>{block.name}</strong>}
     </button>;
   });
   const tiles = snapshot.mode === "PRESET" ? presetTiles : snapshot.mode === "SCENE" ? sceneTiles : snapshot.mode === "HYBRID" ? [...sceneTiles.slice(0, 4), ...stompTiles.slice(4)] : stompTiles;
@@ -730,7 +730,8 @@ function CorOsOfficialGrid({ snapshot, children }: { snapshot: PresetSnapshot; c
   return <div className="qc-screen coros-vector-screen" aria-label="CorOS Grid">
     <svg className="coros-vector-canvas" viewBox="0 0 800 480" preserveAspectRatio="none" role="img" aria-label={`${snapshot.presetLocation} ${snapshot.presetName}, ${snapshot.mode} mode`}>
       <rect width="800" height="480" fill="#020202" />
-      <g fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="64" letterSpacing="-2"><text x="14" y="76" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="57" y="76" fill="#29ef65">{snapshot.presetLocation.slice(-1)}</text><text x="120" y="76" fill="#f4f4f4">{snapshot.presetName}</text></g>
+      <g fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="64" letterSpacing="-2"><text x="14" y="76" fill="#f4f4f4">{snapshot.presetLocation.slice(0, -1)}</text><text x="98" y="76" fill="#ff424c">{snapshot.presetLocation.slice(-1)}</text></g>
+      <text x="163" y="67" fill="#f4f4f4" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="40">{snapshot.presetName}</text>
       <g fill="none" stroke="#f0f0f0" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M620 13A13 13 0 1 1 607 26" /><path d="M613 15L621 9V20Z" fill="#f0f0f0" stroke="none" /></g>
       <g transform="translate(-7 0)" fill="#f0f0f0"><path d="M726 23H715V17H721V20H723V17H726V23Z" /><path d="M733 17.9863V23.7568C732.398 23.2743 731.726 22.8769 731 22.583V18.8047L727.252 15H714.001C713.448 15 713 15.4477 713 16V32C713 32.5523 713.448 33 714.001 33H720.584C720.878 33.7258 721.274 34.3984 721.757 35H714.002C712.344 34.9999 711 33.6568 711 32V16C711 14.3432 712.344 13.0001 714.002 13H728.09L733 17.9863Z" /></g>
       <g className="grid-scene-badge"><rect x="656" y="12" width="25" height="25" rx="3" fill="#f2cf32" /><text x="668.5" y="33" textAnchor="middle" fill="#141414" fontFamily="Arial, Helvetica, sans-serif" fontWeight="800" fontSize="22">A</text></g>
@@ -752,7 +753,7 @@ function CorOsCorpusDeviceBrowser({ snapshot, view }: { snapshot: PresetSnapshot
     <button className="coros-device-dismiss" aria-label="Close device browser" />
     <section className="coros-device-browser" aria-label="Virtual Device browser">
       <nav>{CORPUS_DEVICE_CATEGORIES.map(([label, glyph, color]) => <button key={label} className={models && label === "Overdrive" ? "is-active" : ""} style={{ "--device-color": color } as CSSProperties}><i><DeviceCategoryGlyph label={label} fallback={glyph} /></i><span>{label}</span>{label === "Delay" && <b>New</b>}</button>)}</nav>
-      {models && <div className="coros-device-models"><header><button className="is-active">GUITAR</button><button>BASS</button></header>{CORPUS_OVERDRIVE_MODELS.map((model, index) => <button key={model}><span>{index === 0 ? <b className="device-model-pin">◆</b> : null}{model}</span><i><DevicePresetGlyph /></i></button>)}</div>}
+      {models && <div className="coros-device-models"><header><button className="is-active">GUITAR</button><button>BASS</button></header>{CORPUS_OVERDRIVE_MODELS.map((model, index) => <button key={model}><span>{index === 0 ? <b className="device-model-pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 2 8 8-4 1-4 4v4l-2 2-3-6-6-3 2-2h4l4-4Z" /></svg></b> : null}{model}</span><i><DevicePresetGlyph /></i></button>)}</div>}
     </section>
     {models && view !== "corpus-device-browser-models-clean" && <aside className="coros-device-preset-tip"><button aria-label="Dismiss Virtual Device Presets tip">×</button><strong>VIRTUAL DEVICE PRESETS</strong><span>Tap ▱ next to each virtual device to access its Factory and User Presets.</span></aside>}
   </CorOsOfficialGrid>;
