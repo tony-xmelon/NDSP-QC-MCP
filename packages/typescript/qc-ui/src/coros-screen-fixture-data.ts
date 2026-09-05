@@ -19,7 +19,7 @@ function officialBrit2203Snapshot(base: PresetSnapshot): PresetSnapshot {
     { id: "brit-row3-reverb", name: "Reverb", kind: "utility", category: "Reverb", row: 2, column: 5 },
     { id: "brit-looper", name: "Looper X", kind: "utility", category: "Looper", row: 2, column: 7 }
   ];
-  return { ...base, presetLocation: "1A", presetPosition: 0, presetName: "Brit 2203", mode: "PRESET", activeScene: 0, dirty: false, blocks, routes: [{ row: 0, input: "In 1", output: "Row 3" }, { row: 1, input: "", output: "" }, { row: 2, input: "Prev. Row", output: "Multi Out" }, { row: 3, input: "", output: "" }] };
+  return { ...base, presetLocation: "1A", presetPosition: 0, presetName: "Brit 2203", mode: "PRESET", activeScene: 0, dirty: false, blocks, routes: [{ row: 0, input: "In 1", output: "Row 3", splitMuted: false }, { row: 1, input: "", output: "", splitMuted: false }, { row: 2, input: "Prev. Row", output: "Multi Out", splitMuted: false }, { row: 3, input: "", output: "", splitMuted: false }] };
 }
 
 export function coros410FixtureSnapshot(base: PresetSnapshot, overrides: Partial<Pick<PresetSnapshot, "tempo" | "mode">> = {}): PresetSnapshot {
@@ -39,10 +39,10 @@ export function coros410FixtureSnapshot(base: PresetSnapshot, overrides: Partial
     masterVolume: 40,
     dirty: false,
     routes: [
-      { row: 0, inputId: 1, outputId: 0, input: "In 1", output: "Multi Out" },
-      { row: 1, inputId: 0, outputId: 0, input: "", output: "" },
-      { row: 2, inputId: 0, outputId: 0, input: "", output: "" },
-      { row: 3, inputId: 0, outputId: 0, input: "", output: "" }
+      { row: 0, inputId: 1, outputId: 0, input: "In 1", output: "Multi Out", splitMuted: false },
+      { row: 1, inputId: 0, outputId: 0, input: "", output: "", splitMuted: false },
+      { row: 2, inputId: 0, outputId: 0, input: "", output: "", splitMuted: false },
+      { row: 3, inputId: 0, outputId: 0, input: "", output: "", splitMuted: false }
     ],
     ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: false }],
     blocks: [

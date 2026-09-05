@@ -277,6 +277,10 @@ export interface GatewayTransport {
   redo(): Promise<DeviceActionResult>;
   inhibitedModules(): Promise<InhibitedModules>;
   tunerSettings(): Promise<TunerSettings>;
+  setTunerInput(inputPortId: number, confirmTunerActivation: boolean): Promise<DeviceActionResult>;
+  setTunerMute(muted: boolean, confirmTunerActivation: boolean): Promise<DeviceActionResult>;
+  restoreTunerAudio(confirmPreferenceReset: boolean): Promise<DeviceActionResult>;
+  setTunerReference(referenceOffsetHz: number, confirmTunerActivation: boolean): Promise<DeviceActionResult>;
   generalSettings(): Promise<GeneralSettings>;
   ioSettings(): Promise<IoSettings>;
   setInputPort(inputPortId: number, levelDb: number | null, impedance: number | null, inputType: number | null, groundLift: number | null): Promise<DeviceActionResult>;

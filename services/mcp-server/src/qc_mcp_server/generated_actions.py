@@ -96,6 +96,30 @@ SHARED_QC_ACTIONS = {
     "access": "read-only",
     "description": "Read the tuner input, mute preference, and reference pitch without changing or engaging the tuner."
   },
+  "set_tuner_input": {
+    "rpc": "device.setTunerInput",
+    "classification": "risky-write",
+    "access": "full",
+    "description": "Choose the tuner input. This invisibly engages the tuner and can silence the rig if its mute preference is enabled."
+  },
+  "set_tuner_mute": {
+    "rpc": "device.setTunerMute",
+    "classification": "risky-write",
+    "access": "full",
+    "description": "Change mute-while-tuning. This invisibly engages the tuner; enabling mute immediately silences all outputs."
+  },
+  "restore_tuner_audio": {
+    "rpc": "device.restoreTunerAudio",
+    "classification": "risky-write",
+    "access": "full",
+    "description": "Restore audio after a host tuner write by clearing the persistent mute-while-tuning preference."
+  },
+  "set_tuner_reference": {
+    "rpc": "device.setTunerReference",
+    "classification": "risky-write",
+    "access": "full",
+    "description": "Set tuner reference as an Hz offset from 440. This invisibly engages the tuner."
+  },
   "get_preset_screenshot": {
     "rpc": "device.presetScreenshot",
     "classification": "read",

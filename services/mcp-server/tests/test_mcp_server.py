@@ -76,6 +76,20 @@ class ToolSafetyTests(unittest.TestCase):
             "device.tunerSettings",
         ])
 
+    def test_tuner_writes_require_both_explicit_confirmations(self) -> None:
+        with self.assertRaises(ValueError):
+            self.tools.set_tuner_mute(True, True, False)
+        self.tools.set_tuner_input(8, True, True)
+        self.tools.set_tuner_mute(False, True, True)
+        self.tools.restore_tuner_audio(True, True)
+        self.tools.set_tuner_reference(2.0, True, True)
+        self.assertEqual([call[0] for call in self.backend.calls], [
+            "device.setTunerInput",
+            "device.setTunerMute",
+            "device.restoreTunerAudio",
+            "device.setTunerReference",
+        ])
+
     def test_temporary_mutation_keeps_all_expected_state_guards(self) -> None:
         self.tools.set_parameter(2, 3, 7, 0.75, 0.5, 4, "Lead")
         self.assertEqual(self.backend.calls[-1], ("device.setParameter", {

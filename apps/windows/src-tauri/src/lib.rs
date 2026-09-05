@@ -1044,6 +1044,72 @@ async fn tuner_settings(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
+async fn set_tuner_input(
+    app: AppHandle,
+    input_port_id: i32,
+    confirm_tuner_activation: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_TUNER_INPUT,
+        json!({
+            "inputPortId": input_port_id,
+            "confirmTunerActivation": confirm_tuner_activation
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_tuner_mute(
+    app: AppHandle,
+    muted: bool,
+    confirm_tuner_activation: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_TUNER_MUTE,
+        json!({
+            "muted": muted,
+            "confirmTunerActivation": confirm_tuner_activation
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn restore_tuner_audio(
+    app: AppHandle,
+    confirm_preference_reset: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::RESTORE_TUNER_AUDIO,
+        json!({
+            "confirmPreferenceReset": confirm_preference_reset
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_tuner_reference(
+    app: AppHandle,
+    reference_offset_hz: f32,
+    confirm_tuner_activation: bool,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_TUNER_REFERENCE,
+        json!({
+            "referenceOffsetHz": reference_offset_hz,
+            "confirmTunerActivation": confirm_tuner_activation
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn general_settings(app: AppHandle) -> Result<Value, String> {
     background_gateway_request(app, rpc::GENERAL_SETTINGS).await
 }
@@ -2814,6 +2880,10 @@ pub fn run() {
             redo_device,
             inhibited_modules,
             tuner_settings,
+            set_tuner_input,
+            set_tuner_mute,
+            restore_tuner_audio,
+            set_tuner_reference,
             general_settings,
             io_settings,
             set_input_port,

@@ -247,6 +247,61 @@ pub static ACTIONS: &[ActionSpec] = &[
         properties: &[],
     },
     ActionSpec {
+        name: "set_tuner_input",
+        rpc: "device.setTunerInput",
+        classification: Classification::RiskyWrite,
+        description: "Choose the tuner input. This invisibly engages the tuner and can silence the rig if its mute preference is enabled.",
+        properties: &[
+            p!(
+                "input_port_id",
+                Kind::Integer {
+                    min: 1,
+                    max: Some(9)
+                }
+            ),
+            p!("confirm_tuner_activation", BOOL),
+            p!("confirm_risky_operation", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_tuner_mute",
+        rpc: "device.setTunerMute",
+        classification: Classification::RiskyWrite,
+        description: "Change mute-while-tuning. This invisibly engages the tuner; enabling mute immediately silences all outputs.",
+        properties: &[
+            p!("muted", BOOL),
+            p!("confirm_tuner_activation", BOOL),
+            p!("confirm_risky_operation", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "restore_tuner_audio",
+        rpc: "device.restoreTunerAudio",
+        classification: Classification::RiskyWrite,
+        description: "Restore audio after a host tuner write by clearing the persistent mute-while-tuning preference.",
+        properties: &[
+            p!("confirm_preference_reset", BOOL),
+            p!("confirm_risky_operation", BOOL),
+        ],
+    },
+    ActionSpec {
+        name: "set_tuner_reference",
+        rpc: "device.setTunerReference",
+        classification: Classification::RiskyWrite,
+        description: "Set tuner reference as an Hz offset from 440. This invisibly engages the tuner.",
+        properties: &[
+            p!(
+                "reference_offset_hz",
+                Kind::Number {
+                    min: -f64::MAX,
+                    max: Some(f64::MAX)
+                }
+            ),
+            p!("confirm_tuner_activation", BOOL),
+            p!("confirm_risky_operation", BOOL),
+        ],
+    },
+    ActionSpec {
         name: "get_preset_screenshot",
         rpc: "device.presetScreenshot",
         classification: Classification::Read,

@@ -28,13 +28,34 @@ pub enum FrameError {
     MissingTrailer,
     #[error("logical message exceeds the shared QC frame-size limit")]
     TooLarge,
+    #[error("message type {0} is outside the native host's u16 dispatch range")]
+    MessageTypeOutOfRange(u32),
+}
+
+/// The complete eight-byte QC envelope projected by pyquadcortex's `Frame`.
+///
+/// Known protocol message IDs currently fit in one byte, but the wire reserves
+/// four bytes. Keeping the full value and the otherwise opaque trailer fields
+/// makes this codec lossless for captures and future firmware messages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Frame {
+    pub message_type: u32,
+    pub payload: Vec<u8>,
+    pub encrypted: bool,
+    pub compressed: bool,
+    pub device_bytes: [u8; 2],
 }
 
 pub fn encode(message_type: u16, payload: &[u8]) -> Vec<[u8; REPORT_SIZE]> {
+    encode_message(u32::from(message_type), payload)
+}
+
+/// Encode the complete 32-bit message-type field used by the QC trailer.
+pub fn encode_message(message_type: u32, payload: &[u8]) -> Vec<[u8; REPORT_SIZE]> {
     let mut body = Vec::with_capacity(payload.len() + TRAILER_SIZE);
     body.extend_from_slice(payload);
     body.extend_from_slice(&message_type.to_le_bytes());
-    body.extend_from_slice(&[0; TRAILER_SIZE - 2]);
+    body.extend_from_slice(&[0; TRAILER_SIZE - 4]);
 
     body.chunks(CHUNK_SIZE)
         .enumerate()
@@ -65,6 +86,14 @@ pub fn is_complete(reports: &[Vec<u8>]) -> Result<bool, FrameError> {
 }
 
 pub fn decode(reports: &[Vec<u8>]) -> Result<(u16, Vec<u8>), FrameError> {
+    let frame = decode_reports(reports)?;
+    let message_type = u16::try_from(frame.message_type)
+        .map_err(|_| FrameError::MessageTypeOutOfRange(frame.message_type))?;
+    Ok((message_type, frame.payload))
+}
+
+/// Decode a logical message without discarding any QC trailer metadata.
+pub fn decode_reports(reports: &[Vec<u8>]) -> Result<Frame, FrameError> {
     if reports.len() > profile::MAX_FRAME_BYTES / CHUNK_SIZE + 1 {
         return Err(FrameError::TooLarge);
     }
@@ -102,7 +131,13 @@ pub fn decode(reports: &[Vec<u8>]) -> Result<(u16, Vec<u8>), FrameError> {
         return Err(FrameError::MissingTrailer);
     }
     let trailer = body.split_off(body.len() - TRAILER_SIZE);
-    Ok((u16::from_le_bytes([trailer[0], trailer[1]]), body))
+    Ok(Frame {
+        message_type: u32::from_le_bytes([trailer[0], trailer[1], trailer[2], trailer[3]]),
+        payload: body,
+        encrypted: trailer[4] != 0,
+        compressed: trailer[5] != 0,
+        device_bytes: [trailer[6], trailer[7]],
+    })
 }
 
 #[cfg(test)]
@@ -154,6 +189,36 @@ mod tests {
         let decoded =
             decode(&reports.iter().map(|item| item.to_vec()).collect::<Vec<_>>()).unwrap();
         assert_eq!(decoded, (51, payload));
+    }
+
+    #[test]
+    fn lossless_codec_preserves_the_complete_upstream_trailer() {
+        let mut report = encode_message(0x1234_5678, &[0xaa, 0xbb])[0].to_vec();
+        let trailer = 3 + 2;
+        report[trailer + 4] = 1;
+        report[trailer + 5] = 1;
+        report[trailer + 6] = 0x9a;
+        report[trailer + 7] = 0xbc;
+
+        assert_eq!(
+            decode_reports(&[report]).unwrap(),
+            Frame {
+                message_type: 0x1234_5678,
+                payload: vec![0xaa, 0xbb],
+                encrypted: true,
+                compressed: true,
+                device_bytes: [0x9a, 0xbc],
+            }
+        );
+    }
+
+    #[test]
+    fn native_dispatch_rejects_but_lossless_decode_retains_large_types() {
+        let report = encode_message(0x1_0000, &[])[0].to_vec();
+        assert_eq!(
+            decode(&[report]),
+            Err(FrameError::MessageTypeOutOfRange(0x1_0000))
+        );
     }
 
     #[test]

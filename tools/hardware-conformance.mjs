@@ -38,7 +38,8 @@ if (has("--live")) enabledHazards.add("live");
 if (has("--persistent")) enabledHazards.add("persistent");
 if (has("--system")) enabledHazards.add("system");
 if (has("--screen-tap")) enabledHazards.add("screen");
-if (has("--all")) ["live", "persistent", "system", "screen"].forEach((value) => enabledHazards.add(value));
+if (has("--tuner")) enabledHazards.add("tuner");
+if (has("--all")) ["live", "persistent", "system", "screen", "tuner"].forEach((value) => enabledHazards.add(value));
 
 class FramedStdioTransport {
   constructor(config) {
@@ -220,7 +221,7 @@ async function main() {
   const missingFixtures = validateConfig(config, { requireAll });
   const plan = actionPlan(contract, enabledHazards);
   if (requireAll) {
-    assert(enabledHazards.size === 5, "--require-all must be combined with --all.");
+    assert(enabledHazards.size === 6, "--require-all must be combined with --all.");
     assert(missingFixtures.length === 0, "Full execution requires every fixture.");
     assert(releaseCandidatePath, "Full release evidence requires --release-candidate with a staged app artifact.");
   }
@@ -402,6 +403,7 @@ async function main() {
   let identity;
   let parameter;
   let originalMasterVolume;
+  let originalTunerSettings;
   let originalGeneralSettings;
   let originalIoSettings;
   let originalGlobalEq;
@@ -630,11 +632,59 @@ async function main() {
     await call("get_state_events", { after_sequence: 0, limit: 256 }, (value) => assert(Array.isArray(value.frames), "State event result has no frames array."));
     await call("get_tempo_clock", {}, (value) => assert(typeof value.available === "boolean", "Tempo clock availability is missing."));
     await call("get_inhibited_modules", {}, (value) => assert(typeof value.globalGate === "boolean" && typeof value.globalEq === "boolean", "Inhibited module state is invalid."));
-    await call("get_tuner_settings", {}, (value) => assert(
+    originalTunerSettings = await call("get_tuner_settings", {}, (value) => assert(
       Number.isInteger(value.inputPortId) && Number.isFinite(value.referenceHz)
         && Number.isFinite(value.referenceOffsetHz) && typeof value.muted === "boolean",
       "Tuner settings are invalid."
     ));
+
+    if (enabledHazards.has("tuner")) {
+      assert(originalTunerSettings.muted === false,
+        "Tuner mutation testing requires mute-while-tuning to start disabled; disable it and physically close the tuner first.");
+      const testInput = originalTunerSettings.inputPortId === 1 ? 2 : 1;
+      await call("set_tuner_input", {
+        input_port_id: testInput,
+        confirm_tuner_activation: true,
+        confirm_risky_operation: true
+      });
+      let tuner = await transport.call("get_tuner_settings", {});
+      assert(tuner.inputPortId === testInput, "Tuner input did not round-trip.");
+      await transport.call("set_tuner_input", {
+        input_port_id: originalTunerSettings.inputPortId,
+        confirm_tuner_activation: true,
+        confirm_risky_operation: true
+      });
+
+      const testOffset = originalTunerSettings.referenceOffsetHz + 1;
+      await call("set_tuner_reference", {
+        reference_offset_hz: testOffset,
+        confirm_tuner_activation: true,
+        confirm_risky_operation: true
+      });
+      tuner = await transport.call("get_tuner_settings", {});
+      assert(Math.abs(tuner.referenceOffsetHz - testOffset) < 0.01,
+        "Tuner reference offset did not round-trip.");
+      await transport.call("set_tuner_reference", {
+        reference_offset_hz: originalTunerSettings.referenceOffsetHz,
+        confirm_tuner_activation: true,
+        confirm_risky_operation: true
+      });
+
+      await call("set_tuner_mute", {
+        muted: true,
+        confirm_tuner_activation: true,
+        confirm_risky_operation: true
+      });
+      tuner = await transport.call("get_tuner_settings", {});
+      assert(tuner.muted === true, "Tuner mute preference did not round-trip.");
+      await call("restore_tuner_audio", {
+        confirm_preference_reset: true,
+        confirm_risky_operation: true
+      });
+      tuner = await transport.call("get_tuner_settings", {});
+      assert(tuner.muted === false, "restore_tuner_audio did not clear the mute preference.");
+      report.manualActionRequired = "Open and close the tuner once on the physical QC to release the invisible tuner session.";
+    }
     originalGeneralSettings = await call("get_general_settings", {}, (value) => assert(
       Number.isInteger(value.sceneBypassBehavior === "alwaysOverwrite" ? 0 : value.sceneBypassBehavior === "nonstompOverwrite" ? 1 : value.sceneBypassBehavior === "neverOverwrite" ? 2 : NaN),
       "General settings did not include a valid scene bypass behavior."
@@ -1355,6 +1405,24 @@ async function main() {
           if (current.value !== originalMasterVolume) {
             await transport.call("set_master_volume", { value: originalMasterVolume, expected_value: current.value, confirm_risky_operation: true });
           }
+        });
+      }
+      if (enabledHazards.has("tuner") && originalTunerSettings) {
+        await restoreAttempt("tuner-settings", async () => {
+          await transport.call("set_tuner_input", {
+            input_port_id: originalTunerSettings.inputPortId,
+            confirm_tuner_activation: true,
+            confirm_risky_operation: true
+          });
+          await transport.call("set_tuner_reference", {
+            reference_offset_hz: originalTunerSettings.referenceOffsetHz,
+            confirm_tuner_activation: true,
+            confirm_risky_operation: true
+          });
+          await transport.call("restore_tuner_audio", {
+            confirm_preference_reset: true,
+            confirm_risky_operation: true
+          });
         });
       }
       if (enabledHazards.has("persistent") && originalGeneralSettings) {

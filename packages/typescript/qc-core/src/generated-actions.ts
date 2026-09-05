@@ -383,6 +383,148 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "set_tuner_input",
+    "rpc": "device.setTunerInput",
+    "classification": "risky-write",
+    "description": "Choose the tuner input. This invisibly engages the tuner and can silence the rig if its mute preference is enabled.",
+    "properties": {
+      "input_port_id": "integer",
+      "confirm_tuner_activation": "boolean",
+      "confirm_risky_operation": "boolean"
+    },
+    "required": [
+      "input_port_id",
+      "confirm_tuner_activation",
+      "confirm_risky_operation"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "input_port_id": {
+          "type": "integer"
+        },
+        "confirm_tuner_activation": {
+          "type": "boolean"
+        },
+        "confirm_risky_operation": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "input_port_id",
+        "confirm_tuner_activation",
+        "confirm_risky_operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tuner_mute",
+    "rpc": "device.setTunerMute",
+    "classification": "risky-write",
+    "description": "Change mute-while-tuning. This invisibly engages the tuner; enabling mute immediately silences all outputs.",
+    "properties": {
+      "muted": "boolean",
+      "confirm_tuner_activation": "boolean",
+      "confirm_risky_operation": "boolean"
+    },
+    "required": [
+      "muted",
+      "confirm_tuner_activation",
+      "confirm_risky_operation"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "muted": {
+          "type": "boolean"
+        },
+        "confirm_tuner_activation": {
+          "type": "boolean"
+        },
+        "confirm_risky_operation": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "muted",
+        "confirm_tuner_activation",
+        "confirm_risky_operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "restore_tuner_audio",
+    "rpc": "device.restoreTunerAudio",
+    "classification": "risky-write",
+    "description": "Restore audio after a host tuner write by clearing the persistent mute-while-tuning preference.",
+    "properties": {
+      "confirm_preference_reset": "boolean",
+      "confirm_risky_operation": "boolean"
+    },
+    "required": [
+      "confirm_preference_reset",
+      "confirm_risky_operation"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "confirm_preference_reset": {
+          "type": "boolean"
+        },
+        "confirm_risky_operation": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirm_preference_reset",
+        "confirm_risky_operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tuner_reference",
+    "rpc": "device.setTunerReference",
+    "classification": "risky-write",
+    "description": "Set tuner reference as an Hz offset from 440. This invisibly engages the tuner.",
+    "properties": {
+      "reference_offset_hz": "number",
+      "confirm_tuner_activation": "boolean",
+      "confirm_risky_operation": "boolean"
+    },
+    "required": [
+      "reference_offset_hz",
+      "confirm_tuner_activation",
+      "confirm_risky_operation"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reference_offset_hz": {
+          "type": "number"
+        },
+        "confirm_tuner_activation": {
+          "type": "boolean"
+        },
+        "confirm_risky_operation": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reference_offset_hz",
+        "confirm_tuner_activation",
+        "confirm_risky_operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get_preset_screenshot",
     "rpc": "device.presetScreenshot",
     "classification": "read",

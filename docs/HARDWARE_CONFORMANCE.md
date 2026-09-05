@@ -89,7 +89,10 @@ Serials, tokens, credentials, and binary payloads are redacted or hashed.
 
 `--persistent`, `--system`, and `--screen-tap` require `--live`, because the
 suite uses live preset recall for safe scratch entry and failure restoration.
-`--all` enables all four mutation groups together.
+`--tuner` enables the guarded tuner-setting group. These writes invisibly engage
+the tuner, so the harness restores its preferences and still requires a person
+to open and close the physical tuner once afterward. `--all` enables all five
+mutation groups together.
 
 Finally, gate the release against both immutable reports:
 
@@ -146,7 +149,7 @@ hide stale or queued commands.
 
 ### Acceptance gates
 
-- Every one of the 94 public device actions has an authoritative response from
+- Every one of the 99 public device actions has an authoritative response from
   the QC, not merely a successful send from the app.
 - UI feedback is immediate and the later device event agrees with it. A stale
   event may never move a control back during a drag or rapid double press.

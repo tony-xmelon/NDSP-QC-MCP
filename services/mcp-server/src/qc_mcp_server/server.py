@@ -135,6 +135,52 @@ class QcTools:
         """Read tuner preferences without changing or engaging the tuner."""
         return self._request("get_tuner_settings")
 
+    def set_tuner_input(
+        self, input_port_id: int, confirm_tuner_activation: bool,
+        confirm_risky_operation: bool,
+    ) -> Any:
+        """Select a tuner input after acknowledging invisible tuner engagement."""
+        if confirm_tuner_activation is not True or confirm_risky_operation is not True:
+            raise ValueError("Tuner input changes require both explicit confirmations.")
+        return self._request("set_tuner_input", {
+            "inputPortId": input_port_id,
+            "confirmTunerActivation": True,
+        })
+
+    def set_tuner_mute(
+        self, muted: bool, confirm_tuner_activation: bool,
+        confirm_risky_operation: bool,
+    ) -> Any:
+        """Change mute-while-tuning after acknowledging that it can silence the rig."""
+        if confirm_tuner_activation is not True or confirm_risky_operation is not True:
+            raise ValueError("Tuner mute changes require both explicit confirmations.")
+        return self._request("set_tuner_mute", {
+            "muted": muted,
+            "confirmTunerActivation": True,
+        })
+
+    def restore_tuner_audio(
+        self, confirm_preference_reset: bool, confirm_risky_operation: bool,
+    ) -> Any:
+        """Clear mute-while-tuning after acknowledging the persistent preference reset."""
+        if confirm_preference_reset is not True or confirm_risky_operation is not True:
+            raise ValueError("Restoring tuner audio requires both explicit confirmations.")
+        return self._request("restore_tuner_audio", {
+            "confirmPreferenceReset": True,
+        })
+
+    def set_tuner_reference(
+        self, reference_offset_hz: float, confirm_tuner_activation: bool,
+        confirm_risky_operation: bool,
+    ) -> Any:
+        """Set the Hz offset from 440 after acknowledging invisible engagement."""
+        if confirm_tuner_activation is not True or confirm_risky_operation is not True:
+            raise ValueError("Tuner reference changes require both explicit confirmations.")
+        return self._request("set_tuner_reference", {
+            "referenceOffsetHz": reference_offset_hz,
+            "confirmTunerActivation": True,
+        })
+
     def get_general_settings(self) -> Any:
         """Read global Quad Cortex Device Settings."""
         return self._request("get_general_settings")

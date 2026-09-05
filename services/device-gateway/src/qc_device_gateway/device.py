@@ -808,6 +808,53 @@ class PyQuadCortexDevice:
             "muted": bool(message.mute),
         }
 
+    @staticmethod
+    def _confirm_tuner_activation(confirmed: bool) -> None:
+        if confirmed is not True:
+            raise ValueError(
+                "A tuner write invisibly engages the tuner and may silence every output; "
+                "confirmTunerActivation must be true."
+            )
+
+    def set_tuner_input(self, input_port_id: int, confirm_tuner_activation: bool) -> dict[str, Any]:
+        self._confirm_tuner_activation(confirm_tuner_activation)
+        if input_port_id not in (1, 2, 3, 4, 5, 8, 9):
+            raise ValueError("inputPortId must be 1, 2, 3, 4, 5, 8, or 9")
+        _pyquadcortex_method(self._require_session(), "set_tuner_input")(input_port_id)
+        return {"detail": "Tuner input updated; the tuner is now invisibly engaged"}
+
+    def set_tuner_mute(self, muted: bool, confirm_tuner_activation: bool) -> dict[str, Any]:
+        self._confirm_tuner_activation(confirm_tuner_activation)
+        if not isinstance(muted, bool):
+            raise ValueError("muted must be a boolean")
+        _pyquadcortex_method(self._require_session(), "set_tuner_mute")(muted)
+        return {"detail": "Tuner mute preference updated; the tuner is now invisibly engaged"}
+
+    def restore_tuner_audio(self, confirm_preference_reset: bool) -> dict[str, Any]:
+        if confirm_preference_reset is not True:
+            raise ValueError(
+                "Restoring audio clears the persistent mute-while-tuning preference; "
+                "confirmPreferenceReset must be true."
+            )
+        acted = bool(_pyquadcortex_method(self._require_session(), "restore_audio")())
+        return {"detail": "Tuner mute preference cleared to restore audio", "acted": acted}
+
+    def set_tuner_reference(
+        self, reference_offset_hz: float, confirm_tuner_activation: bool
+    ) -> dict[str, Any]:
+        self._confirm_tuner_activation(confirm_tuner_activation)
+        if (
+            isinstance(reference_offset_hz, bool)
+            or not isinstance(reference_offset_hz, (int, float))
+            or not math.isfinite(reference_offset_hz)
+        ):
+            raise ValueError("referenceOffsetHz must be a finite Hz offset from 440")
+        pyquadcortex = _protocol_api()
+        _pyquadcortex_method(self._require_session(), "set_tuner_reference")(
+            pyquadcortex.Hertz(float(reference_offset_hz))
+        )
+        return {"detail": "Tuner reference updated; the tuner is now invisibly engaged"}
+
     def general_settings(self) -> dict[str, Any]:
         """Compatibility projection of the native Rust GeneralSettings payload."""
         message = _pyquadcortex_method(self._require_session(), "settings")()

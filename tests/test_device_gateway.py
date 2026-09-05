@@ -754,6 +754,27 @@ class PyQuadCortexParityTests(unittest.TestCase):
         self.assertAlmostEqual(result["referenceHz"], 441.99999809)
         self.assertTrue(result["muted"])
 
+    def test_tuner_writes_require_acknowledgement_and_preserve_upstream_units(self):
+        calls = []
+        qc = SimpleNamespace(
+            set_tuner_input=lambda value: calls.append(("input", value)),
+            set_tuner_mute=lambda value: calls.append(("mute", value)),
+            restore_audio=lambda: calls.append(("restore",)) or True,
+            set_tuner_reference=lambda value: calls.append(("reference", value)),
+        )
+        device = PyQuadCortexDevice()
+        device._qc = qc
+        with self.assertRaisesRegex(ValueError, "confirmTunerActivation"):
+            device.set_tuner_mute(True, False)
+        device.set_tuner_input(8, True)
+        device.set_tuner_mute(False, True)
+        self.assertTrue(device.restore_tuner_audio(True)["acted"])
+        with patch("qc_device_gateway.device._protocol_api", return_value=SimpleNamespace(Hertz=lambda value: ("Hz", value))):
+            device.set_tuner_reference(2.0, True)
+        self.assertEqual(calls, [
+            ("input", 8), ("mute", False), ("restore",), ("reference", ("Hz", 2.0)),
+        ])
+
     def test_history_name_and_remote_screen_delegate_to_pyquadcortex(self):
         calls = []
         image = self.png()

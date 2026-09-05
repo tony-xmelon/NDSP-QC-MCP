@@ -66,7 +66,7 @@
     { "status": "native", "methods": ["set_usb_port", "set_midi_thru", "set_output_pairing"], "rpcs": ["device.setUsbPort", "device.setMidiThru", "device.setOutputPairing"] },
     { "status": "native", "methods": ["tuner"], "rpcs": ["device.tunerSettings"] },
     { "status": "upstream-no-op", "methods": ["show_tuner"], "rpcs": ["device.showTuner"], "reason": "The upstream method is hardware-verified as a no-op on the pinned firmware; Rust preserves the known wire command without claiming that it opens or closes the tuner." },
-    { "status": "hazard-excluded", "methods": ["set_tuner_input", "set_tuner_mute", "restore_audio", "set_tuner_reference"], "reason": "Every host tuner write invisibly engages the tuner; with mute enabled it silences all outputs, and no lossless host disengage message exists. A person must open and close the physical tuner to retain the preference. Rust exposes the safe read only." },
+    { "status": "native", "methods": ["set_tuner_input", "set_tuner_mute", "restore_audio", "set_tuner_reference"], "rpcs": ["device.setTunerInput", "device.setTunerMute", "device.restoreTunerAudio", "device.setTunerReference"], "evidence": ["Explicit tuner-activation or preference-reset acknowledgement is mandatory because the measured firmware invisibly engages the tuner on every write."] },
     { "status": "native", "methods": ["looper"], "rpcs": ["device.looperStatus"] },
     { "status": "native", "methods": ["global_eq"], "rpcs": ["device.globalEq"] },
     { "status": "native", "methods": ["set_global_eq_bypassed", "set_global_eq_band", "set_global_eq"], "rpcs": ["device.setGlobalEqBypassed", "device.setGlobalEqBand"] },

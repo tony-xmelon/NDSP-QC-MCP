@@ -117,7 +117,10 @@ const midiMessagesArgument = (call: AssistantToolCall): MidiOutMessage[] => {
   });
 };
 
-const confirmation = (call: AssistantToolCall, name: "confirm_risky_operation" | "confirm_persistent_write") => {
+const confirmation = (
+  call: AssistantToolCall,
+  name: "confirm_risky_operation" | "confirm_persistent_write" | "confirm_tuner_activation" | "confirm_preference_reset"
+) => {
   if (!booleanArgument(call, name)) throw new Error(`${call.name} requires explicit user confirmation; no device action was taken.`);
 };
 
@@ -450,6 +453,26 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
   }
   if (call.name === "show_tuner") return actionResult(await gateway.showTuner(booleanArgument(call, "shown")));
   if (call.name === "show_gig_view") return actionResult(await gateway.showGigView(booleanArgument(call, "shown")));
+  if (call.name === "set_tuner_input") {
+    confirmation(call, "confirm_risky_operation");
+    confirmation(call, "confirm_tuner_activation");
+    return actionResult(await gateway.setTunerInput(integerArgument(call, "input_port_id"), true));
+  }
+  if (call.name === "set_tuner_mute") {
+    confirmation(call, "confirm_risky_operation");
+    confirmation(call, "confirm_tuner_activation");
+    return actionResult(await gateway.setTunerMute(booleanArgument(call, "muted"), true));
+  }
+  if (call.name === "restore_tuner_audio") {
+    confirmation(call, "confirm_risky_operation");
+    confirmation(call, "confirm_preference_reset");
+    return actionResult(await gateway.restoreTunerAudio(true));
+  }
+  if (call.name === "set_tuner_reference") {
+    confirmation(call, "confirm_risky_operation");
+    confirmation(call, "confirm_tuner_activation");
+    return actionResult(await gateway.setTunerReference(numberArgument(call, "reference_offset_hz"), true));
+  }
   if (call.name === "set_master_volume") {
     confirmation(call, "confirm_risky_operation");
     assertExpectedNumber(call, "expected_value", snapshot.masterVolume);

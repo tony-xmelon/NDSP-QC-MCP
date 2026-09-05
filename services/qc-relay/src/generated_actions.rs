@@ -106,6 +106,30 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "set_tuner_input",
+        rpc: "device.setTunerInput",
+        class: ActionClass::RiskyWrite,
+        required_argument_confirmations: &["confirm_tuner_activation", "confirm_risky_operation"],
+    },
+    ActionPolicy {
+        name: "set_tuner_mute",
+        rpc: "device.setTunerMute",
+        class: ActionClass::RiskyWrite,
+        required_argument_confirmations: &["confirm_tuner_activation", "confirm_risky_operation"],
+    },
+    ActionPolicy {
+        name: "restore_tuner_audio",
+        rpc: "device.restoreTunerAudio",
+        class: ActionClass::RiskyWrite,
+        required_argument_confirmations: &["confirm_preference_reset", "confirm_risky_operation"],
+    },
+    ActionPolicy {
+        name: "set_tuner_reference",
+        rpc: "device.setTunerReference",
+        class: ActionClass::RiskyWrite,
+        required_argument_confirmations: &["confirm_tuner_activation", "confirm_risky_operation"],
+    },
+    ActionPolicy {
         name: "get_preset_screenshot",
         rpc: "device.presetScreenshot",
         class: ActionClass::Read,

@@ -121,6 +121,12 @@ fn handle(
         "device.tunerSettings" => {
             execute_gateway_read(controller, "device.tunerSettings", &request.params)
         }
+        "device.setTunerInput"
+        | "device.setTunerMute"
+        | "device.restoreTunerAudio"
+        | "device.setTunerReference" => {
+            gateway_operation(controller, &request.params, &request.method)
+        }
         "device.generalSettings" => {
             execute_gateway_read(controller, "device.generalSettings", &request.params)
         }

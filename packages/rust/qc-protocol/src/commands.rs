@@ -139,6 +139,9 @@ pub enum DeviceOperation {
     },
     ReadVersion,
     ReadTuner,
+    SetTunerInput(i32),
+    SetTunerMute(bool),
+    SetTunerReference(f32),
     ReadGeneralSettings,
     SetGeneralInteger {
         setting: String,
@@ -400,6 +403,9 @@ impl DeviceOperation {
             }
             Self::ReadVersion => vec![read_version()],
             Self::ReadTuner => vec![read_tuner()],
+            Self::SetTunerInput(input_port_id) => vec![set_tuner_input(input_port_id)],
+            Self::SetTunerMute(muted) => vec![set_tuner_mute(muted)],
+            Self::SetTunerReference(offset_hz) => vec![set_tuner_reference(offset_hz)],
             Self::ReadIoSettings => vec![read(3)],
             Self::ReadGlobalEq => vec![read_global_eq()],
             Self::SetGlobalEqBypassed(bypassed) => vec![set_global_eq_bypassed(bypassed)],
@@ -1497,6 +1503,45 @@ pub fn read_tuner() -> OutboundMessage {
     )
 }
 
+/// Select the tuner input. Any tuner write engages the tuner invisibly on the
+/// measured firmware; callers must surface that hazard before sending it.
+pub fn set_tuner_input(input_port_id: i32) -> OutboundMessage {
+    OutboundMessage::encoded(
+        6,
+        pa::TunerMessage {
+            action: pa::message_action::Enum::Update as i32,
+            input_port_id: Some(pa::tuner_message::InputPortId::InputPortId(input_port_id)),
+            ..Default::default()
+        },
+    )
+}
+
+/// Set the persistent mute-while-tuning preference. Sending this also engages
+/// the tuner invisibly; `true` can therefore silence every output immediately.
+pub fn set_tuner_mute(muted: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        6,
+        pa::TunerMessage {
+            action: pa::message_action::Enum::Update as i32,
+            mute: Some(pa::tuner_message::Mute::Mute(muted)),
+            ..Default::default()
+        },
+    )
+}
+
+/// Set reference pitch as the signed Hz offset from A=440, matching the QC
+/// wire representation (for example `2.0` means 442 Hz).
+pub fn set_tuner_reference(offset_hz: f32) -> OutboundMessage {
+    OutboundMessage::encoded(
+        6,
+        pa::TunerMessage {
+            action: pa::message_action::Enum::Update as i32,
+            frequency: Some(pa::tuner_message::Frequency::Frequency(offset_hz)),
+            ..Default::default()
+        },
+    )
+}
+
 pub fn read_general_settings() -> OutboundMessage {
     OutboundMessage::encoded(
         9,
@@ -2008,6 +2053,13 @@ mod tests {
         assert_eq!(read_version().payload, [0x08, 0x03]);
         assert_eq!(read_tuner().message_type, 6);
         assert_eq!(read_tuner().payload, [0x08, 0x03]);
+        assert_eq!(set_tuner_input(8).payload, [0x08, 0x01, 0x18, 0x08]);
+        assert_eq!(set_tuner_mute(true).payload, [0x08, 0x01, 0x28, 0x01]);
+        assert_eq!(set_tuner_mute(false).payload, [0x08, 0x01, 0x28, 0x00]);
+        assert_eq!(
+            set_tuner_reference(2.0).payload,
+            [0x08, 0x01, 0x25, 0x00, 0x00, 0x00, 0x40]
+        );
         assert_eq!(undo().payload, [0x08, 0x01, 0x28, 0x01]);
         assert_eq!(redo().payload, [0x08, 0x01, 0x30, 0x01]);
         assert_eq!(

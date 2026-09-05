@@ -19,6 +19,10 @@ final class GeneratedGatewayMethods {
         "device.redo",
         "device.inhibitedModules",
         "device.tunerSettings",
+        "device.setTunerInput",
+        "device.setTunerMute",
+        "device.restoreTunerAudio",
+        "device.setTunerReference",
         "device.generalSettings",
         "device.ioSettings",
         "device.setInputPort",
@@ -124,6 +128,10 @@ final class GeneratedGatewayMethods {
             case "device.redo": return "PLANNED_WRITE";
             case "device.inhibitedModules": return "CORRELATED_READ";
             case "device.tunerSettings": return "CORRELATED_READ";
+            case "device.setTunerInput": return "PLANNED_WRITE";
+            case "device.setTunerMute": return "PLANNED_WRITE";
+            case "device.restoreTunerAudio": return "PLANNED_WRITE";
+            case "device.setTunerReference": return "PLANNED_WRITE";
             case "device.generalSettings": return "CORRELATED_READ";
             case "device.ioSettings": return "CORRELATED_READ";
             case "device.setInputPort": return "PLANNED_WRITE";

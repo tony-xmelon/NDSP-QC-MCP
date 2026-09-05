@@ -1662,6 +1662,59 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
     let row = || bounded_u32(params, "row", domain::GRID_ROWS - 1);
     let column = |field: &str| bounded_u32(params, field, domain::GRID_COLUMNS - 1);
     match operation {
+        "setTunerInput" => {
+            if params
+                .get("confirmTunerActivation")
+                .and_then(Value::as_bool)
+                != Some(true)
+            {
+                return Err("Changing tuner input engages the tuner invisibly; confirmTunerActivation must be true.".into());
+            }
+            let input_port_id = params
+                .get("inputPortId")
+                .and_then(Value::as_i64)
+                .and_then(|value| i32::try_from(value).ok())
+                .filter(|value| matches!(value, 1 | 2 | 3 | 4 | 5 | 8 | 9))
+                .ok_or_else(|| "inputPortId must be Input 1, Input 2, Input 1/2, Return 1, Return 2, USB 5, or USB 6 (1, 2, 3, 4, 5, 8, or 9)".to_string())?;
+            Ok(DeviceOperation::SetTunerInput(input_port_id))
+        }
+        "setTunerMute" => {
+            if params
+                .get("confirmTunerActivation")
+                .and_then(Value::as_bool)
+                != Some(true)
+            {
+                return Err("Changing tuner mute engages the tuner invisibly and may silence every output; confirmTunerActivation must be true.".into());
+            }
+            Ok(DeviceOperation::SetTunerMute(boolean(params, "muted")?))
+        }
+        "restoreTunerAudio" => {
+            if params
+                .get("confirmPreferenceReset")
+                .and_then(Value::as_bool)
+                != Some(true)
+            {
+                return Err("Restoring audio clears the persistent mute-while-tuning preference; confirmPreferenceReset must be true.".into());
+            }
+            Ok(DeviceOperation::SetTunerMute(false))
+        }
+        "setTunerReference" => {
+            if params
+                .get("confirmTunerActivation")
+                .and_then(Value::as_bool)
+                != Some(true)
+            {
+                return Err("Changing tuner reference engages the tuner invisibly; confirmTunerActivation must be true.".into());
+            }
+            let offset_hz = params
+                .get("referenceOffsetHz")
+                .and_then(Value::as_f64)
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| {
+                    "referenceOffsetHz must be a finite Hz offset from 440".to_string()
+                })?;
+            Ok(DeviceOperation::SetTunerReference(offset_hz as f32))
+        }
         "setGeneralInteger" => {
             let setting = required_text(params, "setting")?;
             let (minimum, maximum) = match setting.as_str() {
@@ -2340,6 +2393,9 @@ fn verification_for_operation(
         | DeviceOperation::Redo
         | DeviceOperation::ReadInhibitedModules
         | DeviceOperation::ReadTuner
+        | DeviceOperation::SetTunerInput(_)
+        | DeviceOperation::SetTunerMute(_)
+        | DeviceOperation::SetTunerReference(_)
         | DeviceOperation::ReadGeneralSettings
         | DeviceOperation::SetGeneralInteger { .. }
         | DeviceOperation::SetGeneralToggle { .. }
@@ -2400,6 +2456,32 @@ pub fn plan_gateway_write(
             GatewayWritePlan {
                 write: PlannedWrite::HidOperation(operation(operation_name, params)?),
                 detail: "Global device setting sent to the Quad Cortex".into(),
+                verification: GatewayVerification::None,
+            }
+        }
+        "device.setTunerInput"
+        | "device.setTunerMute"
+        | "device.restoreTunerAudio"
+        | "device.setTunerReference" => {
+            let operation_name = match method {
+                "device.setTunerInput" => "setTunerInput",
+                "device.setTunerMute" => "setTunerMute",
+                "device.restoreTunerAudio" => "restoreTunerAudio",
+                _ => "setTunerReference",
+            };
+            GatewayWritePlan {
+                write: PlannedWrite::HidOperation(operation(operation_name, params)?),
+                detail: match method {
+                    "device.setTunerInput" => {
+                        "Tuner input updated; the tuner is now invisibly engaged"
+                    }
+                    "device.setTunerMute" => {
+                        "Tuner mute preference updated; the tuner is now invisibly engaged"
+                    }
+                    "device.restoreTunerAudio" => "Tuner mute preference cleared to restore audio",
+                    _ => "Tuner reference updated; the tuner is now invisibly engaged",
+                }
+                .into(),
                 verification: GatewayVerification::None,
             }
         }
@@ -3830,6 +3912,51 @@ mod tests {
             plan_gateway_write("device.setDeviceName", &json!({"name": "bad\nname"}), None)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn tuner_writes_require_explicit_hazard_acknowledgement() {
+        let rejected = plan_gateway_write("device.setTunerMute", &json!({"muted": true}), None);
+        assert!(rejected.is_err());
+
+        let input = plan_gateway_write(
+            "device.setTunerInput",
+            &json!({"inputPortId": 8, "confirmTunerActivation": true}),
+            None,
+        )
+        .unwrap();
+        assert!(matches!(
+            input.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetTunerInput(8))
+        ));
+        assert!(plan_gateway_write(
+            "device.setTunerInput",
+            &json!({"inputPortId": 6, "confirmTunerActivation": true}),
+            None,
+        )
+        .is_err());
+
+        let reference = plan_gateway_write(
+            "device.setTunerReference",
+            &json!({"referenceOffsetHz": 2.0, "confirmTunerActivation": true}),
+            None,
+        )
+        .unwrap();
+        assert!(matches!(
+            reference.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetTunerReference(value)) if (value - 2.0).abs() < f32::EPSILON
+        ));
+
+        let restore = plan_gateway_write(
+            "device.restoreTunerAudio",
+            &json!({"confirmPreferenceReset": true}),
+            None,
+        )
+        .unwrap();
+        assert!(matches!(
+            restore.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetTunerMute(false))
+        ));
     }
 
     #[test]
