@@ -69,7 +69,9 @@ fn main() {
     }
     if std::env::args().any(|argument| argument == "--verify-live") {
         let controller = DeviceController::start();
-        let initial = controller.wait_for_ready(std::time::Duration::from_secs(35));
+        let initial = controller.wait_for_ready(std::time::Duration::from_millis(
+            qc_protocol::profile::READY_WAIT_TIMEOUT_MS,
+        ));
         let Some(original) = initial.active_scene else {
             println!(
                 "{}",
@@ -120,7 +122,9 @@ fn main() {
         return;
     }
     let controller = DeviceController::start();
-    let status = controller.wait_for_ready(std::time::Duration::from_secs(35));
+    let status = controller.wait_for_ready(std::time::Duration::from_millis(
+        qc_protocol::profile::READY_WAIT_TIMEOUT_MS,
+    ));
     println!(
         "{}",
         serde_json::to_string(&status).expect("broker status serializes")

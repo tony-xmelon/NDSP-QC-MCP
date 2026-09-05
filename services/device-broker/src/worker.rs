@@ -194,7 +194,9 @@ impl DeviceController {
             .send(Command::Reconnect { force, reply })
             .map_err(|_| "Native QC worker is not available".to_string())?;
         response
-            .recv_timeout(Duration::from_secs(35))
+            .recv_timeout(Duration::from_millis(
+                qc_protocol::profile::READY_WAIT_TIMEOUT_MS,
+            ))
             .map_err(|_| "Native QC worker did not acknowledge the reconnect request".to_string())
     }
     pub fn disconnect(&self) {
@@ -498,7 +500,9 @@ impl DeviceController {
         let document = response
             .recv_timeout(timeout + Duration::from_secs(20))
             .map_err(|_| "Native QC backup worker timed out".to_string())??;
-        let status = self.wait_for_ready(Duration::from_secs(35));
+        let status = self.wait_for_ready(Duration::from_millis(
+            qc_protocol::profile::READY_WAIT_TIMEOUT_MS,
+        ));
         if status.phase != "ready" {
             return Err(format!(
                 "The backup completed, but the Quad Cortex session did not recover: {}",

@@ -530,6 +530,24 @@ test("one generated profile owns native backup limits across both hosts", () => 
   assert.match(responses, /profile::BACKUP_MAXIMUM_DOCUMENT_BYTES/);
 });
 
+test("one generated USB profile owns the complete native ready budget", () => {
+  const contract = JSON.parse(source("contracts/qc-usb-profile.v1.json"));
+  const javaProfile = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java");
+  const rustProfile = source("packages/rust/qc-protocol/src/profile.rs");
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  const windows = [
+    source("services/device-broker/src/main.rs"),
+    source("services/device-broker/src/rpc.rs"),
+    source("services/device-broker/src/worker.rs"),
+  ].join("\n");
+  assert.match(javaProfile, new RegExp(`READY_WAIT_TIMEOUT_MS = ${contract.readyWaitTimeoutMs}L;`));
+  assert.match(rustProfile, new RegExp(`READY_WAIT_TIMEOUT_MS: u64 = ${contract.readyWaitTimeoutMs};`));
+  assert.match(android, /QcUsbProfile\.READY_WAIT_TIMEOUT_MS/);
+  assert.match(windows, /profile::READY_WAIT_TIMEOUT_MS/);
+  assert.doesNotMatch(android, /35_000/);
+  assert.doesNotMatch(windows, /from_secs\(35\)/);
+});
+
 test("one shared completion policy keeps native realtime writes free of readback polling", () => {
   const runtime = source("packages/rust/qc-device-runtime/src/request.rs");
   const windows = source("services/device-broker/src/rpc.rs");

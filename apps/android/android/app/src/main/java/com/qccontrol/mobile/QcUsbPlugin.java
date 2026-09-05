@@ -243,7 +243,7 @@ public class QcUsbPlugin extends Plugin {
                 connecting = false;
             }
         });
-        pendingOperations.timeout(pending, 35_000, keepalive,
+        pendingOperations.timeout(pending, QcUsbProfile.READY_WAIT_TIMEOUT_MS, keepalive,
             () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish synchronizing in time."));
         return result;
     }

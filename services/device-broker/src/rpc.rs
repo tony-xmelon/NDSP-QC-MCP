@@ -280,7 +280,7 @@ fn connection_state(controller: &DeviceController, detail: &str) -> Value {
 }
 
 fn ready_connection_state(controller: &DeviceController, detail: &str) -> Value {
-    let status = controller.wait_for_ready(Duration::from_secs(35));
+    let status = controller.wait_for_ready(Duration::from_millis(profile::READY_WAIT_TIMEOUT_MS));
     if status.phase == "ready" {
         // USB synchronization and state decoding run on separate workers.
         // A successful reconnect must not return until the first decoded

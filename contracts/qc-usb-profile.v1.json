@@ -11,6 +11,7 @@
   "handshakeTimeoutMs": 30000,
   "handshakeAttemptTimeoutMs": 5000,
   "initialSyncTimeoutMs": 2000,
+  "readyWaitTimeoutMs": 35000,
   "presetSyncTimeoutMs": 15000,
   "commandConfirmationTimeoutMs": 3000,
   "backupTotalTimeoutMs": 180000,

@@ -13,6 +13,7 @@ final class QcUsbProfile {
     static final long HANDSHAKE_TIMEOUT_MS = 30000L;
     static final long HANDSHAKE_ATTEMPT_TIMEOUT_MS = 5000L;
     static final long INITIAL_SYNC_TIMEOUT_MS = 2000L;
+    static final long READY_WAIT_TIMEOUT_MS = 35000L;
     static final long PRESET_SYNC_TIMEOUT_MS = 15000L;
     static final long COMMAND_CONFIRMATION_TIMEOUT_MS = 3000L;
     static final long BACKUP_TOTAL_TIMEOUT_MS = 180000L;
