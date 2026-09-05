@@ -205,12 +205,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Download both parity-approved candidates
+      - name: Download the parity-approved Android candidate
         uses: actions/download-artifact@v4
         with:
-          pattern: qc-control-*-${{ github.sha }}
+          name: qc-control-android-${{ github.sha }}
           path: .
-          merge-multiple: true
+
+      - name: Download the parity-approved Windows candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: qc-control-windows-${{ github.sha }}
+          path: .
 
       - name: Regenerate and verify combined release provenance
         shell: pwsh

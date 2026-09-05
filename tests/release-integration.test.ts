@@ -171,8 +171,7 @@ test("CI combines both same-commit candidates into one hardware-testable bundle"
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
   assert.match(workflow, /release-bundle:/);
   assert.match(workflow, /release-bundle:[\s\S]*needs: \[android-package, windows-package\]/);
-  assert.match(workflow, /pattern: qc-control-\*-\$\{\{ github\.sha \}\}/);
-  assert.match(workflow, /merge-multiple: true/);
+  assert.match(workflow, /name: qc-control-android-\$\{\{ github\.sha \}\}[\s\S]*name: qc-control-windows-\$\{\{ github\.sha \}\}/);
   assert.match(workflow, /release-provenance\.mjs \$windows\[0\] \$android\[0\]/);
   assert.match(workflow, /release-candidates\.mjs verify/);
   assert.match(workflow, /name: qc-control-release-bundle-\$\{\{ github\.sha \}\}/);
