@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -30,7 +30,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Restore Rust build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -53,10 +53,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -72,7 +72,7 @@ jobs:
 
       - name: Preserve failed UI screenshots and traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ui-conformance-failure-${{ github.run_attempt }}
           path: test-results/
@@ -87,16 +87,16 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - name: Install Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -107,7 +107,7 @@ jobs:
           targets: aarch64-linux-android,x86_64-linux-android
 
       - name: Restore Rust build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -144,7 +144,7 @@ jobs:
         run: npm run android:build:debug
 
       - name: Preserve APK and release provenance
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qc-control-android-${{ github.sha }}
           path: |
@@ -163,10 +163,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -175,7 +175,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Restore Rust build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -193,7 +193,7 @@ jobs:
         run: ./scripts/build-windows-installer.ps1 -SkipPreflight
 
       - name: Preserve installer and release provenance
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qc-control-windows-${{ github.sha }}
           path: |
@@ -212,21 +212,21 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Download the parity-approved Android candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: qc-control-android-${{ github.sha }}
           path: artifacts
 
       - name: Download the parity-approved Windows candidate
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: qc-control-windows-${{ github.sha }}
           path: artifacts
@@ -241,7 +241,7 @@ jobs:
           node tools/release-candidates.mjs verify
 
       - name: Preserve the hardware-testable cross-platform bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qc-control-release-bundle-${{ github.sha }}
           path: |

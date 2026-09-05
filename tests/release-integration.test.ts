@@ -168,6 +168,17 @@ test("CI packages the Android app with pinned native prerequisites and provenanc
   assert.match(workflow, /artifacts\/sbom\.cdx\.json/);
 });
 
+test("CI actions use the current Node 24 action generations", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  assert.equal((workflow.match(/actions\/checkout@v7/g) ?? []).length, 5);
+  assert.equal((workflow.match(/actions\/setup-node@v7/g) ?? []).length, 5);
+  assert.equal((workflow.match(/actions\/cache@v6/g) ?? []).length, 3);
+  assert.equal((workflow.match(/actions\/setup-java@v6/g) ?? []).length, 1);
+  assert.equal((workflow.match(/actions\/upload-artifact@v7/g) ?? []).length, 4);
+  assert.equal((workflow.match(/actions\/download-artifact@v8/g) ?? []).length, 2);
+  assert.doesNotMatch(workflow, /actions\/(?:checkout|setup-node|setup-java|cache|upload-artifact|download-artifact)@v[1-4]\b/);
+});
+
 test("CI packages the Windows installer only after parity and UI conformance", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
   const build = script("build-windows-installer.ps1");
