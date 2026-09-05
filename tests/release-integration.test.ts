@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const script = (name: string) => readFileSync(new URL(`../scripts/${name}`, import.meta.url), "utf8");
 
@@ -128,8 +130,10 @@ test("software parity lint-checks all Rust targets without release sidecars", ()
 test("focused native backup verification does not require a Python runtime", () => {
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const runbook = readFileSync(new URL("../docs/HARDWARE_CONFORMANCE.md", import.meta.url), "utf8");
-  const verifier = readFileSync(new URL("../tools/verify-native-backup.mjs", import.meta.url), "utf8");
+  const verifierUrl = new URL("../tools/verify-native-backup.mjs", import.meta.url);
+  const verifier = readFileSync(verifierUrl, "utf8");
   assert.equal(packageJson.scripts["test:hardware:backup"], "node tools/verify-native-backup.mjs");
+  execFileSync(process.execPath, ["--check", fileURLToPath(verifierUrl)], { stdio: "pipe" });
   assert.match(verifier, /spawn\(broker, \["--stdio"\]/);
   assert.match(verifier, /QC_EXPECTED_SERIAL_SUFFIX/);
   assert.match(verifier, /qc-usb-profile\.v1\.json/);
