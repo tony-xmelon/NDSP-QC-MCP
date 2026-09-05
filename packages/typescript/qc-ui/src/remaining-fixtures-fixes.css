@@ -213,6 +213,17 @@
 .coros-directory,.coros-directory-header{background:#101010}.coros-directory .directory-category,.coros-directory .directory-folders,.coros-directory .directory-presets,.coros-directory .directory-presets>button,.coros-directory .directory-banks button{background:#292c29}.coros-directory .directory-cloud,.coros-directory .directory-tools button{background:#181c18}.coros-directory .directory-tools .directory-close{background:#292c29}.coros-directory .directory-folders button.is-active,.coros-directory .directory-presets>button.is-current{background:#181c18}.coros-directory .directory-banks button.is-active{background:#101810}
 .coros-directory .directory-folders button{gap:7%}.coros-directory .directory-category{gap:5.75%}.coros-directory .directory-folders button.is-active{background:#202521}.coros-directory .directory-presets>button.is-current{background:#252a26}
 .coros-browser-fixture.is-physical-plugin-list .browser-fixture-panel>main>header,.coros-browser-fixture.is-physical-plugin-models .plugin-model-header{background:#101010}.coros-browser-fixture.is-physical-plugin-list .plugin-license-lock svg,.coros-browser-fixture.is-physical-plugin-models .plugin-license-lock svg,.coros-browser-fixture.is-physical-plugin-locked .plugin-model-lock svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.coros-browser-fixture.is-physical-plugin-models .browser-fixture-panel>nav button i{color:#eee}
+.coros-browser-fixture.is-physical-plugin-models .browser-fixture-panel>nav button.is-active{background:#102818}
+.coros-browser-fixture.is-physical-plugin-models .browser-fixture-panel>nav button.is-active i{width:7.75cqw;transform:translate(-1px,1px)}
+.coros-browser-fixture.is-physical-plugin-models .browser-fixture-panel>nav button.is-active svg{width:135%;height:70%}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-header>button:first-of-type svg{width:3cqw;height:3cqw;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-header>button:last-of-type{font-size:4cqw}
+.coros-browser-fixture.is-physical-plugin-locked .plugin-model-list button>.plugin-model-lock{position:absolute;z-index:2;left:2.25cqw;bottom:-.875cqw;width:2.25cqw;height:3cqw;transform:none;color:#fff}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i:not(.plugin-model-lock){position:relative}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i:not(.plugin-model-lock)::after{content:"";position:absolute;inset:.625cqw;border-radius:1cqw;background:#7d0505;mix-blend-mode:screen;pointer-events:none}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i.is-cab::after{background:#16144b}
+.coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i.is-drive::after{background:#5d2700}
 .coros-save-as header>span{font-weight:400;transform:translateX(1px)}.save-as-content{grid-template-columns:32cqw 14.125cqw 1fr}.save-as-content nav{grid-template-rows:repeat(7,6.625cqw);gap:.875cqw;background:transparent}.save-as-content nav button{border:0;border-radius:1cqw;background:#292d2a}.save-as-content nav button>b{color:#f4f5f4}.save-as-content nav button>span{transform:translate(2px,4px)}.save-as-content>section{grid-template-rows:repeat(8,6.375cqw)}.save-as-content>section button{border-bottom:0}
 .coros-save-as{background:#101010;color:#fff}
 .coros-save-as header .save-as-type{background:#101410}

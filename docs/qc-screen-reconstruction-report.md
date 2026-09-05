@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.39%** | **97.25%** |
-| Android | 40/40 (100%) | **91.38%** | **97.25%** |
+| Windows | 40/40 (100%) | **91.51%** | **97.30%** |
+| Android | 40/40 (100%) | **91.50%** | **97.30%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -136,8 +136,8 @@ still need pixel-level reconstruction work.
 | `device-browser-models` | **90.41%** | **90.40%** |
 | `device-browser-models-clean` | **90.77%** | **90.77%** |
 | `device-browser-plugin-list` | **88.61%** | **88.61%** |
-| `device-browser-plugin-models` | 90.50% | 90.50% |
-| `device-browser-plugin-locked` | 88.42% | 88.42% |
+| `device-browser-plugin-models` | **91.84%** | **91.84%** |
+| `device-browser-plugin-locked` | **91.84%** | **91.84%** |
 | `device-presets-exotic-z-boost` | 90.33% | 90.33% |
 | `device-preset-actions` | 96.10% | 96.10% |
 | `device-presets-user` | 89.71% | 89.70% |
@@ -165,6 +165,14 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Corrected the plugin model browser's cascade so model-lock overlays retain
+  their physical **18x24px** bounds instead of inheriting the **70x70px** block
+  tile size. Matched the toolbar vectors, close control, active rail treatment,
+  and category-tinted model interiors. The unlocked model screen rises from
+  **90.50% to 91.84%**, and the locked screen from **88.42% to 91.84%**, on
+  both hosts; locked-screen color similarity rises from **94.43% to 96.00%**.
+  Complete-corpus recomparison reaches **91.51% / 97.30%** on Windows and
+  **91.50% / 97.30%** on Android.
 - Restored the physical plugin browser rail's green-black active surface,
   neutral white category artwork, 68px selected target, and measured plug
   proportions. The screen rises from **87.32% Windows / 87.33% Android to
