@@ -39,6 +39,8 @@ async function capture(id) {
   if (!box || Math.round(box.width) !== 800 || Math.round(box.height) !== 480) {
     throw new Error(`${id}: expected exact 800x480 framebuffer, got ${box?.width}x${box?.height}`);
   }
+  const viewport = page.viewportSize();
+  if (viewport) await page.mouse.move(viewport.width - 1, viewport.height - 1);
   await screen.screenshot({ path: `${outputDirectory}/${id}.png`, animations: "disabled", timeout: 15000 });
   captureCount += 1;
   console.log(`Captured Android ${id}`);

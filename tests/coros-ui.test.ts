@@ -236,6 +236,7 @@ test("both visual benchmark drivers isolate the raw 800x480 framebuffer", () => 
   for (const source of [windowsCapture, androidCapture]) {
     assert.match(source, /width: 800px !important; height: 480px !important/);
     assert.match(source, /\.qc-screen-bezel::after[^}]*display: none !important/s);
+    assert.match(source, /page\.mouse\.move\(viewport\.width - 1, viewport\.height - 1\)/);
   }
   assert.match(androidCapture, /\.mobile-screen \.qc-screen \{ border-radius: 0 !important; box-shadow: none !important; \}/);
 });

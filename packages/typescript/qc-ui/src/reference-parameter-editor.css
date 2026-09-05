@@ -80,8 +80,18 @@
 .coros-reference-parameter-editor .editor-stomp svg { width: 85%; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .coros-reference-parameter-editor .editor-scene { flex: 0 0 17%; display: flex !important; gap: 10%; font-size: clamp(8px, 2.2cqw, 18px); }
 .coros-reference-parameter-editor .editor-scene button { display: grid; flex: 1; height: 100%; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.coros-reference-parameter-editor .editor-scene button svg { width: 70%; fill: none; stroke: currentColor; stroke-width: 2; }
+.coros-reference-parameter-editor .editor-scene button svg { width: 70%; fill: currentColor; stroke: none; }
 .coros-reference-parameter-editor .editor-scene b { padding: 6% 12%; border-radius: 4px; background: #f2cf25; color: #111; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-stomp,
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-scene,
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-bypass,
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-done { position: absolute; top: 1cqw; height: 5.5cqw; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-stomp { left: 53.5%; width: 8.25%; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-scene { left: 62.75%; width: 16.5%; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-bypass { left: 81.5%; width: 8.25%; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-done { left: 90.75%; width: 8.25%; }
+.coros-reference-parameter-editor:not(.coros-special-editor) .editor-scene b { position: relative; height: 100%; display: grid; place-items: center; padding: 0; border-radius: 0; background: transparent; isolation: isolate; }
+.coros-reference-parameter-editor:not(.coros-special-editor) .editor-scene b::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 50%; width: 3cqw; height: 3cqw; translate: -50% -50%; border-radius: .5cqw; background: #f2cf25; }
 .coros-reference-parameter-editor .editor-bypass,
 .coros-reference-parameter-editor .editor-done { flex: 0 0 8.2%; font-size: clamp(11px, 3cqw, 24px); }
 .coros-reference-parameter-editor .editor-done svg { width: 42%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -97,6 +107,7 @@
 .coros-reference-parameter-editor .coros-dial i { position: absolute; left: calc(50% - 1px); top: 4%; width: 2px; height: 42%; background: #f2f2f2; }
 .coros-reference-parameter-editor .coros-parameter-controls label > small { font-size: clamp(6px, 1.8cqw, 14px); }
 .coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .coros-parameter-controls label:not(.is-toggle) .coros-dial { position: absolute; left: 53%; top: 35.5%; width: 8cqw; place-self: unset; translate: 0; }
+.coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .coros-parameter-controls label:nth-child(-n+5):not(.is-toggle) .coros-dial { top: 37.5%; }
 .coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .coros-parameter-controls label:not(.is-toggle) > small { position: absolute; left: 7%; bottom: 1.625cqw; }
 .coros-reference-parameter-editor.is-bypassed .coros-parameter-controls { filter: brightness(.3); }
 .coros-reference-parameter-editor.is-bypassed header .editor-title { opacity: .65; }

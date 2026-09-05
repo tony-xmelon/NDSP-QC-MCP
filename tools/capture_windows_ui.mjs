@@ -39,6 +39,8 @@ async function capture(id) {
   const screen = page.locator(".qc-screen-bezel");
   const box = await screen.boundingBox();
   if (!box || Math.round(box.width) !== 800 || Math.round(box.height) !== 480) throw new Error(`${id}: expected 800x480, got ${box?.width}x${box?.height}`);
+  const viewport = page.viewportSize();
+  if (viewport) await page.mouse.move(viewport.width - 1, viewport.height - 1);
   await screen.screenshot({ path: `${outputDirectory}/${id}.png`, animations: "disabled", timeout: 15000 });
   captureCount += 1;
   console.log(`Captured Windows ${id}`);

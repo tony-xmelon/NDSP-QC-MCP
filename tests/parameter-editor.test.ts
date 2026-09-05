@@ -86,13 +86,15 @@ test("demo mode supplies a parameter editor for every represented block category
   }
 });
 
-test("physical demo models preserve their binary switch primitives", () => {
+test("physical demo models preserve their captured switch primitives", () => {
   const topBoost = demoBlockDetails({ id: "amp", name: "UK C30 TopBoost", kind: "amp", category: "Amp", row: 0, column: 0 }, 0);
   assert.equal(topBoost.parameters.find((parameter) => parameter.name === "BOOST")?.type, "switch");
   const flanger = demoBlockDetails({ id: "mod", name: "Digital Flanger", kind: "mod", category: "Modulation", row: 0, column: 0 }, 0);
-  assert.deepEqual(flanger.parameters.filter((parameter) => ["SYNC", "POLARITY", "DRIVE"].includes(parameter.name)).map((parameter) => parameter.type), ["switch", "switch", "switch"]);
+  assert.deepEqual(flanger.parameters.filter((parameter) => ["SYNC", "POLARITY", "DRIVE"].includes(parameter.name)).map((parameter) => parameter.type), ["switch", "switch", "enum"]);
+  assert.deepEqual(flanger.parameters.filter((parameter) => ["RATE", "DELAY"].includes(parameter.name)).map((parameter) => parameter.displayPrecision), [2, 2]);
   const ambience = demoBlockDetails({ id: "reverb", name: "Ambience", kind: "reverb", category: "Reverb", row: 0, column: 0 }, 0);
   assert.equal(ambience.parameters.find((parameter) => parameter.name === "TRAILS")?.type, "switch");
+  assert.equal(ambience.parameters.find((parameter) => parameter.name === "TRAILS")?.normalizedValue, 0);
 });
 
 test("Brit 2203 retains ModelRepo protocol order before physical screen placement", () => {

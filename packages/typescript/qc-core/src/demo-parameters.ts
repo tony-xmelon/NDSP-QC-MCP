@@ -1,6 +1,6 @@
 import type { BlockDetails, BlockParameter, GridBlock } from "@ndsp-qc/client";
 
-type ParameterSeed = [name: string, value: number, minimum?: number, maximum?: number, units?: string, options?: string[], type?: BlockParameter["type"]];
+type ParameterSeed = [name: string, value: number, minimum?: number, maximum?: number, units?: string, options?: string[], type?: BlockParameter["type"], displayPrecision?: number];
 
 const schemas: Record<string, ParameterSeed[]> = {
   plugins: [["INPUT", .5, 0, 10], ["DRIVE", .58, 0, 10], ["TONE", .52, 0, 10], ["OUTPUT", .5, -24, 24, "dB"], ["MIX", 1, 0, 100, "%"]],
@@ -41,13 +41,13 @@ const modelSchemas: Record<string, ParameterSeed[]> = {
   "simple gate": [["THRESHOLD", 0, -60, 0, "dB"]],
   "chief ds1": [["DISTORTION", .58, 0, 10], ["TONE", .47, 0, 10], ["LEVEL", .5, 0, 10]],
   "digital flanger": [
-    ["MIX", 1, 0, 100, "%"], ["RATE", .0095, .01, 20, "Hz"], ["SYNC", 1, 0, 1, "", ["On", "Off"], "switch"],
+    ["MIX", 1, 0, 100, "%"], ["RATE", .0095, .01, 20, "Hz", [], undefined, 2], ["SYNC", 1, 0, 1, "", ["On", "Off"], "switch"],
     ["SYNC NOTE", .5, 0, 1, "", ["1/16", "1/8", "1/4", "1/2", "1/1"]], ["DEPTH", 1, 0, 100, "%"],
-    ["DELAY", 0, 1, 20, "ms"], ["FEEDBACK", .9, -100, 100, "%"], ["POLARITY", 1, 0, 1, "", ["Pos", "Neg"], "switch"],
-    ["WIDTH", 1, 0, 100, "%"], ["DRIVE", 0, 0, 1, "", ["OFF", "ON"], "switch"]
+    ["DELAY", 0, 1, 20, "ms", [], undefined, 2], ["FEEDBACK", .9, -100, 100, "%"], ["POLARITY", 1, 0, 1, "", ["Pos", "Neg"], "switch"],
+    ["WIDTH", 1, 0, 100, "%"], ["DRIVE", 0, 0, 1, "", ["OFF", "ON"]]
   ],
   "uk c30 topboost": [["VOLUME", .38, 0, 10], ["BASS", .38, 0, 10], ["TREBLE", .58, 0, 10], ["TONE CUT", .45, 0, 10], ["BOOST", 0, 0, 1, "", ["COOL", "HOT"], "switch"], ["OUTPUT", .5, -24, 24, "dB"]],
-  "ambience": [["MIX", .12, 0, 100, "%"], ["SIZE", .5, 0, 1, "", ["Small", "Med", "Large"]], ["PRE DELAY", .04, 0, 500, "ms"], ["HIGH PASS", .03, 20, 2000, "Hz"], ["LOW PASS", .263, 1000, 20000, "Hz"], ["TRAILS", 1, 0, 1, "", ["On", "Off"], "switch"]],
+  "ambience": [["MIX", .12, 0, 100, "%"], ["SIZE", .5, 0, 1, "", ["Small", "Med", "Large"]], ["PRE DELAY", .04, 0, 500, "ms"], ["HIGH PASS", 60 / 1980, 20, 2000, "Hz"], ["LOW PASS", 5000 / 19000, 1000, 20000, "Hz"], ["TRAILS", 0, 0, 1, "", ["On", "Off"], "switch"]],
   "adaptive gate": [["NOISE REDUCTION", .62, 0, 100, "%"]],
   "parametric-8": Array.from({ length: 8 }, (_, index) => {
     const band = index + 1;
@@ -91,11 +91,11 @@ const modelSchemas: Record<string, ParameterSeed[]> = {
 };
 
 function parameter(seed: ParameterSeed, index: number): BlockParameter {
-  const [name, normalizedValue, minimum = 0, maximum = 1, units = "", options = [], type] = seed;
+  const [name, normalizedValue, minimum = 0, maximum = 1, units = "", options = [], type, displayPrecision] = seed;
   return {
     index, displayPosition: index, name, normalizedValue, displayValue: "", units,
     type: type ?? (options.length ? "enum" : "float"), minimum, maximum,
-    valueScale: options.length ? "options" : "unknown", scalePoints: [], scaleKnown: options.length > 0,
+    valueScale: options.length ? "options" : "unknown", scalePoints: [], scaleKnown: options.length > 0, displayPrecision,
     steps: options.length ? options.length : null, sceneMode: index < 5,
     options, writable: true, enabled: true, expressionAssignable: true,
     wireValueKind: options.length ? "text" : "numeric",

@@ -75,7 +75,7 @@ interface QuadCortexSurfaceProps {
 
 const officialBlockSprite = QC_VISUAL_ASSETS.blockSprite.url;
 
-function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; y: number; size?: number }) {
+function DeviceGlyph({ block, x, y, size = 64, selected = false }: { block: GridBlock; x: number; y: number; size?: number; selected?: boolean }) {
   const visual = officialBlockVisual(block);
   const [tileX, tileY] = visual.tile;
   const badge = pluginBadge(block);
@@ -100,7 +100,7 @@ function DeviceGlyph({ block, x, y, size = 64 }: { block: GridBlock; x: number; 
   return <g><svg className="official-block-tile" x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox={`${tileX} ${tileY} 70 70`} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true">
     <image href={officialBlockSprite} x="0" y="0" width="710" height="152" />
     <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={QC_COLORS.captured.screen} strokeWidth="5" />
-    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={visual.color} strokeWidth="2.4" />
+    <rect x={tileX + 3} y={tileY + 3} width="64" height="64" rx="14" fill="none" stroke={visual.color} strokeWidth={selected ? 5.5 : 2.4} />
   </svg>{fill}{pluginLabel}</g>;
 }
 
@@ -377,8 +377,7 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     const cy = rowY[block.row];
     const selected = selectedBlockId === block.id;
     return <g key={block.id} opacity={block.bypassed ? .48 : 1}>
-      <DeviceGlyph block={block} x={cx} y={cy} />
-      {selected && <rect x={cx - 34} y={cy - 34} width="68" height="68" rx="15" fill="none" stroke={QC_COLORS.app.text} strokeWidth="2" />}
+      <DeviceGlyph block={block} x={cx} y={cy} selected={selected} />
       {block.bypassed && <path d={`M${cx - 32} ${cy}H${cx + 32}`} fill="none" stroke={QC_COLORS.device.bypassPath} strokeWidth="2" opacity=".9" />}
     </g>;
   };
