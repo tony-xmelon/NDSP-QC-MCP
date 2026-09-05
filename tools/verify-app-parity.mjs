@@ -22,14 +22,24 @@ const verifyEvidence = async (feature, subject, entries = []) => {
 };
 
 if (manifest.version !== 1 || !Array.isArray(manifest.features) || manifest.features.length === 0) failures.push("app parity manifest must be non-empty version 1");
+if (!Array.isArray(manifest.owners) || manifest.owners.length === 0) failures.push("app parity manifest must define ownership categories");
 for (const feature of manifest.features ?? []) {
   if (!feature.id || ids.has(feature.id)) failures.push(`duplicate or empty feature id: ${feature.id ?? "<empty>"}`);
   ids.add(feature.id);
   if (!feature.label || !["required", "platform-specific"].includes(feature.parity)) failures.push(`${feature.id}: invalid label or parity classification`);
+  if (!manifest.owners?.includes(feature.owner)) failures.push(`${feature.id}: invalid ownership category`);
   if (feature.parity === "required" && (feature.windows?.status !== "implemented" || feature.android?.status !== "implemented")) {
     failures.push(`${feature.id}: parity-targeted capabilities must be implemented on both apps`);
   }
-  if (feature.parity === "platform-specific" && !feature.rationale) failures.push(`${feature.id}: platform-specific capability needs a rationale`);
+  if (feature.parity === "required" && !["shared", "native-equivalent"].includes(feature.owner)) failures.push(`${feature.id}: parity-targeted capability must have shared or native-equivalent ownership`);
+  if (feature.parity === "platform-specific") {
+    if (!feature.rationale) failures.push(`${feature.id}: platform-specific capability needs a rationale`);
+    if (!["windows-shell", "android-shell"].includes(feature.owner)) failures.push(`${feature.id}: platform-specific capability must be owned by a native shell`);
+    const statuses = [feature.windows?.status, feature.android?.status];
+    if (statuses.filter((status) => status === "implemented").length !== 1 || statuses.filter((status) => status === "not-applicable").length !== 1) {
+      failures.push(`${feature.id}: platform-specific capability must be implemented by exactly one app`);
+    }
+  }
   for (const platform of ["windows", "android"]) {
     const state = feature[platform];
     if (!state || !manifest.statuses.includes(state.status)) failures.push(`${feature.id}: invalid ${platform} status`);

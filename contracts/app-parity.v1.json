@@ -1,6 +1,7 @@
 {
   "version": 1,
   "statuses": ["implemented", "not-applicable"],
+  "owners": ["shared", "native-equivalent", "windows-shell", "android-shell"],
   "features": [
     {
       "id": "device-surface",
