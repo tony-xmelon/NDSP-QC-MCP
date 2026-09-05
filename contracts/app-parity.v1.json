@@ -150,7 +150,7 @@
       "label": "Desktop multi-provider configuration and rich attachments",
       "parity": "platform-specific",
       "owner": "windows-shell",
-      "rationale": "Android uses Firebase AI Logic and native Google identity; Windows supports multiple local/BYOK providers and desktop file attachments.",
+      "rationale": "Android uses Firebase AI Logic with app-level Firebase project identity; Windows supports multiple local/BYOK providers and desktop file attachments.",
       "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/model-chat.ts", "contains": "chatProviderDefaults" }, { "path": "apps/windows/src/App.tsx", "contains": "addChatAttachmentFiles" }] },
       "android": { "status": "not-applicable", "evidence": [] }
     },
