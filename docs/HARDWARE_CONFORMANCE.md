@@ -80,6 +80,9 @@ $windowsCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -
 node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate
 ```
 
+Omit `--execute` first to validate the complete 94-action plan and exact
+candidate metadata without connecting to or mutating the QC.
+
 Repeat with the Android device paired and a separate output target. Evidence is
 written under `artifacts/hardware-conformance/` unless `--output` is supplied.
 Serials, tokens, credentials, and binary payloads are redacted or hashed.
@@ -143,7 +146,7 @@ hide stale or queued commands.
 
 ### Acceptance gates
 
-- Every one of the 72 public device actions has an authoritative response from
+- Every one of the 94 public device actions has an authoritative response from
   the QC, not merely a successful send from the app.
 - UI feedback is immediate and the later device event agrees with it. A stale
   event may never move a control back during a drag or rapid double press.

@@ -55,7 +55,10 @@ test("Windows installer builds checksum their external Cargo target artifact", (
 test("one shared finalizer preserves only same-source staged release candidates", () => {
   const candidates = readFileSync(new URL("../tools/release-candidates.mjs", import.meta.url), "utf8");
   assert.match(candidates, /gitOutput\(\["rev-parse", "HEAD"\]\)/);
-  assert.match(candidates, /gitOutput\(\["status", "--porcelain"\]\)/);
+  assert.match(candidates, /export function repositoryIsDirty/);
+  assert.match(candidates, /gitDiffers\(\["diff", "--quiet", "--ignore-submodules", "--"\]\)/);
+  assert.match(candidates, /gitDiffers\(\["diff", "--cached", "--quiet", "--ignore-submodules", "--"\]\)/);
+  assert.match(candidates, /gitOutput\(\["ls-files", "--others", "--exclude-standard"\]\)/);
   assert.match(candidates, /sourceDirty === false/);
   assert.match(candidates, /metadata\.sourceCommit === expected\.sourceCommit/);
   assert.match(candidates, /metadata\.sha256 === expected\.sha256/);

@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   CASES,
@@ -28,6 +33,39 @@ test("full execution requires explicit fixtures and distinct disposable slots", 
   assert.deepEqual(validateConfig(example, { requireAll: true }), []);
   assert.doesNotThrow(() => assertDisposableSlots(example, [example.persistent.slotA, example.persistent.slotB]));
   assert.throws(() => assertDisposableSlots(example, [example.persistent.slotA, example.persistent.slotA]), /distinct/);
+});
+
+test("full dry run validates and identifies the exact staged candidate", () => {
+  const directory = mkdtempSync(join(tmpdir(), "qc-hardware-candidate-"));
+  try {
+    const candidate = join(directory, "QC-Control-Windows-test.exe");
+    const bytes = Buffer.from("immutable release candidate");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    writeFileSync(candidate, bytes);
+    writeFileSync(`${candidate}.source.json`, JSON.stringify({
+      schemaVersion: 1,
+      platform: "windows",
+      sourceCommit: "candidate-source",
+      sourceDirty: false,
+      size: bytes.length,
+      sha256
+    }));
+    const runner = fileURLToPath(new URL("../tools/hardware-conformance.mjs", import.meta.url));
+    const args = [runner, "--all", "--require-all", "--release-candidate", candidate];
+    const accepted = spawnSync(process.execPath, args, { encoding: "utf8" });
+    assert.equal(accepted.status, 0, accepted.stderr);
+    const plan = JSON.parse(accepted.stdout);
+    assert.equal(plan.dryRun, true);
+    assert.equal(plan.releaseCandidate.sha256, sha256);
+    assert.equal(plan.plan.filter((item: { enabled: boolean }) => item.enabled).length, contract.actions.length);
+
+    writeFileSync(candidate, Buffer.from("tampered release candidate"));
+    const rejected = spawnSync(process.execPath, args, { encoding: "utf8" });
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /size|SHA-256/);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("mutations require an exact out-of-band acknowledgement", () => {

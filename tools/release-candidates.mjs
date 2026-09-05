@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -9,6 +9,23 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function gitOutput(args) {
   return execFileSync("git", args, { cwd: repositoryRoot, encoding: "utf8" }).trim();
+}
+
+function gitDiffers(args) {
+  const result = spawnSync("git", args, { cwd: repositoryRoot, stdio: "ignore" });
+  if (result.error) throw result.error;
+  if (result.status === 0) return false;
+  if (result.status === 1) return true;
+  throw new Error(`Git cleanliness check failed with exit code ${result.status ?? "unknown"}.`);
+}
+
+export function repositoryIsDirty() {
+  // Compare content instead of trusting Git's worktree stat cache. Tauri can
+  // touch an unchanged Cargo.toml while resolving bundle metadata, which used
+  // to make a clean installer fail final staging on Windows.
+  return gitDiffers(["diff", "--quiet", "--ignore-submodules", "--"])
+    || gitDiffers(["diff", "--cached", "--quiet", "--ignore-submodules", "--"])
+    || Boolean(gitOutput(["ls-files", "--others", "--exclude-standard"]));
 }
 
 function sha256File(path) {
@@ -46,7 +63,7 @@ export function stageReleaseCandidate(platform, source) {
   const sourcePath = resolve(source);
   if (!existsSync(sourcePath)) throw new Error(`Release artifact does not exist: ${sourcePath}`);
   const sourceCommit = gitOutput(["rev-parse", "HEAD"]);
-  const sourceDirty = Boolean(gitOutput(["status", "--porcelain"]));
+  const sourceDirty = repositoryIsDirty();
   if (sourceDirty) throw new Error("Release candidates can only be staged from a clean Git worktree.");
   const targetPath = candidatePath(platform);
   mkdirSync(dirname(targetPath), { recursive: true });
@@ -65,7 +82,7 @@ export function stageReleaseCandidate(platform, source) {
 
 export function currentReleaseCandidates() {
   const sourceCommit = gitOutput(["rev-parse", "HEAD"]);
-  if (gitOutput(["status", "--porcelain"])) return [];
+  if (repositoryIsDirty()) return [];
   return ["windows", "android"].flatMap((platform) => {
     const artifactPath = candidatePath(platform);
     const sourcePath = metadataPath(artifactPath);

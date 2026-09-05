@@ -219,20 +219,20 @@ async function main() {
   const config = JSON.parse(await readFile(configPath, "utf8"));
   const missingFixtures = validateConfig(config, { requireAll });
   const plan = actionPlan(contract, enabledHazards);
-  if (!execute) {
-    console.log(JSON.stringify({ dryRun: true, contractActions: contract.actions.length, enabledHazards: [...enabledHazards], missingFixtures, plan }, null, 2));
-    return;
-  }
-  if ([...enabledHazards].some((value) => value !== "read")) assertMutationAcknowledged();
-  if ((enabledHazards.has("persistent") || enabledHazards.has("system") || enabledHazards.has("screen")) && !enabledHazards.has("live")) {
-    throw new Error("Persistent, system, and screen cases require --live because safe scratch-preset entry and restoration use live actions.");
-  }
   if (requireAll) {
     assert(enabledHazards.size === 5, "--require-all must be combined with --all.");
     assert(missingFixtures.length === 0, "Full execution requires every fixture.");
     assert(releaseCandidatePath, "Full release evidence requires --release-candidate with a staged app artifact.");
   }
   const releaseCandidate = releaseCandidatePath ? await readReleaseCandidate(releaseCandidatePath, config.target) : undefined;
+  if (!execute) {
+    console.log(JSON.stringify({ dryRun: true, contractActions: contract.actions.length, enabledHazards: [...enabledHazards], missingFixtures, releaseCandidate, plan }, null, 2));
+    return;
+  }
+  if ([...enabledHazards].some((value) => value !== "read")) assertMutationAcknowledged();
+  if ((enabledHazards.has("persistent") || enabledHazards.has("system") || enabledHazards.has("screen")) && !enabledHazards.has("live")) {
+    throw new Error("Persistent, system, and screen cases require --live because safe scratch-preset entry and restoration use live actions.");
+  }
   if (enabledHazards.has("persistent")) assertDisposableSlots(config, [config.persistent.slotA, config.persistent.slotB]);
 
   const transport = config.transport.kind === "gateway-stdio"
