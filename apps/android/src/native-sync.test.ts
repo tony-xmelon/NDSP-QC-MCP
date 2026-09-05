@@ -108,7 +108,7 @@ test("one device frame crosses the bridge once with all realtime state updates",
 
 test("large model metadata never blocks the permanent USB reader", () => {
   assert.match(javaSource, /metadataIo = Executors\.newSingleThreadExecutor\(\)/);
-  assert.match(javaSource, /if \(type == 51\) \{[\s\S]*scheduleModelCatalogDecode/);
+  assert.match(javaSource, /if \(type == QcUsbProfile\.MESSAGE_TYPE_MODEL_REPO\) \{[\s\S]*scheduleModelCatalogDecode/);
   assert.match(javaSource, /metadataIo\.execute\(\(\) ->/);
   assert.match(javaSource, /stateDecoder\.installModelRepo\(payload\)/);
   assert.match(rustAndroidSource, /Parsing intentionally happens before the decoder lock/);
