@@ -58,17 +58,19 @@
 .directory-nested-official .directory-official-list > button { grid-template-columns: 1fr 8cqw; padding-right: 6.625cqw; }
 .directory-nested-official .directory-nested-index { position: absolute; right: 0; top: 0; bottom: 0; width: 4.625cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-around; border-left: 1px solid #171918; color: #929692; font-size: 1cqw; }
 .directory-official.is-plugins .directory-official-list { display: grid; place-items: center; background: #181c18; color: #090b09; font-size: 12cqw; }
+.directory-official.is-plugins > main { padding-bottom: 0; }
 .directory-official.is-plugins > header .plugin-refresh { width: 12.25cqw; background: #181c18; }
+.directory-official.is-plugins > header button:nth-last-child(2) { transform: translateX(-1.25cqw); }
 .directory-official.is-plugins > header .plugin-refresh svg,
 .directory-official.is-plugins > header button:nth-last-child(2) svg,
-.directory-official.is-plugins > header button:last-child svg { display: none; }
-.directory-official.is-plugins > header .plugin-refresh::after { content: "↻"; }
-.directory-official.is-plugins > header button:nth-last-child(2)::after { content: "⌕"; }
-.directory-official.is-plugins > header button:last-child::after { content: "✓"; }
+.directory-official.is-plugins > header button:last-child svg { fill: none; }
+.directory-official.is-plugins > header .directory-official-category span,
+.directory-official.is-plugins nav button span { transform: translateX(1px); }
+.directory-official.is-plugins > header .directory-official-category svg { transform: scale(1.5); }
 .directory-official.is-plugins nav button { grid-template-columns: 4.625cqw 1fr; }
 .directory-official.is-plugins nav button b svg,
 .directory-official:not(.directory-nested-official) nav button.is-child b svg { fill: none; }
-.directory-official.is-plugins .plugin-directory-logo { width: 13.125cqw; height: 15.5cqw; fill: none; stroke: #101010; stroke-width: 14; stroke-linecap: butt; stroke-linejoin: miter; transform: translate(-.375cqw, -.625cqw); }
+.directory-official.is-plugins .plugin-directory-logo { width: 13.125cqw; height: 15.5cqw; fill: none; stroke: #101010; stroke-width: 14; stroke-linecap: butt; stroke-linejoin: miter; transform: translate(-.375cqw, -1.25cqw); }
 .directory-search-official > header { gap: .5cqw; }
 .directory-search-official > header .directory-search-field { width: 23cqw; margin: 0 1.75cqw 0 0; display: flex; align-items: center; justify-content: flex-start; gap: 1.125cqw; padding: 0 1.25cqw; font-size: 2.25cqw; }
 .directory-search-official > header .directory-search-field svg { width: 2.5cqw; height: 2.5cqw; }

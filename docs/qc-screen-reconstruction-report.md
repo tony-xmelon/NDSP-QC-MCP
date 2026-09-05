@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **90.02%** | **97.06%** |
-| Android | 36/36 (100%) | **90.02%** | **97.06%** |
+| Windows | 36/36 (100%) | **90.28%** | **97.07%** |
+| Android | 36/36 (100%) | **90.28%** | **97.07%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -108,7 +108,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Directory — Favorites | 88.37% | 88.29% |
 | Directory — Captures | 87.94% | 87.86% |
 | Directory — IRs | 88.99% | 88.89% |
-| Directory — Plugin presets | 87.11% | 86.93% |
+| Directory — Plugin presets | 96.42% | 96.42% |
 | Directory — Search results | 88.38% | 88.30% |
 | Directory — Nested folders | 90.10% | 90.02% |
 | Directory — Cloud upload | 91.02% | 90.89% |
@@ -171,12 +171,18 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Restored Directory — Plugin Presets' full-height 412px content panels,
+  native toolbar spacing and vector icons, aligned its directory labels, and
+  resized the plugin glyph and centered logo against the official frame. The
+  screen rises from **87.14% to 96.42%** structural match on both hosts, while
+  color similarity improves from **98.35% to 98.53%**. The complete 36-screen
+  official-manual benchmark now reaches **90.28% / 97.07%** on both hosts.
 - Refit Global EQ's response trace against the native curve, restored the
   measured 4px filter-tab gutters, and raised the three parameter values to
   their device baselines. The screen rises from **86.79% to 90.55% Windows /
   86.78% to 90.52% Android** structural match, while color similarity improves
-  from **96.19% to 96.41%**. The complete 36-screen official-manual benchmark
-  now reaches **90.02% / 97.06%** on both hosts.
+  from **96.19% to 96.41%**. At that checkpoint, the complete 36-screen
+  official-manual benchmark reached **90.02% / 97.06%** on both hosts.
 - Rebuilt the official Brit 2203 Grid header as the continuous, native-scale
   **1A Brit 2203** title instead of three disconnected runs, restored the
   scene-green slot color, and added the three missing signal-row connector

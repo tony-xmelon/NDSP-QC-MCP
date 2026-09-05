@@ -13,7 +13,7 @@ Generated from the CorOS 4.1.0 executable coverage ledger. This report distingui
 | Corpus | Windows structural | Windows color | Android structural | Android color |
 | --- | ---: | ---: | ---: | ---: |
 | Physical device | 91.59% | 97.32% | 91.58% | 97.32% |
-| Official manual | 90.02% | 97.06% | 90.02% | 97.06% |
+| Official manual | 90.28% | 97.07% | 90.28% | 97.07% |
 
 Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` color similarity. A canonical state that references multiple frames reports their mean. Detail evidence is scoped and therefore never promoted into a full-frame score.
 
@@ -112,7 +112,7 @@ Scores are edge-F1 structural match with a two-pixel tolerance and `1 - MAE` col
 | DR-02 | Directory | Presets browser | physical frame + official frame | Built | Built | 92.46% / 92.47% | 98.06% / 98.06% | 91.97% / 91.96% | 97.85% / 97.85% |
 | DR-03 | Directory | Neural Captures browser | official frame | Built | Built | — / — | — / — | 87.93% / 87.92% | 97.44% / 97.44% |
 | DR-04 | Directory | Impulse Responses browser | official frame | Built | Built | — / — | — / — | 88.99% / 89.00% | 97.77% / 97.77% |
-| DR-05 | Directory | Plugin Presets browser | official frame | Built | Built | — / — | — / — | 87.14% / 87.14% | 98.35% / 98.35% |
+| DR-05 | Directory | Plugin Presets browser | official frame | Built | Built | — / — | — / — | 96.42% / 96.42% | 98.53% / 98.53% |
 | DR-06 | Directory | Favorites and Recent | official frame | Built | Built | — / — | — / — | 88.34% / 88.46% | 97.54% / 97.53% |
 | DR-07 | Directory | Search entry | official detail | Built | Built | — / — | — / — | — / — | — / — |
 | DR-08 | Directory | Search results | official frame | Built | Built | — / — | — / — | 88.37% / 88.36% | 97.28% / 97.28% |
@@ -184,6 +184,6 @@ These states are implemented and captured on both hosts, but only against determ
 
 - Physical Windows: `.artifacts/ui-physical-final24/comparison/summary.json`
 - Physical Android: `.artifacts/ui-physical-final24/android-comparison/summary.json`
-- Official Windows: `.artifacts/ui-official-final5/windows-comparison/summary.json`
-- Official Android: `.artifacts/ui-official-final5/android-comparison/summary.json`
+- Official Windows: `.artifacts/ui-official-final6/windows-comparison/summary.json`
+- Official Android: `.artifacts/ui-official-final6/android-comparison/summary.json`
 
