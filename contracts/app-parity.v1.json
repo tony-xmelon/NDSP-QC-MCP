@@ -12,13 +12,49 @@
       "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "<QuadCortexSurface" }] }
     },
     {
-      "id": "device-workflows",
-      "label": "Preset, Grid, routing, scene, parameter, and performance workflows",
+      "id": "preset-library-and-navigation",
+      "label": "Preset directory, recall, save, and adjacent/bank navigation",
       "parity": "required",
       "owner": "shared",
-      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-qc-workflows.ts", "contains": "export function useQcWorkflows" }],
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-preset-workflow.ts", "contains": "export function usePresetWorkflow" }],
       "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useQcWorkflows({" }] },
       "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "useQcWorkflows({" }] }
+    },
+    {
+      "id": "grid-and-routing-workflows",
+      "label": "Grid block placement, selection, footswitch assignment, and routing",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-grid-workflow.ts", "contains": "export function useGridWorkflow" }, { "path": "packages/typescript/qc-ui/src/use-routing-workflow.ts", "contains": "export function useRoutingWorkflow" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useQcWorkflows({" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "useQcWorkflows({" }] }
+    },
+    {
+      "id": "parameter-editor-workflow",
+      "label": "Block details, parameter pages, previews, expression, and scene mode",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-parameter-workflow.ts", "contains": "export function useParameterWorkflow" }, { "path": "packages/typescript/qc-ui/src/qc-parameter-editor-bindings.ts", "contains": "export function qcParameterEditorBindings" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "qcParameterEditorBindings({" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "qcParameterEditorBindings({" }] }
+    },
+    {
+      "id": "scene-and-performance-workflows",
+      "label": "Scenes, A-H footswitches, modes, tempo, and master volume",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-performance-workflow.ts", "contains": "export function usePerformanceWorkflow" }, { "path": "packages/typescript/qc-ui/src/use-scene-workflow.ts", "contains": "export function useSceneWorkflow" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "useQcWorkflows({" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "useQcWorkflows({" }] }
+    },
+    {
+      "id": "undo-redo-and-dirty-state",
+      "label": "Device history, undo/redo, and authoritative dirty-state rendering",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "packages/typescript/qc-ui/src/use-device-history.ts", "contains": "export function useDeviceHistory" }, { "path": "packages/typescript/qc-ui/src/coros-ui.ts", "contains": "export function presetTitlePresentation" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/App.tsx", "contains": "history: deviceHistory" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "history: deviceHistory" }] }
     },
     {
       "id": "realtime-state",
