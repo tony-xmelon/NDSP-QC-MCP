@@ -57,6 +57,7 @@ public class QcUsbPlugin extends Plugin {
     private UsbInterface hidInterface;
     private UsbEndpoint inputEndpoint;
     private volatile UsbRequest activeInputRequest;
+    private UsbDeviceConnection midiConnection;
     private UsbInterface midiInterface;
     private UsbEndpoint midiOutputEndpoint;
     private PluginCall pendingConnect;
@@ -331,6 +332,13 @@ public class QcUsbPlugin extends Plugin {
         String name = params.optString("name", "");
         if (name.trim().isEmpty()) return failedRelay("INVALID_ARGUMENT", "Backup name cannot be empty.");
         if (pendingBackup != null && !pendingBackup.result.isDone()) return failedRelay("BACKUP_IN_PROGRESS", "A device backup is already in progress.");
+        return relayReconnect("USB session refreshed for native backup").thenCompose(ignored -> {
+            try { return relayCreateBackupOnCurrentSession(name); }
+            catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
+        });
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayCreateBackupOnCurrentSession(String name) throws Exception {
         CompletableFuture<org.json.JSONObject> result = new CompletableFuture<>();
         QcPendingOperations.Entry<PendingBackup> pending = pendingOperations.register(new PendingBackup(name), result);
         pendingBackup = pending;
@@ -612,6 +620,19 @@ public class QcUsbPlugin extends Plugin {
     private CompletableFuture<org.json.JSONObject> relayGatewayRead(
         String method, org.json.JSONObject params
     ) throws Exception {
+        if ("device.captureScreen".equals(method) || "device.presetScreenshot".equals(method)) {
+            org.json.JSONObject readParams = new org.json.JSONObject(params.toString());
+            return relayReconnect("USB session refreshed for high-volume read").thenCompose(ignored -> {
+                try { return relayGatewayReadOnCurrentSession(method, readParams); }
+                catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
+            });
+        }
+        return relayGatewayReadOnCurrentSession(method, params);
+    }
+
+    private CompletableFuture<org.json.JSONObject> relayGatewayReadOnCurrentSession(
+        String method, org.json.JSONObject params
+    ) throws Exception {
         long requestId = requestIds.getAndIncrement();
         QcNativeStateDecoder.PlannedGatewayRead plan = stateDecoder.gatewayRead(
             method, JSObject.fromJSONObject(params), requestId);
@@ -759,7 +780,9 @@ public class QcUsbPlugin extends Plugin {
                     (byte) controller,
                     (byte) value
                 };
-                int written = connection.bulkTransfer(midiOutputEndpoint, packet, packet.length, MIDI_WRITE_TIMEOUT_MS);
+                UsbDeviceConnection activeMidiConnection = midiConnection;
+                if (activeMidiConnection == null) throw new RelayException("MIDI_NOT_AVAILABLE", "Quad Cortex USB-MIDI disconnected before the write.");
+                int written = activeMidiConnection.bulkTransfer(midiOutputEndpoint, packet, packet.length, MIDI_WRITE_TIMEOUT_MS);
                 lastMidiCommandAt = System.currentTimeMillis();
                 if (written != packet.length) throw new RelayException("MIDI_WRITE_FAILED", "The complete MIDI packet was not written.");
                 result.complete(new org.json.JSONObject()
@@ -867,6 +890,7 @@ public class QcUsbPlugin extends Plugin {
             ? QcNativeStateDecoder.REPORT_SIZE
             : QcNativeStateDecoder.REPORT_SIZE - 1);
         result.put("midiAvailable", midiOutputEndpoint != null);
+        result.put("separateMidiConnection", midiConnection != null && midiConnection != connection);
         result.put("midiInterfaceId", midiInterface == null ? -1 : midiInterface.getId());
         result.put("midiOutputEndpointAddress", midiOutputEndpoint == null ? -1 : midiOutputEndpoint.getAddress());
         result.put("lastMidiQueueDelayMs", lastMidiQueueDelayMs);
@@ -987,9 +1011,15 @@ public class QcUsbPlugin extends Plugin {
             }
             if (selectedMidiOutput != null) break;
         }
-        if (selectedMidi != null && opened.claimInterface(selectedMidi, true)) {
-            midiInterface = selectedMidi;
-            midiOutputEndpoint = selectedMidiOutput;
+        if (selectedMidi != null) {
+            UsbDeviceConnection openedMidi = manager.openDevice(candidate);
+            if (openedMidi != null && openedMidi.claimInterface(selectedMidi, true)) {
+                midiConnection = openedMidi;
+                midiInterface = selectedMidi;
+                midiOutputEndpoint = selectedMidiOutput;
+            } else if (openedMidi != null) {
+                openedMidi.close();
+            }
         }
         device = candidate;
         connection = opened;
@@ -1519,8 +1549,12 @@ public class QcUsbPlugin extends Plugin {
             inputRequest.cancel();
             inputRequest.close();
         }
+        if (midiConnection != null) {
+            if (midiInterface != null) midiConnection.releaseInterface(midiInterface);
+            midiConnection.close();
+        }
+        midiConnection = null;
         if (connection != null) {
-            if (midiInterface != null) connection.releaseInterface(midiInterface);
             if (hidInterface != null) connection.releaseInterface(hidInterface);
             connection.close();
         }

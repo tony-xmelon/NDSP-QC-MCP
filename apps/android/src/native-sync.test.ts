@@ -88,6 +88,9 @@ test("native USB remains open and command traffic is never blocked by startup", 
   assert.match(javaSource, /if \(isReady\(\) && device != null && device\.getDeviceId\(\) == candidate\.getDeviceId\(\)\)/);
   assert.doesNotMatch(javaSource, /Thread\.sleep\(2000\)/);
   assert.match(javaSource, /midiIo\.execute\(\(\) ->/);
+  assert.match(javaSource, /midiConnection = openedMidi/);
+  assert.match(javaSource, /activeMidiConnection\.bulkTransfer\(midiOutputEndpoint/);
+  assert.match(javaSource, /midiConnection\.releaseInterface\(midiInterface\)/);
   assert.match(appSource, /consumeQcNativeStateFrame\(frame/);
   assert.match(liveStateSource, /reconcileFrame\(states, observedAt\)/);
   assert.match(readFileSync(new URL("../../../packages/typescript/qc-core/src/command-coordinator.ts", import.meta.url), "utf8"), /beginSnapshotMutation/);
@@ -226,6 +229,8 @@ test("Android persists completed native backups without blocking USB reads", () 
   assert.match(javaSource, /writeMessage\(stateDecoder\.readCommand\(17\)\)/);
   assert.match(javaSource, /masterObserved[\s\S]*completePendingBackupRecovery\(observedAt\)/);
   assert.match(javaSource, /observedAt <= pending\.operation\.recoveryAfterState/);
+  assert.match(javaSource, /relayReconnect\("USB session refreshed for native backup"\)[\s\S]*relayCreateBackupOnCurrentSession/);
+  assert.match(javaSource, /device\.captureScreen[\s\S]*device\.presetScreenshot[\s\S]*relayReconnect\("USB session refreshed for high-volume read"\)/);
 });
 
 test("modern Android keeps one full-duplex interrupt read queued across idle periods", () => {
