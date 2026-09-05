@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.57%** | **97.32%** |
-| Android | 40/40 (100%) | **91.56%** | **97.32%** |
+| Windows | 40/40 (100%) | **91.59%** | **97.32%** |
+| Android | 40/40 (100%) | **91.58%** | **97.32%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -160,11 +160,17 @@ still need pixel-level reconstruction work.
 | `gig-view-preset` | 93.94% | 93.94% |
 | `gig-view-scene` | **91.15%** | **91.15%** |
 | `modes-configuration` | 96.35% | 96.35% |
-| `save-as-editor` | 88.97% | 88.97% |
+| `save-as-editor` | **89.50%** | **89.50%** |
 | `edit-details-editor` | 92.63% | 92.63% |
 
 ## Improvements in this pass
 
+- Replaced Save As's fractional repeated-card layout with the physical 53px and
+  51px row cadence, then aligned its folder labels, right-pane padding, header
+  title, grid glyph, dropdown caret, and close mark. The screen rises from
+  **88.97% to 89.50%** on both hosts with **98.22% color similarity**; complete-
+  corpus recomparison reaches **91.59% / 97.32%** on Windows and **91.58% /
+  97.32%** on Android.
 - Matched SCENE Gig View's right-anchored header controls, scene-name scale and
   baselines, active red surface, and enlarged three-action tool glyphs. The
   screen rises from **88.75% Windows / 88.76% Android to 91.15%** on both

@@ -229,14 +229,22 @@
 .coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i:not(.plugin-model-lock)::after{content:"";position:absolute;inset:.625cqw;border-radius:1cqw;background:#7d0505;mix-blend-mode:screen;pointer-events:none}
 .coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i.is-cab::after{background:#16144b}
 .coros-browser-fixture.is-physical-plugin-models .plugin-model-list button>i.is-drive::after{background:#5d2700}
-.coros-save-as header>span{font-weight:400;transform:translateX(1px)}.save-as-content{grid-template-columns:32cqw 14.125cqw 1fr}.save-as-content nav{grid-template-rows:repeat(7,6.625cqw);gap:.875cqw;background:transparent}.save-as-content nav button{border:0;border-radius:1cqw;background:#292d2a}.save-as-content nav button>b{color:#f4f5f4}.save-as-content nav button>span{transform:translate(2px,4px)}.save-as-content>section{grid-template-rows:repeat(8,6.375cqw)}.save-as-content>section button{border-bottom:0}
+.coros-save-as header>span{font-weight:400}.save-as-content{grid-template-columns:32cqw 14.125cqw 1fr}.save-as-content nav{grid-template-rows:repeat(7,6.625cqw);gap:.875cqw;background:transparent}.save-as-content nav button{border:0;border-radius:1cqw;background:#292d2a}.save-as-content nav button>b{color:#f4f5f4}.save-as-content nav button>span{transform:translate(2px,4px)}.save-as-content>section{grid-template-rows:repeat(8,6.375cqw)}.save-as-content>section button{border-bottom:0}
 .coros-save-as{background:#101010;color:#fff}
 .coros-save-as header .save-as-type{background:#101410}
+.coros-save-as header .save-as-type b svg{width:125%;height:125%;transform:translate(0,-10%)}
+.coros-save-as header .save-as-type i{font-size:1.75cqw;transform:translateX(6px)}
 .coros-save-as header .save-as-close{background:#292c29;color:#fff}
+.coros-save-as header .save-as-close{font-size:4.5cqw}
 .coros-save-as .save-as-content nav button,.coros-save-as .save-as-content>aside button,.coros-save-as .save-as-content>section{background:#292c29}
 .coros-save-as .save-as-content nav button.is-active{background:#181c18}
 .coros-save-as .save-as-content>aside button.is-active{background:#101010}
 .coros-save-as .save-as-content>section button.is-active{background:#212421}
+.coros-save-as .save-as-content nav{grid-template-rows:repeat(7,53px);gap:7px}
+.coros-save-as .save-as-content nav button>span{transform:translate(1px,3px)}
+.coros-save-as .save-as-content>aside{grid-template-rows:repeat(7,53px);gap:7px}
+.coros-save-as .save-as-content>section{grid-template-rows:repeat(8,51px)}
+.coros-save-as .save-as-content>section button{padding-left:2cqw}
 .qc-screen.coros-fixture-dialog.is-scene-command{background:#424142}
 .coros-fixture-dialog.is-scene-command .scene-command-grid main i,.coros-fixture-dialog.is-scene-command .scene-command-grid main::after{background:#424a42}
 .coros-fixture-dialog.is-scene-command .scene-command-grid main::before{border-color:#d5d9d5}
