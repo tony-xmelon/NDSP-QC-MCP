@@ -4,6 +4,7 @@ use qc_device_runtime::{
     GatewaySnapshot, PresetEntry, PresetFolder, PresetLibrary, PresetList, PresetSlotList,
 };
 use qc_protocol::commands::{self, DeviceCommand, DeviceOperation, OutboundMessage};
+use qc_protocol::domain::STATE_EVENT_MAXIMUM_LIMIT;
 use qc_protocol::responses::{decode_tempo_clock, TempoClock as TempoClockFrame};
 use qc_protocol::session::SessionMachine;
 use qc_protocol::state::{
@@ -223,7 +224,7 @@ impl DeviceController {
                 message.sequence > sequence
                     && message_type.is_none_or(|kind| kind == message.message_type)
             })
-            .take(limit.min(4096))
+            .take(limit.min(STATE_EVENT_MAXIMUM_LIMIT))
             .cloned()
             .collect()
     }
@@ -234,7 +235,7 @@ impl DeviceController {
             .expect("decoded state event log lock")
             .iter()
             .filter(|frame| frame.sequence > sequence)
-            .take(limit.min(4096))
+            .take(limit.min(STATE_EVENT_MAXIMUM_LIMIT))
             .cloned()
             .collect()
     }
@@ -718,7 +719,7 @@ fn publish_state_frame(
     {
         let mut log = event_log.lock().expect("decoded state event log lock");
         log.push_back(frame.clone());
-        while log.len() > 4096 {
+        while log.len() > STATE_EVENT_MAXIMUM_LIMIT {
             log.pop_front();
         }
     }
@@ -748,7 +749,7 @@ fn ingest_incoming(
     {
         let mut log = raw_events.log.lock().expect("event log lock");
         log.push_back(message.clone());
-        while log.len() > 4096 {
+        while log.len() > STATE_EVENT_MAXIMUM_LIMIT {
             log.pop_front();
         }
     }

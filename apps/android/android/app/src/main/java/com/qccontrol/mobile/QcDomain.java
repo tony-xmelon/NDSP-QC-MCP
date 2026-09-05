@@ -8,5 +8,7 @@ final class QcDomain {
     static final int MINIMUM_TEMPO_BPM = 40;
     static final int MAXIMUM_TEMPO_BPM = 240;
     static final int IPC_MAX_FRAME_BYTES = 16777216;
+    static final int STATE_EVENT_DEFAULT_LIMIT = 256;
+    static final int STATE_EVENT_MAXIMUM_LIMIT = 4096;
     private QcDomain() {}
 }

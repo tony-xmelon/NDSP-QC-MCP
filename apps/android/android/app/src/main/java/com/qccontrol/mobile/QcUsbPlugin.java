@@ -270,7 +270,8 @@ public class QcUsbPlugin extends Plugin {
 
     private org.json.JSONObject relayStateEvents(org.json.JSONObject params) {
         long after = Math.max(0, params.optLong("afterSequence", 0));
-        int limit = Math.max(1, Math.min(4096, params.optInt("limit", 256)));
+        int limit = Math.max(1, Math.min(QcDomain.STATE_EVENT_MAXIMUM_LIMIT,
+            params.optInt("limit", QcDomain.STATE_EVENT_DEFAULT_LIMIT)));
         org.json.JSONArray frames = new org.json.JSONArray();
         synchronized (stateEventLock) {
             for (JSObject frame : stateEventLog) {
@@ -1264,7 +1265,7 @@ public class QcUsbPlugin extends Plugin {
                     .put("currentTick", tempoClock.getInteger("currentTick"));
             }
             stateEventLog.addLast(frame);
-            while (stateEventLog.size() > 4096) stateEventLog.removeFirst();
+            while (stateEventLog.size() > QcDomain.STATE_EVENT_MAXIMUM_LIMIT) stateEventLog.removeFirst();
         }
         notifyListeners("qcStateBatch", frame, true);
     }

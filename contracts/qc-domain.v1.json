@@ -6,7 +6,9 @@
     "scenes": 8,
     "minimumTempoBpm": 40,
     "maximumTempoBpm": 240,
-    "ipcMaxFrameBytes": 16777216
+    "ipcMaxFrameBytes": 16777216,
+    "stateEventDefaultLimit": 256,
+    "stateEventMaximumLimit": 4096
   },
   "inputRoutes": [
     { "id": 1, "label": "In 1", "group": "MONO" },

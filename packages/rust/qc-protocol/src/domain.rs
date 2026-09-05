@@ -5,6 +5,8 @@ pub const SCENE_COUNT: u32 = 8;
 pub const MINIMUM_TEMPO_BPM: u32 = 40;
 pub const MAXIMUM_TEMPO_BPM: u32 = 240;
 pub const IPC_MAX_FRAME_BYTES: usize = 16777216;
+pub const STATE_EVENT_DEFAULT_LIMIT: usize = 256;
+pub const STATE_EVENT_MAXIMUM_LIMIT: usize = 4096;
 pub const SCENE_COLORS: &[&str] = &[
     "#ff2727", "#0a74e0", "#ffd236", "#ff02c2", "#45f862", "#ff7000", "#6954ff", "#00ffdd",
 ];

@@ -152,9 +152,14 @@ test("one generated domain contract owns Grid, scene, tempo, route, and IPC cons
     assert.match(output, new RegExp(String(contract.limits.gridRows)));
     assert.match(output, new RegExp(String(contract.limits.gridColumns)));
     assert.match(output, new RegExp(String(contract.limits.maximumTempoBpm)));
+    assert.match(output, new RegExp(String(contract.limits.stateEventDefaultLimit)));
+    assert.match(output, new RegExp(String(contract.limits.stateEventMaximumLimit)));
   }
   assert.match(source("packages/typescript/qc-core/src/routing.ts"), /QC_INPUT_ROUTES/);
   assert.match(source("services/device-gateway/src/qc_device_gateway/device.py"), /GRID_COLUMNS/);
+  assert.match(source("services/device-broker/src/worker.rs"), /STATE_EVENT_MAXIMUM_LIMIT/);
+  assert.match(source("services/device-broker/src/rpc.rs"), /STATE_EVENT_DEFAULT_LIMIT/);
+  assert.match(source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java"), /QcDomain\.STATE_EVENT_(?:DEFAULT|MAXIMUM)_LIMIT/);
 });
 
 test("one generated gateway manifest owns dispatch and both native bindings", () => {

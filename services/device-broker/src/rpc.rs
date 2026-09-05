@@ -798,7 +798,7 @@ fn gateway_set_tempo(controller: &DeviceController, params: &Value) -> Result<Va
 
 fn latest_master_volume(controller: &DeviceController) -> Option<f32> {
     controller
-        .state_events_since(0, 4096)
+        .state_events_since(0, domain::STATE_EVENT_MAXIMUM_LIMIT)
         .into_iter()
         .rev()
         .flat_map(|frame| frame.states.into_iter().rev())
@@ -1231,8 +1231,8 @@ fn raw_events(controller: &DeviceController, params: &Value) -> Result<Value, St
     let limit = params
         .get("limit")
         .and_then(Value::as_u64)
-        .unwrap_or(256)
-        .clamp(1, 4096) as usize;
+        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64)
+        .clamp(1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64) as usize;
     let messages = controller
         .events_since(after, kind, limit)
         .into_iter()
@@ -1254,8 +1254,8 @@ fn state_events(controller: &DeviceController, params: &Value) -> Result<Value, 
     let limit = params
         .get("limit")
         .and_then(Value::as_u64)
-        .unwrap_or(256)
-        .clamp(1, 4096) as usize;
+        .unwrap_or(domain::STATE_EVENT_DEFAULT_LIMIT as u64)
+        .clamp(1, domain::STATE_EVENT_MAXIMUM_LIMIT as u64) as usize;
     serde_json::to_value(controller.state_events_since(after, limit))
         .map_err(|error| error.to_string())
 }

@@ -19,6 +19,8 @@ export const QC_SCENE_COUNT = ${limits.scenes};
 export const QC_MINIMUM_TEMPO_BPM = ${limits.minimumTempoBpm};
 export const QC_MAXIMUM_TEMPO_BPM = ${limits.maximumTempoBpm};
 export const QC_IPC_MAX_FRAME_BYTES = ${limits.ipcMaxFrameBytes};
+export const QC_STATE_EVENT_DEFAULT_LIMIT = ${limits.stateEventDefaultLimit};
+export const QC_STATE_EVENT_MAXIMUM_LIMIT = ${limits.stateEventMaximumLimit};
 export const QC_SCENE_COLORS = ${JSON.stringify(sceneColors)} as const;
 export const QC_CATEGORY_COLORS = ${JSON.stringify(colors.category)} as const;
 export const QC_HARDWARE_COLORS = ${JSON.stringify(colors.hardware)} as const;
@@ -37,6 +39,8 @@ SCENE_COUNT = ${limits.scenes}
 MINIMUM_TEMPO_BPM = ${limits.minimumTempoBpm}
 MAXIMUM_TEMPO_BPM = ${limits.maximumTempoBpm}
 IPC_MAX_FRAME_BYTES = ${limits.ipcMaxFrameBytes}
+STATE_EVENT_DEFAULT_LIMIT = ${limits.stateEventDefaultLimit}
+STATE_EVENT_MAXIMUM_LIMIT = ${limits.stateEventMaximumLimit}
 SCENE_COLORS = ${JSON.stringify(sceneColors)}
 CATEGORY_COLORS = ${JSON.stringify(colors.category)}
 HARDWARE_COLORS = ${JSON.stringify(colors.hardware)}
@@ -51,6 +55,8 @@ pub const SCENE_COUNT: u32 = ${limits.scenes};
 pub const MINIMUM_TEMPO_BPM: u32 = ${limits.minimumTempoBpm};
 pub const MAXIMUM_TEMPO_BPM: u32 = ${limits.maximumTempoBpm};
 pub const IPC_MAX_FRAME_BYTES: usize = ${limits.ipcMaxFrameBytes};
+pub const STATE_EVENT_DEFAULT_LIMIT: usize = ${limits.stateEventDefaultLimit};
+pub const STATE_EVENT_MAXIMUM_LIMIT: usize = ${limits.stateEventMaximumLimit};
 pub const SCENE_COLORS: &[&str] = &[
     ${sceneColors.map((value) => JSON.stringify(value)).join(", ")},
 ];
@@ -75,6 +81,8 @@ final class QcDomain {
     static final int MINIMUM_TEMPO_BPM = ${limits.minimumTempoBpm};
     static final int MAXIMUM_TEMPO_BPM = ${limits.maximumTempoBpm};
     static final int IPC_MAX_FRAME_BYTES = ${limits.ipcMaxFrameBytes};
+    static final int STATE_EVENT_DEFAULT_LIMIT = ${limits.stateEventDefaultLimit};
+    static final int STATE_EVENT_MAXIMUM_LIMIT = ${limits.stateEventMaximumLimit};
     private QcDomain() {}
 }
 `;
