@@ -542,7 +542,8 @@ test("interactive synchronization avoids human-visible debounce and full snapsho
   const editorSource = readFileSync(new URL("../packages/typescript/qc-ui/src/parameter-editor.tsx", import.meta.url), "utf8");
   const parameterWorkflow = readFileSync(new URL("../packages/typescript/qc-ui/src/use-parameter-workflow.ts", import.meta.url), "utf8");
   const runtimeSource = readFileSync(new URL("../packages/rust/qc-device-runtime/src/request.rs", import.meta.url), "utf8");
-  const parameterFlow = runtimeSource.slice(runtimeSource.indexOf('"device.previewParameter"'), runtimeSource.indexOf('"device.setTempo"'));
+  const parameterStart = runtimeSource.indexOf('"device.previewParameter"');
+  const parameterFlow = runtimeSource.slice(parameterStart, runtimeSource.indexOf('"device.setTempo"', parameterStart));
   assert.match(parameterWorkflow, /timers\.current\.set[\s\S]*?}, 8\)\)/);
   assert.match(parameterWorkflow, /previewQueue\.current = \{/);
   assert.match(parameterWorkflow, /await gateway\.previewParameter/);
