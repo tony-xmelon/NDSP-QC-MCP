@@ -189,3 +189,48 @@ jobs:
             artifacts/sbom.cdx.json
           if-no-files-found: error
           retention-days: 14
+
+  release-bundle:
+    name: Same-commit Windows and Android release bundle
+    needs: [android-package, windows-package]
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download both parity-approved candidates
+        uses: actions/download-artifact@v4
+        with:
+          pattern: qc-control-*-${{ github.sha }}
+          path: .
+          merge-multiple: true
+
+      - name: Regenerate and verify combined release provenance
+        shell: pwsh
+        run: |
+          $windows = @(Get-ChildItem artifacts/windows/QC-Control-Windows-*.exe -File | ForEach-Object FullName)
+          $android = @(Get-ChildItem artifacts/android/QC-Control-Android-*.apk -File | ForEach-Object FullName)
+          if ($windows.Count -ne 1 -or $android.Count -ne 1) { throw "Combined release bundle requires exactly one Windows and one Android candidate." }
+          node tools/release-provenance.mjs $windows[0] $android[0]
+          node tools/release-candidates.mjs verify
+
+      - name: Preserve the hardware-testable cross-platform bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: qc-control-release-bundle-${{ github.sha }}
+          path: |
+            artifacts/windows/QC-Control-Windows-*.exe
+            artifacts/windows/QC-Control-Windows-*.exe.source.json
+            artifacts/android/QC-Control-Android-*.apk
+            artifacts/android/QC-Control-Android-*.apk.source.json
+            artifacts/release-manifest.json
+            artifacts/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14

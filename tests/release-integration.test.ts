@@ -167,6 +167,17 @@ test("CI packages the Windows installer only after parity and UI conformance", (
   assert.match(build, /if \(-not \$SkipPreflight\)[\s\S]*verify-software-parity\.ps1/);
 });
 
+test("CI combines both same-commit candidates into one hardware-testable bundle", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  assert.match(workflow, /release-bundle:/);
+  assert.match(workflow, /release-bundle:[\s\S]*needs: \[android-package, windows-package\]/);
+  assert.match(workflow, /pattern: qc-control-\*-\$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /merge-multiple: true/);
+  assert.match(workflow, /release-provenance\.mjs \$windows\[0\] \$android\[0\]/);
+  assert.match(workflow, /release-candidates\.mjs verify/);
+  assert.match(workflow, /name: qc-control-release-bundle-\$\{\{ github\.sha \}\}/);
+});
+
 test("Android package, Gradle, and lockfile share one release version", () => {
   const appPackage = JSON.parse(readFileSync(new URL("../apps/android/package.json", import.meta.url), "utf8"));
   const packageLock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
