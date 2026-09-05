@@ -168,6 +168,9 @@ pub enum DeviceOperation {
     SetGlobalEqParameters(Vec<(i32, f32)>),
     ReadModeCycle,
     SetModeCycle(Vec<u32>),
+    ReadGlobalTempo,
+    SetTempoParameters(Vec<(u32, f32)>),
+    SetTempoMode(bool),
     ReadLooperStatus,
     ReadRecentsFavorites {
         favorites: bool,
@@ -412,6 +415,9 @@ impl DeviceOperation {
             Self::SetGlobalEqParameters(parameters) => vec![set_global_eq_parameters(&parameters)],
             Self::ReadModeCycle => vec![read_mode_cycle()],
             Self::SetModeCycle(slots) => vec![set_mode_cycle(&slots)],
+            Self::ReadGlobalTempo => vec![read(33)],
+            Self::SetTempoParameters(parameters) => set_tempo_parameters(parameters),
+            Self::SetTempoMode(global) => vec![set_tempo_mode(global)],
             Self::ReadLooperStatus => vec![read_looper_status()],
             Self::ReadRecentsFavorites {
                 favorites,
@@ -1995,6 +2001,54 @@ pub fn set_tempo(bpm: u32) -> OutboundMessage {
         ..Default::default()
     };
     grid_update(preset)
+}
+
+/// Update one or more fields of the loaded preset's TempoControl (model 25000).
+/// Each field is deliberately emitted in its own sparse Grid frame, matching
+/// the hardware UI and avoiding the QC's order-sensitive time-signature rewrite.
+pub fn set_tempo_parameters(parameters: Vec<(u32, f32)>) -> Vec<OutboundMessage> {
+    parameters
+        .into_iter()
+        .map(|(index, value)| {
+            grid_update(BinaryPreset {
+                tempo_program_data: vec![Model {
+                    hash: Some(model::Hash::Hash(25_000)),
+                    params: vec![Param {
+                        param_values: vec![ParamValue {
+                            value: Some(param_value::Value::FloatValue(value.clamp(0.0, 1.0))),
+                        }],
+                        index: Some(param::Index::Index(index)),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })
+        })
+        .collect()
+}
+
+/// Select whether the QC plays the loaded preset tempo or the device-global
+/// tempo block. This is GlobalTempo parameter 1, not preset TempoControl TYPE.
+pub fn set_tempo_mode(global: bool) -> OutboundMessage {
+    OutboundMessage::encoded(
+        33,
+        pa::GlobalTempoMessage {
+            action: pa::message_action::Enum::Update as i32,
+            params: vec![Param {
+                index: Some(param::Index::Index(1)),
+                param_values: vec![ParamValue {
+                    value: Some(param_value::Value::FloatValue(if global {
+                        1.0
+                    } else {
+                        0.0
+                    })),
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+    )
 }
 
 /// Set the downstream master level. The QC wire value is normalized while the

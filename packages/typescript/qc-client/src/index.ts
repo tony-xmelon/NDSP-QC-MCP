@@ -1,5 +1,5 @@
 import { QC_SCENE_COLORS } from "./generated-domain.ts";
-import type { BlockDetails, DeviceActionResult, GeneralSettings, GlobalEqSettings, IoSettings, LooperStatus, MidiOutMessage, ModeCycle, PresetSnapshot, TunerSettings } from "./generated-payloads.ts";
+import type { BlockDetails, DeviceActionResult, GeneralSettings, GlobalEqSettings, IoSettings, LooperStatus, MidiOutMessage, ModeCycle, PresetSnapshot, TempoSettings, TunerSettings } from "./generated-payloads.ts";
 export * from "./generated-domain.ts";
 export * from "./generated-gateway-methods.ts";
 export * from "./generated-payloads.ts";
@@ -294,6 +294,9 @@ export interface GatewayTransport {
   setGlobalEqOutput(level: number | null, out12: boolean | null, out34: boolean | null): Promise<DeviceActionResult>;
   modeCycle(): Promise<ModeCycle>;
   setModeCycle(slots: number[]): Promise<DeviceActionResult>;
+  globalTempoSettings(): Promise<TempoSettings>;
+  setTempoMetronome(ledEnabled: boolean | null, volumeDb: number | null, running: boolean | null, pan: number | null, timeSignature: string | null, subdivision: string | null, sound: string | null, routing: string | null, beats: string[] | null): Promise<DeviceActionResult>;
+  setTempoMode(mode: "PRESET" | "GLOBAL"): Promise<DeviceActionResult>;
   looperStatus(): Promise<LooperStatus>;
   controlLooper(command: string, value: number | null): Promise<DeviceActionResult>;
   recents(): Promise<LibraryEntries>;

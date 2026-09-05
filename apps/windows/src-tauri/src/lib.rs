@@ -1270,6 +1270,42 @@ async fn set_mode_cycle(app: AppHandle, slots: Vec<u32>) -> Result<Value, String
 }
 
 #[tauri::command]
+async fn global_tempo_settings(app: AppHandle) -> Result<Value, String> {
+    background_gateway_request(app, rpc::GLOBAL_TEMPO_SETTINGS).await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn set_tempo_metronome(
+    app: AppHandle,
+    led_enabled: Option<bool>,
+    volume_db: Option<f64>,
+    running: Option<bool>,
+    pan: Option<f64>,
+    time_signature: Option<String>,
+    subdivision: Option<String>,
+    sound: Option<String>,
+    routing: Option<String>,
+    beats: Option<Vec<String>>,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_TEMPO_METRONOME,
+        json!({
+            "ledEnabled": led_enabled, "volumeDb": volume_db, "running": running,
+            "pan": pan, "timeSignature": time_signature, "subdivision": subdivision,
+            "sound": sound, "routing": routing, "beats": beats,
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn set_tempo_mode(app: AppHandle, mode: String) -> Result<Value, String> {
+    background_gateway_request_params(app, rpc::SET_TEMPO_MODE, json!({ "mode": mode })).await
+}
+
+#[tauri::command]
 async fn looper_status(app: AppHandle) -> Result<Value, String> {
     background_gateway_request(app, rpc::LOOPER_STATUS).await
 }
@@ -2897,6 +2933,9 @@ pub fn run() {
             set_global_eq_output,
             mode_cycle,
             set_mode_cycle,
+            global_tempo_settings,
+            set_tempo_metronome,
+            set_tempo_mode,
             looper_status,
             control_looper,
             recents,

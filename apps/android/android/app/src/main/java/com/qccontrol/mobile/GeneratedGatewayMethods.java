@@ -36,6 +36,9 @@ final class GeneratedGatewayMethods {
         "device.setGlobalEqOutput",
         "device.modeCycle",
         "device.setModeCycle",
+        "device.globalTempoSettings",
+        "device.setTempoMetronome",
+        "device.setTempoMode",
         "device.looperStatus",
         "device.controlLooper",
         "device.recents",
@@ -145,6 +148,9 @@ final class GeneratedGatewayMethods {
             case "device.setGlobalEqOutput": return "PLANNED_WRITE";
             case "device.modeCycle": return "CORRELATED_READ";
             case "device.setModeCycle": return "PLANNED_WRITE";
+            case "device.globalTempoSettings": return "CORRELATED_READ";
+            case "device.setTempoMetronome": return "PLANNED_WRITE";
+            case "device.setTempoMode": return "PLANNED_WRITE";
             case "device.looperStatus": return "CORRELATED_READ";
             case "device.controlLooper": return "PLANNED_WRITE";
             case "device.recents": return "CORRELATED_READ";

@@ -3158,6 +3158,137 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "get_global_tempo_settings",
+    "rpc": "device.globalTempoSettings",
+    "classification": "read",
+    "description": "Read the device-global tempo block, including PRESET/GLOBAL mode, metronome options, routing, and all thirteen beat cells.",
+    "properties": {},
+    "required": [],
+    "access": "read-only",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tempo_metronome",
+    "rpc": "device.setTempoMetronome",
+    "classification": "persistent-write",
+    "description": "Change named fields of the loaded preset's tempo/metronome block. Null leaves a field unchanged; time signature is applied before beat cells.",
+    "properties": {
+      "led_enabled": "nullable-boolean",
+      "volume_db": "nullable-tempo-volume-db",
+      "running": "nullable-boolean",
+      "pan": "nullable-pan",
+      "time_signature": "nullable-time-signature",
+      "subdivision": "nullable-tempo-subdivision",
+      "sound": "nullable-metronome-sound",
+      "routing": "nullable-metronome-routing",
+      "beats": "nullable-metronome-beats",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "led_enabled",
+      "volume_db",
+      "running",
+      "pan",
+      "time_signature",
+      "subdivision",
+      "sound",
+      "routing",
+      "beats",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "led_enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "volume_db": {
+          "type": "nullable-tempo-volume-db"
+        },
+        "running": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "pan": {
+          "type": "nullable-pan"
+        },
+        "time_signature": {
+          "type": "nullable-time-signature"
+        },
+        "subdivision": {
+          "type": "nullable-tempo-subdivision"
+        },
+        "sound": {
+          "type": "nullable-metronome-sound"
+        },
+        "routing": {
+          "type": "nullable-metronome-routing"
+        },
+        "beats": {
+          "type": "nullable-metronome-beats"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "led_enabled",
+        "volume_db",
+        "running",
+        "pan",
+        "time_signature",
+        "subdivision",
+        "sound",
+        "routing",
+        "beats",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tempo_mode",
+    "rpc": "device.setTempoMode",
+    "classification": "persistent-write",
+    "description": "Select whether the Quad Cortex uses the loaded preset tempo or its device-global tempo block.",
+    "properties": {
+      "mode": "tempo-mode",
+      "confirm_persistent_write": "boolean"
+    },
+    "required": [
+      "mode",
+      "confirm_persistent_write"
+    ],
+    "access": "full",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "tempo-mode"
+        },
+        "confirm_persistent_write": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "confirm_persistent_write"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get_looper_status",
     "rpc": "device.looperStatus",
     "classification": "read",

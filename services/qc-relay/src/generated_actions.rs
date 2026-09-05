@@ -478,6 +478,24 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: &["confirm_persistent_write"],
     },
     ActionPolicy {
+        name: "get_global_tempo_settings",
+        rpc: "device.globalTempoSettings",
+        class: ActionClass::Read,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
+        name: "set_tempo_metronome",
+        rpc: "device.setTempoMetronome",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
+        name: "set_tempo_mode",
+        rpc: "device.setTempoMode",
+        class: ActionClass::PersistentWrite,
+        required_argument_confirmations: &["confirm_persistent_write"],
+    },
+    ActionPolicy {
         name: "get_looper_status",
         rpc: "device.looperStatus",
         class: ActionClass::Read,

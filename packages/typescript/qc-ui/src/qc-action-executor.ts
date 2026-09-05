@@ -80,6 +80,13 @@ const nullableBooleanArgument = (call: AssistantToolCall, name: string): boolean
   return value;
 };
 
+const nullableStringArgument = (call: AssistantToolCall, name: string): string | null => {
+  const value = call.arguments[name];
+  if (value === null) return null;
+  if (typeof value !== "string") throw new Error(`${call.name} returned an invalid ${name}.`);
+  return value;
+};
+
 const booleanRowsArgument = (call: AssistantToolCall, name: string): [boolean, boolean, boolean, boolean] => {
   const value = call.arguments[name];
   if (!Array.isArray(value) || value.length !== 4 || value.some((entry) => typeof entry !== "boolean")) {

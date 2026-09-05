@@ -9,9 +9,9 @@ use base64::Engine;
 use qc_protocol::commands::{DeviceCommand, DeviceOperation};
 use qc_protocol::responses::{
     decode_captured_screen, decode_device_identity, decode_general_settings, decode_global_eq,
-    decode_inhibited_modules, decode_io_settings, decode_library_files, decode_looper_status,
-    decode_mode_cycle, decode_pinned_models, decode_preset_screenshot, decode_recents_favorites,
-    decode_tuner_settings, PngImage,
+    decode_global_tempo_settings, decode_inhibited_modules, decode_io_settings,
+    decode_library_files, decode_looper_status, decode_mode_cycle, decode_pinned_models,
+    decode_preset_screenshot, decode_recents_favorites, decode_tuner_settings, PngImage,
 };
 use qc_protocol::state::MidiOutMessage;
 use qc_protocol::{domain, profile};
@@ -632,6 +632,7 @@ pub enum GatewayResponseProjection {
     IoSettings,
     GlobalEq,
     ModeCycle,
+    GlobalTempoSettings,
     LooperStatus,
     RecentsFavorites {
         request_id: u64,
@@ -689,6 +690,10 @@ impl GatewayResponseProjection {
                 serde_json::to_value(decode_mode_cycle(payload).map_err(|error| error.to_string())?)
                     .map_err(|error| error.to_string())
             }
+            Self::GlobalTempoSettings => serde_json::to_value(
+                decode_global_tempo_settings(payload).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string()),
             Self::LooperStatus => serde_json::to_value(
                 decode_looper_status(payload).map_err(|error| error.to_string())?,
             )
@@ -809,6 +814,12 @@ pub fn plan_gateway_read(
             response_type: 14,
             timeout_ms: 5_000,
             projection: GatewayResponseProjection::ModeCycle,
+        }),
+        "device.globalTempoSettings" => Ok(GatewayReadPlan {
+            operation: DeviceOperation::ReadGlobalTempo,
+            response_type: 33,
+            timeout_ms: 30_000,
+            projection: GatewayResponseProjection::GlobalTempoSettings,
         }),
         "device.looperStatus" => Ok(GatewayReadPlan {
             operation: DeviceOperation::ReadLooperStatus,
@@ -1924,6 +1935,130 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             }
             Ok(DeviceOperation::SetModeCycle(slots))
         }
+        "setTempoMetronome" => {
+            let mut values = Vec::new();
+            let option = |key: &str, labels: &[&str]| -> Result<Option<f32>, String> {
+                match params.get(key) {
+                    None | Some(Value::Null) => Ok(None),
+                    Some(Value::String(value)) => labels
+                        .iter()
+                        .position(|label| *label == value)
+                        .map(|index| index as f32 / (labels.len() - 1) as f32)
+                        .ok_or_else(|| format!("unsupported {key} value"))
+                        .map(Some),
+                    _ => Err(format!("{key} must be a named option or null")),
+                }
+            };
+            // Signature first: the QC rewrites beat accents when it changes.
+            if let Some(value) = option(
+                "timeSignature",
+                &[
+                    "2/4",
+                    "3/4",
+                    "4/4",
+                    "5/4",
+                    "6/4",
+                    "7/4",
+                    "8/4",
+                    "9/4",
+                    "10/4",
+                    "11/4",
+                    "12/4",
+                    "13/4",
+                    "3/8",
+                    "6/8",
+                    "9/8",
+                    "12/8",
+                    "5/8 (3+2)",
+                    "5/8 (2+3)",
+                    "7/8 (3+2+2)",
+                    "7/8 (2+3+2)",
+                    "7/8 (2+2+3)",
+                ],
+            )? {
+                values.push((6, value));
+            }
+            if let Some(enabled) = optional_boolean(params, "ledEnabled")? {
+                values.push((2, if enabled { 1.0 } else { 0.0 }));
+            }
+            if let Some(db) = params
+                .get("volumeDb")
+                .filter(|value| !value.is_null())
+                .map(|value| {
+                    value
+                        .as_f64()
+                        .filter(|value| (-60.0..=9.0).contains(value))
+                        .ok_or_else(|| "volumeDb must be -60 through +9 dB".to_string())
+                })
+                .transpose()?
+            {
+                values.push((3, ((db + 60.0) / 69.0) as f32));
+            }
+            if let Some(running) = optional_boolean(params, "running")? {
+                values.push((4, if running { 1.0 } else { 0.0 }));
+            }
+            if let Some(pan) = params
+                .get("pan")
+                .filter(|value| !value.is_null())
+                .map(|value| {
+                    value
+                        .as_f64()
+                        .filter(|value| (-1.0..=1.0).contains(value))
+                        .ok_or_else(|| "pan must be -1 through +1".to_string())
+                })
+                .transpose()?
+            {
+                values.push((5, ((pan + 1.0) / 2.0) as f32));
+            }
+            if let Some(value) = option("subdivision", &["1/4", "1/8", "1/8T", "1/16"])? {
+                values.push((7, value));
+            }
+            if let Some(value) = option(
+                "sound",
+                &[
+                    "BLIP", "BLOCK", "COWBELL", "DIGITAL", "DRUM KIT", "SOFT KIT",
+                ],
+            )? {
+                values.push((8, value));
+            }
+            if let Some(value) = option(
+                "routing",
+                &["MULTI", "HP", "OUT 1/2", "OUT 3/4", "SEND 1/2"],
+            )? {
+                values.push((9, value));
+            }
+            if let Some(beats) = params.get("beats").filter(|value| !value.is_null()) {
+                let beats = beats
+                    .as_array()
+                    .ok_or_else(|| "beats must be an array".to_string())?;
+                if beats.len() > 13 {
+                    return Err("the QC stores at most 13 metronome beats".into());
+                }
+                for (index, beat) in beats.iter().enumerate() {
+                    let label = beat
+                        .as_str()
+                        .ok_or_else(|| "every beat must be OFF, MUTE, DOWN, or ON".to_string())?;
+                    let value = ["OFF", "MUTE", "DOWN", "ON"]
+                        .iter()
+                        .position(|candidate| *candidate == label)
+                        .ok_or_else(|| "every beat must be OFF, MUTE, DOWN, or ON".to_string())?
+                        as f32
+                        / 3.0;
+                    values.push((10 + index as u32, value));
+                }
+            }
+            if values.is_empty() {
+                return Err("setTempoMetronome needs at least one setting".into());
+            }
+            Ok(DeviceOperation::SetTempoParameters(values))
+        }
+        "setTempoMode" => Ok(DeviceOperation::SetTempoMode(
+            match params.get("mode").and_then(Value::as_str) {
+                Some("GLOBAL") => true,
+                Some("PRESET") => false,
+                _ => return Err("mode must be PRESET or GLOBAL".into()),
+            },
+        )),
         "setFavorite" => {
             let name = required_text(params, "name")?;
             let folder_key = required_text(params, "folderKey")?;
@@ -2413,6 +2548,9 @@ fn verification_for_operation(
         | DeviceOperation::SetGlobalEqParameters(_)
         | DeviceOperation::ReadModeCycle
         | DeviceOperation::SetModeCycle(_)
+        | DeviceOperation::ReadGlobalTempo
+        | DeviceOperation::SetTempoParameters(_)
+        | DeviceOperation::SetTempoMode(_)
         | DeviceOperation::ReadLooperStatus
         | DeviceOperation::ReadRecentsFavorites { .. }
         | DeviceOperation::SetFavorite { .. }
@@ -2524,6 +2662,16 @@ pub fn plan_gateway_write(
                 verification: GatewayVerification::None,
             }
         }
+        "device.setTempoMetronome" => GatewayWritePlan {
+            write: PlannedWrite::HidOperation(operation("setTempoMetronome", params)?),
+            detail: "Preset tempo and metronome settings sent to the Quad Cortex".into(),
+            verification: GatewayVerification::None,
+        },
+        "device.setTempoMode" => GatewayWritePlan {
+            write: PlannedWrite::HidOperation(operation("setTempoMode", params)?),
+            detail: "Global tempo mode sent to the Quad Cortex".into(),
+            verification: GatewayVerification::None,
+        },
         "device.setFavorite"
         | "device.setModelPinned"
         | "device.createSetlist"

@@ -135,6 +135,7 @@ fn handle(
         }
         "device.globalEq"
         | "device.modeCycle"
+        | "device.globalTempoSettings"
         | "device.looperStatus"
         | "device.recents"
         | "device.favorites"
@@ -151,7 +152,9 @@ fn handle(
         "device.setGlobalEqBypassed"
         | "device.setGlobalEqBand"
         | "device.setGlobalEqOutput"
-        | "device.setModeCycle" => gateway_operation(controller, &request.params, &request.method),
+        | "device.setModeCycle"
+        | "device.setTempoMetronome"
+        | "device.setTempoMode" => gateway_operation(controller, &request.params, &request.method),
         "device.setFavorite"
         | "device.setModelPinned"
         | "device.createSetlist"

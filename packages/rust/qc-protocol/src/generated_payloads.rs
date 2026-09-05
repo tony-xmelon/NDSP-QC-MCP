@@ -209,6 +209,38 @@ pub struct ModeCycle {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TempoSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bpm: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub led_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volume_db: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub running: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pan: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_signature: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subdivision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub routing: Option<String>,
+    pub beats: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TempoModeSettings {
+    pub mode: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LooperStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<u32>,
@@ -262,38 +294,6 @@ pub struct LooperStatus {
     pub quantize_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub update_type: Option<i32>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TempoSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bpm: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub led_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub volume_db: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub running: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pan: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_signature: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subdivision: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sound: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub routing: Option<String>,
-    pub beats: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TempoModeSettings {
-    pub mode: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

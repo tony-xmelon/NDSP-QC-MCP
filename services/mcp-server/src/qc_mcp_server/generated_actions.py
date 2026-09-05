@@ -468,6 +468,24 @@ SHARED_QC_ACTIONS = {
     "access": "full",
     "description": "Replace the ordered footswitch mode cycle after explicit confirmation."
   },
+  "get_global_tempo_settings": {
+    "rpc": "device.globalTempoSettings",
+    "classification": "read",
+    "access": "read-only",
+    "description": "Read the device-global tempo block, including PRESET/GLOBAL mode, metronome options, routing, and all thirteen beat cells."
+  },
+  "set_tempo_metronome": {
+    "rpc": "device.setTempoMetronome",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Change named fields of the loaded preset's tempo/metronome block. Null leaves a field unchanged; time signature is applied before beat cells."
+  },
+  "set_tempo_mode": {
+    "rpc": "device.setTempoMode",
+    "classification": "persistent-write",
+    "access": "full",
+    "description": "Select whether the Quad Cortex uses the loaded preset tempo or its device-global tempo block."
+  },
   "get_looper_status": {
     "rpc": "device.looperStatus",
     "classification": "read",
@@ -563,18 +581,6 @@ SHARED_QC_ACTIONS = {
     "classification": "persistent-write",
     "access": "full",
     "description": "Move a named preset to another slot in its user setlist after explicit confirmation."
-  },
-  "set_tempo_metronome": {
-    "rpc": "device.setTempoMetronome",
-    "classification": "persistent-write",
-    "access": "full",
-    "description": "Change named fields of the loaded preset's tempo/metronome block. Null leaves a field unchanged; time signature is applied before beat cells."
-  },
-  "set_tempo_mode": {
-    "rpc": "device.setTempoMode",
-    "classification": "persistent-write",
-    "access": "full",
-    "description": "Select whether the Quad Cortex uses the loaded preset tempo or its device-global tempo block."
   },
   "set_general_integer": {
     "rpc": "device.setGeneralInteger",

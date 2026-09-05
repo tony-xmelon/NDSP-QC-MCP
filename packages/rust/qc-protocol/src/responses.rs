@@ -6,10 +6,11 @@ use crate::{
         ExpressionPortSettings, GeneralSettings, GlobalBypassRows, GlobalEqParameter,
         GlobalEqSettings, HeadphonesFeed, HeadphonesSettings, InputPortSettings, IoSettings,
         LooperStatus, MasterVolumeAssignment, MidiPortSettings, ModeCycle, OutputPortSettings,
-        TunerSettings, UsbPortSettings,
+        TempoModeSettings, TempoSettings, TunerSettings, UsbPortSettings,
     },
     profile,
     proto::cortex_protobuf_v2 as pa,
+    proto::{param, param_value, Param},
 };
 use prost::Message;
 use serde::Serialize;
