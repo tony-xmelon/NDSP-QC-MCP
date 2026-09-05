@@ -150,17 +150,31 @@ test("focused native backup verification does not require a Python runtime", () 
   assert.doesNotMatch(runbook, /verify_native_backup\.py/);
 });
 
+test("CI caches the actual Rust target directories and advances caches per commit", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  assert.match(workflow, /~\/AppData\/Local\/QCControlBuild\/software-parity-target/);
+  assert.doesNotMatch(workflow, /artifacts\/software-parity-target/);
+  assert.match(workflow, /software-parity-rust-v2-[^\r\n]*\$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /android-rust-v2-[^\r\n]*\$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /windows-installer-v2-[^\r\n]*\$\{\{ github\.sha \}\}/);
+});
+
 test("CI packages the Android app with pinned native prerequisites and provenance", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  const androidJob = workflow.match(/  android-package:[\s\S]*?(?=\r?\n  [a-z][\w-]*:|$)/)?.[0];
+  assert.ok(androidJob);
   assert.match(workflow, /android-package:/);
-  assert.match(workflow, /android-package:[\s\S]*needs: \[software-parity, ui-conformance\]/);
+  assert.doesNotMatch(androidJob, /\r?\n\s+needs:/);
   assert.match(workflow, /java-version: 21/);
+  assert.match(workflow, /cache: gradle/);
   assert.match(workflow, /ndk;27\.2\.12479018/);
   assert.match(workflow, /Get-Command sdkmanager -ErrorAction SilentlyContinue/);
   assert.match(workflow, /ANDROID_HOME, \$env:ANDROID_SDK_ROOT/);
   assert.match(workflow, /cmdline-tools\\latest\\bin\\sdkmanager\.bat/);
   assert.match(workflow, /& \$sdkManager "platforms;android-36"/);
   assert.match(workflow, /cargo install cargo-ndk --version 4\.1\.2 --locked/);
+  assert.match(workflow, /Get-Command cargo-ndk -ErrorAction SilentlyContinue/);
+  assert.match(workflow, /~\/\.cargo\/bin\/cargo-ndk\.exe/);
   assert.match(workflow, /secrets\.QC_ANDROID_KEYSTORE_BASE64/);
   assert.match(workflow, /secrets\.QC_ANDROID_STORE_PASSWORD/);
   assert.match(workflow, /secrets\.QC_ANDROID_KEY_ALIAS/);
@@ -184,11 +198,13 @@ test("CI actions use the current Node 24 action generations", () => {
   assert.doesNotMatch(workflow, /actions\/(?:checkout|setup-node|setup-java|cache|upload-artifact|download-artifact)@v[1-4]\b/);
 });
 
-test("CI packages the Windows installer only after parity and UI conformance", () => {
+test("CI packages the Windows installer in parallel and preserves release provenance", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
+  const windowsJob = workflow.match(/  windows-package:[\s\S]*?(?=\r?\n  [a-z][\w-]*:|$)/)?.[0];
   const build = script("build-windows-installer.ps1");
+  assert.ok(windowsJob);
   assert.match(workflow, /windows-package:/);
-  assert.match(workflow, /windows-package:[\s\S]*needs: \[software-parity, ui-conformance\]/);
+  assert.doesNotMatch(windowsJob, /\r?\n\s+needs:/);
   assert.match(workflow, /build-windows-installer\.ps1 -SkipPreflight/);
   assert.match(workflow, /artifacts\/windows\/QC-Control-Windows-\*\.exe/);
   assert.match(workflow, /QC-Control-Windows-\*\.exe\.source\.json/);
@@ -200,7 +216,10 @@ test("CI combines both same-commit candidates into one hardware-testable bundle"
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
   const runbook = readFileSync(new URL("../docs/HARDWARE_CONFORMANCE.md", import.meta.url), "utf8");
   assert.match(workflow, /release-bundle:/);
-  assert.match(workflow, /release-bundle:[\s\S]*needs: \[android-package, windows-package\]/);
+  assert.match(
+    workflow,
+    /release-bundle:[\s\S]*needs: \[software-parity, ui-conformance, android-package, windows-package\]/,
+  );
   assert.match(workflow, /name: qc-control-android-\$\{\{ github\.sha \}\}[\s\S]*name: qc-control-windows-\$\{\{ github\.sha \}\}/);
   assert.equal((workflow.match(/path: artifacts\r?$/gm) ?? []).length, 2);
   assert.match(workflow, /release-provenance\.mjs \$windows\[0\] \$android\[0\]/);
