@@ -43,14 +43,16 @@ final class QcNativeStateDecoder implements AutoCloseable {
         final boolean midi;
         final int controller;
         final int value;
+        final boolean retryable;
         final List<EncodedMessage> messages;
 
-        PlannedGatewayWrite(String detail, String verificationJson, boolean midi, int controller, int value, List<EncodedMessage> messages) {
+        PlannedGatewayWrite(String detail, String verificationJson, boolean midi, int controller, int value, boolean retryable, List<EncodedMessage> messages) {
             this.detail = detail;
             this.verificationJson = verificationJson;
             this.midi = midi;
             this.controller = controller;
             this.value = value;
+            this.retryable = retryable;
             this.messages = messages;
         }
     }
@@ -205,16 +207,19 @@ final class QcNativeStateDecoder implements AutoCloseable {
         int verificationOffset = 4 + detailLength;
         int verificationLength = littleEndianInt(encoded, verificationOffset);
         int laneOffset = verificationOffset + 4 + verificationLength;
-        int commandOffset = laneOffset + 3;
+        int commandOffset = laneOffset + 4;
         if (verificationLength < 0 || commandOffset + 4 > encoded.length) {
             throw new IllegalStateException("Native QC gateway verification is truncated.");
         }
         String verificationJson = new String(encoded, verificationOffset + 4, verificationLength, StandardCharsets.UTF_8);
         int lane = Byte.toUnsignedInt(encoded[laneOffset]);
         if (lane > 1) throw new IllegalStateException("Native QC gateway execution lane is invalid.");
+        int retryable = Byte.toUnsignedInt(encoded[laneOffset + 3]);
+        if (retryable > 1) throw new IllegalStateException("Native QC gateway retry policy is invalid.");
         return new PlannedGatewayWrite(
             detail, verificationJson, lane == 1, Byte.toUnsignedInt(encoded[laneOffset + 1]),
-            Byte.toUnsignedInt(encoded[laneOffset + 2]), decodeCommandEnvelope(encoded, commandOffset));
+            Byte.toUnsignedInt(encoded[laneOffset + 2]), retryable == 1,
+            decodeCommandEnvelope(encoded, commandOffset));
     }
 
     int gatewayTransactionState(

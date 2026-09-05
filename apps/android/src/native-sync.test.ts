@@ -116,6 +116,11 @@ test("the Capacitor bridge delegates commands, framing, and state to shared Rust
   assert.doesNotMatch(javaSource, /reportFlags|MAX_FRAME_REPORTS|List<byte\[]> reports/);
   assert.match(javaSource, /stateDecoder\.encodeFrame\(message\)/);
   assert.match(javaSource, /stateDecoder\.gatewayPlan\(method, JSObject\.fromJSONObject\(params\)\)/);
+  assert.match(rustRuntimeRequestSource, /pub fn gateway_write_retryable/);
+  assert.match(rustAndroidSource, /gateway_write_retryable\(&method\)/);
+  assert.match(nativeDecoderSource, /final boolean retryable/);
+  assert.match(javaSource, /registered != null && plan\.retryable/);
+  assert.doesNotMatch(javaSource, /isIdempotentGatewayWrite/);
   assert.doesNotMatch(javaSource, /QcUsbFraming|QcProtobufWire|fieldVarint|fieldMessage/);
   assert.match(nativeDecoderSource, /System\.loadLibrary\("qc_android"\)/);
   assert.match(nativeDecoderSource, /nativeEncodeCommand/);
@@ -225,8 +230,10 @@ test("Android and Windows apply the same safe native-backup retry boundary", () 
 });
 
 test("absolute Android preset writes use the bounded idempotent retry path", () => {
-  assert.match(javaSource, /case "device\.recallPreset":[\s\S]*case "device\.reloadPreset":[\s\S]*return true/);
-  assert.doesNotMatch(javaSource, /case "device\.navigateBank":[\s\S]*return true/);
+  assert.match(rustRuntimeRequestSource, /"device\.recallPreset"[\s\S]*"device\.reloadPreset"/);
+  assert.doesNotMatch(rustRuntimeRequestSource, /\| "device\.navigateBank"/);
+  assert.match(javaSource, /registered != null && plan\.retryable/);
+  assert.doesNotMatch(javaSource, /isIdempotentGatewayWrite/);
 });
 
 test("live QC parameter frames update the open shared editor", () => {

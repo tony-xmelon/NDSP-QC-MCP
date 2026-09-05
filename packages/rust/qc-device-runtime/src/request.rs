@@ -130,6 +130,40 @@ pub struct GatewayWritePlan {
     pub verification: GatewayVerification,
 }
 
+/// Whether a gateway write may be repeated before authoritative readback confirms it.
+///
+/// This is protocol policy, not host transport policy: both native hosts must make
+/// the same decision. Relative navigation and structural mutations are deliberately
+/// excluded because repeating them can produce a different device state.
+pub fn gateway_write_retryable(method: &str) -> bool {
+    matches!(
+        method,
+        "device.recallPreset"
+            | "device.reloadPreset"
+            | "device.selectScene"
+            | "device.toggleBypass"
+            | "device.setParameter"
+            | "device.setLaneControlParameter"
+            | "device.setLaneControlSceneMode"
+            | "device.setParameterSceneMode"
+            | "device.setParameterExpression"
+            | "device.setExpressionBypass"
+            | "device.setBlockFootswitch"
+            | "device.setStompMomentary"
+            | "device.setStompLabel"
+            | "device.setMidiOut"
+            | "device.setPresetLoadMidiOut"
+            | "device.setChainInput"
+            | "device.setChainOutput"
+            | "device.setChainSplit"
+            | "device.setTempo"
+            | "device.setMasterVolume"
+            | "device.selectModeSlot"
+            | "device.showTuner"
+            | "device.showGigView"
+    )
+}
+
 /// Authoritative state predicate associated with a planned write. Hosts only
 /// decide how to wait for a fresh device observation; the state that proves a
 /// command landed is shared across Windows and Android.
@@ -2703,6 +2737,35 @@ mod tests {
     use super::*;
     use qc_protocol::state::{GridBlock, GridRoute, PresetFileListing, PresetFolderListing};
     use serde_json::json;
+
+    #[test]
+    fn retry_policy_is_shared_and_excludes_relative_or_structural_writes() {
+        for method in [
+            "device.recallPreset",
+            "device.selectScene",
+            "device.setParameter",
+            "device.setTempo",
+            "device.showTuner",
+        ] {
+            assert!(
+                gateway_write_retryable(method),
+                "{method} should be retryable"
+            );
+        }
+        for method in [
+            "device.navigateBank",
+            "device.moveBlock",
+            "device.addBlock",
+            "device.removeBlock",
+            "device.copyScene",
+            "device.tapTempo",
+        ] {
+            assert!(
+                !gateway_write_retryable(method),
+                "{method} must not be retried"
+            );
+        }
+    }
 
     #[test]
     fn event_transactions_share_freshness_matching_and_timeout_policy() {

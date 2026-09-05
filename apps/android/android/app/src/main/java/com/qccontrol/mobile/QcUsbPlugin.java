@@ -432,11 +432,11 @@ public class QcUsbPlugin extends Plugin {
         String method, org.json.JSONObject params, long timeoutMs
     ) throws Exception {
         QcNativeStateDecoder.PlannedGatewayWrite plan = stateDecoder.gatewayPlan(method, JSObject.fromJSONObject(params));
-        return executeRelayPlan(plan, timeoutMs, isIdempotentGatewayWrite(method));
+        return executeRelayPlan(plan, timeoutMs);
     }
 
     private CompletableFuture<org.json.JSONObject> executeRelayPlan(
-        QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs, boolean retryable
+        QcNativeStateDecoder.PlannedGatewayWrite plan, long timeoutMs
     ) {
         if (plan.midi) return relayMidi(plan.controller, plan.value).thenApply(result -> {
             try { return result.put("detail", plan.detail).put("verification", "authoritative_state_pending"); }
@@ -488,7 +488,7 @@ public class QcUsbPlugin extends Plugin {
                 }), refreshDelay, TimeUnit.MILLISECONDS);
             }
         }
-        if (registered != null && retryable) {
+        if (registered != null && plan.retryable) {
             keepalive.schedule(() -> {
                 if (result.isDone()) return;
                 commandIo.execute(() -> {
@@ -508,37 +508,6 @@ public class QcUsbPlugin extends Plugin {
             }, Math.max(250, timeoutMs / 3), TimeUnit.MILLISECONDS);
         }
         return result;
-    }
-
-    private static boolean isIdempotentGatewayWrite(String method) {
-        switch (method) {
-            case "device.recallPreset":
-            case "device.reloadPreset":
-            case "device.selectScene":
-            case "device.toggleBypass":
-            case "device.setParameter":
-            case "device.setLaneControlParameter":
-            case "device.setLaneControlSceneMode":
-            case "device.setParameterSceneMode":
-            case "device.setParameterExpression":
-            case "device.setExpressionBypass":
-            case "device.setBlockFootswitch":
-            case "device.setStompMomentary":
-            case "device.setStompLabel":
-            case "device.setMidiOut":
-            case "device.setPresetLoadMidiOut":
-            case "device.setChainInput":
-            case "device.setChainOutput":
-            case "device.setChainSplit":
-            case "device.setTempo":
-            case "device.setMasterVolume":
-            case "device.selectModeSlot":
-            case "device.showTuner":
-            case "device.showGigView":
-                return true;
-            default:
-                return false;
-        }
     }
 
     private CompletableFuture<org.json.JSONObject> relayGatewayWorkflow(
@@ -633,8 +602,8 @@ public class QcUsbPlugin extends Plugin {
         }
         QcNativeStateDecoder.PlannedGatewayStage stage = workflow.stages.get(stageIndex);
         QcNativeStateDecoder.PlannedGatewayWrite write = new QcNativeStateDecoder.PlannedGatewayWrite(
-            workflow.detail, stage.verificationJson, false, 0, 0, stage.messages);
-        return executeRelayPlan(write, stage.timeoutMs, false)
+            workflow.detail, stage.verificationJson, false, 0, 0, false, stage.messages);
+        return executeRelayPlan(write, stage.timeoutMs)
             .thenCompose(ignored -> settleGatewayStage(stage.settleMs))
             .thenCompose(ignored -> executeRelayWorkflow(workflow, stageIndex + 1));
     }

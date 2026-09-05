@@ -2,10 +2,10 @@ use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use qc_device_runtime::request::{
-    assert_expected_parameter, finalize_device_backup, merge_expected_state, plan_gateway_read,
-    plan_gateway_write, plan_preset_mutation, plan_preset_recall, GatewayReadPlan,
-    GatewayResponseProjection, GatewayTransaction, GatewayTransactionState, GatewayVerification,
-    PlannedWrite, PresetMutationPlan,
+    assert_expected_parameter, finalize_device_backup, gateway_write_retryable,
+    merge_expected_state, plan_gateway_read, plan_gateway_write, plan_preset_mutation,
+    plan_preset_recall, GatewayReadPlan, GatewayResponseProjection, GatewayTransaction,
+    GatewayTransactionState, GatewayVerification, PlannedWrite, PresetMutationPlan,
 };
 use qc_device_runtime::{GatewaySnapshot, PresetLibrary};
 use qc_protocol::commands::{self, OutboundMessage};
@@ -106,6 +106,7 @@ fn message_envelope(messages: Vec<OutboundMessage>) -> Result<Vec<u8>, String> {
 fn gateway_write_envelope(
     detail: &str,
     verification: &GatewayVerification,
+    retryable: bool,
     write: PlannedWrite,
 ) -> Result<Vec<u8>, String> {
     let detail = detail.as_bytes();
@@ -128,7 +129,7 @@ fn gateway_write_envelope(
         PlannedWrite::HidOperation(operation) => (0, 0, 0, operation.encode()),
         PlannedWrite::MidiControlChange { controller, value } => (1, controller, value, Vec::new()),
     };
-    result.extend_from_slice(&[lane, controller, value]);
+    result.extend_from_slice(&[lane, controller, value, u8::from(retryable)]);
     result.extend_from_slice(&message_envelope(messages)?);
     Ok(result)
 }
@@ -358,7 +359,12 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
                 (plan.detail, plan.verification, plan.write)
             }
         };
-        gateway_write_envelope(&detail, &verification, write)
+        gateway_write_envelope(
+            &detail,
+            &verification,
+            gateway_write_retryable(&method),
+            write,
+        )
     })();
     bytes_result(&mut env, result)
 }
