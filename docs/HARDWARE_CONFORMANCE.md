@@ -77,15 +77,24 @@ source/SHA-256 metadata before touching the device:
 
 ```powershell
 $windowsCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\windows\\' }
-node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate
+node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-windows.json --execute --all --require-all --release-candidate $windowsCandidate --output artifacts\hardware-conformance\windows.json
 ```
 
-Omit `--execute` first to validate the complete 94-action plan and exact
+Omit `--execute` first to validate the complete 102-action plan and exact
 candidate metadata without connecting to or mutating the QC.
 
-Repeat with the Android device paired and a separate output target. Evidence is
-written under `artifacts/hardware-conformance/` unless `--output` is supplied.
-Serials, tokens, credentials, and binary payloads are redacted or hashed.
+Repeat with the Android device paired. Use a copied configuration whose
+`target` is `android`, identify the Android candidate explicitly, and write the
+canonical report consumed by the release gate:
+
+```powershell
+$androidCandidate = node tools/release-candidates.mjs list | Where-Object { $_ -match '\\android\\' }
+node tools/hardware-conformance.mjs --config C:\secure\qc-hardware-android.json --execute --all --require-all --release-candidate $androidCandidate --output artifacts\hardware-conformance\android.json
+```
+
+Evidence is written under `artifacts/hardware-conformance/`; explicit output
+paths keep the final gate deterministic. Serials, tokens, credentials, and
+binary payloads are redacted or hashed.
 
 `--persistent`, `--system`, and `--screen-tap` require `--live`, because the
 suite uses live preset recall for safe scratch entry and failure restoration.
@@ -97,7 +106,7 @@ mutation groups together.
 Finally, gate the release against both immutable reports:
 
 ```powershell
-node tools/verify-hardware-release.mjs artifacts\hardware-conformance\windows.json artifacts\hardware-conformance\android.json
+npm run test:hardware:release
 ```
 
 The gate rejects missing platforms, stale action-contract digests, skipped or
