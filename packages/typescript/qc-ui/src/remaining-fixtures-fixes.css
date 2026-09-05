@@ -199,8 +199,13 @@
 .coros-save-as .save-as-content>aside button.is-active{background:#101010}
 .coros-save-as .save-as-content>section button.is-active{background:#212421}
 .qc-screen.coros-fixture-dialog.is-scene-command{background:#424142}
-.coros-fixture-dialog.is-scene-command>aside{padding-top:5.125cqw;background:#101010}
-.coros-fixture-dialog.is-scene-command>aside footer{margin-top:4.75cqw}
+.coros-fixture-dialog.is-scene-command .scene-command-grid main i,.coros-fixture-dialog.is-scene-command .scene-command-grid main::after{background:#424a42}
+.coros-fixture-dialog.is-scene-command .scene-command-grid main::before{border-color:#d5d9d5}
+.coros-fixture-dialog.is-scene-command .scene-command-grid main i::after,.coros-fixture-dialog.is-scene-command .scene-command-grid main::after,.coros-fixture-dialog.is-scene-command .scene-command-grid header strong>span{color:#d5d9d5}
+.coros-fixture-dialog.is-scene-command .scene-command-grid header strong{color:#d541af}
+.coros-fixture-dialog.is-scene-command>aside{border:0;padding-top:5.5cqw;background:#101010}
+.coros-fixture-dialog.is-scene-command>aside>h1{font-size:2.25cqw}
+.coros-fixture-dialog.is-scene-command>aside footer{margin-top:5cqw}
 .coros-fixture-dialog.is-scene-command>aside footer button{height:5.625cqw;background:#000}
 .coros-parameter-editor.editor-digital-flanger{background:#101010}
 .coros-parameter-editor.editor-digital-flanger>header{background:#101010}

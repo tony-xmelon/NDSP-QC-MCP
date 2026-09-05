@@ -1,14 +1,14 @@
 # Quad Cortex screen reconstruction report
 
-Audit date: 2026-09-04
+Audit date: 2026-09-05
 Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 ## Executive summary
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **87.94%** | **96.94%** |
-| Android | 40/40 (100%) | **86.83%** | **96.82%** |
+| Windows | 40/40 (100%) | **88.88%** | **96.97%** |
+| Android | 40/40 (100%) | **88.87%** | **96.97%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -18,9 +18,10 @@ Structural match is edge F1 with a two-pixel tolerance. Color similarity is
 opens the Directory, route selectors, and each block editor before taking the
 frame. An earlier driver did not wait for asynchronous editor opening and
 therefore compared the underlying Grid for seven editor states; those invalid
-measurements have been replaced. The 1.11-point structural difference between
-hosts is concentrated in a few fixture screens and text rasterization; the live
-Grid, Directory, routing, and parameter editor implementations are shared.
+measurements have been replaced. Both capture drivers now exclude the decorative
+host bezel and measure the same raw 800x480 framebuffer; their aggregate
+structural scores differ by only 0.01 point. The live Grid, Directory, routing,
+and parameter editor implementations are shared.
 
 The complete product target is larger than the measured corpus. The canonical
 inventory contains **103 CorOS screen/state rows** plus **16 Cortex Control-only
@@ -121,48 +122,58 @@ still need pixel-level reconstruction work.
 
 | Physical state | Windows structural match | Android structural match |
 | --- | ---: | ---: |
-| `grid-base` | 90.24% | 89.97% |
-| `grid-scene-selector` | 93.29% | 93.10% |
-| `grid-context-menu` | 91.03% | 91.14% |
-| `copy-scene-destination` | 80.06% | 73.90% |
-| `swap-scene-destination` | 80.21% | 74.06% |
-| `preset-directory` | 92.36% | 92.28% |
-| `input-route-selector` | 85.55% | 86.99% |
-| `output-route-selector` | 77.76% | 78.90% |
-| `splitter-editor` | 87.59% | 87.54% |
-| `mixer-editor` | 89.83% | 89.77% |
-| `device-browser-root` | 85.48% | 85.53% |
-| `device-browser-models` | 87.58% | 87.57% |
-| `device-browser-models-clean` | 83.43% | 83.49% |
-| `device-browser-plugin-list` | 86.36% | 80.52% |
-| `device-browser-plugin-models` | 90.72% | 87.23% |
-| `device-browser-plugin-locked` | 88.50% | 85.52% |
-| `device-presets-exotic-z-boost` | 90.42% | 85.74% |
-| `device-preset-actions` | 96.06% | 88.92% |
-| `device-presets-user` | 89.82% | 83.86% |
-| `editor-simple-gate` | 85.12% | 85.08% |
-| `editor-chief-ds1` | 85.27% | 85.24% |
-| `editor-digital-flanger` | 80.18% | 80.15% |
-| `editor-ukc30-topboost` | 85.31% | 85.29% |
-| `editor-ukc30-cab` | 81.97% | 81.97% |
-| `editor-parametric-8` | 88.20% | 88.20% |
-| `editor-ambience` | 84.94% | 84.92% |
-| `gig-view` (STOMP) | 83.36% | 83.35% |
-| `grid-restored` | 90.24% | 89.97% |
-| `grid-scene-b` | 90.32% | 90.05% |
-| `grid-scene-a-restored` | 90.24% | 89.97% |
-| `tempo-metronome` | **90.43%** | **90.41%** |
-| `tuner` | **90.77%** | **90.76%** |
-| `tuner-live-enabled` | **90.92%** | **90.88%** |
-| `gig-view-live-tuner` | 84.93% | 84.92% |
-| `preset-midi-out` | 88.31% | 88.30% |
-| `gig-view-preset` | 93.96% | 92.31% |
-| `gig-view-scene` | 88.77% | 88.35% |
-| `modes-configuration` | 96.39% | 96.38% |
-| `save-as-editor` | 88.93% | 88.58% |
-| `edit-details-editor` | 92.66% | 92.10% |
+| `grid-base` | 90.26% | 90.26% |
+| `grid-scene-selector` | 93.30% | 93.30% |
+| `grid-context-menu` | 91.05% | 91.08% |
+| `copy-scene-destination` | **91.79%** | **91.51%** |
+| `swap-scene-destination` | **91.70%** | **91.43%** |
+| `preset-directory` | 92.46% | 92.47% |
+| `input-route-selector` | 87.42% | 87.47% |
+| `output-route-selector` | **90.74%** | **90.76%** |
+| `splitter-editor` | 87.61% | 87.65% |
+| `mixer-editor` | 89.85% | 89.89% |
+| `device-browser-root` | 85.50% | 85.52% |
+| `device-browser-models` | 87.64% | 87.63% |
+| `device-browser-models-clean` | 83.49% | 83.49% |
+| `device-browser-plugin-list` | 86.22% | 86.22% |
+| `device-browser-plugin-models` | 90.50% | 90.50% |
+| `device-browser-plugin-locked` | 88.42% | 88.42% |
+| `device-presets-exotic-z-boost` | 90.33% | 90.33% |
+| `device-preset-actions` | 96.10% | 96.10% |
+| `device-presets-user` | 89.71% | 89.70% |
+| `editor-simple-gate` | 85.19% | 85.18% |
+| `editor-chief-ds1` | 85.36% | 85.36% |
+| `editor-digital-flanger` | 80.12% | 80.11% |
+| `editor-ukc30-topboost` | 85.43% | 85.42% |
+| `editor-ukc30-cab` | 81.92% | 81.92% |
+| `editor-parametric-8` | 88.25% | 88.24% |
+| `editor-ambience` | 84.98% | 84.97% |
+| `gig-view` (STOMP) | 83.30% | 83.30% |
+| `grid-restored` | 90.26% | 90.26% |
+| `grid-scene-b` | 90.34% | 90.34% |
+| `grid-scene-a-restored` | 90.26% | 90.26% |
+| `tempo-metronome` | **90.46%** | **90.46%** |
+| `tuner` | **90.68%** | **90.68%** |
+| `tuner-live-enabled` | **90.85%** | **90.86%** |
+| `gig-view-live-tuner` | 84.88% | 84.88% |
+| `preset-midi-out` | 88.29% | 88.29% |
+| `gig-view-preset` | 93.94% | 93.94% |
+| `gig-view-scene` | 88.75% | 88.76% |
+| `modes-configuration` | 96.35% | 96.35% |
+| `save-as-editor` | 88.97% | 88.97% |
+| `edit-details-editor` | 92.63% | 92.63% |
 
 ## Improvements in this pass
+
+- Matched the physical scene-copy and scene-swap overlays: exact dimmed block,
+  rail, title, modal, and button geometry lifts both states from about 80% to
+  **91.4–91.8% structural match** on both hosts.
+- Corrected the output route list's measured 18px type, 8px vertical offset,
+  and opposing row-flow arrows, raising it from **77.76% to 90.74% Windows**
+  and **78.90% to 90.76% Android**.
+- Removed the Android host's decorative rounded glass overlay from framebuffer
+  benchmarking. Both capture paths now isolate the same raw 800x480 UI output,
+  eliminating a systematic measurement artifact without changing the app UI.
 
 - Matched the live Directory's measured 60px folder cadence, 52px bank tiles
   on an 8px vertical rhythm, 51px preset rows, and exact physical panel colors.
@@ -187,10 +198,10 @@ still need pixel-level reconstruction work.
 - Matched Parametric-8's logarithmic frequency grid to all 26 measured vertical
   positions, corrected its background and tab tones, and aligned the shared
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
-  Parametric-8 rises from **63.35% to 88.20%** on both hosts; the seven physical
-  editor screens now average **84.43% structural match**. The complete physical
-  benchmark reaches **87.94% / 96.94% structural/color on Windows** and
-  **86.83% / 96.82% on Android**.
+  Parametric-8 rises from **63.35% to 88.25%**; the seven physical editor
+  screens now average **84.46% structural match**. The complete physical
+  benchmark reaches **88.88% / 96.97% structural/color on Windows** and
+  **88.87% / 96.97% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen

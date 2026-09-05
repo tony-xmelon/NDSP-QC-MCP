@@ -61,7 +61,8 @@ export function QcRouteGlyph({ side, label }: { side: "input" | "output"; label:
   if (label.startsWith("Send ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h5m-2.5-2.5L8 12l-2.5 2.5" /><rect x="8" y="6.5" width="13" height="11" rx="2" /><text x="14.5" y="14.4" textAnchor="middle" fill="currentColor" stroke="none" fontFamily={QC_TYPOGRAPHY.devicePlain} fontWeight="700" fontSize="6.5">FX</text></svg>;
   if (label === "Out 1/2" || label === "Out 1" || label === "Out 2") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="7.6" r="1.15" /><circle cx="8.2" cy="14.2" r="1.15" /><circle cx="15.8" cy="14.2" r="1.15" /></svg>;
   if (label.startsWith("Out ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5.5a7 7 0 1 0 0 13" /><path d="M8 12h12m-3-3 3 3-3 3" /></svg>;
-  if (label.includes("/") || label.startsWith("Row ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={side === "input" ? "M4 7h13l-3-3m3 3-3 3M4 17h13l-3-3m3 3-3 3" : "M4 7h13m0 0-3-3m3 3-3 3M4 17h13m0 0-3-3m3 3-3 3"} /></svg>;
+  if (label.startsWith("Row ")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h16m0 0-3-3m3 3-3 3M21 18H5m0 0 3-3m-3 3 3 3" /></svg>;
+  if (label.includes("/")) return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={side === "input" ? "M4 7h13l-3-3m3 3-3 3M4 17h13l-3-3m3 3-3 3" : "M4 7h13m0 0-3-3m3 3-3 3M4 17h13m0 0-3-3m3 3-3 3"} /></svg>;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="12" r="3" /><path d={side === "input" ? "M10 12h10l-3-3m3 3-3 3" : "M14 12H4l3-3m-3 3 3 3"} /></svg>;
 }
 

@@ -230,6 +230,16 @@ test("the Grid starts without an implicitly selected effect", () => {
   assert.doesNotMatch(appSource, /setSelectedBlockId\([^\n]*blocks\[0\]/, "snapshot changes must not silently select the first block");
 });
 
+test("both visual benchmark drivers isolate the raw 800x480 framebuffer", () => {
+  const windowsCapture = readFileSync(new URL("../tools/capture_windows_ui.mjs", import.meta.url), "utf8");
+  const androidCapture = readFileSync(new URL("../tools/capture_android_ui.mjs", import.meta.url), "utf8");
+  for (const source of [windowsCapture, androidCapture]) {
+    assert.match(source, /width: 800px !important; height: 480px !important/);
+    assert.match(source, /\.qc-screen-bezel::after[^}]*display: none !important/s);
+  }
+  assert.match(androidCapture, /\.mobile-screen \.qc-screen \{ border-radius: 0 !important; box-shadow: none !important; \}/);
+});
+
 test("master volume has an independent two-way live synchronization path", () => {
   const appSource = readFileSync(new URL("../apps/windows/src/App.tsx", import.meta.url), "utf8");
   const controlsSource = readFileSync(new URL("../packages/typescript/qc-ui/src/use-continuous-control-workflow.ts", import.meta.url), "utf8");

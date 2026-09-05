@@ -58,7 +58,8 @@
 .coros-route-picker.is-output .coros-route-group:nth-child(-n+2) > strong { display: none; }
 .coros-route-picker.is-output .coros-route-group:nth-child(3) { margin-top: 3.75cqw; }
 .coros-route-picker.is-output .coros-route-group:nth-child(3) > strong { transform: translateY(-1.25cqw); }
-.coros-route-picker.is-output .coros-route-options button { padding-left: 6%; }
+.coros-route-picker.is-output .coros-route-options button { padding-left: 6%; font-size: 2.25cqw; }
+.coros-route-picker.is-output .coros-route-group { transform: translateY(1cqw); }
 .coros-route-picker.is-output::after { content: ""; position: absolute; right: 15px; top: 308px; bottom: 7px; width: 2px; background: #313431; pointer-events: none; }
 .coros-reference-parameter-editor { position: absolute; z-index: 32; left: 0; right: 0; top: 40.83%; bottom: 0; display: grid; grid-template-rows: 21.1% 37.7%; align-content: start; background: #0b0c0c; color: #eee; box-shadow: 0 -24.5cqw 0 #0007; container-type: inline-size; font-family: Arial, Helvetica, sans-serif; }
 .coros-reference-parameter-editor:has(.coros-parameter-controls.is-two-row) { grid-template-rows: 21.1% 76%; }

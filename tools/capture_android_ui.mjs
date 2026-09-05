@@ -20,6 +20,8 @@ const captureCss = `
   .mobile-screen { width: 802px !important; height: 482px !important; }
   .mobile-screen > .qc-chassis { width: 802px !important; min-width: 802px !important; max-width: 802px !important; height: 482px !important; min-height: 482px !important; max-height: 482px !important; aspect-ratio: auto !important; }
   .mobile-screen .qc-screen-bezel { position: absolute !important; inset: 1px !important; width: 800px !important; height: 480px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; }
+  .mobile-screen .qc-screen-bezel::after { display: none !important; }
+  .mobile-screen .qc-screen { border-radius: 0 !important; box-shadow: none !important; }
 `;
 
 async function load(extra = {}) {
