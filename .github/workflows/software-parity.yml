@@ -209,13 +209,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: qc-control-android-${{ github.sha }}
-          path: .
+          path: artifacts
 
       - name: Download the parity-approved Windows candidate
         uses: actions/download-artifact@v4
         with:
           name: qc-control-windows-${{ github.sha }}
-          path: .
+          path: artifacts
 
       - name: Regenerate and verify combined release provenance
         shell: pwsh

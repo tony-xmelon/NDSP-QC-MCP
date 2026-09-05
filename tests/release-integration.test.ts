@@ -172,6 +172,7 @@ test("CI combines both same-commit candidates into one hardware-testable bundle"
   assert.match(workflow, /release-bundle:/);
   assert.match(workflow, /release-bundle:[\s\S]*needs: \[android-package, windows-package\]/);
   assert.match(workflow, /name: qc-control-android-\$\{\{ github\.sha \}\}[\s\S]*name: qc-control-windows-\$\{\{ github\.sha \}\}/);
+  assert.equal((workflow.match(/path: artifacts\r?$/gm) ?? []).length, 2);
   assert.match(workflow, /release-provenance\.mjs \$windows\[0\] \$android\[0\]/);
   assert.match(workflow, /release-candidates\.mjs verify/);
   assert.match(workflow, /name: qc-control-release-bundle-\$\{\{ github\.sha \}\}/);
