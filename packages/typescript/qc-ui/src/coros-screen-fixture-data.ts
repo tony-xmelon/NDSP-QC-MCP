@@ -44,7 +44,7 @@ export function coros410FixtureSnapshot(base: PresetSnapshot, overrides: Partial
       { row: 2, inputId: 0, outputId: 0, input: "", output: "" },
       { row: 3, inputId: 0, outputId: 0, input: "", output: "" }
     ],
-    ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: true }],
+    ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: false }],
     blocks: [
       { id: "simple-gate", modelId: 1, name: "Simple Gate", kind: "utility", category: "Utility", row: 0, column: 0, footswitch: 0 },
       { id: "chief-ds1", modelId: 2, name: "Chief DS1", kind: "utility", category: "Guitar Overdrive", row: 0, column: 1, footswitch: 1 },

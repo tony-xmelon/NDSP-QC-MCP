@@ -291,8 +291,8 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
     if (action === "save-as") onSave();
     else onContextAction?.(action);
   };
-  const columns = [98, 184, 273, 361, 448, 528, 616, 703];
-  const rowY = [151, 243, 338, 430];
+  const columns = [101, 187, 272, 357, 443, 529, 615, 701];
+  const rowY = [147, 241, 335, 429];
   const screenBlocks = snapshot.blocks.filter((block) => block.row >= 0 && block.row < QC_GRID_ROWS && block.column >= 0 && block.column < QC_GRID_COLUMNS);
   const tabBlocksByRow = gridBlocksByRow(screenBlocks);
   const sceneLetter = sceneLabel(snapshot.activeScene);
@@ -323,11 +323,11 @@ function CorOsGrid({ snapshot, selectedBlockId, onAction, onOpenPreset, onUndo, 
   const routes = rowY.map((_, row) => snapshot.routes.find((route) => route.row === row));
   const displayInput = (row: number) => {
     const input = routes[row]?.input;
-    if (input !== "Internal") return input;
+    if (input && input !== "Internal") return input;
     if (row === 2 && ["Row 3", "Rows 3/4"].includes(routes[0]?.output ?? "")) return "Prev. Row";
     return "+";
   };
-  const displayOutput = (row: number) => routes[row]?.output === "Internal" ? "+" : routes[row]?.output;
+  const displayOutput = (row: number) => !routes[row]?.output || routes[row]?.output === "Internal" ? "+" : routes[row]?.output;
   const connectionMark = (side: "input" | "output", row: number) => {
     const routeId = side === "input" ? routes[row]?.inputId : routes[row]?.outputId;
     if (!routedPortIsPlugged(side, routeId, snapshot.ioPorts)) return null;

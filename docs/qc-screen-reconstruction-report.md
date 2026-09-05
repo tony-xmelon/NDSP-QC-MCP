@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **81.87%** | **96.55%** |
-| Android | 40/40 (100%) | **80.71%** | **96.42%** |
+| Windows | 40/40 (100%) | **87.08%** | **96.68%** |
+| Android | 40/40 (100%) | **85.97%** | **96.55%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -18,7 +18,7 @@ Structural match is edge F1 with a two-pixel tolerance. Color similarity is
 opens the Directory, route selectors, and each block editor before taking the
 frame. An earlier driver did not wait for asynchronous editor opening and
 therefore compared the underlying Grid for seven editor states; those invalid
-measurements have been replaced. The 1.16-point structural difference between
+measurements have been replaced. The 1.11-point structural difference between
 hosts is concentrated in a few fixture screens and text rasterization; the live
 Grid, Directory, routing, and parameter editor implementations are shared.
 
@@ -121,14 +121,14 @@ still need pixel-level reconstruction work.
 
 | Physical state | Windows structural match | Android structural match |
 | --- | ---: | ---: |
-| `grid-base` | 68.94% | 68.31% |
-| `grid-scene-selector` | 79.84% | 79.48% |
-| `grid-context-menu` | 80.30% | 80.40% |
+| `grid-base` | 90.24% | 89.97% |
+| `grid-scene-selector` | 93.29% | 93.10% |
+| `grid-context-menu` | 91.03% | 91.14% |
 | `copy-scene-destination` | 80.06% | 73.90% |
 | `swap-scene-destination` | 80.21% | 74.06% |
 | `preset-directory` | 77.89% | 77.82% |
-| `input-route-selector` | 75.88% | 77.20% |
-| `output-route-selector` | 63.85% | 64.61% |
+| `input-route-selector` | 85.55% | 86.99% |
+| `output-route-selector` | 77.76% | 78.90% |
 | `splitter-editor` | 87.59% | 87.54% |
 | `mixer-editor` | 89.83% | 89.77% |
 | `device-browser-root` | 85.48% | 85.53% |
@@ -140,17 +140,17 @@ still need pixel-level reconstruction work.
 | `device-presets-exotic-z-boost` | 90.42% | 85.74% |
 | `device-preset-actions` | 96.06% | 88.92% |
 | `device-presets-user` | 89.82% | 83.86% |
-| `editor-simple-gate` | 71.57% | 71.52% |
-| `editor-chief-ds1` | 68.72% | 68.66% |
-| `editor-digital-flanger` | 69.49% | 69.44% |
-| `editor-ukc30-topboost` | 69.89% | 69.86% |
-| `editor-ukc30-cab` | 81.71% | 81.71% |
-| `editor-parametric-8` | 63.35% | 63.35% |
-| `editor-ambience` | 70.86% | 70.83% |
+| `editor-simple-gate` | 83.23% | 83.19% |
+| `editor-chief-ds1` | 79.12% | 79.07% |
+| `editor-digital-flanger` | 80.95% | 80.90% |
+| `editor-ukc30-topboost` | 78.28% | 78.24% |
+| `editor-ukc30-cab` | 81.97% | 81.97% |
+| `editor-parametric-8` | 88.20% | 88.20% |
+| `editor-ambience` | 79.43% | 79.39% |
 | `gig-view` (STOMP) | 83.36% | 83.35% |
-| `grid-restored` | 68.94% | 68.31% |
-| `grid-scene-b` | 69.07% | 68.44% |
-| `grid-scene-a-restored` | 68.94% | 68.31% |
+| `grid-restored` | 90.24% | 89.97% |
+| `grid-scene-b` | 90.32% | 90.05% |
+| `grid-scene-a-restored` | 90.24% | 89.97% |
 | `tempo-metronome` | **90.43%** | **90.41%** |
 | `tuner` | **90.77%** | **90.76%** |
 | `tuner-live-enabled` | **90.92%** | **90.88%** |
@@ -164,6 +164,21 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Replaced the live Grid's older approximate block and row coordinates with
+  the measured 86px block cadence and 94px signal-row cadence already recorded
+  in the physical corpus, restored the six empty-row plus targets, and removed
+  a false input-connection indicator from the reference preset. Base Grid
+  structural match rises from **68.94% to 90.24% Windows / 68.31% to 89.97%
+  Android**; the scene and context overlays exceed 91%. The same shared geometry
+  raises the input/output route selectors to **85.55% / 77.76% Windows** and
+  **86.99% / 78.90% Android**.
+- Matched Parametric-8's logarithmic frequency grid to all 26 measured vertical
+  positions, corrected its background and tab tones, and aligned the shared
+  footswitch, double-scene-arrow, bypass, and confirmation header controls.
+  Parametric-8 rises from **63.35% to 88.20%** on both hosts; the seven physical
+  editor screens now average **81.60% structural match**. The complete physical
+  benchmark reaches **87.08% / 96.68% structural/color on Windows** and
+  **85.97% / 96.55% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen
