@@ -3,6 +3,7 @@ import type { GridBlock, PresetSnapshot } from "@ndsp-qc/client";
 import { QC_VISUAL_ASSETS, REFERENCE_BLOCK_ICONS } from "@ndsp-qc/theme";
 import { officialBlockVisual } from "./block-visuals";
 import { openSplitPath } from "./coros-ui";
+import { QcUiIcon } from "./theme-icons";
 import "./fixture-live-surface.css";
 import "./remaining-fixtures.css";
 import "./remaining-fixtures-fixes.css";
@@ -224,6 +225,24 @@ function SettingsAccountGlyph({ kind }: { kind: "cloud" | "user" | "backup" }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 25h16a6 6 0 0 0 1-11.9A9 9 0 0 0 8 11a7 7 0 0 0 0 14Z" /></svg>;
 }
 
+function SettingsPowerIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v9M7.2 5.7a8 8 0 1 0 9.6 0" /></svg>;
+}
+
+function SettingsDeviceIcon({ label }: { label: string }) {
+  if (label === "Global Bypass") return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M4 5 2.5 3.5M20 5l1.5-1.5M4 19l-1.5 1.5M20 19l1.5 1.5" /></svg>;
+  if (label === "Scene Bypass Behavior") return <SettingsPowerIcon />;
+  if (label === "Stomp Mode Bypass") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15.5 14.5 11l5.5 2.4-10.5 4.5L4 15.5Zm3.5-2.2 1.3-4.8 7.4-3 1.3 5.4M5 19h9M7 19v2h5v-2" /><circle cx="18.5" cy="18.5" r="1.5" /></svg>;
+  if (label === "Swap Tempo and Tuner") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h16m0 0-3.5-3.5M19 8l-3.5 3.5M21 16H5m0 0 3.5-3.5M5 16l3.5 3.5" /></svg>;
+  if (label === "Gig View Access") return <svg viewBox="0 0 24 24" aria-hidden="true"><g className="settings-scene-cells"><rect x="2" y="3" width="8" height="8" /><rect x="14" y="3" width="8" height="8" /><rect x="2" y="13" width="8" height="8" /><rect x="14" y="13" width="8" height="8" /></g><path d="M10 7h4M10 17h4" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 4v8l6 3" /></svg>;
+}
+
+function SettingsDeviceModelIcon({ kind }: { kind: string }) {
+  if (kind === "ir") return <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 12v8M10 9v14M13 13v6M16 6v20M19 11v10M22 14v4M25 10v12" /></svg>;
+  return <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" /><circle cx="16" cy="16" r="4" /><circle cx="7" cy="7" r="1" /><circle cx="25" cy="7" r="1" /><circle cx="7" cy="25" r="1" /><circle cx="25" cy="25" r="1" /></svg>;
+}
+
 function CorOsOfficialSettings({ view }: { view: "settings-account" | "settings-system" | "settings-device" | "settings-midi" }) {
   const data = view === "settings-midi"
     ? { title: "Device", icon: "▣", active: 5, rows: [["◉", "Global Bypass"], ["◴", "Scene Bypass Behavior"], ["♞", "Stomp Mode Bypass"], ["⇄", "Swap Tempo and Tuner"], ["◷", "Latency Compensation"], ["◉", "MIDI"]] }
@@ -233,12 +252,12 @@ function CorOsOfficialSettings({ view }: { view: "settings-account" | "settings-
       ? { title: "System", icon: "⚙", active: 2, rows: [["⌁", "Connection"], ["◔", "Updates"], ["☀", "Brightness"], ["ϟ", "Power Functions"], ["◔", "Master Volume Knob"], ["◕", "Device Storage"], ["▥", "Factory Reset"]] }
       : { title: "Device", icon: "▣", active: 0, rows: [["◉", "Global Bypass"], ["◴", "Scene Bypass Behavior"], ["♞", "Stomp Mode Bypass"], ["◴", "Hold Timing"], ["⇄", "Swap Tempo and Tuner"], ["▦", "Gig View Access"], ["◷", "Latency Compensation"]] };
   return <section className={`qc-screen coros-settings-official ${view}`} aria-label={`${data.title} Settings`}>
-    <header><button className="settings-section"><b>{view === "settings-account" ? <SettingsAccountGlyph kind="cloud" /> : data.icon}</b>{data.title}<i /></button><button className="settings-done">✓</button></header>
-    <main><nav>{data.rows.map(([icon, label], index) => <button key={label} className={index === data.active ? "is-active" : ""}><b>{view === "settings-account" ? <SettingsAccountGlyph kind={index === 0 ? "user" : "backup"} /> : icon}</b>{label}</button>)}</nav>
+    <header><button className="settings-section"><b>{view === "settings-account" ? <SettingsAccountGlyph kind="cloud" /> : view === "settings-device" ? <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2" /><rect x="7" y="5" width="10" height="5" /><path d="M8 14h1m3 0h1m3 0h1M8 18h1m3 0h1m3 0h1" /></svg> : data.icon}</b>{data.title}<i /></button><button className="settings-done">{view === "settings-device" ? <QcUiIcon kind="check" /> : "✓"}</button></header>
+    <main><nav>{data.rows.map(([icon, label], index) => <button key={label} className={index === data.active ? "is-active" : ""}><b>{view === "settings-account" ? <SettingsAccountGlyph kind={index === 0 ? "user" : "backup"} /> : view === "settings-device" ? <SettingsDeviceIcon label={label} /> : icon}</b>{label}</button>)}</nav>
       {view === "settings-account" ? <section className="settings-account-detail"><header><strong>Cloud Backups　<span>3/5</span></strong><small>All timestamps are UTC</small></header>{[["My Rig 001", "☁ August 29th, 2025, 17:06", "↧ August 29th, 2025, 17:11"], ["My Backup", "☁ November 15th, 2024, 19:22", ""], ["Tour 2025", "☁ August 16th, 2023, 15:38", ""]].map(([name, first, second]) => <div key={name}><strong>{name}</strong><small>{first}</small><small>{second}</small><b>⋮</b></div>)}<button>NEW CLOUD BACKUP</button></section>
         : view === "settings-system" ? <section className="settings-system-detail"><h1>Brightness</h1><p>Turn the ▲, ▼, and TEMPO footswitches to adjust the<br />brightness. Tap the Modes at the bottom to toggle dimmed<br />LED lights for each one individually.</p>{[["Screen", "16", 16], ["LEDs", "16", 16], ["Dimmed LEDs", "2", 2]].map(([label, value, bars]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong><i>{Array.from({ length: 32 }, (_, index) => <b key={index} className={index < Number(bars) ? "is-on" : ""} />)}</i></div>)}<footer>▦　▣　♞</footer></section>
           : view === "settings-midi" ? <section className="settings-midi-detail"><h1>MIDI Settings</h1>{[["MIDI Channel", "select", "1"], ["MIDI Thru", "toggle", "Off"], ["MIDI Over USB", "toggle", "On"], ["Ignore Duplicate PC", "toggle", "Off"], ["MIDI Clock Out", "select", "OFF"], ["MIDI Clock In", "toggle", "Off"]].map(([label, kind, value]) => <div key={label}><b>i</b><span>{label}</span>{kind === "select" ? <button>{value}<i>▼</i></button> : <label><small>On</small><small>Off</small><i className={value === "On" ? "is-on" : ""} /></label>}</div>)}</section>
-          : <section className="settings-device-detail"><h1>Global Bypass</h1><p>Globally bypass Cabs, IR Loaders, or Neural Captures of<br />cabs* on any row. Globally bypassed devices will have a<br />bypass icon ◴ but will not appear bypassed on The Grid.</p><small>*Neural Captures need to have the Capture Type set to "Cab" to be<br />bypassed.</small>{[["◉", "cab"], ["≋", "ir"]].map(([glyph, key]) => <div key={key}><b>{glyph}</b>{[1,2,3,4].map(row => <label key={row}><span>ROW {row}</span><i>◴</i></label>)}</div>)}</section>}
+          : <section className="settings-device-detail"><h1>Global Bypass</h1><p>Globally bypass Cabs, IR Loaders, or Neural Captures of<br />cabs* on any row. Globally bypassed devices will have a<br />bypass icon <span className="inline-settings-power"><SettingsPowerIcon /></span> but will not appear bypassed on The Grid.</p><small>*Neural Captures need to have the Capture Type set to "Cab" to be<br />bypassed.</small>{["cab", "ir"].map((key) => <div key={key}><b><SettingsDeviceModelIcon kind={key} /></b>{[1,2,3,4].map(row => <label key={row}><span>ROW {row}</span><i><SettingsPowerIcon /></i></label>)}</div>)}</section>}
     </main>
   </section>;
 }

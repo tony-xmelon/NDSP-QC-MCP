@@ -9,14 +9,27 @@
 .coros-settings-official.settings-device > main > nav button.is-active,
 .coros-settings-official.settings-device .settings-device-detail > div label i { background: #181c18; }
 .coros-settings-official.settings-device .settings-device-detail > div { border-bottom-color: #101010; }
-.settings-device-detail > p { margin-bottom: 2cqw; }
-.settings-device-detail > small { line-height: 1.5; }
+.coros-settings-official.settings-device .settings-section { grid-template-columns: 5.125cqw 1fr 2cqw; transform: translateY(.25cqw); }
+.coros-settings-official.settings-device > main > nav button { grid-template-columns: 4.625cqw 1fr; }
+.coros-settings-official.settings-device .settings-section b > svg,
+.coros-settings-official.settings-device > main > nav button b > svg,
+.coros-settings-official.settings-device .settings-device-detail svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.coros-settings-official.settings-device .settings-section b { width: 3cqw; height: 3cqw; }
+.coros-settings-official.settings-device > main > nav button b { width: 3cqw; height: 3cqw; }
+.coros-settings-official.settings-device .settings-done > svg { width: 3cqw; height: 3cqw; margin: auto; }
+.coros-settings-official.settings-device .settings-scene-cells { fill: currentColor; stroke: none; }
+.settings-device-detail > p { margin-bottom: 2cqw; font-size: 2.21875cqw; }
+.settings-device-detail > small { font-size: 1.875cqw; line-height: 1.4; transform: translateY(.875cqw); }
 .settings-device-detail > div { margin-top: 3cqw; }
 .settings-device-detail > div:first-of-type { margin-top: 4.5cqw; }
 .settings-device-detail > div + div { margin-top: 2.625cqw; }
-.coros-settings-official.settings-device .settings-device-detail > div > b { left: .25cqw; width: 8.25cqw; height: 8.25cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div > b { left: .125cqw; width: 8.5cqw; height: 8.5cqw; }
 .coros-settings-official.settings-device .settings-device-detail > div + div > b { top: .375cqw; }
 .coros-settings-official.settings-device .settings-device-detail > div label { grid-template-rows: 3.375cqw 5.5cqw; font-size: 2cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div label > span { justify-self: start; }
+.coros-settings-official.settings-device .settings-device-detail > div label i > svg { width: 3cqw; height: 3cqw; }
+.coros-settings-official.settings-device .settings-device-detail > div > b > svg { width: 4cqw; height: 4cqw; }
+.coros-settings-official.settings-device .inline-settings-power { display: inline-block; width: 2.5cqw; height: 2.5cqw; vertical-align: -.55cqw; }
 .settings-system-detail > div span,
 .settings-system-detail > div strong { position: relative; top: 1.375cqw; }
 .settings-system-detail > div i { top: 5.35cqw; }

@@ -68,8 +68,8 @@ comparison.
 
 | Client | Official frames rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 36/36 (100%) | **89.52%** | **97.01%** |
-| Android | 36/36 (100%) | **89.52%** | **97.01%** |
+| Windows | 36/36 (100%) | **89.71%** | **97.02%** |
+| Android | 36/36 (100%) | **89.71%** | **97.02%** |
 
 This broader corpus is deliberately reported separately from the 40-frame
 physical-device regression pack. It adds authoritative coverage for I/O,
@@ -122,7 +122,7 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 | Preset MIDI Out | 88.72% | 88.62% |
 | Settings — Account | 93.09% | 92.95% |
 | Settings — System | 90.03% | 89.94% |
-| Settings — Device | 87.07% | 87.00% |
+| Settings — Device | 92.86% | 92.86% |
 
 ## Measured physical corpus
 
@@ -171,6 +171,13 @@ join is in [the canonical coverage matrix](qc-screen-coverage-matrix.md).
 
 ## Improvements in this pass
 
+- Replaced Settings — Device's Unicode icon stand-ins with measured vector
+  device, bypass, timing, scene, and model glyphs; aligned the navigation and
+  model-card geometry; and matched the explanatory copy's physical type scale.
+  The screen rises from **85.81% to 92.86%** structural match on both hosts,
+  while color similarity rises from **96.10% to 96.36%**. The complete
+  36-screen official-manual benchmark reaches **89.71% / 97.02%** structural
+  and color similarity on both Windows and Android.
 - Replaced Save As's fractional repeated-card layout with the physical 53px and
   51px row cadence, then aligned its folder labels, right-pane padding, header
   title, grid glyph, dropdown caret, and close mark. The screen rises from
