@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **91.32%** | **97.24%** |
-| Android | 40/40 (100%) | **91.31%** | **97.25%** |
+| Windows | 40/40 (100%) | **91.36%** | **97.25%** |
+| Android | 40/40 (100%) | **91.35%** | **97.25%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -143,7 +143,7 @@ still need pixel-level reconstruction work.
 | `device-presets-user` | 89.71% | 89.70% |
 | `editor-simple-gate` | **91.57%** | **91.56%** |
 | `editor-chief-ds1` | **91.35%** | **91.35%** |
-| `editor-digital-flanger` | **86.60%** | **86.61%** |
+| `editor-digital-flanger` | **88.43%** | **88.44%** |
 | `editor-ukc30-topboost` | **90.25%** | **90.24%** |
 | `editor-ukc30-cab` | **92.99%** | **92.99%** |
 | `editor-parametric-8` | **89.45%** | **89.45%** |
@@ -165,6 +165,13 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Fixed Digital Flanger's dead page-cell selectors so the live `<button>`
+  controls receive the physical active/inactive colors, matched their measured
+  bounds, aligned the confirmation control, and corrected the two-line title's
+  scale and baseline. The screen rises from **86.60% to 88.43% Windows / 86.61%
+  to 88.44% Android**, while color similarity rises from **97.69% to 97.75%**.
+  The complete benchmark reaches **91.36% / 97.25%** on Windows and **91.35% /
+  97.25%** on Android.
 - Matched Parametric-8's four measured graph-node bounds and colors, replaced
   its approximate striped preset mark with the stacked vector glyph, and
   corrected the title scale. The editor rises from **88.33% to 89.45%**

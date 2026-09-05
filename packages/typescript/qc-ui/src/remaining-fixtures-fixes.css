@@ -237,9 +237,14 @@
 .coros-parameter-editor.editor-digital-flanger .editor-bypass .flanger-link-icon{width:3cqw;fill:none;stroke:#7130ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .coros-reference-parameter-editor:not(.coros-special-editor):not(.editor-digital-flanger) .editor-bypass svg{width:3cqw;height:3cqw;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .coros-parameter-editor.editor-digital-flanger .editor-done{background:#292c29;color:#fff}
+.coros-parameter-editor.editor-digital-flanger .editor-done{transform:translateX(2px)}
 .coros-parameter-editor.editor-digital-flanger .editor-pages{transform:translateX(-7px)}
-.coros-parameter-editor.editor-digital-flanger .editor-pages>b:first-child{background:#101410}
-.coros-parameter-editor.editor-digital-flanger .editor-pages>b:last-child{background:#101010}
+.coros-parameter-editor.editor-digital-flanger .editor-pages>button:first-child{background:#101410}
+.coros-parameter-editor.editor-digital-flanger .editor-pages>button:last-child{background:#101010}
+.coros-parameter-editor.editor-digital-flanger .editor-pages>button:first-child{position:relative;left:-6px;width:calc(100% + 3px);height:calc(100% + 1px)}
+.coros-parameter-editor.editor-digital-flanger .editor-pages>button:last-child{position:relative;left:-5px;height:calc(100% + 1px)}
+.coros-parameter-editor.editor-digital-flanger .editor-title small{transform:translate(1px,-1px)}
+.coros-parameter-editor.editor-digital-flanger .editor-title strong{font-size:2.5cqw;transform:translate(1px,3px)}
 .coros-name-editor,.coros-name-editor *{font-family:Roboto,Arial,sans-serif}
 .coros-name-editor{background:#101010;color:#fff}
 .coros-name-editor header button{background:#292c29;color:#fff}
