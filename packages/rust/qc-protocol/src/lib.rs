@@ -5,6 +5,7 @@
 //! `PYQUADCORTEX-LICENSE.txt` and `SCHEMA-SOURCE.md`.
 
 pub mod commands;
+mod compression;
 pub mod domain;
 pub mod framing;
 pub mod generated_payloads;

@@ -4,6 +4,7 @@
 //! This module owns the device-independent mapping from QC protobuf messages to
 //! the small camelCase state-event contract consumed by `@ndsp-qc/core`.
 
+use crate::compression::{maybe_gunzip, InflateError};
 pub use crate::generated_payloads::{
     BlockDetails, BlockParameter, BypassExpression, BypassUpdate, FootswitchState, GridBlock,
     GridRoute, IoPortState, MidiOutMessage, MidiOutSource, ModeSlot, QcStateUpdate as StateUpdate,
@@ -15,13 +16,11 @@ use crate::proto::{
     Model, Param,
 };
 use crate::{domain, profile};
-use flate2::read::GzDecoder;
 use prost::Message;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::Read;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -42,6 +41,15 @@ pub enum StateDecodeError {
     CatalogArchive(String),
     #[error("model catalog XML is invalid: {0}")]
     CatalogXml(String),
+}
+
+impl From<InflateError> for StateDecodeError {
+    fn from(error: InflateError) -> Self {
+        match error {
+            InflateError::Limit => Self::InflatedLimit,
+            InflateError::Decode(message) => Self::Compression(message),
+        }
+    }
 }
 
 impl StateUpdate {
@@ -1470,21 +1478,6 @@ fn validate_wire_payload(payload: &[u8]) -> Result<(), StateDecodeError> {
     } else {
         Ok(())
     }
-}
-
-fn maybe_gunzip(payload: &[u8]) -> Result<Vec<u8>, StateDecodeError> {
-    if !payload.starts_with(&[0x1f, 0x8b]) {
-        return Ok(payload.to_vec());
-    }
-    let mut decoded = Vec::new();
-    GzDecoder::new(payload)
-        .take(profile::MAX_INFLATED_BYTES as u64 + 1)
-        .read_to_end(&mut decoded)
-        .map_err(|error| StateDecodeError::Compression(error.to_string()))?;
-    if decoded.len() > profile::MAX_INFLATED_BYTES {
-        return Err(StateDecodeError::InflatedLimit);
-    }
-    Ok(decoded)
 }
 
 fn model_hash(model: &Model) -> Option<u32> {

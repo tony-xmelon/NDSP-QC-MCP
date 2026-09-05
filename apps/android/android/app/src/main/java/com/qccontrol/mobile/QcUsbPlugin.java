@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -50,6 +51,7 @@ public class QcUsbPlugin extends Plugin {
     private static final int HID_WRITE_TIMEOUT_MS = 250;
     private static final int MIDI_WRITE_TIMEOUT_MS = 250;
     private static final int MAINTENANCE_POLL_MS = 1000;
+    private static final int HID_INPUT_REQUEST_DEPTH = 32;
     private static final String USB_PERMISSION = "com.qccontrol.mobile.USB_PERMISSION";
 
     private UsbManager manager;
@@ -57,7 +59,7 @@ public class QcUsbPlugin extends Plugin {
     private UsbDeviceConnection connection;
     private UsbInterface hidInterface;
     private UsbEndpoint inputEndpoint;
-    private volatile UsbRequest activeInputRequest;
+    private volatile UsbRequest[] activeInputRequests;
     private UsbDeviceConnection midiConnection;
     private UsbInterface midiInterface;
     private UsbEndpoint midiOutputEndpoint;
@@ -100,6 +102,7 @@ public class QcUsbPlugin extends Plugin {
     private volatile long lastHidWriteDurationMs;
     private volatile int lastHidWriteResult;
     private volatile boolean lastHidWriteIncludedReportId;
+    private volatile String lastGatewayReadMismatch;
     private volatile boolean readerWaiting;
     private volatile long readerExitedAt;
     private volatile String lastReaderError;
@@ -589,14 +592,30 @@ public class QcUsbPlugin extends Plugin {
     private CompletableFuture<org.json.JSONObject> relayGatewayRead(
         String method, org.json.JSONObject params
     ) throws Exception {
-        if ("device.captureScreen".equals(method) || "device.presetScreenshot".equals(method)) {
+        if ("device.captureScreen".equals(method) || "device.presetScreenshot".equals(method)
+            || "device.captures".equals(method) || "device.irs".equals(method)) {
             org.json.JSONObject readParams = new org.json.JSONObject(params.toString());
             return relayReconnect("USB session refreshed for high-volume read").thenCompose(ignored -> {
-                try { return relayGatewayReadOnCurrentSession(method, readParams); }
+                try {
+                    return restoreUsbSessionAfterHighVolumeRead(
+                        relayGatewayReadOnCurrentSession(method, readParams));
+                }
                 catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
             });
         }
         return relayGatewayReadOnCurrentSession(method, params);
+    }
+
+    private CompletableFuture<org.json.JSONObject> restoreUsbSessionAfterHighVolumeRead(
+        CompletableFuture<org.json.JSONObject> read
+    ) {
+        return read.handle((value, readError) ->
+            relayReconnect("USB session restored after high-volume read").handle((ignored, reconnectError) -> {
+                if (readError != null) throw new CompletionException(readError);
+                if (reconnectError != null) throw new CompletionException(reconnectError);
+                return value;
+            })
+        ).thenCompose(result -> result);
     }
 
     private CompletableFuture<org.json.JSONObject> relayGatewayReadOnCurrentSession(
@@ -692,6 +711,15 @@ public class QcUsbPlugin extends Plugin {
     private CompletableFuture<org.json.JSONObject> relayPresetLibraryRead(
         String method, org.json.JSONObject params
     ) throws Exception {
+        boolean refresh = params.optBoolean("refresh", false);
+        if (refresh && !params.optBoolean("_freshUsbSession", false)) {
+            org.json.JSONObject readParams = new org.json.JSONObject(params.toString())
+                .put("_freshUsbSession", true);
+            return relayReconnect("USB session refreshed for preset catalog").thenCompose(ignored -> {
+                try { return relayPresetLibraryRead(method, readParams); }
+                catch (Exception error) { return failedRelay("DEVICE_ERROR", error.getMessage()); }
+            });
+        }
         RelayJsonRead read = () -> {
             if ("device.listPresetFolders".equals(method)) return stateDecoder.presetFolders();
             if ("device.listPresetSlots".equals(method)) return stateDecoder.presetSlots();
@@ -700,7 +728,6 @@ public class QcUsbPlugin extends Plugin {
             if (setlistKey == null) throw new IllegalStateException("No active preset setlist has been synchronized.");
             return stateDecoder.presetList(setlistKey);
         };
-        boolean refresh = params.optBoolean("refresh", false);
         if (!refresh) {
             try {
                 org.json.JSONObject cached = read.get();
@@ -868,7 +895,10 @@ public class QcUsbPlugin extends Plugin {
         result.put("lastHidWriteDurationMs", lastHidWriteDurationMs);
         result.put("lastHidWriteResult", lastHidWriteResult);
         result.put("lastHidWriteIncludedReportId", lastHidWriteIncludedReportId);
-        result.put("readerRequestActive", activeInputRequest != null);
+        if (lastGatewayReadMismatch != null) result.put("lastGatewayReadMismatch", lastGatewayReadMismatch);
+        UsbRequest[] inputRequests = activeInputRequests;
+        result.put("readerRequestActive", inputRequests != null && inputRequests.length > 0);
+        result.put("readerRequestCount", inputRequests == null ? 0 : inputRequests.length);
         result.put("readerWaiting", readerWaiting);
         result.put("readerExitedAt", readerExitedAt);
         if (lastReaderError != null) result.put("lastReaderError", lastReaderError);
@@ -1144,19 +1174,27 @@ public class QcUsbPlugin extends Plugin {
     private void readInputReportsAsync(
         UsbDeviceConnection activeConnection, UsbEndpoint activeEndpoint, long generation
     ) {
-        UsbRequest request = new UsbRequest();
-        if (!request.initialize(activeConnection, activeEndpoint)) {
-            lastError = "Could not initialize the asynchronous QC HID reader.";
-            return;
-        }
-        activeInputRequest = request;
+        UsbRequest[] requests = new UsbRequest[HID_INPUT_REQUEST_DEPTH];
         try {
-            while (readerIsActive(activeConnection, generation)) {
-                ByteBuffer buffer = ByteBuffer.allocateDirect(QcNativeStateDecoder.REPORT_SIZE);
-                if (!request.queue(buffer)) {
-                    lastError = "Could not queue the next QC HID input report.";
+            for (int index = 0; index < requests.length; index++) {
+                UsbRequest request = new UsbRequest();
+                if (!request.initialize(activeConnection, activeEndpoint)) {
+                    lastError = "Could not initialize QC HID input request " + (index + 1) + ".";
                     return;
                 }
+                ByteBuffer buffer = ByteBuffer.allocateDirect(QcNativeStateDecoder.REPORT_SIZE);
+                request.setClientData(buffer);
+                requests[index] = request;
+            }
+            activeInputRequests = requests;
+            for (int index = 0; index < requests.length; index++) {
+                ByteBuffer buffer = (ByteBuffer) requests[index].getClientData();
+                if (!requests[index].queue(buffer)) {
+                    lastError = "Could not queue QC HID input request " + (index + 1) + ".";
+                    return;
+                }
+            }
+            while (readerIsActive(activeConnection, generation)) {
                 readerWaiting = true;
                 UsbRequest completed = null;
                 while (completed == null && readerIsActive(activeConnection, generation)) {
@@ -1165,16 +1203,23 @@ public class QcUsbPlugin extends Plugin {
                     finally { readerWaiting = false; }
                 }
                 if (!readerIsActive(activeConnection, generation)) return;
-                if (completed != request) {
+                ByteBuffer buffer = (ByteBuffer) completed.getClientData();
+                if (buffer == null) {
                     lastError = "The QC HID input request ended without a matching completion.";
                     return;
                 }
                 int count = buffer.position();
-                if (count <= 0) continue;
-                buffer.flip();
-                byte[] bytes = new byte[count];
-                buffer.get(bytes);
-                consumeInputReport(bytes, count);
+                if (count > 0) {
+                    buffer.flip();
+                    byte[] bytes = new byte[count];
+                    buffer.get(bytes);
+                    consumeInputReport(bytes, count);
+                }
+                buffer.clear();
+                if (!completed.queue(buffer)) {
+                    lastError = "Could not requeue a QC HID input request.";
+                    return;
+                }
             }
         } catch (Exception error) {
             if (readerIsActive(activeConnection, generation)) {
@@ -1185,10 +1230,10 @@ public class QcUsbPlugin extends Plugin {
         } finally {
             readerWaiting = false;
             readerExitedAt = System.currentTimeMillis();
-            if (activeInputRequest == request) {
-                activeInputRequest = null;
-                request.cancel();
-                request.close();
+            if (activeInputRequests == requests) activeInputRequests = null;
+            for (UsbRequest request : requests) if (request != null) {
+                try { request.cancel(); } catch (Exception ignored) {}
+                try { request.close(); } catch (Exception ignored) {}
             }
         }
     }
@@ -1404,8 +1449,10 @@ public class QcUsbPlugin extends Plugin {
             if (pending.plan.responseType != messageType || entry.result.isDone()) continue;
             try {
                 org.json.JSONObject value = stateDecoder.decodeGatewayResponse(pending.plan, payload);
+                lastGatewayReadMismatch = null;
                 if (pendingOperations.remove(entry)) entry.result.complete(value);
-            } catch (Exception ignored) {
+            } catch (Exception error) {
+                lastGatewayReadMismatch = "type " + messageType + ": " + error.getMessage();
                 // A response type may be shared by unrelated or differently
                 // correlated device messages. Keep waiting for this plan's
                 // shared Rust projection to accept the matching reply.
@@ -1513,11 +1560,13 @@ public class QcUsbPlugin extends Plugin {
         handshakeComplete = false;
         presetSynchronized = false;
         connectionGeneration.incrementAndGet();
-        UsbRequest inputRequest = activeInputRequest;
-        if (inputRequest != null) {
-            activeInputRequest = null;
-            inputRequest.cancel();
-            inputRequest.close();
+        UsbRequest[] inputRequests = activeInputRequests;
+        if (inputRequests != null) {
+            activeInputRequests = null;
+            for (UsbRequest inputRequest : inputRequests) if (inputRequest != null) {
+                try { inputRequest.cancel(); } catch (Exception ignored) {}
+                try { inputRequest.close(); } catch (Exception ignored) {}
+            }
         }
         if (midiConnection != null) {
             if (midiInterface != null) midiConnection.releaseInterface(midiInterface);

@@ -199,8 +199,8 @@ pub enum DeviceOperation {
     },
     ReadLibraryFiles {
         folder_key: String,
-        file_type: i32,
-        request_id: u64,
+        file_type: Option<i32>,
+        request_id: Option<u64>,
     },
     CreateSetlist {
         name: String,
@@ -881,17 +881,17 @@ pub fn set_model_pinned(model_id: u32, pinned: bool) -> OutboundMessage {
     )
 }
 
-pub fn read_library_files(folder_key: String, file_type: i32, request_id: u64) -> OutboundMessage {
+pub fn read_library_files(
+    _folder_key: String,
+    file_type: Option<i32>,
+    request_id: Option<u64>,
+) -> OutboundMessage {
     OutboundMessage::encoded(
         4,
         pa::FileMessage {
             action: pa::message_action::Enum::Read as i32,
-            request_id: Some(pa::file_message::RequestId::RequestId(request_id)),
-            r#type: Some(pa::file_message::Type::Type(file_type)),
-            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
-                key: Some(pa::folder_info::Key::Key(folder_key)),
-                ..Default::default()
-            })),
+            request_id: request_id.map(pa::file_message::RequestId::RequestId),
+            r#type: file_type.map(pa::file_message::Type::Type),
             ..Default::default()
         },
     )
@@ -2866,7 +2866,7 @@ mod tests {
         assert_eq!(decoded.action, pa::message_action::Enum::Delete as i32);
         assert_eq!(decoded.models, vec![12_345]);
 
-        let listing = read_library_files("local_ir_root".into(), 1, 92);
+        let listing = read_library_files("local_ir_root".into(), Some(1), Some(92));
         let decoded = pa::FileMessage::decode(listing.payload.as_slice()).unwrap();
         assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
         assert!(matches!(
@@ -2877,6 +2877,14 @@ mod tests {
             decoded.r#type,
             Some(pa::file_message::Type::Type(1))
         ));
+        assert!(decoded.folder.is_none());
+
+        let captures = read_library_files("local_nc_root".into(), None, None);
+        let decoded = pa::FileMessage::decode(captures.payload.as_slice()).unwrap();
+        assert_eq!(decoded.action, pa::message_action::Enum::Read as i32);
+        assert!(decoded.request_id.is_none());
+        assert!(decoded.r#type.is_none());
+        assert!(decoded.folder.is_none());
 
         for (message, action) in [
             (

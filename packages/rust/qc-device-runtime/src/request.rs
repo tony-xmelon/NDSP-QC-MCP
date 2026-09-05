@@ -692,7 +692,7 @@ pub enum GatewayResponseProjection {
     },
     PinnedModels,
     LibraryFiles {
-        request_id: u64,
+        request_id: Option<u64>,
         folder_key: String,
     },
     InhibitedModules,
@@ -1180,13 +1180,13 @@ pub fn plan_gateway_read(
             Ok(GatewayReadPlan {
                 operation: DeviceOperation::ReadLibraryFiles {
                     folder_key: folder_key.clone(),
-                    file_type: if method == "device.captures" { 2 } else { 1 },
-                    request_id,
+                    file_type: (method == "device.irs").then_some(1),
+                    request_id: (method == "device.irs").then_some(request_id),
                 },
                 response_type: 4,
                 timeout_ms: 30_000,
                 projection: GatewayResponseProjection::LibraryFiles {
-                    request_id,
+                    request_id: (method == "device.irs").then_some(request_id),
                     folder_key,
                 },
             })
@@ -4566,14 +4566,14 @@ mod tests {
         let captures = plan_gateway_read("device.captures", &Value::Null, 83).unwrap();
         assert!(matches!(
             captures.operation,
-            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 2, request_id: 83 }
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: None, request_id: None }
                 if folder_key == "local_nc_root"
         ));
         let irs =
             plan_gateway_read("device.irs", &json!({"folder": "factory_ir_root"}), 84).unwrap();
         assert!(matches!(
             irs.operation,
-            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: 1, request_id: 84 }
+            DeviceOperation::ReadLibraryFiles { ref folder_key, file_type: Some(1), request_id: Some(84) }
                 if folder_key == "factory_ir_root"
         ));
 

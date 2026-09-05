@@ -229,14 +229,30 @@ test("Android persists completed native backups without blocking USB reads", () 
   assert.match(javaSource, /writeMessage\(stateDecoder\.readCommand\(17\)\)/);
   assert.match(javaSource, /masterObserved[\s\S]*completePendingBackupRecovery\(observedAt\)/);
   assert.match(javaSource, /observedAt <= pending\.operation\.recoveryAfterState/);
-  assert.match(javaSource, /device\.captureScreen[\s\S]*device\.presetScreenshot[\s\S]*relayReconnect\("USB session refreshed for high-volume read"\)/);
+  for (const method of ["device.captureScreen", "device.presetScreenshot", "device.captures", "device.irs"])
+    assert.match(javaSource, new RegExp(method.replace(".", "\\.")));
+  assert.match(javaSource, /relayReconnect\("USB session refreshed for high-volume read"\)/);
 });
 
-test("modern Android keeps one full-duplex interrupt read queued across idle periods", () => {
+test("Android refreshes stale high-volume USB reads before requesting their streams", () => {
+  assert.match(javaSource, /device\.captureScreen[\s\S]*device\.presetScreenshot[\s\S]*relayReconnect\("USB session refreshed for high-volume read"\)/);
+  assert.match(javaSource, /restoreUsbSessionAfterHighVolumeRead/);
+  assert.match(javaSource, /relayReconnect\("USB session restored after high-volume read"\)/);
+  assert.match(javaSource, /_freshUsbSession[\s\S]*relayReconnect\("USB session refreshed for preset catalog"\)/);
+});
+
+test("Android exposes the latest rejected gateway frame correlation in diagnostics", () => {
+  assert.match(javaSource, /lastGatewayReadMismatch/);
+  assert.match(javaSource, /lastGatewayReadMismatch = "type " \+ messageType/);
+});
+
+test("modern Android keeps a buffered interrupt-read ring queued across idle periods", () => {
   assert.match(javaSource, /Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.O/);
   assert.match(javaSource, /@TargetApi\(Build\.VERSION_CODES\.O\)[\s\S]*readInputReportsAsync/);
-  assert.match(javaSource, /UsbRequest request = new UsbRequest\(\)/);
-  assert.match(javaSource, /request\.queue\(buffer\)[\s\S]*activeConnection\.requestWait\(\)/);
+  assert.match(javaSource, /HID_INPUT_REQUEST_DEPTH = 32/);
+  assert.match(javaSource, /UsbRequest\[\] requests = new UsbRequest\[HID_INPUT_REQUEST_DEPTH\]/);
+  assert.match(javaSource, /requests\[index\]\.queue\(buffer\)[\s\S]*activeConnection\.requestWait\(\)/);
+  assert.match(javaSource, /completed\.queue\(buffer\)/);
   assert.doesNotMatch(javaSource, /requestWait\(\d+/);
   assert.match(javaSource, /inputRequest\.cancel\(\)[\s\S]*inputRequest\.close\(\)[\s\S]*releaseInterface/);
   assert.match(javaSource, /activeConnection\.bulkTransfer\(activeEndpoint[\s\S]*readerIsActive/);

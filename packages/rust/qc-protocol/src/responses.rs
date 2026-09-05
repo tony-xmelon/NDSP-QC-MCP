@@ -2,6 +2,7 @@
 //! of the continuous preset-state stream.
 
 use crate::{
+    compression::{maybe_gunzip, InflateError},
     generated_payloads::{
         ExpressionPortSettings, GeneralSettings, GlobalBypassRows, GlobalEqParameter,
         GlobalEqSettings, HeadphonesFeed, HeadphonesSettings, InputPortSettings, IoSettings,
@@ -22,6 +23,10 @@ pub enum ResponseDecodeError {
     OversizedReply,
     #[error("QC protobuf reply could not be decoded: {0}")]
     Protobuf(#[from] prost::DecodeError),
+    #[error("compressed QC reply exceeds the inflated-size limit")]
+    InflatedLimit,
+    #[error("compressed QC reply could not be decoded: {0}")]
+    Compression(String),
     #[error("the QC reply is incomplete: {0}")]
     Incomplete(&'static str),
     #[error("the QC reply does not match the request: {0}")]
@@ -34,6 +39,15 @@ pub enum ResponseDecodeError {
     InvalidBackupDocument,
 }
 
+impl From<InflateError> for ResponseDecodeError {
+    fn from(error: InflateError) -> Self {
+        match error {
+            InflateError::Limit => Self::InflatedLimit,
+            InflateError::Decode(message) => Self::Compression(message),
+        }
+    }
+}
+
 fn decode_reply<M>(payload: &[u8]) -> Result<M, ResponseDecodeError>
 where
     M: Message + Default,
@@ -41,7 +55,8 @@ where
     if payload.len() > profile::MAX_FRAME_BYTES {
         return Err(ResponseDecodeError::OversizedReply);
     }
-    Ok(M::decode(payload)?)
+    let decoded = maybe_gunzip(payload)?;
+    Ok(M::decode(decoded.as_slice())?)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -291,23 +306,22 @@ pub fn decode_pinned_models(payload: &[u8]) -> Result<PinnedModels, ResponseDeco
 
 pub fn decode_library_files(
     payload: &[u8],
-    request_id: u64,
+    request_id: Option<u64>,
     folder_key: &str,
 ) -> Result<LibraryEntries, ResponseDecodeError> {
     let message: pa::FileMessage = decode_reply(payload)?;
-    if message.action != pa::message_action::Enum::Update as i32 {
-        return Err(ResponseDecodeError::Mismatch(
-            "file listing action is not UPDATE",
-        ));
-    }
+    // File READ replies are broadcasts. Depending on the CorOS path that
+    // produced them, the action may be UPDATE or the protobuf default CREATE;
+    // folder identity (plus request_id for typed reads) is authoritative.
     let actual_id = message
         .request_id
-        .map(|pa::file_message::RequestId::RequestId(value)| value)
-        .ok_or(ResponseDecodeError::Incomplete("file listing request_id"))?;
-    if actual_id != request_id {
-        return Err(ResponseDecodeError::Mismatch(
-            "file listing request_id does not match",
-        ));
+        .map(|pa::file_message::RequestId::RequestId(value)| value);
+    if let Some(request_id) = request_id {
+        if actual_id != Some(request_id) {
+            return Err(ResponseDecodeError::Mismatch(
+                "file listing request_id does not match",
+            ));
+        }
     }
     let folder = message
         .folder
@@ -1413,13 +1427,53 @@ mod tests {
             ..Default::default()
         }
         .encode_to_vec();
-        let entries = decode_library_files(&files, 73, "local_ir_root").unwrap();
+        let entries = decode_library_files(&files, Some(73), "local_ir_root").unwrap();
         assert_eq!(entries.entries[0].key, "ir/key");
         assert_eq!(entries.entries[0].position, Some(4));
         assert_eq!(entries.entries[0].instrument, Some(2));
         assert!(matches!(
-            decode_library_files(&files, 73, "another-folder"),
+            decode_library_files(&files, Some(73), "another-folder"),
             Err(ResponseDecodeError::Mismatch(_))
+        ));
+
+        let files_without_request_id = pa::FileMessage {
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key("local_ir_root".into())),
+                files: vec![pa::ProductData {
+                    key: Some(pa::product_data::Key::Key("ir/key".into())),
+                    name: Some(pa::product_data::Name::Name("Room".into())),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let entries =
+            decode_library_files(&files_without_request_id, None, "local_ir_root").unwrap();
+        assert_eq!(entries.entries[0].key, "ir/key");
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut encoder, &files_without_request_id).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let entries = decode_library_files(&compressed, None, "local_ir_root").unwrap();
+        assert_eq!(entries.entries[0].name, "Room");
+
+        let files_with_wrong_request_id = pa::FileMessage {
+            action: pa::message_action::Enum::Update as i32,
+            request_id: Some(pa::file_message::RequestId::RequestId(74)),
+            folder: Some(pa::file_message::Folder::Folder(pa::FolderInfo {
+                key: Some(pa::folder_info::Key::Key("local_ir_root".into())),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        assert!(matches!(
+            decode_library_files(&files_with_wrong_request_id, Some(73), "local_ir_root"),
+            Err(ResponseDecodeError::Mismatch(
+                "file listing request_id does not match"
+            ))
         ));
     }
 
@@ -1444,7 +1498,7 @@ mod tests {
             ..Default::default()
         });
         assert!(matches!(
-            decode_library_files(&missing_key, 9, "library"),
+            decode_library_files(&missing_key, Some(9), "library"),
             Err(ResponseDecodeError::Incomplete("file key"))
         ));
 
@@ -1455,7 +1509,7 @@ mod tests {
             ..Default::default()
         });
         assert!(matches!(
-            decode_library_files(&negative_position, 9, "library"),
+            decode_library_files(&negative_position, Some(9), "library"),
             Err(ResponseDecodeError::Mismatch("negative file position"))
         ));
     }
@@ -1511,7 +1565,7 @@ mod tests {
             let _ = decode_device_identity(&payload);
             let _ = decode_recents_favorites(&payload, 1);
             let _ = decode_pinned_models(&payload);
-            let _ = decode_library_files(&payload, 1, "library");
+            let _ = decode_library_files(&payload, Some(1), "library");
             let _ = decode_tuner_settings(&payload);
             let _ = decode_general_settings(&payload);
             let _ = decode_io_settings(&payload);
