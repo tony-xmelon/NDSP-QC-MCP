@@ -73,6 +73,7 @@ export const CASES = Object.freeze({
   set_chain_input: { phase: "modify", hazard: "live" },
   set_chain_output: { phase: "modify", hazard: "live" },
   set_chain_split: { phase: "modify", hazard: "live" },
+  set_split_mute: { phase: "modify", hazard: "live" },
   save_preset_as: { phase: "persistent", hazard: "persistent" },
   rename_current_preset: { phase: "persistent", hazard: "persistent" },
   copy_preset: { phase: "persistent", hazard: "persistent" },

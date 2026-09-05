@@ -629,7 +629,7 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
     }
     return actionResult(await gateway.setPresetLoadMidiOut(messages, snapshot.presetName));
   }
-  if (call.name === "set_chain_input" || call.name === "set_chain_output" || call.name === "set_chain_split") {
+  if (call.name === "set_chain_input" || call.name === "set_chain_output" || call.name === "set_chain_split" || call.name === "set_split_mute") {
     const row = integerArgument(call, "row");
     const route = snapshot.routes.find((candidate) => candidate.row === row);
     if (!route) throw new Error("That signal row does not exist.");
@@ -642,6 +642,11 @@ export async function executeQcAction(call: AssistantToolCall, context: QcAction
       if (route.outputId === undefined) throw new Error("The current output route ID is unavailable for verified replacement.");
       assertExpectedNumber(call, "expected_output_id", route.outputId);
       return actionResult(await gateway.setChainOutput(row, integerArgument(call, "output_id"), route.outputId, snapshot.presetName));
+    }
+    if (call.name === "set_split_mute") {
+      const expectedMuted = booleanArgument(call, "expected_muted");
+      if (expectedMuted !== route.splitMuted) throw new Error("set_split_mute was based on stale routing state; refresh and try again.");
+      return actionResult(await gateway.setSplitMute(row, booleanArgument(call, "muted"), route.splitMuted, snapshot.presetName));
     }
     const expectedSplit = nullableIntegerArgument(call, "expected_split_column");
     const expectedMix = nullableIntegerArgument(call, "expected_mix_column");

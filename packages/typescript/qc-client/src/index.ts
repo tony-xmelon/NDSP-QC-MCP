@@ -64,10 +64,10 @@ export const demoSnapshot: PresetSnapshot = {
   masterVolume: 40,
   dirty: false,
   routes: [
-    { row: 0, inputId: 1, outputId: 1, input: "In 1", output: "Out 1/2" },
-    { row: 1, inputId: 2, outputId: 2, input: "In 2", output: "Out 3/4" },
-    { row: 2, inputId: 4, outputId: 8, input: "Return 1", output: "Send 1" },
-    { row: 3, inputId: 8, outputId: 22, input: "USB 5", output: "USB 3/4" }
+    { row: 0, inputId: 1, outputId: 1, input: "In 1", output: "Out 1/2", splitMuted: false },
+    { row: 1, inputId: 2, outputId: 2, input: "In 2", output: "Out 3/4", splitMuted: false },
+    { row: 2, inputId: 4, outputId: 8, input: "Return 1", output: "Send 1", splitMuted: false },
+    { row: 3, inputId: 8, outputId: 22, input: "USB 5", output: "USB 3/4", splitMuted: false }
   ],
   ioPorts: [{ kind: "input", id: 1, label: "In 1", plugged: true }],
   blocks: [
@@ -330,6 +330,7 @@ export interface GatewayTransport {
   setChainInput(row: number, inputId: number, expectedInputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainOutput(row: number, outputId: number, expectedOutputId: number, expectedPresetName: string): Promise<DeviceActionResult>;
   setChainSplit(row: number, splitColumn: number | null, mixColumn: number | null, expectedSplitColumn: number | null, expectedMixColumn: number | null, expectedPresetName: string): Promise<DeviceActionResult>;
+  setSplitMute(row: number, muted: boolean, expectedMuted: boolean, expectedPresetName: string): Promise<DeviceActionResult>;
   listPresets(refresh?: boolean, setlistKey?: string): Promise<PresetList>;
   listPresetFolders(refresh?: boolean): Promise<PresetFolderList>;
   navigateBank(direction: -1 | 1, expectedPresetName: string, expectedPosition: number): Promise<DeviceActionResult>;

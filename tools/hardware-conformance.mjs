@@ -971,6 +971,18 @@ async function main() {
       });
       currentSnapshot = await waitForSnapshot((value) => value.routes.some((candidate) => candidate.row === route.row && (candidate.splitColumn ?? null) === (route.splitColumn ?? null) && (candidate.mixColumn ?? null) === (route.mixColumn ?? null)));
 
+      const originalSplitMuted = Boolean(currentSnapshot.routes.find((candidate) => candidate.row === route.row)?.splitMuted);
+      await call("set_split_mute", {
+        row: route.row, muted: !originalSplitMuted, expected_muted: originalSplitMuted,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.routes.some((candidate) => candidate.row === route.row && candidate.splitMuted === !originalSplitMuted));
+      await transport.call("set_split_mute", {
+        row: route.row, muted: originalSplitMuted, expected_muted: !originalSplitMuted,
+        expected_preset_name: currentSnapshot.presetName
+      });
+      currentSnapshot = await waitForSnapshot((value) => value.routes.some((candidate) => candidate.row === route.row && candidate.splitMuted === originalSplitMuted));
+
       await call("set_parameter", {
         row: config.parameter.row, column: config.parameter.column, parameter_index: parameter.index,
         value: config.parameter.testValue, expected_value: originalValue, expected_scene: currentSnapshot.activeScene, expected_preset_name: currentSnapshot.presetName

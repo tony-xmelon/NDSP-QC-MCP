@@ -90,6 +90,7 @@
             "device.setChainInput",
             "device.setChainOutput",
             "device.setChainSplit",
+            "device.setSplitMute",
             "device.listPresets",
             "device.listPresetFolders",
             "device.navigateBank",

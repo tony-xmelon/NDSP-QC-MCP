@@ -352,6 +352,12 @@ pub static ACTIONS: &[ActionPolicy] = &[
         required_argument_confirmations: NONE,
     },
     ActionPolicy {
+        name: "set_split_mute",
+        rpc: "device.setSplitMute",
+        class: ActionClass::LiveWrite,
+        required_argument_confirmations: NONE,
+    },
+    ActionPolicy {
         name: "save_preset_as",
         rpc: "device.savePresetAs",
         class: ActionClass::PersistentWrite,

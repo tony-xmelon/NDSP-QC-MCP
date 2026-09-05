@@ -193,6 +193,7 @@ class GridRoute(TypedDict):
     output: str
     splitColumn: NotRequired[int]
     mixColumn: NotRequired[int]
+    splitMuted: bool
 
 class IoPortState(TypedDict):
     kind: Literal["input", "output", "headphones", "usb", "expression"]

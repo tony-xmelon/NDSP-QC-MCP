@@ -1946,6 +1946,46 @@ class PyQuadCortexDevice:
                 return {"detail": detail, "snapshot": self.snapshot()}
         raise RuntimeError("The parallel-routing command was sent, but readback did not confirm it.")
 
+    def set_split_mute(
+        self, row: int, muted: bool, expected_muted: bool, expected_preset_name: str
+    ) -> dict[str, Any]:
+        if isinstance(row, bool) or row not in (0, 2):
+            raise ValueError("Splitter/mixer controls are available only on rows 1 and 3.")
+        if not isinstance(muted, bool) or not isinstance(expected_muted, bool):
+            raise ValueError("muted and expected_muted must be booleans")
+
+        pyquadcortex = _protocol_api()
+        qc = self._require_session()
+        preset = self._assert_expected_preset(expected_preset_name)
+
+        def read_mute(current_preset: Any) -> bool:
+            for index, chain in enumerate(current_preset.chains):
+                chain_row = chain.row if pyquadcortex.field_present(chain, "row") else index
+                if chain_row == row:
+                    return bool(chain.mixBypass[0].bypass) if chain.mixBypass else False
+            raise RuntimeError("The requested splitter/mixer row is absent from device readback.")
+
+        if read_mute(preset) != expected_muted:
+            raise RuntimeError("The splitter/mixer mute state changed on the Quad Cortex. Refresh and retry.")
+        if muted == expected_muted:
+            state = "muted" if muted else "unmuted"
+            return {"detail": f"Row {row + 1} splitter/mixer was already {state}", "snapshot": self.snapshot()}
+
+        native_mute = _native_transport_method(qc, "set_split_mute")
+        if native_mute is not None:
+            native_mute(row, muted)
+        else:
+            qc.set_split_mute(row, muted)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            time.sleep(0.2)
+            if read_mute(qc.read_current_preset()) == muted:
+                if not _wait_for_dirty(qc, True):
+                    raise RuntimeError("Splitter/mixer mute readback matched, but the device did not mark the preset dirty.")
+                state = "muted" if muted else "unmuted"
+                return {"detail": f"Row {row + 1} splitter/mixer {state} and verified", "snapshot": self.snapshot()}
+        raise RuntimeError("The splitter/mixer mute command was sent, but readback did not confirm it.")
+
     def _routing_node_details(
         self, preset: Any, row: int, column: int, scene: int
     ) -> dict[str, Any]:
@@ -3019,6 +3059,7 @@ class PyQuadCortexDevice:
                 "outputId": output_id,
                 "input": INPUT_ROUTE_LABELS.get(input_id, f"Input {input_id}"),
                 "output": OUTPUT_ROUTE_LABELS.get(output_id, f"Output {output_id}"),
+                "splitMuted": bool(chain.mixBypass[0].bypass) if chain.mixBypass else False,
             }
             split = split_by_row.get(row)
             if split is not None:

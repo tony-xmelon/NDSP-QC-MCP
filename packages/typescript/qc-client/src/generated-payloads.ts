@@ -211,6 +211,7 @@ export interface GridRoute {
   output: string;
   splitColumn?: number;
   mixColumn?: number;
+  splitMuted: boolean;
 }
 
 export interface IoPortState {

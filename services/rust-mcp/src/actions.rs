@@ -794,6 +794,18 @@ pub static ACTIONS: &[ActionSpec] = &[
         ],
     },
     ActionSpec {
+        name: "set_split_mute",
+        rpc: "device.setSplitMute",
+        classification: Classification::LiveWrite,
+        description: "Mute or unmute a splitter/mixer path globally across scenes with exact device readback.",
+        properties: &[
+            p!("row", GRID_ROW),
+            p!("muted", BOOL),
+            p!("expected_muted", BOOL),
+            p!("expected_preset_name", TEXT),
+        ],
+    },
+    ActionSpec {
         name: "save_preset_as",
         rpc: "device.savePresetAs",
         classification: Classification::PersistentWrite,

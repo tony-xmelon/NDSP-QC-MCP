@@ -225,6 +225,9 @@ fn handle(
         "device.setChainSplit" => {
             gateway_operation(controller, &request.params, "device.setChainSplit")
         }
+        "device.setSplitMute" => {
+            gateway_operation(controller, &request.params, "device.setSplitMute")
+        }
         "device.navigateBank" => gateway_navigate_bank(controller, &request.params),
         "device.recallPreset" => gateway_recall_preset(controller, &request.params),
         "device.reloadPreset" => gateway_reload_preset(controller, &request.params),

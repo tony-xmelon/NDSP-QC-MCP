@@ -289,6 +289,9 @@ class NativeBrokerTransport:
             "setChainSplit", row=int(row), splitColumn=split_column, mixColumn=mix_column,
         )
 
+    def set_split_mute(self, row: int, muted: bool) -> None:
+        self._operation("setSplitMute", row=int(row), muted=bool(muted))
+
     def set_routing_parameter(self, row: int, node: str, parameter_index: int, value: float) -> None:
         self._operation(
             "setRoutingParameter", row=int(row), node=str(node),

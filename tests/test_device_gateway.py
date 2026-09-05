@@ -255,6 +255,32 @@ class DevicePositionTests(unittest.TestCase):
         self.assertIn("verified", momentary["detail"])
         self.assertIn("verified", label["detail"])
 
+    def test_split_mute_uses_mix_bypass_readback_and_rejects_stale_state(self):
+        chain = SimpleNamespace(row=0, mixBypass=[SimpleNamespace(bypass=False)])
+        preset = SimpleNamespace(chains=[chain])
+
+        class Session:
+            def set_split_mute(self, row, muted):
+                self.last_write = (row, muted)
+                chain.mixBypass = [SimpleNamespace(bypass=muted) for _ in range(8)]
+
+            def read_current_preset(self):
+                return preset
+
+        session = Session()
+        device = PyQuadCortexDevice()
+        device._qc = session
+        device._assert_expected_preset = lambda expected: preset
+        device.snapshot = lambda: {"presetName": "Live"}
+        protocol = SimpleNamespace(field_present=lambda value, field: field == "row")
+        with patch("qc_device_gateway.device._protocol_api", return_value=protocol), \
+             patch("qc_device_gateway.device._wait_for_dirty", return_value=True):
+            result = device.set_split_mute(0, True, False, "Live")
+            self.assertEqual(session.last_write, (0, True))
+            self.assertIn("muted and verified", result["detail"])
+            with self.assertRaisesRegex(RuntimeError, "changed"):
+                device.set_split_mute(0, False, False, "Live")
+
     def test_preset_midi_out_methods_validate_and_verify_replacement(self):
         state = {"source": [], "load": []}
         midi = lambda **values: SimpleNamespace(**values)
@@ -621,6 +647,8 @@ class FakeDevice:
         return {"detail": f"output {row}:{output_id}:{expected_output_id}", "snapshot": self.snapshot()}
     def set_chain_split(self, row, split_column, mix_column, expected_split_column, expected_mix_column, expected_preset_name=""):
         return {"detail": f"split {row}:{split_column}:{mix_column}:{expected_split_column}:{expected_mix_column}", "snapshot": self.snapshot()}
+    def set_split_mute(self, row, muted, expected_muted, expected_preset_name=""):
+        return {"detail": f"split-mute {row}:{muted}:{expected_muted}", "snapshot": self.snapshot()}
     def list_presets(self, refresh=False, setlist_key=None):
         return {"setlistKey": setlist_key or "fake", "setlistName": "Fake", "currentPosition": 9, "presets": [], "folders": []}
     def list_preset_folders(self, refresh=False):
@@ -984,6 +1012,10 @@ class ServiceTests(unittest.TestCase):
             "expectedSplitColumn": None, "expectedMixColumn": None,
             "expectedPresetName": "Test"
         })
+        split_mute = self.request("device.setSplitMute", {
+            "row": 0, "muted": True, "expectedMuted": False,
+            "expectedPresetName": "Test"
+        })
         tuner = self.request("device.showTuner", {"shown": True})
         gig = self.request("device.showGigView", {"shown": True})
         presets = self.request("device.listPresets", {"setlistKey": "custom"})
@@ -1053,6 +1085,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(input_route["result"]["detail"], "input 0:3:1")
         self.assertEqual(output_route["result"]["detail"], "output 0:19:4")
         self.assertEqual(split_route["result"]["detail"], "split 0:2:6:None:None")
+        self.assertEqual(split_mute["result"]["detail"], "split-mute 0:True:False")
         self.assertEqual(tuner["result"]["detail"], "tuner True")
         self.assertEqual(gig["result"]["detail"], "gig True")
         self.assertEqual(presets["result"]["setlistName"], "Fake")

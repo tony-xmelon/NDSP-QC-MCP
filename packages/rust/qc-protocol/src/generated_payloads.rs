@@ -352,6 +352,7 @@ pub struct GridRoute {
     pub split_column: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mix_column: Option<i32>,
+    pub split_muted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

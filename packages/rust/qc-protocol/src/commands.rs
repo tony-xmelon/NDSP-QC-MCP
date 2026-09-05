@@ -108,6 +108,10 @@ pub enum DeviceOperation {
         split_column: Option<i32>,
         mix_column: Option<i32>,
     },
+    SetSplitMute {
+        row: u32,
+        muted: bool,
+    },
     SetRoutingParameter {
         row: u32,
         node: String,
@@ -337,6 +341,7 @@ impl DeviceOperation {
             } => {
                 vec![set_chain_split(row, split_column, mix_column)]
             }
+            Self::SetSplitMute { row, muted } => vec![set_split_mute(row, muted)],
             Self::SetRoutingParameter {
                 row,
                 node,
@@ -1374,6 +1379,20 @@ pub fn set_chain_split(
         chains: vec![Chain {
             row: Some(chain::Row::Row(row)),
             split_control_points: vec![SplitControlPoints { split, mix }],
+            ..Default::default()
+        }],
+        ..Default::default()
+    })
+}
+
+/// The device accepts this setting in `splitBypass` but reports its
+/// authoritative value in `mixBypass`. Although both fields are repeated for
+/// scenes, one write changes the shared splitter/mixer mute for all scenes.
+pub fn set_split_mute(row: u32, muted: bool) -> OutboundMessage {
+    grid_update(BinaryPreset {
+        chains: vec![Chain {
+            row: Some(chain::Row::Row(row)),
+            split_bypass: vec![SceneBypass { bypass: muted }],
             ..Default::default()
         }],
         ..Default::default()
@@ -2449,6 +2468,20 @@ mod tests {
             preset.chains[0].split_control_points[0],
             SplitControlPoints { split: 2, mix: 7 }
         );
+
+        let mute = DeviceOperation::SetSplitMute {
+            row: 2,
+            muted: true,
+        }
+        .encode();
+        let grid = pa::GridMessage::decode(mute[0].payload.as_slice()).unwrap();
+        let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
+        assert_eq!(preset.chains[0].row, Some(chain::Row::Row(2)));
+        assert_eq!(
+            preset.chains[0].split_bypass,
+            vec![SceneBypass { bypass: true }]
+        );
+        assert!(preset.chains[0].mix_bypass.is_empty());
 
         let save = DeviceOperation::SavePreset {
             setlist_key: "/media/p4/Presets/My Presets".into(),

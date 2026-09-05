@@ -737,6 +737,20 @@ class QcTools:
             "expectedSplitColumn": expected_split_column, "expectedMixColumn": expected_mix_column,
             "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name")})
 
+    def set_split_mute(self, row: int, muted: bool, expected_muted: bool,
+                       expected_preset_name: str) -> Any:
+        """Mute or unmute the shared splitter/mixer path with stale-state protection."""
+        if isinstance(row, bool) or row not in (0, 2):
+            raise ValueError("splitter/mixer controls are available only on rows 0 and 2")
+        if not isinstance(muted, bool) or not isinstance(expected_muted, bool):
+            raise ValueError("muted and expected_muted must be booleans")
+        return self._request("set_split_mute", {
+            "row": row,
+            "muted": muted,
+            "expectedMuted": expected_muted,
+            "expectedPresetName": _required_text(expected_preset_name, "expected_preset_name"),
+        })
+
     def save_preset_as(
         self,
         setlist_key: str,

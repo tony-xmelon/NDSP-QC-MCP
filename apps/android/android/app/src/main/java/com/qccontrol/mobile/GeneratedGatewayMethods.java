@@ -73,6 +73,7 @@ final class GeneratedGatewayMethods {
         "device.setChainInput",
         "device.setChainOutput",
         "device.setChainSplit",
+        "device.setSplitMute",
         "device.listPresets",
         "device.listPresetFolders",
         "device.navigateBank",
@@ -177,6 +178,7 @@ final class GeneratedGatewayMethods {
             case "device.setChainInput": return "PLANNED_WRITE";
             case "device.setChainOutput": return "PLANNED_WRITE";
             case "device.setChainSplit": return "PLANNED_WRITE";
+            case "device.setSplitMute": return "PLANNED_WRITE";
             case "device.listPresets": return "PRESET_LIBRARY";
             case "device.listPresetFolders": return "PRESET_LIBRARY";
             case "device.navigateBank": return "PRESET_WRITE";

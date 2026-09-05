@@ -33,6 +33,7 @@
     "protocol:check": "node scripts/generate-qc-usb-profile.mjs --check && node scripts/generate-qc-domain.mjs --check && node scripts/generate-gateway-bindings.mjs --check && node scripts/generate-qc-actions.mjs --check && node scripts/generate-qc-payloads.mjs --check",
     "gateway:coverage": "node tools/verify-gateway-method-coverage.mjs",
     "app-parity:check": "node tools/verify-app-parity.mjs",
+    "parity:pyquadcortex": "node tools/verify-pyquadcortex-parity.mjs",
     "test": "npm run test:core && npm run test:frontend && npm test --workspace @ndsp-qc/android",
     "test:assistant": "npm run test:frontend",
     "test:core": "npm test --workspace @ndsp-qc/core",

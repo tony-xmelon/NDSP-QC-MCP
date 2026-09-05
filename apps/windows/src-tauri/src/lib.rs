@@ -1781,6 +1781,27 @@ async fn set_chain_split(
 }
 
 #[tauri::command]
+async fn set_split_mute(
+    app: AppHandle,
+    row: u8,
+    muted: bool,
+    expected_muted: bool,
+    expected_preset_name: String,
+) -> Result<Value, String> {
+    background_gateway_request_params(
+        app,
+        rpc::SET_SPLIT_MUTE,
+        json!({
+            "row": row,
+            "muted": muted,
+            "expectedMuted": expected_muted,
+            "expectedPresetName": expected_preset_name
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
 async fn list_presets(
     app: AppHandle,
     refresh: bool,
@@ -2846,6 +2867,7 @@ pub fn run() {
             set_chain_input,
             set_chain_output,
             set_chain_split,
+            set_split_mute,
             list_presets,
             list_preset_folders,
             navigate_bank,

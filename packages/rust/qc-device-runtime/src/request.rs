@@ -156,6 +156,7 @@ pub fn gateway_write_retryable(method: &str) -> bool {
             | "device.setChainInput"
             | "device.setChainOutput"
             | "device.setChainSplit"
+            | "device.setSplitMute"
             | "device.setTempo"
             | "device.setMasterVolume"
             | "device.selectModeSlot"
@@ -253,6 +254,10 @@ pub enum GatewayVerification {
         row: u32,
         split_column: Option<i32>,
         mix_column: Option<i32>,
+    },
+    SplitMute {
+        row: u32,
+        muted: bool,
     },
     Preset {
         setlist_key: String,
@@ -528,6 +533,11 @@ impl GatewayVerification {
                 .is_some_and(|route| {
                     route.split_column == *split_column && route.mix_column == *mix_column
                 }),
+            Self::SplitMute { row, muted } => snapshot
+                .routes
+                .iter()
+                .find(|route| route.row == *row)
+                .is_some_and(|route| route.split_muted == *muted),
             Self::Preset {
                 setlist_key,
                 position,
@@ -1399,6 +1409,7 @@ pub fn assert_expected_state(
         "expectedOutputId",
         "expectedSplitColumn",
         "expectedMixColumn",
+        "expectedMuted",
     ]
     .iter()
     .any(|field| params.get(field).is_some());
@@ -1528,6 +1539,7 @@ pub fn assert_expected_state(
         "expectedOutputId",
         "expectedSplitColumn",
         "expectedMixColumn",
+        "expectedMuted",
     ];
     if route_fields.iter().any(|field| params.get(field).is_some()) {
         let route = snapshot
@@ -1555,6 +1567,14 @@ pub fn assert_expected_state(
                             .into(),
                     );
                 }
+            }
+        }
+        if let Some(expected) = params.get("expectedMuted").and_then(Value::as_bool) {
+            if route.split_muted != expected {
+                return Err(
+                    "The splitter/mixer mute state changed on the Quad Cortex. Refresh and retry."
+                        .into(),
+                );
             }
         }
     }
@@ -1975,11 +1995,46 @@ fn operation(operation: &str, params: &Value) -> Result<DeviceOperation, String>
             row: row()?,
             output_id: bounded_u32(params, "outputId", u32::MAX)?,
         }),
-        "setChainSplit" => Ok(DeviceOperation::SetChainSplit {
-            row: row()?,
-            split_column: optional_i32(params, "splitColumn")?,
-            mix_column: optional_i32(params, "mixColumn")?,
-        }),
+        "setChainSplit" => {
+            let row = row()?;
+            if row % 2 != 0 {
+                return Err("Parallel routing is available only on rows 0 and 2".into());
+            }
+            let split_column = optional_i32(params, "splitColumn")?;
+            let mix_column = optional_i32(params, "mixColumn")?;
+            match (split_column, mix_column) {
+                (None, None) => {}
+                (None, Some(_)) => {
+                    return Err("mixColumn must be null when the split is disabled".into());
+                }
+                (Some(split), Some(mix))
+                    if (0..domain::GRID_COLUMNS as i32).contains(&split)
+                        && (mix == -1
+                            || ((0..domain::GRID_COLUMNS as i32).contains(&mix)
+                                && mix > split)) => {}
+                _ => {
+                    return Err(
+                        "splitColumn must be 0 through 7 and mixColumn must be -1 or a later column"
+                            .into(),
+                    );
+                }
+            }
+            Ok(DeviceOperation::SetChainSplit {
+                row,
+                split_column,
+                mix_column,
+            })
+        }
+        "setSplitMute" => {
+            let row = row()?;
+            if row % 2 != 0 {
+                return Err("Splitter/mixer controls are available only on rows 0 and 2".into());
+            }
+            Ok(DeviceOperation::SetSplitMute {
+                row,
+                muted: boolean(params, "muted")?,
+            })
+        }
         "setRoutingParameter" => {
             let node = required_text(params, "node")?;
             if !matches!(node.as_str(), "splitter" | "mixer") {
@@ -2223,6 +2278,10 @@ fn verification_for_operation(
             row: *row,
             split_column: *split_column,
             mix_column: *mix_column,
+        },
+        DeviceOperation::SetSplitMute { row, muted } => GatewayVerification::SplitMute {
+            row: *row,
+            muted: *muted,
         },
         DeviceOperation::SavePreset {
             setlist_key,
@@ -2601,6 +2660,7 @@ pub fn plan_gateway_write(
         | "device.setChainInput"
         | "device.setChainOutput"
         | "device.setChainSplit"
+        | "device.setSplitMute"
         | "device.copyScene"
         | "device.setSceneLabel"
         | "device.setSceneColor" => {
@@ -2611,6 +2671,7 @@ pub fn plan_gateway_write(
                 "device.setBlockFootswitch" => "setFootswitch",
                 "device.setChainInput" => "setChainInput",
                 "device.setChainOutput" => "setChainOutput",
+                "device.setSplitMute" => "setSplitMute",
                 "device.copyScene" => "copyScene",
                 "device.setSceneLabel" => "setSceneLabel",
                 "device.setSceneColor" => "setSceneColor",
@@ -3327,6 +3388,7 @@ mod tests {
                 output: "Out 1/2".into(),
                 split_column: Some(4),
                 mix_column: Some(8),
+                split_muted: false,
             }],
             ..GatewaySnapshot::default()
         };
@@ -3420,6 +3482,55 @@ mod tests {
                 mix_column: None,
             })
         );
+
+        let snapshot = GatewaySnapshot {
+            preset_name: "Live".into(),
+            routes: vec![GridRoute {
+                row: 2,
+                input_id: Some(1),
+                output_id: Some(1),
+                input: "In 1".into(),
+                output: "Out 1/2".into(),
+                split_column: Some(2),
+                mix_column: Some(7),
+                split_muted: false,
+            }],
+            ..GatewaySnapshot::default()
+        };
+        let mute = plan_gateway_write(
+            "device.setSplitMute",
+            &json!({"row": 2, "muted": true, "expectedMuted": false, "expectedPresetName": "Live"}),
+            Some(&snapshot),
+        )
+        .unwrap();
+        assert_eq!(
+            mute.write,
+            PlannedWrite::HidOperation(DeviceOperation::SetSplitMute {
+                row: 2,
+                muted: true,
+            })
+        );
+        assert!(!mute.verification.matches(&snapshot, None));
+        let muted = GatewaySnapshot {
+            routes: vec![GridRoute {
+                split_muted: true,
+                ..snapshot.routes[0].clone()
+            }],
+            ..snapshot.clone()
+        };
+        assert!(mute.verification.matches(&muted, None));
+        assert!(plan_gateway_write(
+            "device.setSplitMute",
+            &json!({"row": 1, "muted": true}),
+            None,
+        )
+        .is_err());
+        assert!(plan_gateway_write(
+            "device.setChainSplit",
+            &json!({"row": 0, "splitColumn": 5, "mixColumn": 3}),
+            None,
+        )
+        .is_err());
     }
 
     #[test]

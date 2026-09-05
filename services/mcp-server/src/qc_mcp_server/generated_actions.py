@@ -342,6 +342,12 @@ SHARED_QC_ACTIONS = {
     "access": "modify",
     "description": "Set or clear a signal-row split and rejoin with complete stale-route guards."
   },
+  "set_split_mute": {
+    "rpc": "device.setSplitMute",
+    "classification": "live-write",
+    "access": "modify",
+    "description": "Mute or unmute a splitter/mixer path globally across scenes with exact device readback."
+  },
   "save_preset_as": {
     "rpc": "device.savePresetAs",
     "classification": "persistent-write",

@@ -421,6 +421,32 @@ async fn nullable_grid_guards_are_forwarded_instead_of_dropped() {
 }
 
 #[tokio::test]
+async fn split_mute_forwards_desired_and_expected_state() {
+    let (server, backend) = server();
+    server
+        .execute(
+            &route(),
+            "set_split_mute",
+            Some(
+                json!({
+                    "row":2,"muted":true,"expected_muted":false,
+                    "expected_preset_name":"Clean"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+        )
+        .await
+        .unwrap();
+    let calls = backend.0.lock().unwrap();
+    assert_eq!(calls[0].0, "device.setSplitMute");
+    assert_eq!(calls[0].1["muted"], true);
+    assert_eq!(calls[0].1["expectedMuted"], false);
+    assert_eq!(calls[0].1["expectedPresetName"], "Clean");
+}
+
+#[tokio::test]
 async fn scene_management_validates_and_preserves_nullable_labels() {
     let (server, backend) = server();
     server

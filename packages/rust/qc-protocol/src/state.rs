@@ -1220,6 +1220,11 @@ impl StateDecoder {
                     .split_control_points
                     .first()
                     .and_then(|value| (value.split >= 0).then_some(value.mix)),
+                split_muted: chain
+                    .mix_bypass
+                    .get((self.active_scene as usize).min(chain.mix_bypass.len().saturating_sub(1)))
+                    .or_else(|| chain.mix_bypass.first())
+                    .is_some_and(|value| value.bypass),
             });
             for (model_index, model) in chain.models.iter().enumerate() {
                 let Some(model_id) = model_hash(model).filter(|value| *value != 0) else {
@@ -2114,6 +2119,7 @@ mod tests {
                     params: vec![numeric_param(1, 0.6)],
                     ..Default::default()
                 }],
+                mix_bypass: vec![SceneBypass { bypass: true }; 8],
                 ..Default::default()
             }],
             bypass: vec![Bypass {
@@ -2191,6 +2197,7 @@ mod tests {
             Some(0)
         );
         assert_eq!(states[0].routes.as_ref().unwrap()[0].input, "In 1");
+        assert!(states[0].routes.as_ref().unwrap()[0].split_muted);
         let footswitch = &states[0].footswitch_states.as_ref().unwrap()[4];
         assert!(footswitch.assigned);
         assert!(footswitch.momentary.unwrap());

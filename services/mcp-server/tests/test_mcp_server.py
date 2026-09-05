@@ -156,6 +156,14 @@ class ToolSafetyTests(unittest.TestCase):
             "expectedPresetName": "Lead",
         }))
 
+        self.tools.set_split_mute(2, True, False, "Lead")
+        self.assertEqual(self.backend.calls[-1], ("device.setSplitMute", {
+            "row": 2,
+            "muted": True,
+            "expectedMuted": False,
+            "expectedPresetName": "Lead",
+        }))
+
         self.tools.copy_scene(1, 6, True, "Lead")
         self.assertEqual(self.backend.calls[-1], ("device.copyScene", {
             "fromScene": 1, "toScene": 6, "swap": True,

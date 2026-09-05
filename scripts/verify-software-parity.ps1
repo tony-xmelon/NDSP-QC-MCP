@@ -51,6 +51,7 @@ try {
     Invoke-Checked "TypeScript and UI tests" { npm test }
     Invoke-Checked "Generated protocol consistency" { npm run protocol:check }
     Invoke-Checked "Gateway surface coverage" { npm run gateway:coverage }
+    Invoke-Checked "pyquadcortex upstream surface parity" { npm run parity:pyquadcortex }
 
     foreach ($manifest in $rustManifests) {
         Invoke-Checked "Rust tests: $manifest" { cargo test --locked --manifest-path $manifest }

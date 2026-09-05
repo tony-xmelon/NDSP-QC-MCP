@@ -70,6 +70,12 @@ source-only compatibility oracle and can intentionally omit native-only
 workflows. Generation and parity tests fail when an action or native RPC is
 absent from a required layer.
 
+The machine-readable audit in `contracts/pyquadcortex-parity.v1.json` accounts
+for every public method in the pinned upstream `QuadCortex` client. Run
+`npm run parity:pyquadcortex` to reject missing, duplicated, unknown, or stale
+RPC evidence; when `PYQUADCORTEX_CLIENT` is supplied, the audit also verifies the
+pinned upstream source hash.
+
 This 100% figure describes the deliberately supported product command surface.
 It does not relabel unsafe, unsupported, partially researched, or internal
 pyquadcortex helpers as product commands. The remaining upstream capability
@@ -86,6 +92,7 @@ implemented until their Rust wire format and hardware readback are verified.
 | Input Gate and Lane Output parameters | Native Rust explicitly projects the per-row `input_control` model 28000 and `output_control` model 23000, and exposes guarded read, low-latency preview, verified value write, and scene-mode write paths without pretending these controls occupy Grid columns |
 | Expression-controlled block bypass | Implemented in native Rust with typed preset projection and authoritative readback for EXP 1/2, STOP/SWITCH/HEEL-TOE behavior, inversion, 0-5000 ms delay and latch emulation |
 | Splitter and mixer parameters | Native Rust reads and normalized writes use the correct bare combined-splitter and hash-keyed mixer containers; ordinary block dispatch cannot accidentally address these virtual columns |
+| Splitter/mixer MUTE | Native Rust writes the device's asymmetric `splitBypass` field, reads the authoritative `mixBypass` result, applies exact stale-state guards, and exposes the same verified operation on Windows and Android. The control is global across scenes. |
 | Tuner settings read | Native Rust reads the selected tuner input, mute preference, reference offset and absolute reference pitch without engaging or changing the tuner |
 | General device settings | Native Rust now reads the complete sparse `GeneralSettings` reply and safely writes the hardware-verified brightness, hold timing, MIDI, dimming, access, lock, delay-compensation and scene-bypass fields. Whole-value Master Volume assignments and Cab/IR global-bypass rows are typed and atomic so partial submessage writes cannot clear unrelated flags. Power, reboot and Wi-Fi-reset commands are deliberately absent. |
 | STOMP labels and momentary mode | Native sparse Rust writes and preset readback are implemented. The public planner automatically chooses the QC's single/multi-label map and refuses momentary changes unless exactly one block is assigned, matching the device's silent hardware restriction |

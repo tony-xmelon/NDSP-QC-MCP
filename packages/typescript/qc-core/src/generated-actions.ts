@@ -2253,6 +2253,51 @@ export const SHARED_QC_ACTIONS = [
     }
   },
   {
+    "name": "set_split_mute",
+    "rpc": "device.setSplitMute",
+    "classification": "live-write",
+    "description": "Mute or unmute a splitter/mixer path globally across scenes with exact device readback.",
+    "properties": {
+      "row": "grid-row",
+      "muted": "boolean",
+      "expected_muted": "boolean",
+      "expected_preset_name": "string"
+    },
+    "required": [
+      "row",
+      "muted",
+      "expected_muted",
+      "expected_preset_name"
+    ],
+    "access": "modify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "muted": {
+          "type": "boolean"
+        },
+        "expected_muted": {
+          "type": "boolean"
+        },
+        "expected_preset_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "muted",
+        "expected_muted",
+        "expected_preset_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "save_preset_as",
     "rpc": "device.savePresetAs",
     "classification": "persistent-write",
