@@ -1123,14 +1123,10 @@ export function App() {
     }
     const liveSnapshot = snapshotRef.current;
     if (call.name === "save_current_unsaved_preset") {
-      if (connection.demo) throw new Error("Connect the Quad Cortex before saving a device preset.");
       const name = typeof call.arguments.name === "string" ? call.arguments.name.trim() : "";
-      if (!name) throw new Error("A preset name is required for device save.");
-      if (liveSnapshot.presetName !== "Unsaved") throw new Error("The active preset is already stored. Use Save As or Rename for an occupied slot.");
-      const saved = await tauriTransport.savePresetAs(liveSnapshot.setlistKey, liveSnapshot.presetPosition, name, liveSnapshot.presetName, liveSnapshot.presetPosition, false);
-      commitSavedPreset(saved);
-      appendMessage("tool", saved.detail);
-      return saved.detail;
+      const detail = await presetWorkflow.saveCurrentUnsaved(name);
+      appendMessage("tool", detail);
+      return detail;
     }
 
     const { result, attachment } = await executeAndReconcileQcAction(call, {

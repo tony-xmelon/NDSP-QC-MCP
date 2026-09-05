@@ -86,6 +86,9 @@ test("typed assistant edits reuse shared parameter, bypass, and history workflow
     assert.doesNotMatch(app, /\bassistantCommandDetail\b/);
     assert.doesNotMatch(app, /(?:tauriTransport|androidGatewayTransport)\.(?:setParameter|toggleBypass)/);
   }
+  assert.match(source("packages/typescript/qc-ui/src/use-preset-workflow.ts"), /saveCurrentUnsaved/);
+  assert.match(windows, /presetWorkflow\.saveCurrentUnsaved/);
+  assert.doesNotMatch(windows, /tauriTransport\.savePresetAs/);
 });
 
 test("both native shells route Grid menus and footswitches through shared policy", () => {

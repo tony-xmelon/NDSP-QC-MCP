@@ -41,6 +41,7 @@ export interface PresetWorkflowController {
   closeSave(): void;
   setSaveName(name: string): void;
   save(): Promise<void>;
+  saveCurrentUnsaved(name: string): Promise<string>;
   copy(): void;
   paste(): Promise<void>;
   rename(suggestedName?: string): Promise<void>;
@@ -255,6 +256,33 @@ export function usePresetWorkflow(options: UsePresetWorkflowOptions): PresetWork
     }
   }, [commitSavedPreset, fail, gateway, notice, saveName, saveOpen, setPending, snapshotRef, unavailable]);
 
+  const saveCurrentUnsaved = useCallback(async (requestedName: string): Promise<string> => {
+    const current = snapshotRef.current;
+    const name = requestedName.trim();
+    if (!connected) throw new Error("Connect the Quad Cortex before saving a device preset.");
+    if (pending) throw new Error("A device command is already in progress.");
+    if (!name) throw new Error("A preset name is required for device save.");
+    if (current.presetName !== "Unsaved") throw new Error("The active preset is already stored. Use Save As or Rename for an occupied slot.");
+    setPending(true);
+    notice(`Saving preset to ${current.presetLocation}…`);
+    try {
+      const result = await gateway.savePresetAs(
+        current.setlistKey,
+        current.presetPosition,
+        name,
+        current.presetName,
+        current.presetPosition,
+        false
+      );
+      commitSavedPreset(result);
+      const detail = result.detail ?? `${current.presetLocation} saved.`;
+      notice(detail);
+      return detail;
+    } finally {
+      setPending(false);
+    }
+  }, [commitSavedPreset, connected, gateway, notice, pending, setPending, snapshotRef]);
+
   const copy = useCallback(() => {
     const current = snapshotRef.current;
     if (unavailable("copying a preset")) return;
@@ -389,6 +417,7 @@ export function usePresetWorkflow(options: UsePresetWorkflowOptions): PresetWork
     closeSave: () => setSaveOpen(false),
     setSaveName,
     save,
+    saveCurrentUnsaved,
     copy,
     paste,
     rename,

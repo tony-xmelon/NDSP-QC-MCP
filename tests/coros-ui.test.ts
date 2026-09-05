@@ -732,8 +732,10 @@ test("chat saves an Unsaved preset to its trusted current device slot", () => {
   assert.match(chatSource, /name: "save_current_unsaved_preset"/);
   assert.match(chatSource, /active preset is named Unsaved[\s\S]*use save_current_unsaved_preset/);
   assert.match(appSource, /call\.name === "save_current_unsaved_preset"/);
-  assert.match(appSource, /snapshot\.presetName !== "Unsaved"/);
-  assert.match(appSource, /savePresetAs\(liveSnapshot\.setlistKey, liveSnapshot\.presetPosition, name, liveSnapshot\.presetName, liveSnapshot\.presetPosition, false\)/);
+  assert.match(appSource, /presetWorkflow\.saveCurrentUnsaved\(name\)/);
+  assert.doesNotMatch(appSource, /tauriTransport\.savePresetAs/);
+  assert.match(presetWorkflow, /current\.presetName !== "Unsaved"/);
+  assert.match(presetWorkflow, /gateway\.savePresetAs\([\s\S]*current\.setlistKey,[\s\S]*current\.presetPosition,[\s\S]*name,[\s\S]*current\.presetName,[\s\S]*current\.presetPosition,[\s\S]*false/);
   assert.match(presetWorkflow, /const commitSavedPreset = useCallback\(\(result: SavePresetResult\)/);
   assert.match(presetWorkflow, /presetName: result\.savedName/);
   assert.match(presetWorkflow, /result\.snapshot \?\? snapshotRef\.current[\s\S]*dirty: false/, "a successful save must synchronously replace the stale Unsaved snapshot");
