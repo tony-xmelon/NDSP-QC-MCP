@@ -258,6 +258,14 @@ test("modern Android keeps a buffered interrupt-read ring queued across idle per
   assert.match(javaSource, /activeConnection\.bulkTransfer\(activeEndpoint[\s\S]*readerIsActive/);
 });
 
+test("Android automatically recovers USB attachment and unexpected reader exit", () => {
+  assert.match(javaSource, /ACTION_USB_DEVICE_ATTACHED/);
+  assert.match(javaSource, /scheduleAutomaticReconnect\("Quad Cortex USB reattached"\)/);
+  assert.match(javaSource, /boolean recoverReader = readerIsActive\(activeConnection, generation\)/);
+  assert.match(javaSource, /handshakeComplete = false;[\s\S]*scheduleAutomaticReconnect\("QC HID reader recovered after interruption"\)/);
+  assert.match(javaSource, /candidate == null \|\| isReady\(\) \|\| connecting \|\| !manager\.hasPermission\(candidate\)/);
+});
+
 test("Android's USB maintenance heartbeat produces a small device reply", () => {
   assert.match(javaSource, /sessionShouldKeepalive[\s\S]*writeMessage\(stateDecoder\.readCommand\(10\)\)/);
   assert.match(javaSource, /pendingOperations\.isEmpty\(\)[\s\S]*sessionShouldKeepalive/);

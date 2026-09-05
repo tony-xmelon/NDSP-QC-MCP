@@ -154,6 +154,7 @@ public class QcUsbPlugin extends Plugin {
             } else {
                 status.put("state", "available");
                 status.put("name", changed.getProductName() == null ? getContext().getString(R.string.device_name) : changed.getProductName());
+                scheduleAutomaticReconnect("Quad Cortex USB reattached");
             }
             notifyListeners("qcConnection", status, true);
         }
@@ -284,6 +285,17 @@ public class QcUsbPlugin extends Plugin {
         pendingOperations.timeout(pending, QcUsbProfile.READY_WAIT_TIMEOUT_MS, keepalive,
             () -> new RelayException("READBACK_TIMEOUT", "The Quad Cortex did not finish synchronizing in time."));
         return result;
+    }
+
+    private void scheduleAutomaticReconnect(String detail) {
+        keepalive.schedule(() -> {
+            UsbDevice candidate = findQuadCortex();
+            if (candidate == null || isReady() || connecting || !manager.hasPermission(candidate)) return;
+            relayReconnect(detail).whenComplete((ignored, error) -> {
+                if (error != null) android.util.Log.w(
+                    "QcUsbPlugin", "Automatic QC USB reconnect failed: " + error.getMessage());
+            });
+        }, 250, TimeUnit.MILLISECONDS);
     }
 
     private void resolvePendingReady() {
@@ -1228,12 +1240,17 @@ public class QcUsbPlugin extends Plugin {
                 android.util.Log.e("QcUsbPlugin", lastError, error);
             }
         } finally {
+            boolean recoverReader = readerIsActive(activeConnection, generation);
             readerWaiting = false;
             readerExitedAt = System.currentTimeMillis();
             if (activeInputRequests == requests) activeInputRequests = null;
             for (UsbRequest request : requests) if (request != null) {
                 try { request.cancel(); } catch (Exception ignored) {}
                 try { request.close(); } catch (Exception ignored) {}
+            }
+            if (recoverReader) {
+                handshakeComplete = false;
+                scheduleAutomaticReconnect("QC HID reader recovered after interruption");
             }
         }
     }
