@@ -1025,7 +1025,7 @@ public class QcUsbPlugin extends Plugin {
                         lastPresetLibraryAt = System.currentTimeMillis();
                         schedulePresetLibrarySettlement();
                     }
-                    if (decoded.messageType == 52 && resetReply != null) resetReply.countDown();
+                    if (decoded.messageType == QcUsbProfile.MESSAGE_TYPE_DEVICE_VERSION && resetReply != null) resetReply.countDown();
                     dispatchGatewayResponse(decoded.messageType, decoded.payload);
                     publishStateBatch(decoded.states, decoded.tempoClock);
                 }
@@ -1059,12 +1059,12 @@ public class QcUsbPlugin extends Plugin {
             byte[] payload = frame.payload;
             // ModelRepo expands on its own lane and installs atomically in the
             // same shared Rust decoder used for all realtime state.
-            if (type == 51) {
+            if (type == QcUsbProfile.MESSAGE_TYPE_MODEL_REPO) {
                 scheduleModelCatalogDecode(payload, connectionGeneration.get());
                 return new DecodedMessage(type, payload, new ArrayList<>(), null);
             }
             return new DecodedMessage(type, payload, stateDecoder.decode(type, payload),
-                type == 33 ? stateDecoder.tempoClock(payload) : null);
+                type == QcUsbProfile.MESSAGE_TYPE_GLOBAL_TEMPO ? stateDecoder.tempoClock(payload) : null);
         } catch (Exception error) {
             decodeErrors++;
             lastError = error.getMessage();
@@ -1181,7 +1181,7 @@ public class QcUsbPlugin extends Plugin {
     }
 
     private void dispatchGatewayResponse(int messageType, byte[] payload) {
-        if (messageType == 40) {
+        if (messageType == QcUsbProfile.MESSAGE_TYPE_BACKUP) {
             QcPendingOperations.Entry<PendingBackup> pending = pendingBackup;
             if (pending != null) {
                 try {

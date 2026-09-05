@@ -415,7 +415,7 @@ impl DeviceOperation {
             Self::SetGlobalEqParameters(parameters) => vec![set_global_eq_parameters(&parameters)],
             Self::ReadModeCycle => vec![read_mode_cycle()],
             Self::SetModeCycle(slots) => vec![set_mode_cycle(&slots)],
-            Self::ReadGlobalTempo => vec![read(33)],
+            Self::ReadGlobalTempo => vec![read(profile::MESSAGE_TYPE_GLOBAL_TEMPO)],
             Self::SetTempoParameters(parameters) => set_tempo_parameters(parameters),
             Self::SetTempoMode(global) => vec![set_tempo_mode(global)],
             Self::ReadLooperStatus => vec![read_looper_status()],
@@ -630,7 +630,7 @@ impl DeviceCommand {
 
 pub fn reset_comms(request_id: u64, session_id: impl Into<String>) -> OutboundMessage {
     OutboundMessage::encoded(
-        52,
+        profile::MESSAGE_TYPE_DEVICE_VERSION,
         pa::ResetCommsBuffersMessage {
             request_id: Some(pa::reset_comms_buffers_message::RequestId::RequestId(
                 request_id,
@@ -893,7 +893,7 @@ pub fn connection(connected: bool) -> OutboundMessage {
 pub fn initialization() -> Vec<OutboundMessage> {
     let mut messages = Vec::with_capacity(profile::LIVE_SUBSCRIPTIONS.len() + 3);
     messages.push(version_hello());
-    messages.push(read(51));
+    messages.push(read(profile::MESSAGE_TYPE_MODEL_REPO));
     messages.push(connection(true));
     messages.extend(profile::LIVE_SUBSCRIPTIONS.iter().copied().map(read));
     messages
@@ -1954,7 +1954,7 @@ pub fn screen_tap(x: f32, y: f32) -> [OutboundMessage; 2] {
 
 pub fn create_local_backup() -> OutboundMessage {
     OutboundMessage::encoded(
-        40,
+        profile::MESSAGE_TYPE_BACKUP,
         pa::LocalBackupMessage {
             action: pa::message_action::Enum::Create as i32,
             ..Default::default()
@@ -2049,7 +2049,7 @@ pub fn set_tempo_parameters(parameters: Vec<(u32, f32)>) -> Vec<OutboundMessage>
 /// tempo block. This is GlobalTempo parameter 1, not preset TempoControl TYPE.
 pub fn set_tempo_mode(global: bool) -> OutboundMessage {
     OutboundMessage::encoded(
-        33,
+        profile::MESSAGE_TYPE_GLOBAL_TEMPO,
         pa::GlobalTempoMessage {
             action: pa::message_action::Enum::Update as i32,
             params: vec![Param {

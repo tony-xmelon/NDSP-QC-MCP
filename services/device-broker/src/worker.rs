@@ -626,7 +626,7 @@ fn run_state_decoder(
             StateDecoderCommand::Message(message_generation, message)
                 if message_generation == generation =>
             {
-                if message.message_type == 51 {
+                if message.message_type == qc_protocol::profile::MESSAGE_TYPE_MODEL_REPO {
                     let install = sender.clone();
                     thread::Builder::new()
                         .name("qc-native-metadata".into())
@@ -703,7 +703,7 @@ fn run_state_decoder(
 }
 
 fn message_tempo_clock(message: &IncomingMessage) -> Option<TempoClockFrame> {
-    if message.message_type != 33 {
+    if message.message_type != qc_protocol::profile::MESSAGE_TYPE_GLOBAL_TEMPO {
         return None;
     }
     decode_tempo_clock(message.payload.as_slice())
@@ -1064,7 +1064,11 @@ fn reconnect_is_satisfied(force: bool, connected: bool, phase: &str) -> bool {
 fn deliver_pending(pending: &mut Vec<PendingRequest>, message: &IncomingMessage) {
     let request_id = qc_protocol::wire::varint_field(
         &message.payload,
-        if message.message_type == 52 { 1 } else { 2 },
+        if message.message_type == qc_protocol::profile::MESSAGE_TYPE_DEVICE_VERSION {
+            1
+        } else {
+            2
+        },
     )
     .ok()
     .flatten();

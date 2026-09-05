@@ -28,6 +28,10 @@ final class QcUsbProfile {
     static final int MIDI_PRESSED_VALUE = 127;
     static final int MIDI_FEATURE_OFF_VALUE = 0;
     static final int MIDI_FEATURE_ON_VALUE = 127;
+    static final int MESSAGE_TYPE_GLOBAL_TEMPO = 33;
+    static final int MESSAGE_TYPE_BACKUP = 40;
+    static final int MESSAGE_TYPE_MODEL_REPO = 51;
+    static final int MESSAGE_TYPE_DEVICE_VERSION = 52;
     static final int[] LIVE_SUBSCRIPTIONS = {3, 9, 24, 38, 20, 42, 35, 58, 50, 54, 19, 15, 57, 60, 17, 33, 34, 21, 2, 13, 14};
 
     private QcUsbProfile() {}

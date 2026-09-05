@@ -428,7 +428,7 @@ fn gateway_tap_screen(controller: &DeviceController, params: &Value) -> Result<V
 }
 
 fn gateway_tempo_clock(controller: &DeviceController) -> Result<Value, String> {
-    let Some(raw) = controller.latest_message(33) else {
+    let Some(raw) = controller.latest_message(profile::MESSAGE_TYPE_GLOBAL_TEMPO) else {
         return Ok(json!({"available": false}));
     };
     let Some(status) = decode_tempo_clock(raw.payload.as_slice())

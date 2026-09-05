@@ -624,10 +624,10 @@ impl StateDecoder {
             15 => self.decode_preset_message(&decoded),
             17 => self.decode_master_volume(&decoded),
             23 => self.decode_scene_label(&decoded),
-            33 => self.decode_global_tempo(&decoded),
+            profile::MESSAGE_TYPE_GLOBAL_TEMPO => self.decode_global_tempo(&decoded),
             34 => self.decode_dirty(&decoded),
             48 => self.decode_scene_color(&decoded),
-            51 => self.decode_model_repo(&decoded),
+            profile::MESSAGE_TYPE_MODEL_REPO => self.decode_model_repo(&decoded),
             _ => Ok(Vec::new()),
         }
     }
@@ -1141,7 +1141,8 @@ impl StateDecoder {
     }
 
     fn decode_global_tempo(&self, payload: &[u8]) -> Result<Vec<StateUpdate>, StateDecodeError> {
-        let message = decode::<pa::GlobalTempoMessage>(33, payload)?;
+        let message =
+            decode::<pa::GlobalTempoMessage>(profile::MESSAGE_TYPE_GLOBAL_TEMPO, payload)?;
         let state = tempo_from_params(&message.params);
         if state.bpm.is_none() && state.led_enabled.is_none() {
             return Ok(Vec::new());
@@ -1448,7 +1449,7 @@ fn routing_parameter_options(node: Option<&str>, index: u32) -> Vec<String> {
 
 pub fn parse_model_repo(payload: &[u8]) -> Result<ModelCatalog, StateDecodeError> {
     let payload = maybe_gunzip(payload)?;
-    let message = decode::<pa::ModelRepoMessage>(51, &payload)?;
+    let message = decode::<pa::ModelRepoMessage>(profile::MESSAGE_TYPE_MODEL_REPO, &payload)?;
     let Some(pa::model_repo_message::ModelRepoPayload::ModelRepoPayload(repo)) =
         message.model_repo_payload
     else {

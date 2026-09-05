@@ -217,7 +217,7 @@ impl QcUsb {
             usb.send_command(commands::reset_comms(attempt.number as u64, session_id));
             while session.awaiting_handshake_reply(session_clock.elapsed().as_millis() as u64) {
                 if let Some(message) = usb.read_message(200)? {
-                    if message.message_type == 52 {
+                    if message.message_type == profile::MESSAGE_TYPE_DEVICE_VERSION {
                         usb.flight.event("handshake-reply");
                         let connected = usb.finish_hello(attempt.number as u64 + 1)?;
                         session.handshake_completed(
@@ -315,7 +315,7 @@ impl QcUsb {
             // only by reads.
             let started = Instant::now();
             let result = self.io.write(&report);
-            if message_type == 40 {
+            if message_type == profile::MESSAGE_TYPE_BACKUP {
                 self.flight.event(format!(
                     "backup-write-{}-{}ms",
                     if result.is_ok() {
@@ -358,7 +358,7 @@ impl QcUsb {
         // ModelRepo is the largest compressed message. Keep its decompression
         // off this permanent USB worker; the metadata worker inflates it only
         // when the catalog is actually consumed.
-        if message_type != 51 && payload.starts_with(&[0x1f, 0x8b]) {
+        if message_type != profile::MESSAGE_TYPE_MODEL_REPO && payload.starts_with(&[0x1f, 0x8b]) {
             let mut decoded = Vec::new();
             flate2::read::GzDecoder::new(payload.as_slice())
                 .take(profile::MAX_INFLATED_BYTES as u64 + 1)
@@ -459,7 +459,7 @@ impl QcUsb {
             let Some(message) = self.read_message(wait_ms)? else {
                 continue;
             };
-            if message.message_type != 40 {
+            if message.message_type != profile::MESSAGE_TYPE_BACKUP {
                 side_messages.push(message);
                 continue;
             }
