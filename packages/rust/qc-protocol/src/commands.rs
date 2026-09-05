@@ -2507,9 +2507,7 @@ mod tests {
         for (frame, index) in frames.iter().zip([6_u32, 10]) {
             assert_eq!(frame.message_type, 1);
             let grid = pa::GridMessage::decode(frame.payload.as_slice()).unwrap();
-            let preset = match grid.preset.unwrap() {
-                pa::grid_message::Preset::Preset(value) => value,
-            };
+            let pa::grid_message::Preset::Preset(preset) = grid.preset.unwrap();
             assert_eq!(
                 preset.tempo_program_data[0].params[0].index,
                 Some(param::Index::Index(index))
