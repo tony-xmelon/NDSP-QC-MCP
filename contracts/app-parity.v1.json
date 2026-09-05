@@ -103,6 +103,15 @@
       "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "runToolConversation<AssistantToolCall" }] }
     },
     {
+      "id": "mcp-action-surface",
+      "label": "Exact MCP tools, access tiers, validation, and device execution",
+      "parity": "required",
+      "owner": "shared",
+      "sharedEvidence": [{ "path": "contracts/qc-actions.v1.json", "contains": "accessTiers" }, { "path": "packages/typescript/qc-core/src/assistant-tools.ts", "contains": "SHARED_QC_ASSISTANT_TOOLS" }, { "path": "packages/typescript/qc-ui/src/qc-action-outcome.ts", "contains": "executeAndReconcileQcAction" }, { "path": "services/rust-mcp/src/actions.rs", "contains": "pub static ACTIONS" }, { "path": "services/qc-relay/src/generated_actions.rs", "contains": "pub static ACTIONS" }],
+      "windows": { "status": "implemented", "evidence": [{ "path": "apps/windows/src/model-chat.ts", "contains": "SHARED_QC_ASSISTANT_TOOLS" }, { "path": "apps/windows/src/App.tsx", "contains": "executeAndReconcileQcAction" }] },
+      "android": { "status": "implemented", "evidence": [{ "path": "apps/android/src/App.tsx", "contains": "assistantToolActionPrompt" }, { "path": "apps/android/src/App.tsx", "contains": "executeAndReconcileQcAction" }, { "path": "apps/android/android/app/src/main/java/com/qccontrol/mobile/GeneratedRemoteActions.java", "contains": "private static final String[] ALLOWED" }] }
+    },
+    {
       "id": "assistant-ui-lifecycle",
       "label": "Conversation, access policy, result rendering, and auto-scroll",
       "parity": "required",

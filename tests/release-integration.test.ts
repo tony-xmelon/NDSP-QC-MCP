@@ -124,6 +124,7 @@ test("Firebase publishing never rebuilds the hardware-tested candidate", () => {
 
 test("software parity lint-checks all Rust targets without release sidecars", () => {
   const parity = script("verify-software-parity.ps1");
+  assert.match(parity, /npm run mcp-parity:check/);
   assert.match(parity, /Rust lints: \$manifest/);
   assert.match(parity, /Windows native shell lint/);
   assert.match(parity, /TAURI_CONFIG = '\{"bundle":\{"externalBin":\[\]\}\}'/);
