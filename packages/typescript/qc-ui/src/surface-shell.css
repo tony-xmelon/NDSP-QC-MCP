@@ -201,6 +201,15 @@
   width: min(1120px, 100%);
   min-height: 0;
   max-height: none;
+  container-type: inline-size;
+  /* Scale physical controls from the device, not the application viewport.
+     The compact floors preserve legibility; interaction targets remain larger. */
+  --qc-hardware-switch-diameter: clamp(32px, 5.47cqi, 60px);
+  --qc-hardware-hit-diameter: clamp(44px, 7.84cqi, 86px);
+  --qc-hardware-led-diameter: clamp(8px, 1.28cqi, 14px);
+  --qc-master-volume-diameter: clamp(52px, 11.49cqi, 126px);
+  --qc-power-control-diameter: clamp(18px, 2.74cqi, 30px);
+  --qc-footswitch-led-lift: clamp(4px, .73cqi, 8px);
   /* Normalized from the official top-panel SVG view: 1096 × 718. */
   aspect-ratio: 1096 / 718;
   overflow: hidden;
@@ -223,7 +232,7 @@
 
 .master-volume { display: block; }
 .power-button { position: absolute; left: 50%; top: 10%; justify-self: auto; margin-left: 0; transform: translateX(-50%); }
-.volume-knob { position: absolute; left: 50%; top: 32.5%; width: min(80%, 126px); transform: translateX(-50%); }
+.volume-knob { position: absolute; left: 50%; top: 32.5%; width: min(80%, var(--qc-master-volume-diameter)); transform: translateX(-50%); }
 .master-volume strong { position: absolute; left: 0; top: 74%; width: 100%; text-align: center; }
 .master-volume strong { font-size: clamp(9px, .9vw, 14px); font-weight: 500; }
 .device-plate { right: 5.1%; top: 5.6%; width: 12.2%; padding: .55% .5%; display: flex; align-items: center; justify-content: center; text-align: center; font-size: clamp(9px, .9vw, 14px); border-color: var(--qc-palette-aaa9a5); letter-spacing: .12em; }
@@ -309,9 +318,9 @@
 .footswitch-row:first-child .switch-ring { position: relative; top: clamp(7px, 1.1vw, 13px); }
 .footswitch-row:nth-child(3) .switch-led { position: relative; top: 2px; }
 .footswitch-row:nth-child(3) .switch-ring { position: relative; top: clamp(3px, .5vw, 6px); }
-.footswitch-deck .switch-led { width: clamp(12px, 1.5vw, 19px); border-width: 2px; }
+.footswitch-deck .switch-led { width: var(--qc-hardware-led-diameter); border-width: 2px; }
 .footswitch-deck .switch-ring,
-.screen-nav-control .switch-ring { width: clamp(46px, 4.7vw, 60px); }
+.screen-nav-control .switch-ring { width: var(--qc-hardware-switch-diameter); }
 .footswitch-deck .switch-label { left: 68%; top: 54%; font-size: clamp(18px, 2.5vw, 36px); font-weight: 400; }
 .nav-arrow { width: clamp(9px, 1vw, 15px); border-width: clamp(2px, .2vw, 3px); }
 .mode-bracket { right: 5.9%; top: 31.5%; width: 4.5%; height: 36%; font-size: clamp(8px, .8vw, 12px); font-weight: 600; }
@@ -345,8 +354,7 @@
    supplies the live display, state lights, and accessible interaction targets. */
 .official-svg-viewport { display: none; }
 .skin-official-svg {
-  --qc-switch-led-size: clamp(11px, 1.23vw, 14px);
-  --qc-footswitch-led-lift: clamp(6px, .55vw, 8px);
+  --qc-switch-led-size: var(--qc-hardware-led-diameter);
   aspect-ratio: 1096.94 / 719.079;
   border: 0;
   border-radius: 3.49% / 5.26%;
@@ -446,7 +454,7 @@
   pointer-events: none;
 }
 .skin-official-svg .power-button {
-  width: clamp(22px, 2.2vw, 30px);
+  width: var(--qc-power-control-diameter);
   padding: 0;
   border: 0;
   border-radius: 5px;
@@ -455,6 +463,7 @@
 }
 .skin-official-svg .power-icon { visibility: hidden; }
 .skin-official-svg .volume-knob {
+  width: min(80%, var(--qc-master-volume-diameter));
   border: 1px solid var(--qc-palette-202125);
   background: linear-gradient(145deg, var(--qc-palette-85878a) 0%, var(--qc-palette-626468) 55%, var(--qc-palette-44464a) 100%);
   box-shadow: inset 2px 2px 4px var(--qc-palette-ffffff28), inset -3px -3px 6px var(--qc-palette-22232788), 5px 7px 9px var(--qc-palette-16171970);
@@ -533,20 +542,20 @@
 }
 .skin-official-svg .screen-nav-control .switch-led {
   width: var(--qc-switch-led-size);
-  top: clamp(8px, .96vw, 11px);
+  top: clamp(6px, 1cqi, 11px);
 }
 .skin-official-svg .footswitch-deck .switch-ring,
 .skin-official-svg .screen-nav-control .switch-ring {
-  width: clamp(46px, 4.7vw, 60px);
+  width: var(--qc-hardware-switch-diameter);
 }
 .skin-official-svg .footswitch-row:first-child .switch-ring {
-  top: 8px;
+  top: clamp(4px, .73cqi, 8px);
 }
 .skin-official-svg .footswitch-row:first-child .switch-led {
   top: calc(5px - var(--qc-footswitch-led-lift));
 }
 .skin-official-svg .footswitch-row:nth-child(3) .switch-ring {
-  top: 4px;
+  top: clamp(2px, .36cqi, 4px);
 }
 .skin-official-svg .footswitch-row:nth-child(3) .switch-led {
   top: calc(2px - var(--qc-footswitch-led-lift));
@@ -575,7 +584,7 @@
   z-index: 5;
   left: 50%;
   top: 57%;
-  width: clamp(64px, 6.4vw, 86px);
+  width: var(--qc-hardware-hit-diameter);
   aspect-ratio: 1;
   border-radius: 50%;
   transform: translate(-50%, -50%);

@@ -138,3 +138,60 @@ for (const host of [{ name: "Android", url: androidUrl }, { name: "Windows", url
     expect(runtimeErrors).toEqual([]);
   });
 }
+
+test("Windows hardware controls scale with and remain inside the device chassis", async ({ page }) => {
+  const samples: Array<{
+    viewport: { width: number; height: number };
+    chassisWidth: number;
+    switchDiameter: number;
+    volumeDiameter: number;
+  }> = [];
+
+  for (const [width, height] of [[920, 600], [1000, 650], [1280, 800], [1600, 900]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto(windowsUrl);
+    await page.locator(".qc-chassis").waitFor({ state: "visible" });
+    const geometry = await page.evaluate(() => {
+      const chassis = document.querySelector<HTMLElement>(".qc-chassis")!.getBoundingClientRect();
+      const visualControls = [
+        document.querySelector<HTMLElement>(".volume-knob")!,
+        ...document.querySelectorAll<HTMLElement>(".footswitch-deck .switch-ring, .screen-nav-control .switch-ring, .switch-led")
+      ];
+      const hitTargets = [...document.querySelectorAll<HTMLElement>(".footswitch-deck .hardware-switch, .screen-nav-control .hardware-switch")].map((control) => {
+        const bounds = control.getBoundingClientRect();
+        const diameter = Number.parseFloat(getComputedStyle(control, "::after").width);
+        return { left: bounds.left + bounds.width / 2 - diameter / 2, right: bounds.left + bounds.width / 2 + diameter / 2, diameter };
+      });
+      const bounds = visualControls.map((control) => {
+        const box = control.getBoundingClientRect();
+        return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+      });
+      return {
+        chassis: { left: chassis.left, top: chassis.top, right: chassis.right, bottom: chassis.bottom, width: chassis.width },
+        bounds,
+        hitTargets,
+        switchDiameter: document.querySelector<HTMLElement>(".footswitch-deck .switch-ring")!.getBoundingClientRect().width,
+        volumeDiameter: document.querySelector<HTMLElement>(".volume-knob")!.getBoundingClientRect().width
+      };
+    });
+
+    for (const bounds of geometry.bounds) {
+      expect(bounds.left).toBeGreaterThanOrEqual(geometry.chassis.left - 1);
+      expect(bounds.top).toBeGreaterThanOrEqual(geometry.chassis.top - 1);
+      expect(bounds.right).toBeLessThanOrEqual(geometry.chassis.right + 1);
+      expect(bounds.bottom).toBeLessThanOrEqual(geometry.chassis.bottom + 1);
+    }
+    for (const target of geometry.hitTargets) {
+      expect(target.diameter).toBeGreaterThanOrEqual(44);
+      expect(target.left).toBeGreaterThanOrEqual(geometry.chassis.left - 1);
+      expect(target.right).toBeLessThanOrEqual(geometry.chassis.right + 1);
+    }
+    samples.push({ viewport: { width, height }, chassisWidth: geometry.chassis.width, switchDiameter: geometry.switchDiameter, volumeDiameter: geometry.volumeDiameter });
+  }
+
+  for (let index = 1; index < samples.length; index += 1) {
+    expect(samples[index].chassisWidth).toBeGreaterThan(samples[index - 1].chassisWidth);
+    expect(samples[index].switchDiameter).toBeGreaterThan(samples[index - 1].switchDiameter);
+    expect(samples[index].volumeDiameter).toBeGreaterThan(samples[index - 1].volumeDiameter);
+  }
+});

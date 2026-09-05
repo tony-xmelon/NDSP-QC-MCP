@@ -212,19 +212,25 @@ test("parameter screen turns DOWN into the fifth colored parameter encoder and k
 
 test("UP uses the same physical switch diameter as the other QC switches", () => {
   const chassisCss = readFileSync(new URL("../packages/typescript/qc-ui/src/surface-shell.css", import.meta.url), "utf8");
-  assert.match(chassisCss, /\.footswitch-deck \.switch-ring,\s*\.screen-nav-control \.switch-ring \{ width: clamp\(46px, 4\.7vw, 60px\); \}/);
-  assert.match(chassisCss, /\.skin-official-svg \.footswitch-deck \.switch-ring,\s*\.skin-official-svg \.screen-nav-control \.switch-ring \{\s*width: clamp\(46px, 4\.7vw, 60px\);\s*\}/);
+  assert.match(chassisCss, /--qc-hardware-switch-diameter: clamp\(32px, 5\.47cqi, 60px\)/);
+  assert.match(chassisCss, /\.footswitch-deck \.switch-ring,\s*\.screen-nav-control \.switch-ring \{ width: var\(--qc-hardware-switch-diameter\); \}/);
+  assert.match(chassisCss, /\.skin-official-svg \.footswitch-deck \.switch-ring,\s*\.skin-official-svg \.screen-nav-control \.switch-ring \{\s*width: var\(--qc-hardware-switch-diameter\);\s*\}/);
   assert.doesNotMatch(chassisCss, /\.screen-nav-control \.switch-ring \{[^}]*width: clamp\(28px, 3\.5vw, 38px\)/s);
 });
 
-test("footswitch LED spacing changes without moving any physical switch", () => {
+test("hardware controls scale from the chassis while click targets retain a compact minimum", () => {
   const chassisCss = readFileSync(new URL("../packages/typescript/qc-ui/src/surface-shell.css", import.meta.url), "utf8");
-  assert.match(chassisCss, /--qc-footswitch-led-lift: clamp\(6px, \.55vw, 8px\)/);
+  assert.match(chassisCss, /container-type: inline-size/);
+  assert.match(chassisCss, /--qc-hardware-hit-diameter: clamp\(44px, 7\.84cqi, 86px\)/);
+  assert.match(chassisCss, /--qc-hardware-led-diameter: clamp\(8px, 1\.28cqi, 14px\)/);
+  assert.match(chassisCss, /--qc-master-volume-diameter: clamp\(52px, 11\.49cqi, 126px\)/);
+  assert.match(chassisCss, /--qc-footswitch-led-lift: clamp\(4px, \.73cqi, 8px\)/);
   const officialSkin = chassisCss.slice(chassisCss.indexOf(".skin-official-svg {"), chassisCss.indexOf("/* CorOS reference canvas"));
   assert.doesNotMatch(officialSkin, /\.hardware-switch\s*\{[^}]*display:\s*flex/s, "LED spacing must not relayout or move the switches");
-  assert.match(officialSkin, /\.footswitch-row:first-child \.switch-ring \{\s*top: 8px;/);
-  assert.match(officialSkin, /\.footswitch-row:nth-child\(3\) \.switch-ring \{\s*top: 4px;/);
+  assert.match(officialSkin, /\.footswitch-row:first-child \.switch-ring \{\s*top: clamp\(4px, \.73cqi, 8px\);/);
+  assert.match(officialSkin, /\.footswitch-row:nth-child\(3\) \.switch-ring \{\s*top: clamp\(2px, \.36cqi, 4px\);/);
   assert.match(officialSkin, /\.footswitch-row:first-child \.switch-led \{\s*top: calc\(5px - var\(--qc-footswitch-led-lift\)\);/);
   assert.match(officialSkin, /\.footswitch-row:nth-child\(3\) \.switch-led \{\s*top: calc\(2px - var\(--qc-footswitch-led-lift\)\);/);
-  assert.match(officialSkin, /\.screen-nav-control \.switch-led\s*\{[^}]*top: clamp\(8px, \.96vw, 11px\);/s, "UP must remain at its verified position");
+  assert.match(officialSkin, /\.screen-nav-control \.switch-led\s*\{[^}]*top: clamp\(6px, 1cqi, 11px\);/s, "UP must remain at its verified position");
+  assert.match(officialSkin, /\.hardware-switch::after\s*\{[^}]*width: var\(--qc-hardware-hit-diameter\);/s);
 });
