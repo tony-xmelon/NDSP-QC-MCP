@@ -2,10 +2,11 @@ use jni::objects::{JByteArray, JClass, JString};
 use jni::sys::{jbyteArray, jint, jlong, jstring};
 use jni::JNIEnv;
 use qc_device_runtime::request::{
-    assert_expected_parameter, finalize_device_backup, gateway_write_retryable,
-    merge_expected_state, plan_gateway_read, plan_gateway_write, plan_preset_mutation,
-    plan_preset_recall, GatewayReadPlan, GatewayResponseProjection, GatewayTransaction,
-    GatewayTransactionState, GatewayVerification, PlannedWrite, PresetMutationPlan,
+    assert_expected_parameter, finalize_device_backup, gateway_write_is_realtime,
+    gateway_write_retryable, merge_expected_state, plan_gateway_read, plan_gateway_write,
+    plan_preset_mutation, plan_preset_recall, GatewayReadPlan, GatewayResponseProjection,
+    GatewayTransaction, GatewayTransactionState, GatewayVerification, PlannedWrite,
+    PresetMutationPlan,
 };
 use qc_device_runtime::{GatewaySnapshot, PresetLibrary};
 use qc_protocol::commands::{self, OutboundMessage};
@@ -107,6 +108,7 @@ fn gateway_write_envelope(
     detail: &str,
     verification: &GatewayVerification,
     retryable: bool,
+    realtime: bool,
     write: PlannedWrite,
 ) -> Result<Vec<u8>, String> {
     let detail = detail.as_bytes();
@@ -129,7 +131,13 @@ fn gateway_write_envelope(
         PlannedWrite::HidOperation(operation) => (0, 0, 0, operation.encode()),
         PlannedWrite::MidiControlChange { controller, value } => (1, controller, value, Vec::new()),
     };
-    result.extend_from_slice(&[lane, controller, value, u8::from(retryable)]);
+    result.extend_from_slice(&[
+        lane,
+        controller,
+        value,
+        u8::from(retryable),
+        u8::from(realtime),
+    ]);
     result.extend_from_slice(&message_envelope(messages)?);
     Ok(result)
 }
@@ -363,6 +371,7 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePlan
             &detail,
             &verification,
             gateway_write_retryable(&method),
+            gateway_write_is_realtime(&method),
             write,
         )
     })();
@@ -1073,4 +1082,45 @@ pub extern "system" fn Java_com_qccontrol_mobile_QcNativeStateDecoder_nativePres
         serde_json::to_string(&slots).map_err(|error| error.to_string())
     })();
     json_result(&mut env, result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gateway_write_envelope_exposes_shared_realtime_completion_policy() {
+        let detail = "Scene A sent";
+        let envelope = gateway_write_envelope(
+            detail,
+            &GatewayVerification::Scene { scene: 0 },
+            true,
+            true,
+            PlannedWrite::MidiControlChange {
+                controller: 35,
+                value: 127,
+            },
+        )
+        .expect("gateway envelope");
+
+        let detail_length = u32::from_le_bytes(envelope[0..4].try_into().unwrap()) as usize;
+        assert_eq!(detail_length, detail.len());
+        let verification_length_offset = 4 + detail_length;
+        let verification_length = u32::from_le_bytes(
+            envelope[verification_length_offset..verification_length_offset + 4]
+                .try_into()
+                .unwrap(),
+        ) as usize;
+        let lane_offset = verification_length_offset + 4 + verification_length;
+
+        assert_eq!(&envelope[lane_offset..lane_offset + 5], &[1, 35, 127, 1, 1]);
+        assert_eq!(
+            u32::from_le_bytes(
+                envelope[lane_offset + 5..lane_offset + 9]
+                    .try_into()
+                    .unwrap()
+            ),
+            0
+        );
+    }
 }

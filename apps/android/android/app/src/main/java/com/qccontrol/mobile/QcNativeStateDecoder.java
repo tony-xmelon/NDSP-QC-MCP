@@ -44,15 +44,17 @@ final class QcNativeStateDecoder implements AutoCloseable {
         final int controller;
         final int value;
         final boolean retryable;
+        final boolean realtime;
         final List<EncodedMessage> messages;
 
-        PlannedGatewayWrite(String detail, String verificationJson, boolean midi, int controller, int value, boolean retryable, List<EncodedMessage> messages) {
+        PlannedGatewayWrite(String detail, String verificationJson, boolean midi, int controller, int value, boolean retryable, boolean realtime, List<EncodedMessage> messages) {
             this.detail = detail;
             this.verificationJson = verificationJson;
             this.midi = midi;
             this.controller = controller;
             this.value = value;
             this.retryable = retryable;
+            this.realtime = realtime;
             this.messages = messages;
         }
     }
@@ -198,16 +200,16 @@ final class QcNativeStateDecoder implements AutoCloseable {
 
     PlannedGatewayWrite gatewayPlan(String method, JSObject args) throws Exception {
         byte[] encoded = nativePlanGatewayWrite(requireHandle(), method, args.toString());
-        if (encoded.length < 12) throw new IllegalStateException("Native QC gateway plan is truncated.");
+        if (encoded.length < 13) throw new IllegalStateException("Native QC gateway plan is truncated.");
         int detailLength = littleEndianInt(encoded, 0);
-        if (detailLength < 0 || 4 + detailLength + 8 > encoded.length) {
+        if (detailLength < 0 || 4 + detailLength + 9 > encoded.length) {
             throw new IllegalStateException("Native QC gateway detail is truncated.");
         }
         String detail = new String(encoded, 4, detailLength, StandardCharsets.UTF_8);
         int verificationOffset = 4 + detailLength;
         int verificationLength = littleEndianInt(encoded, verificationOffset);
         int laneOffset = verificationOffset + 4 + verificationLength;
-        int commandOffset = laneOffset + 4;
+        int commandOffset = laneOffset + 5;
         if (verificationLength < 0 || commandOffset + 4 > encoded.length) {
             throw new IllegalStateException("Native QC gateway verification is truncated.");
         }
@@ -216,9 +218,11 @@ final class QcNativeStateDecoder implements AutoCloseable {
         if (lane > 1) throw new IllegalStateException("Native QC gateway execution lane is invalid.");
         int retryable = Byte.toUnsignedInt(encoded[laneOffset + 3]);
         if (retryable > 1) throw new IllegalStateException("Native QC gateway retry policy is invalid.");
+        int realtime = Byte.toUnsignedInt(encoded[laneOffset + 4]);
+        if (realtime > 1) throw new IllegalStateException("Native QC gateway completion policy is invalid.");
         return new PlannedGatewayWrite(
             detail, verificationJson, lane == 1, Byte.toUnsignedInt(encoded[laneOffset + 1]),
-            Byte.toUnsignedInt(encoded[laneOffset + 2]), retryable == 1,
+            Byte.toUnsignedInt(encoded[laneOffset + 2]), retryable == 1, realtime == 1,
             decodeCommandEnvelope(encoded, commandOffset));
     }
 

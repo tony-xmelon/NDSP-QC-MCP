@@ -530,6 +530,19 @@ test("one generated profile owns native backup limits across both hosts", () => 
   assert.match(responses, /profile::BACKUP_MAXIMUM_DOCUMENT_BYTES/);
 });
 
+test("one shared completion policy keeps native realtime writes free of readback polling", () => {
+  const runtime = source("packages/rust/qc-device-runtime/src/request.rs");
+  const windows = source("services/device-broker/src/rpc.rs");
+  const androidJni = source("packages/rust/qc-android/src/lib.rs");
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  assert.match(runtime, /pub fn gateway_write_is_realtime/);
+  assert.match(androidJni, /gateway_write_is_realtime\(&method\)/);
+  assert.match(android, /if \(!plan\.realtime && !"none"\.equals/);
+  for (const method of ["selectScene", "toggleBypass", "setTempo", "setMasterVolume"]) {
+    assert.match(windows, new RegExp(`execute_realtime_gateway_write\\(controller, "device\\.${method}"`));
+  }
+});
+
 test("one generated action contract owns assistant and relay access modes", () => {
   const contract = JSON.parse(source("contracts/qc-actions.v1.json"));
   const generatedTs = source("packages/typescript/qc-core/src/generated-actions.ts");

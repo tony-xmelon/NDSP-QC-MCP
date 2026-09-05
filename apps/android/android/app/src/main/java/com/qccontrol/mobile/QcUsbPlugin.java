@@ -453,7 +453,7 @@ public class QcUsbPlugin extends Plugin {
         QcPendingOperations.Entry<PendingGatewayTransaction> pending = null;
         try {
             org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
-            if (!"none".equals(verification.optString("kind"))) {
+            if (!plan.realtime && !"none".equals(verification.optString("kind"))) {
                 pending = pendingOperations.register(operation, result);
             }
         } catch (Exception error) {
@@ -466,7 +466,7 @@ public class QcUsbPlugin extends Plugin {
                 if (!isReady()) throw new RelayException("NOT_CONNECTED", "Quad Cortex USB disconnected before the write.");
                 org.json.JSONObject verification = new org.json.JSONObject(plan.verificationJson);
                 for (QcNativeStateDecoder.EncodedMessage message : plan.messages) writeMessage(message);
-                if ("none".equals(verification.optString("kind"))) {
+                if (plan.realtime || "none".equals(verification.optString("kind"))) {
                     result.complete(new org.json.JSONObject().put("accepted", true).put("detail", plan.detail)
                         .put("verification", "authoritative_state_pending"));
                 } else {
@@ -610,7 +610,7 @@ public class QcUsbPlugin extends Plugin {
         }
         QcNativeStateDecoder.PlannedGatewayStage stage = workflow.stages.get(stageIndex);
         QcNativeStateDecoder.PlannedGatewayWrite write = new QcNativeStateDecoder.PlannedGatewayWrite(
-            workflow.detail, stage.verificationJson, false, 0, 0, false, stage.messages);
+            workflow.detail, stage.verificationJson, false, 0, 0, false, false, stage.messages);
         return executeRelayPlan(write, stage.timeoutMs)
             .thenCompose(ignored -> settleGatewayStage(stage.settleMs))
             .thenCompose(ignored -> executeRelayWorkflow(workflow, stageIndex + 1));

@@ -198,6 +198,29 @@ pub fn gateway_write_retryable(method: &str) -> bool {
     )
 }
 
+/// Whether a gateway write must return as soon as its bytes reach the native
+/// transport and let the pushed state stream reconcile the authoritative QC
+/// result. Both hosts use this policy so realtime controls never acquire a
+/// platform-specific readback delay or snapshot polling loop.
+pub fn gateway_write_is_realtime(method: &str) -> bool {
+    matches!(
+        method,
+        "device.selectScene"
+            | "device.command.scene"
+            | "device.toggleBypass"
+            | "device.command.bypass"
+            | "device.setTempo"
+            | "device.command.tempo"
+            | "device.setMasterVolume"
+            | "device.pressFootswitch"
+            | "device.tapTempo"
+            | "device.selectModeSlot"
+            | "device.showTuner"
+            | "device.showGigView"
+            | "device.controlLooper"
+    )
+}
+
 /// Authoritative state predicate associated with a planned write. Hosts only
 /// decide how to wait for a fresh device observation; the state that proves a
 /// command landed is shared across Windows and Android.
@@ -3063,6 +3086,38 @@ mod tests {
             assert!(
                 !gateway_write_retryable(method),
                 "{method} must not be retried"
+            );
+        }
+    }
+
+    #[test]
+    fn realtime_completion_policy_is_shared_for_performance_controls() {
+        for method in [
+            "device.selectScene",
+            "device.toggleBypass",
+            "device.setTempo",
+            "device.setMasterVolume",
+            "device.pressFootswitch",
+            "device.tapTempo",
+            "device.selectModeSlot",
+            "device.showTuner",
+            "device.showGigView",
+            "device.controlLooper",
+        ] {
+            assert!(
+                gateway_write_is_realtime(method),
+                "{method} must complete immediately"
+            );
+        }
+        for method in [
+            "device.setParameter",
+            "device.moveBlock",
+            "device.recallPreset",
+            "device.setSceneLabel",
+        ] {
+            assert!(
+                !gateway_write_is_realtime(method),
+                "{method} requires its existing workflow"
             );
         }
     }

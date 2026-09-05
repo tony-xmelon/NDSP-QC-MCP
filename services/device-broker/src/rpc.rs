@@ -467,6 +467,19 @@ fn execute_gateway_write(
     execute_planned_write(controller, &plan.write)
 }
 
+fn execute_realtime_gateway_write(
+    controller: &DeviceController,
+    method: &str,
+    plan: &GatewayWritePlan,
+) -> Result<(), String> {
+    if !runtime_request::gateway_write_is_realtime(method) {
+        return Err(format!(
+            "{method} is not classified as a realtime gateway write"
+        ));
+    }
+    execute_gateway_write(controller, plan)
+}
+
 fn execute_planned_write(
     controller: &DeviceController,
     write: &PlannedWrite,
@@ -486,6 +499,11 @@ fn gateway_performance_midi(
     method: &str,
     params: &Value,
 ) -> Result<Value, String> {
+    if !runtime_request::gateway_write_is_realtime(method) {
+        return Err(format!(
+            "{method} is not classified as a realtime gateway write"
+        ));
+    }
     let plan = plan_gateway_write(controller, method, params)?;
     let PlannedWrite::MidiControlChange { controller, value } = plan.write else {
         return Err(format!("{method} did not produce a host MIDI write"));
@@ -540,13 +558,13 @@ fn wait_for_transaction_event(
 
 fn gateway_select_scene(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, "device.selectScene", params)?;
-    execute_gateway_write(controller, &plan)?;
+    execute_realtime_gateway_write(controller, "device.selectScene", &plan)?;
     Ok(json!({"detail": plan.detail}))
 }
 
 fn gateway_toggle_bypass(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, "device.toggleBypass", params)?;
-    execute_gateway_write(controller, &plan)?;
+    execute_realtime_gateway_write(controller, "device.toggleBypass", &plan)?;
     Ok(json!({"detail": plan.detail}))
 }
 
@@ -792,7 +810,7 @@ fn gateway_parameter_assignment(
 
 fn gateway_set_tempo(controller: &DeviceController, params: &Value) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, "device.setTempo", params)?;
-    execute_gateway_write(controller, &plan)?;
+    execute_realtime_gateway_write(controller, "device.setTempo", &plan)?;
     Ok(json!({"detail": plan.detail}))
 }
 
@@ -816,7 +834,7 @@ fn gateway_set_master_volume(
     params: &Value,
 ) -> Result<Value, String> {
     let plan = plan_gateway_write(controller, "device.setMasterVolume", params)?;
-    execute_gateway_write(controller, &plan)?;
+    execute_realtime_gateway_write(controller, "device.setMasterVolume", &plan)?;
     Ok(json!({"detail": plan.detail}))
 }
 
