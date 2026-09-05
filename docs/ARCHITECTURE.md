@@ -138,6 +138,12 @@ adapters may differ in OS lifecycle and endpoint APIs, but they do not
 independently choose session policy, handshake versions, subscriptions, frame
 limits, keepalive timing, or performance MIDI mappings.
 
+The outbound public-relay clients likewise generate their protocol version,
+device WebSocket path, request/result limits, replay window, readiness cadence,
+and reconnect backoff from `contracts/qc-relay-profile.v1.json`. Windows uses
+the shared Rust client while Android retains only the platform foreground
+service and OkHttp lifecycle needed by the operating system.
+
 The Windows app composes these packages with Tauri. A future React Native client may reuse `qc-client` and manifests without being forced to reuse DOM components. Native Kotlin/Swift clients can instead generate models from the same contracts.
 
 ### Client apps

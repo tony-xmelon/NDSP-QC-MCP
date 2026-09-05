@@ -13,6 +13,7 @@ const contractFiles = [
   "contracts/qc-actions.v1.json",
   "contracts/qc-domain.v1.json",
   "contracts/qc-payloads.v1.schema.json",
+  "contracts/qc-relay-profile.v1.json",
   "contracts/qc-usb-profile.v1.json",
   "contracts/windows-sidecars.v1.json"
 ];

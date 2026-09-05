@@ -31,8 +31,6 @@ public final class QcRelayService extends Service {
     static final String EXTRA_STATE = "state";
     private static final String CHANNEL = "qc_relay";
     private static final int NOTIFICATION_ID = 7311;
-    private static final long MAX_BACKOFF_SECONDS = 60;
-
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final AtomicInteger generation = new AtomicInteger();
     private OkHttpClient http;
@@ -45,7 +43,8 @@ public final class QcRelayService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
-        http = new OkHttpClient.Builder().pingInterval(25, TimeUnit.SECONDS).build();
+        http = new OkHttpClient.Builder()
+            .pingInterval(GeneratedRelayProfile.PING_INTERVAL_MS, TimeUnit.MILLISECONDS).build();
         createChannel();
     }
 
@@ -70,7 +69,8 @@ public final class QcRelayService extends Service {
         catch (Exception error) { store.clear(); updateState("pairing_required"); stopSelf(); return; }
         if (endpoint == null || credential == null) { updateState("pairing_required"); stopSelf(); return; }
         if (!endpoint.startsWith("https://")) { updateState("invalid_endpoint"); stopSelf(); return; }
-        String wsEndpoint = endpoint.replaceFirst("^https://", "wss://").replaceAll("/$", "") + "/v1/device/connect";
+        String wsEndpoint = endpoint.replaceFirst("^https://", "wss://").replaceAll("/$", "")
+            + GeneratedRelayProfile.DEVICE_CONNECT_PATH;
         Request request = new Request.Builder().url(wsEndpoint)
             .header("Authorization", "Bearer " + credential)
             .header("Sec-WebSocket-Protocol", RelayProtocol.VERSION)
@@ -91,7 +91,7 @@ public final class QcRelayService extends Service {
         }
 
         @Override public void onMessage(WebSocket webSocket, String text) {
-            if (text.length() > 64 * 1024) { webSocket.close(1009, "message too large"); return; }
+            if (text.length() > GeneratedRelayProfile.MAX_REQUEST_FRAME_BYTES) { webSocket.close(1009, "message too large"); return; }
             final JSONObject request;
             final String id;
             try {
@@ -111,7 +111,8 @@ public final class QcRelayService extends Service {
                     return;
                 }
                 completedRequestIds.add(id);
-                if (completedRequestIds.size() > 512) completedRequestIds.remove(completedRequestIds.iterator().next());
+                if (completedRequestIds.size() > GeneratedRelayProfile.COMPLETED_REQUEST_CACHE_SIZE)
+                    completedRequestIds.remove(completedRequestIds.iterator().next());
             }
             if (!RelayProtocol.isAllowed(method)) {
                 String code = RelayProtocol.requiresConfirmation(method) ? "CONFIRMATION_REQUIRED" : "METHOD_NOT_ALLOWED";
@@ -139,7 +140,7 @@ public final class QcRelayService extends Service {
                         // USB state before the result so reset/reconnect callers
                         // cannot race the next one-second readiness heartbeat.
                         sendReadiness(webSocket);
-                        webSocket.send(reply.toString());
+                        sendResult(webSocket, id, reply);
                     } catch (Exception ignored) {}
                 });
         }
@@ -166,7 +167,8 @@ public final class QcRelayService extends Service {
         if (readiness != null) readiness.cancel(false);
         sendReadiness(webSocket);
         readiness = scheduler.scheduleWithFixedDelay(
-            () -> sendReadiness(webSocket), 1, 1, TimeUnit.SECONDS);
+            () -> sendReadiness(webSocket), GeneratedRelayProfile.READINESS_INTERVAL_MS,
+            GeneratedRelayProfile.READINESS_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
     private synchronized void stopReadinessUpdates(WebSocket webSocket) {
@@ -183,12 +185,22 @@ public final class QcRelayService extends Service {
         } catch (Exception ignored) {}
     }
 
+    private void sendResult(WebSocket webSocket, String id, JSONObject reply) throws Exception {
+        String text = reply.toString();
+        if (text.length() > GeneratedRelayProfile.MAX_RESULT_FRAME_BYTES) {
+            text = RelayProtocol.error(id, "RESULT_TOO_LARGE",
+                "The device result exceeds the relay frame limit.", false).toString();
+        }
+        webSocket.send(text);
+    }
+
     private synchronized void reconnect(int failedGeneration) {
         if (failedGeneration != generation.get()) return;
         updateState("reconnecting");
-        failures = Math.min(failures + 1, 10);
-        long base = Math.min(MAX_BACKOFF_SECONDS, 1L << Math.min(failures, 6));
-        long jitterMs = (long) (Math.random() * 1000);
+        failures = Math.min(failures + 1, GeneratedRelayProfile.MAXIMUM_FAILURE_COUNT);
+        long base = Math.min(GeneratedRelayProfile.MAXIMUM_BACKOFF_SECONDS,
+            1L << Math.min(failures, GeneratedRelayProfile.MAXIMUM_BACKOFF_EXPONENT));
+        long jitterMs = (long) (Math.random() * GeneratedRelayProfile.BACKOFF_JITTER_MS);
         retry = scheduler.schedule(() -> connect(generation.get()), base * 1000 + jitterMs, TimeUnit.MILLISECONDS);
     }
 

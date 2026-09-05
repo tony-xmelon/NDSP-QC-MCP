@@ -4,7 +4,7 @@ import org.json.JSONObject;
 
 /** Versioned phone/relay protocol generated from the shared MCP action contract. */
 final class RelayProtocol {
-    static final String VERSION = "qc-relay.v1";
+    static final String VERSION = GeneratedRelayProfile.PROTOCOL_VERSION;
 
     static JSONObject result(String id, JSONObject value) throws Exception {
         return new JSONObject().put("type", "result").put("id", id).put("ok", true).put("result", value);

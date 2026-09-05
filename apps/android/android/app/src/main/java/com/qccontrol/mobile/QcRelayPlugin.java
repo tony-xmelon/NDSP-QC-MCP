@@ -51,13 +51,15 @@ public final class QcRelayPlugin extends Plugin {
         String endpoint = normalizedEndpoint(call.getString("endpoint", ""));
         String pairingCode = call.getString("pairingCode", "").trim();
         String deviceName = call.getString("deviceName", android.os.Build.MODEL).trim();
-        if (endpoint == null || pairingCode.length() < 6 || pairingCode.length() > 128) {
+        if (endpoint == null || deviceName.isEmpty()
+            || pairingCode.length() < GeneratedRelayProfile.PAIRING_CODE_MINIMUM_LENGTH
+            || pairingCode.length() > GeneratedRelayProfile.PAIRING_CODE_MAXIMUM_LENGTH) {
             call.reject("A secure HTTPS relay and valid pairing code are required.", "INVALID_PAIRING"); return;
         }
         try {
             JSONObject body = new JSONObject().put("pairingCode", pairingCode).put("deviceName", deviceName)
                 .put("protocol", RelayProtocol.VERSION);
-            Request request = new Request.Builder().url(endpoint + "/v1/device/pair")
+            Request request = new Request.Builder().url(endpoint + GeneratedRelayProfile.DEVICE_PAIR_PATH)
                 .post(RequestBody.create(body.toString(), MediaType.get("application/json; charset=utf-8"))).build();
             http.newCall(request).enqueue(new Callback() {
                 @Override public void onFailure(Call ignored, IOException error) {
@@ -70,7 +72,8 @@ public final class QcRelayPlugin extends Plugin {
                         if (!response.isSuccessful()) { call.reject("The pairing code was rejected.", "PAIRING_REJECTED"); return; }
                         JSONObject payload = new JSONObject(response.body().string());
                         String credential = payload.getString("deviceCredential");
-                        if (credential.length() < 24) throw new IllegalStateException("Relay returned an invalid credential.");
+                        if (credential.length() < GeneratedRelayProfile.MINIMUM_CREDENTIAL_LENGTH)
+                            throw new IllegalStateException("Relay returned an invalid credential.");
                         new RelayCredentialStore(getContext()).save(endpoint, credential);
                         startService();
                         JSObject result = new JSObject(); result.put("paired", true); result.put("endpoint", endpoint);
@@ -103,7 +106,8 @@ public final class QcRelayPlugin extends Plugin {
         try {
             URI uri = URI.create(value);
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getHost().isEmpty()
-                || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) return null;
+                || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
+                || uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath())) return null;
             return value;
         } catch (Exception ignored) { return null; }
     }

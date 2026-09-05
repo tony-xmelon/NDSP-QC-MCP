@@ -2,8 +2,8 @@ use crate::{
     auth::{AccessPrincipal, BearerTokenValidator},
     pairing::{DeviceId, PairingError, PairingManager},
     protocol::{
-        DeviceFrame, PrincipalInvokeRequest, MAX_REQUEST_FRAME_BYTES, MAX_RESULT_FRAME_BYTES,
-        PROTOCOL_VERSION,
+        DeviceFrame, PrincipalInvokeRequest, DEVICE_CONNECT_PATH, DEVICE_PAIR_PATH,
+        MAX_REQUEST_FRAME_BYTES, MAX_RESULT_FRAME_BYTES, PROTOCOL_VERSION,
     },
     relay::{RelayError, RelayHub},
 };
@@ -119,10 +119,10 @@ pub fn router(state: AppState) -> Router {
         .route("/.well-known/oauth-protected-resource", get(metadata))
         .route("/v1/pairing/offers", post(create_pairing))
         .route("/v1/pairing/redeem", post(redeem_pairing))
-        .route("/v1/device/pair", post(pair_device))
+        .route(DEVICE_PAIR_PATH, post(pair_device))
         .route("/v1/devices/revoke", post(revoke_device))
         .route("/v1/control/invoke", post(invoke))
-        .route("/v1/device/connect", get(connect_device))
+        .route(DEVICE_CONNECT_PATH, get(connect_device))
         .with_state(state)
 }
 

@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const PROTOCOL_VERSION: &str = "qc-relay.v1";
-pub const MAX_REQUEST_FRAME_BYTES: usize = 64 * 1024;
-pub const MAX_RESULT_FRAME_BYTES: usize = 16 * 1024 * 1024;
+mod generated_profile;
+pub use generated_profile::*;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DeviceError {

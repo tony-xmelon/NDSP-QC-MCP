@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "protocolVersion": "qc-relay.v1",
+  "devicePairPath": "/v1/device/pair",
+  "deviceConnectPath": "/v1/device/connect",
+  "pairingCodeMinimumLength": 6,
+  "pairingCodeMaximumLength": 128,
+  "minimumCredentialLength": 24,
+  "maxRequestFrameBytes": 65536,
+  "maxResultFrameBytes": 16777216,
+  "completedRequestCacheSize": 512,
+  "readinessIntervalMs": 1000,
+  "androidPingIntervalMs": 25000,
+  "maximumFailureCount": 10,
+  "maximumBackoffExponent": 6,
+  "maximumBackoffSeconds": 60,
+  "backoffJitterMs": 1000
+}

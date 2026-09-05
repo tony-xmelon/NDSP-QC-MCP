@@ -16,7 +16,11 @@ use tokio_tungstenite::{
 };
 
 pub use qc_relay_protocol::{
-    DeviceError, DeviceFrame, MAX_REQUEST_FRAME_BYTES, MAX_RESULT_FRAME_BYTES, PROTOCOL_VERSION,
+    DeviceError, DeviceFrame, BACKOFF_JITTER_MS, COMPLETED_REQUEST_CACHE_SIZE, DEVICE_CONNECT_PATH,
+    DEVICE_PAIR_PATH, MAXIMUM_BACKOFF_EXPONENT, MAXIMUM_BACKOFF_SECONDS, MAXIMUM_FAILURE_COUNT,
+    MAX_REQUEST_FRAME_BYTES, MAX_RESULT_FRAME_BYTES, MINIMUM_CREDENTIAL_LENGTH,
+    PAIRING_CODE_MAXIMUM_LENGTH, PAIRING_CODE_MINIMUM_LENGTH, PROTOCOL_VERSION,
+    READINESS_INTERVAL_MS,
 };
 
 mod generated_actions;
@@ -121,11 +125,13 @@ pub async fn pair(
     let endpoint = normalize_endpoint(endpoint)?;
     let code = pairing_code.trim();
     let name = device_name.trim();
-    if !(6..=128).contains(&code.len()) || name.is_empty() {
+    if !(PAIRING_CODE_MINIMUM_LENGTH..=PAIRING_CODE_MAXIMUM_LENGTH).contains(&code.len())
+        || name.is_empty()
+    {
         return Err("A valid pairing code and device name are required".into());
     }
     let response = reqwest::Client::new()
-        .post(format!("{endpoint}/v1/device/pair"))
+        .post(format!("{endpoint}{DEVICE_PAIR_PATH}"))
         .json(&json!({"pairingCode": code, "deviceName": name, "protocol": PROTOCOL_VERSION}))
         .send()
         .await
@@ -137,7 +143,9 @@ pub async fn pair(
         .json()
         .await
         .map_err(|_| "The public relay returned an invalid pairing receipt".to_string())?;
-    if receipt.device_credential.len() < 24 || receipt.device_id.trim().is_empty() {
+    if receipt.device_credential.len() < MINIMUM_CREDENTIAL_LENGTH
+        || receipt.device_id.trim().is_empty()
+    {
         return Err("The public relay returned an invalid device credential".into());
     }
     Ok(Credentials {
@@ -181,8 +189,9 @@ impl Client {
             }
         };
         let ws_endpoint = format!(
-            "wss://{}/v1/device/connect",
-            endpoint.trim_start_matches("https://")
+            "wss://{}{}",
+            endpoint.trim_start_matches("https://"),
+            DEVICE_CONNECT_PATH
         );
         let mut failures = 0_u32;
         loop {
@@ -241,16 +250,18 @@ impl Client {
                     self.state.send_replace(ConnectionState::PairingRequired);
                     return;
                 }
-                Err(_) => failures = failures.saturating_add(1).max(1),
+                Err(_) => failures = failures.saturating_add(1).clamp(1, MAXIMUM_FAILURE_COUNT),
             }
             if *self.stop.borrow() {
                 self.state.send_replace(ConnectionState::Stopped);
                 return;
             }
             self.state.send_replace(ConnectionState::Reconnecting);
-            let base = 1_u64 << failures.min(6);
-            let delay =
-                Duration::from_millis(base.min(60) * 1000 + rand::rng().random_range(0..1000));
+            let base = 1_u64 << failures.min(MAXIMUM_BACKOFF_EXPONENT);
+            let delay = Duration::from_millis(
+                base.min(MAXIMUM_BACKOFF_SECONDS) * 1000
+                    + rand::rng().random_range(0..BACKOFF_JITTER_MS),
+            );
             tokio::select! {
                 _ = tokio::time::sleep(delay) => {}
                 changed = self.stop.changed() => if changed.is_err() || *self.stop.borrow() { self.state.send_replace(ConnectionState::Stopped); return; }
@@ -266,7 +277,7 @@ impl Client {
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     {
         let (mut sink, mut stream) = socket.split();
-        let mut readiness = tokio::time::interval(Duration::from_secs(1));
+        let mut readiness = tokio::time::interval(Duration::from_millis(READINESS_INTERVAL_MS));
         let mut completed = HashSet::new();
         let mut completed_order = VecDeque::new();
         loop {
@@ -288,7 +299,7 @@ impl Client {
                             DeviceFrame::Result { id, ok: false, result: None, error: Some(DeviceError::new("REPLAYED_REQUEST", "This request identifier was already processed", false)) }
                         } else {
                             completed_order.push_back(id.clone());
-                            if completed_order.len() > 512 { if let Some(old) = completed_order.pop_front() { completed.remove(&old); } }
+                            if completed_order.len() > COMPLETED_REQUEST_CACHE_SIZE { if let Some(old) = completed_order.pop_front() { completed.remove(&old); } }
                             let result = if !generated_actions::contains(&method) {
                                 Err(DeviceError::new("METHOD_NOT_ALLOWED", "The requested method is not in the generated remote action contract", false))
                             } else if !self.access.borrow().permits(&method) {

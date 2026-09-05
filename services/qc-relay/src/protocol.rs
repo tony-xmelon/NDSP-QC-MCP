@@ -3,7 +3,8 @@ use serde_json::Value;
 
 pub use crate::generated_actions::ACTIONS;
 pub use qc_relay_protocol::{
-    DeviceError, DeviceFrame, MAX_REQUEST_FRAME_BYTES, MAX_RESULT_FRAME_BYTES, PROTOCOL_VERSION,
+    DeviceError, DeviceFrame, DEVICE_CONNECT_PATH, DEVICE_PAIR_PATH, MAX_REQUEST_FRAME_BYTES,
+    MAX_RESULT_FRAME_BYTES, PROTOCOL_VERSION,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
