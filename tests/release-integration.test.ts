@@ -29,6 +29,7 @@ test("Android preparation emits provenance and Firebase publishes the verified s
   assert.ok(publish.indexOf("verify-hardware-release.mjs") < publish.indexOf("appdistribution:distribute"));
   const rootPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.match(rootPackage.scripts["android:prepare:firebase"], /-PrepareOnly/);
+  assert.match(rootPackage.scripts["test:hardware:release"], /artifacts\/hardware-conformance\/windows\.json artifacts\/hardware-conformance\/android\.json/);
   const hardwareRunner = readFileSync(new URL("../tools/hardware-conformance.mjs", import.meta.url), "utf8");
   assert.match(hardwareRunner, /--release-candidate/);
   assert.match(hardwareRunner, /\.source\.json/);
