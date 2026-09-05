@@ -136,7 +136,7 @@ Run repeated physical verification without printing backup contents:
 
 ```powershell
 $env:QC_EXPECTED_SERIAL_SUFFIX = "<last serial characters>"
-.venv\Scripts\python.exe tools\verify_native_backup.py 5
+node tools\verify-native-backup.mjs 5
 ```
 
 Focused transport regressions can exercise backup after both session restart
@@ -145,8 +145,8 @@ PRESS-then-RELEASE ordering; leaving the remote pointer pressed causes the QC to
 refuse a LocalBackup stream.
 
 ```powershell
-.venv\Scripts\python.exe tools\verify_native_backup.py 1 --reset-session --disconnect-reconnect
-.venv\Scripts\python.exe tools\verify_native_backup.py 1 --screen-tap-roundtrip
+node tools\verify-native-backup.mjs 1 --reset-session --disconnect-reconnect
+node tools\verify-native-backup.mjs 1 --screen-tap-roundtrip
 ```
 
 ## Full hardware verification plan

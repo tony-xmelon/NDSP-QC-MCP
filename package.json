@@ -43,6 +43,7 @@
     "theme:sync": "node scripts/sync-theme-assets.mjs",
     "theme:check": "node scripts/sync-theme-assets.mjs --check",
     "test:hardware:plan": "node tools/hardware-conformance.mjs",
+    "test:hardware:backup": "node tools/verify-native-backup.mjs",
     "test:hardware:release": "node tools/verify-hardware-release.mjs artifacts/hardware-conformance/windows.json artifacts/hardware-conformance/android.json",
     "test:parity:software": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-software-parity.ps1",
     "architecture:check": "node tools/verify-package-boundaries.mjs",

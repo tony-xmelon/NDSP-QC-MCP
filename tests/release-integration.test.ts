@@ -125,6 +125,18 @@ test("software parity lint-checks all Rust targets without release sidecars", ()
   assert.match(readFileSync(new URL("../packages/rust/qc-windows-midi/Cargo.lock", import.meta.url), "utf8"), /name = "qc-windows-midi"/);
 });
 
+test("focused native backup verification does not require a Python runtime", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const runbook = readFileSync(new URL("../docs/HARDWARE_CONFORMANCE.md", import.meta.url), "utf8");
+  const verifier = readFileSync(new URL("../tools/verify-native-backup.mjs", import.meta.url), "utf8");
+  assert.equal(packageJson.scripts["test:hardware:backup"], "node tools/verify-native-backup.mjs");
+  assert.match(verifier, /spawn\(broker, \["--stdio"\]/);
+  assert.match(verifier, /QC_EXPECTED_SERIAL_SUFFIX/);
+  assert.match(verifier, /qc-usb-profile\.v1\.json/);
+  assert.doesNotMatch(verifier, /messageType === 40/);
+  assert.doesNotMatch(runbook, /verify_native_backup\.py/);
+});
+
 test("CI packages the Android app with pinned native prerequisites and provenance", () => {
   const workflow = readFileSync(new URL("../.github/workflows/software-parity.yml", import.meta.url), "utf8");
   assert.match(workflow, /android-package:/);
