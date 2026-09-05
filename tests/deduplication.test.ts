@@ -501,6 +501,19 @@ test("one generated profile owns native backup limits across both hosts", () => 
   assert.match(responses, /profile::BACKUP_MAXIMUM_DOCUMENT_BYTES/);
 });
 
+test("one generated profile owns preset synchronization timeout across both hosts", () => {
+  const contract = JSON.parse(source("contracts/qc-usb-profile.v1.json"));
+  const javaProfile = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbProfile.java");
+  const rustProfile = source("packages/rust/qc-protocol/src/profile.rs");
+  const android = source("apps/android/android/app/src/main/java/com/qccontrol/mobile/QcUsbPlugin.java");
+  const windowsUsb = source("services/device-broker/src/usb.rs");
+  assert.match(javaProfile, new RegExp(`PRESET_SYNC_TIMEOUT_MS = ${contract.presetSyncTimeoutMs}L;`));
+  assert.match(rustProfile, new RegExp(`PRESET_SYNC_TIMEOUT_MS: u64 = ${contract.presetSyncTimeoutMs};`));
+  assert.match(android, /pendingOperations\.timeout\(pending, QcUsbProfile\.PRESET_SYNC_TIMEOUT_MS/);
+  assert.match(windowsUsb, /profile::PRESET_SYNC_TIMEOUT_MS/);
+  assert.doesNotMatch(android, /pendingOperations\.timeout\(pending, 25_000/);
+});
+
 test("connection presentation and transitions have one shared app workflow", () => {
   const workflow = source("packages/typescript/qc-ui/src/use-qc-connection-workflow.ts");
   const windows = source("apps/windows/src/App.tsx");

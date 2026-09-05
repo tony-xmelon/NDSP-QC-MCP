@@ -650,7 +650,7 @@ public class QcUsbPlugin extends Plugin {
                 result.completeExceptionally(error);
             }
         });
-        pendingOperations.timeout(pending, 25_000, keepalive, () -> {
+        pendingOperations.timeout(pending, QcUsbProfile.PRESET_SYNC_TIMEOUT_MS, keepalive, () -> {
             android.util.Log.w("QcUsbPlugin", "Preset catalog timeout: sent=" + messagesSent
                 + " received=" + messagesReceived + " lastType=" + lastMessageType
                 + " decodeErrors=" + decodeErrors + " negativeReads=" + negativeReads
