@@ -7,8 +7,8 @@ Reference: physical Quad Cortex, CorOS 4.1.0, 800x480 framebuffer corpus
 
 | Client | Physical corpus rendered | Mean structural match | Mean color similarity |
 | --- | ---: | ---: | ---: |
-| Windows | 40/40 (100%) | **87.08%** | **96.68%** |
-| Android | 40/40 (100%) | **85.97%** | **96.55%** |
+| Windows | 40/40 (100%) | **87.44%** | **96.70%** |
+| Android | 40/40 (100%) | **86.33%** | **96.57%** |
 
 These are native-size measurements, not audit estimates. Both hosts render the
 same versioned `coros410` scratch-preset fixture through `@ndsp-qc/ui`; each
@@ -126,7 +126,7 @@ still need pixel-level reconstruction work.
 | `grid-context-menu` | 91.03% | 91.14% |
 | `copy-scene-destination` | 80.06% | 73.90% |
 | `swap-scene-destination` | 80.21% | 74.06% |
-| `preset-directory` | 77.89% | 77.82% |
+| `preset-directory` | 92.36% | 92.28% |
 | `input-route-selector` | 85.55% | 86.99% |
 | `output-route-selector` | 77.76% | 78.90% |
 | `splitter-editor` | 87.59% | 87.54% |
@@ -164,6 +164,10 @@ still need pixel-level reconstruction work.
 
 ## Improvements in this pass
 
+- Matched the live Directory's measured 60px folder cadence, 52px bank tiles
+  on an 8px vertical rhythm, 51px preset rows, and exact physical panel colors.
+  The shared Directory rises from **77.89% to 92.36% Windows** and **77.82% to
+  92.28% Android**, while its color error falls to 1.95% on both hosts.
 - Replaced the live Grid's older approximate block and row coordinates with
   the measured 86px block cadence and 94px signal-row cadence already recorded
   in the physical corpus, restored the six empty-row plus targets, and removed
@@ -177,8 +181,8 @@ still need pixel-level reconstruction work.
   footswitch, double-scene-arrow, bypass, and confirmation header controls.
   Parametric-8 rises from **63.35% to 88.20%** on both hosts; the seven physical
   editor screens now average **81.60% structural match**. The complete physical
-  benchmark reaches **87.08% / 96.68% structural/color on Windows** and
-  **85.97% / 96.55% on Android**.
+  benchmark reaches **87.44% / 96.70% structural/color on Windows** and
+  **86.33% / 96.57% on Android**.
 - Restored the omitted right-hand model column in the two physical plugin
   browser fixtures, including the selected Plini and locked Cory Wong device
   lists, block artwork, preset controls, and license locks. The model screen
